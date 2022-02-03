@@ -117,7 +117,7 @@ class ModCogs(commands.Cog):
         if "Iwalkedameadowweary" in message.content and message.channel.id not in allowed_channel_ids:
             webhook = discord.SyncWebhook.from_url(secrets.webhook)
             try:
-                message.delete()
+                await message.delete()
             except discord.Forbidden:
                 logging.error(f"Failed to delete message from {message.author.id} due to Forbidden")
                 webhook.send(f"Failed to delete message from {message.author.id} due to Forbidden")
@@ -129,7 +129,7 @@ class ModCogs(commands.Cog):
             except Exception as e:
                 webhook.send(e)
             try:
-                message.author.add_roles(muted)
+                await message.author.add_roles(muted)
             except discord.Forbidden:
                 logging.error(f"Failed to add Muted role to {message.author.id} due to Forbidden")
                 webhook.send(f"Failed to add Muted role to {message.author.id} due to Forbidden")
