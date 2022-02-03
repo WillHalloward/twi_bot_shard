@@ -136,7 +136,7 @@ class ModCogs(commands.Cog):
             except Exception as e:
                 logging.error(f"Failed to add mute role to {message.author.id} due to {e}")
                 webhook.send(f"Failed to add Muted role to {message.author.id} due to {e}")
-            # webhook.send("Gravesong password leaked  ")
+            webhook.send("Gravesong password leaked  ")
 
     @Cog.listener("on_message")
     async def log_attachment(self, message):
