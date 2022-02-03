@@ -115,14 +115,28 @@ class ModCogs(commands.Cog):
         allowed_channel_ids = [620021401516113940, 346842161704075265, 521403093892726785, 362248294849576960,
                                359864559361851392, 668721870488469514]
         if "Iwalkedameadowweary" in message.content and message.channel.id not in allowed_channel_ids:
-            muted = message.guild.get_role(542078638741520404)
+            webhook = discord.SyncWebhook.from_url(secrets.webhook)
+            try:
+                muted = message.guild.get_role(542078638741520404)
+            except Exception as e:
+                webhook.send(e)
             try:
                 message.author.add_roles(muted)
             except discord.Forbidden:
-                logging.error(f"Failed to add Muted role to {message.author.id}")
-            message.delete()
-            webhook = discord.SyncWebhook.from_url(secrets.webhook)
-            webhook.send("Gravesong password leaked <@&346842813687922689>")
+                logging.error(f"Failed to add Muted role to {message.author.id} due to Forbidden")
+                webhook.send(f"Failed to add Muted role to {message.author.id} due to Forbidden")
+            except Exception as e:
+                logging.error(f"Failed to add mute role to {message.author.id} due to {e}")
+                webhook.send(f"Failed to add Muted role to {message.author.id} due to {e}")
+            try:
+                message.delete()
+            except discord.Forbidden:
+                logging.error(f"Failed to add Muted role to {message.author.id} due to Forbidden")
+                webhook.send(f"Failed to add Muted role to {message.author.id} due to Forbidden")
+            except Exception as e:
+                logging.error(f"Failed to add mute role to {message.author.id} due to {e}")
+                webhook.send(f"Failed to add Muted role to {message.author.id} due to {e}")
+            # webhook.send("Gravesong password leaked  ")
 
     @Cog.listener("on_message")
     async def log_attachment(self, message):
