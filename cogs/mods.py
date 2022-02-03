@@ -112,7 +112,9 @@ class ModCogs(commands.Cog):
 
     @Cog.listener("on_message")
     async def password_leak(self, message):
-        if "Iwalkedameadowweary" in message.content:
+        allowed_channel_ids = [620021401516113940, 346842161704075265, 521403093892726785, 362248294849576960,
+                               359864559361851392, 668721870488469514]
+        if "Iwalkedameadowweary" in message.content and message.channel.id not in allowed_channel_ids:
             muted = message.guild.get_role(542078638741520404)
             try:
                 message.author.add_roles(muted)
