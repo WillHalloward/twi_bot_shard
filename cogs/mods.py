@@ -113,8 +113,14 @@ class ModCogs(commands.Cog):
     @Cog.listener("on_message")
     async def password_leak(self, message):
         if "Iwalkedameadowweary" in message.content:
+            muted = message.guild.get_role(542078638741520404)
+            try:
+                message.author.add_roles(muted)
+            except discord.Forbidden:
+                logging.error(f"Failed to add Muted role to {message.author.id}")
+            message.delete()
             webhook = discord.SyncWebhook.from_url(secrets.webhook)
-            webhook.send("password detected [TEST]")
+            webhook.send("Gravesong password leaked <@&346842813687922689>")
 
     @Cog.listener("on_message")
     async def log_attachment(self, message):
