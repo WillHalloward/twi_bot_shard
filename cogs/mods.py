@@ -113,7 +113,7 @@ class ModCogs(commands.Cog):
     @Cog.listener("on_message")
     async def password_leak(self, message):
         allowed_channel_ids = [620021401516113940, 346842161704075265, 521403093892726785, 362248294849576960,
-                               359864559361851392, 668721870488469514]
+                               359864559361851392, 668721870488469514, 930596086547116112]
         if "Iwalkedameadowweary" in message.content and message.channel.id not in allowed_channel_ids:
             webhook = discord.SyncWebhook.from_url(secrets.webhook)
             try:
