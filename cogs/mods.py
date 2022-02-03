@@ -107,8 +107,14 @@ class ModCogs(commands.Cog):
     async def mention_pirate(self, message):
         for mention in message.mentions:
             if mention.id == 230442779803648000:
-                notification_channel = await self.bot.fetch_channel(871486325692432464)
-                await notification_channel.send(f"User {message.author.name} @ Pirate at {message.jump_url}")
+                webhook = discord.SyncWebhook.from_url(secrets.webhook)
+                webhook.send(f"User {message.author.name} @ Pirate at {message.jump_url} <@&346842813687922689>")
+
+    @Cog.listener("on_message")
+    async def password_leak(self, message):
+        if "Iwalkedameadowweary" in message.content:
+            webhook = discord.SyncWebhook.from_url(secrets.webhook)
+            webhook.send("password detected [TEST]")
 
     @Cog.listener("on_message")
     async def log_attachment(self, message):
@@ -117,7 +123,8 @@ class ModCogs(commands.Cog):
             webhook = discord.SyncWebhook.from_url(secrets.webhook)
             for attachment in message.attachments:
                 try:
-                    embed = discord.Embed(title="New attachment", url=message.jump_url, description=f"content: {message.content}")
+                    embed = discord.Embed(title="New attachment", url=message.jump_url,
+                                          description=f"content: {message.content}")
                     file = await attachment.to_file(spoiler=attachment.is_spoiler())
                     embed.set_image(url=f"attachment://{attachment.filename}")
                     embed.add_field(name="User", value=message.author.mention, inline=True)
