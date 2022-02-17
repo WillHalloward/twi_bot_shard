@@ -114,19 +114,6 @@ class StatsCogs(commands.Cog, name="stats"):
         self.bot = bot
         self.stats_loop.start()
 
-    # @Cog.listener("on_message")
-    # async def on_message_mass_ping(self, message):
-    #     if len(message.mentions) >= 20 or message.mention_everyone:
-    #         mute_role = message.guild.get_role(712405244054863932)
-    #         try:
-    #             await message.author.add_roles(mute_role)
-    #         except discord.Forbidden:
-    #             logging.warning(f"I don't have the required permissions to mute {message.author.mention}")
-    #         else:
-    #             await message.channel.send(
-    #                 f"{message.author.mention} has been muted for pinging more than 20 people in one message or mentioning everyone"
-    #                 f"please contact a mod if this was an error")
-
     @commands.command(
         name="save_users",
         hidden=True

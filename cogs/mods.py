@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import re
 
@@ -112,9 +113,10 @@ class ModCogs(commands.Cog):
 
     @Cog.listener("on_message")
     async def password_leak(self, message):
+        banned_words = {'warAnts', "Iwalkedameadowweary"}
         allowed_channel_ids = [620021401516113940, 346842161704075265, 521403093892726785, 362248294849576960,
-                               359864559361851392, 668721870488469514, 930596086547116112]
-        if "Iwalkedameadowweary" in message.content and message.channel.id not in allowed_channel_ids:
+                               359864559361851392, 668721870488469514, 930596086547116112, 871486325692432464]
+        if any(x in message.content for x in banned_words) and message.channel.id not in allowed_channel_ids:
             webhook = discord.SyncWebhook.from_url(secrets.webhook)
             try:
                 await message.delete()
@@ -136,7 +138,8 @@ class ModCogs(commands.Cog):
             except Exception as e:
                 logging.error(f"Failed to add mute role to {message.author.id} due to {e}")
                 webhook.send(f"Failed to add Muted role to {message.author.id} due to {e}")
-            webhook.send("Gravesong password leaked  ")
+            webhook.send(f"Deleted `{message.content}` and muted user {message.author.name} for posting gravesong "
+                         f"password outside of patreon channels <@268608466690506753>")
 
     @Cog.listener("on_message")
     async def log_attachment(self, message):
@@ -163,12 +166,47 @@ class ModCogs(commands.Cog):
                 and message.author.bot is False:
             webhook = discord.SyncWebhook.from_url(secrets.webhook)
             webhook.send(f"Link detected: {message.content}\n"
-                               f"User: {message.author.name} {message.author.id}\n"
-                               f"Channel: {message.channel.mention}\n"
-                               f"Date: {message.created_at}\n"
-                               f"Jump Url: {message.jump_url}",
-                               allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
+                         f"User: {message.author.name} {message.author.id}\n"
+                         f"Channel: {message.channel.mention}\n"
+                         f"Date: {message.created_at}\n"
+                         f"Jump Url: {message.jump_url}",
+                         allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
 
+    @Cog.listener("on_message")
+    async def on_message_mass_ping(self, message):
+        if len(message.mentions) >= 10:
+            webhook = discord.SyncWebhook.from_url(secrets.webhook)
+            try:
+                muted = message.guild.get_role(542078638741520404)
+            except Exception as e:
+                webhook.send(e)
+                return
+            try:
+                await message.author.add_roles(muted)
+            except discord.Forbidden:
+                logging.warning(f"I don't have the required permissions to mute {message.author.mention}")
+            else:
+                await webhook.send(
+                    f"{message.author.mention} has been muted for pining more than 10 ppl in one message"
+                    f"<@268608466690506753>")
+
+    @Cog.listener("on_message")
+    async def on_message_pirate_ping_new_account(self, message):
+        if message.author.created_at < datetime.datetime.now() - datetime.timedelta(hours=24):
+            webhook = discord.SyncWebhook.from_url(secrets.webhook)
+            try:
+                muted = message.guild.get_role(542078638741520404)
+            except Exception as e:
+                webhook.send(e)
+                return
+            try:
+                await message.author.add_roles(muted)
+            except discord.Forbidden:
+                logging.warning(f"I don't have the required permissions to mute {message.author.mention}")
+            else:
+                await webhook.send(
+                    f"{message.author.mention} has been muted for pinging pirate on young account"
+                    f"<@268608466690506753>")
 
 def setup(bot):
     bot.add_cog(ModCogs(bot))
