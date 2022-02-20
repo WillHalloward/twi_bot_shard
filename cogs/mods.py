@@ -216,11 +216,14 @@ class ModCogs(commands.Cog):
 
     @commands.command(
         name="add_role_to_all",
-        alias=['arta']
+        aliases=['arta', 'roleall'],
+        brief="Adds a role to all users on the server",
+        usage='@Role',
+        hidden=True
     )
     @commands.is_owner()
     async def add_role_to_all(self, ctx, role):
-        await ctx.send(role)
+        logging.error(role)
         for member in ctx.guild.members:
             await member.add_roles(role)
             await asyncio.sleep(0.5)
