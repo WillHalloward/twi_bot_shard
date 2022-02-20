@@ -214,6 +214,10 @@ class ModCogs(commands.Cog):
             webhook = discord.SyncWebhook.from_url(secrets.webhook)
             await webhook.send(f"{member.mention} joined and has a account younger than 24 hours <@268608466690506753>")
 
+    @commands.command(
+        name="add_role_to_all",
+        alias=['arta']
+    )
     @commands.is_owner()
     async def add_role_to_all(self, ctx, role):
         for member in ctx.guild.members:
