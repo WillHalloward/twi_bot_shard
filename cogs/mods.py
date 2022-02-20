@@ -156,7 +156,7 @@ class ModCogs(commands.Cog):
                     embed.add_field(name="Channel", value=message.channel.mention, inline=True)
                     embed.set_thumbnail(url=message.author.avatar.url)
                     webhook.send(file=file, embed=embed,
-                                       allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
+                                 allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
                 except Exception as e:
                     logging.exception('Log_attachments')
 
@@ -207,6 +207,19 @@ class ModCogs(commands.Cog):
                 await webhook.send(
                     f"{message.author.mention} has been muted for pinging pirate on young account"
                     f"<@268608466690506753>")
+
+    @Cog.listener("on_member_join")
+    async def suspected_spammer(self, member):
+        if member.created < datetime.datetime.now() - datetime.timedelta(hours=24):
+            webhook = discord.SyncWebhook.from_url(secrets.webhook)
+            await webhook.send(f"{member.mention} joined and has a account younger than 24 hours <@268608466690506753>")
+
+    @commands.is_owner()
+    async def add_role_to_all(self, ctx, role):
+        for member in ctx.guild.members:
+            await member.add_roles(role)
+            await asyncio.sleep(0.5)
+
 
 def setup(bot):
     bot.add_cog(ModCogs(bot))
