@@ -220,6 +220,7 @@ class ModCogs(commands.Cog):
     )
     @commands.is_owner()
     async def add_role_to_all(self, ctx, role):
+        await ctx.send(role)
         for member in ctx.guild.members:
             await member.add_roles(role)
             await asyncio.sleep(0.5)
