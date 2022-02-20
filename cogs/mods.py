@@ -222,7 +222,7 @@ class ModCogs(commands.Cog):
         hidden=True
     )
     @commands.is_owner()
-    async def add_role_to_all(self, ctx, role):
+    async def add_role_to_all(self, ctx, role: discord.Role):
         logging.error(role)
         for member in ctx.guild.members:
             await member.add_roles(role)
