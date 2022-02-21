@@ -223,10 +223,15 @@ class ModCogs(commands.Cog):
     )
     @commands.is_owner()
     async def add_role_to_all(self, ctx, role: discord.Role):
-        logging.error(role)
         for member in ctx.guild.members:
             await member.add_roles(role)
             await asyncio.sleep(0.5)
+
+    @Cog.listener("on_member_join")
+    async def filter_new_users(self, member):
+        if member.created > datetime.datetime.now() - datetime.timedelta(hours=72):
+            verified = member.guild.get_role(945388135355924571)
+            await member.add_roles(verified)
 
 
 def setup(bot):
