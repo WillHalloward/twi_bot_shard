@@ -192,7 +192,7 @@ class ModCogs(commands.Cog):
 
     @Cog.listener("on_message")
     async def on_message_pirate_ping_new_account(self, message):
-        if message.author.created_at < datetime.datetime.now() - datetime.timedelta(hours=24):
+        if message.author.created_at.replace(tzinfo=None) < datetime.datetime.now() - datetime.timedelta(hours=24):
             webhook = discord.SyncWebhook.from_url(secrets.webhook)
             try:
                 muted = message.guild.get_role(542078638741520404)
@@ -210,7 +210,7 @@ class ModCogs(commands.Cog):
 
     @Cog.listener("on_member_join")
     async def suspected_spammer(self, member):
-        if member.created_at < datetime.datetime.now() - datetime.timedelta(hours=24):
+        if member.created_at.replace(tzinfo=None) < datetime.datetime.now() - datetime.timedelta(hours=24):
             webhook = discord.SyncWebhook.from_url(secrets.webhook)
             await webhook.send(f"{member.mention} joined and has a account younger than 24 hours <@268608466690506753>")
 
@@ -229,17 +229,7 @@ class ModCogs(commands.Cog):
 
     @Cog.listener("on_member_join")
     async def filter_new_users(self, member):
-        logging.error(f"{member}\n"
-                      f"{member.created_at}\n"
-                      f"{type(member.created_at)}\n"
-                      f"{(datetime.datetime.now() - datetime.timedelta(hours=72))}\n"
-                      f"{type(datetime.datetime.now() - datetime.timedelta(hours=72))}")
-        try:
-            logging.error(
-                member.created_at.replace(tzinfo=None) > datetime.datetime.now() - datetime.timedelta(hours=72))
-        except Exception as e:
-            logging.error(e)
-        if member.created > datetime.datetime.now() - datetime.timedelta(hours=72):
+        if member.created_at.replace(tzinfo=None) > datetime.datetime.now() - datetime.timedelta(hours=72):
             verified = member.guild.get_role(945388135355924571)
             await member.add_roles(verified)
 
