@@ -229,6 +229,7 @@ class ModCogs(commands.Cog):
 
     @Cog.listener("on_member_join")
     async def filter_new_users(self, member):
+        logging.error(member.created > datetime.datetime.now() - datetime.timedelta(hours=72))
         if member.created > datetime.datetime.now() - datetime.timedelta(hours=72):
             verified = member.guild.get_role(945388135355924571)
             await member.add_roles(verified)
