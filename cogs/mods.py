@@ -190,23 +190,23 @@ class ModCogs(commands.Cog):
                     f"{message.author.mention} has been muted for pining more than 10 ppl in one message"
                     f"<@268608466690506753>")
 
-    @Cog.listener("on_message")
-    async def on_message_pirate_ping_new_account(self, message):
-        if message.author.created_at.replace(tzinfo=None) < datetime.datetime.now() - datetime.timedelta(hours=24):
-            webhook = discord.SyncWebhook.from_url(secrets.webhook)
-            try:
-                muted = message.guild.get_role(542078638741520404)
-            except Exception as e:
-                webhook.send(e)
-                return
-            try:
-                await message.author.add_roles(muted)
-            except discord.Forbidden:
-                logging.warning(f"I don't have the required permissions to mute {message.author.mention}")
-            else:
-                await webhook.send(
-                    f"{message.author.mention} has been muted for pinging pirate on young account"
-                    f"<@268608466690506753>")
+    # @Cog.listener("on_message")
+    # async def on_message_pirate_ping_new_account(self, message):
+    #     if message.author.created_at.replace(tzinfo=None) < datetime.datetime.now() - datetime.timedelta(hours=24):
+    #         webhook = discord.SyncWebhook.from_url(secrets.webhook)
+    #         try:
+    #             muted = message.guild.get_role(542078638741520404)
+    #         except Exception as e:
+    #             webhook.send(e)
+    #             return
+    #         try:
+    #             await message.author.add_roles(muted)
+    #         except discord.Forbidden:
+    #             logging.warning(f"I don't have the required permissions to mute {message.author.mention}")
+    #         else:
+    #             await webhook.send(
+    #                 f"{message.author.mention} has been muted for pinging pirate on young account"
+    #                 f"<@268608466690506753>")
 
     @Cog.listener("on_member_join")
     async def suspected_spammer(self, member):
