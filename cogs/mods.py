@@ -234,7 +234,7 @@ class ModCogs(commands.Cog):
                       f"{type(member.created_at)}\n"
                       f"{(datetime.datetime.now() - datetime.timedelta(hours=72))}\n"
                       f"{type(datetime.datetime.now() - datetime.timedelta(hours=72))}")
-        logging.error(member.created_at > datetime.datetime.now() - datetime.timedelta(hours=72))
+        logging.error(member.created_at.replace(tzinfo=None) > datetime.datetime.now() - datetime.timedelta(hours=72))
         if member.created > datetime.datetime.now() - datetime.timedelta(hours=72):
             verified = member.guild.get_role(945388135355924571)
             await member.add_roles(verified)
