@@ -229,8 +229,11 @@ class ModCogs(commands.Cog):
 
     @Cog.listener("on_member_join")
     async def filter_new_users(self, member):
-        logging.error(f"{member}\n{member.created_at}\n{type(member.created_at)}")
-
+        logging.error(f"{member}\n"
+                      f"{member.created_at}\n"
+                      f"{type(member.created_at)}\n"
+                      f"{(datetime.datetime.now() - datetime.timedelta(hours=72))}\n"
+                      f"{type(datetime.datetime.now() - datetime.timedelta(hours=72))}")
         logging.error(member.created_at > datetime.datetime.now() - datetime.timedelta(hours=72))
         if member.created > datetime.datetime.now() - datetime.timedelta(hours=72):
             verified = member.guild.get_role(945388135355924571)
