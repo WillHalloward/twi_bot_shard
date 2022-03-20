@@ -104,12 +104,12 @@ class ModCogs(commands.Cog):
             if str(reaction.emoji) == '❌':
                 await ctx.send("Denied")
 
-    @Cog.listener("on_message")
-    async def mention_pirate(self, message):
-        for mention in message.mentions:
-            if mention.id == 230442779803648000:
-                webhook = discord.SyncWebhook.from_url(secrets.webhook)
-                webhook.send(f"User {message.author.name} @ Pirate at {message.jump_url} <@&346842813687922689>")
+    # @Cog.listener("on_message")
+    # async def mention_pirate(self, message):
+    #     for mention in message.mentions:
+    #         if mention.id == 230442779803648000:
+    #             webhook = discord.SyncWebhook.from_url(secrets.webhook)
+    #             webhook.send(f"User {message.author.name} @ Pirate at {message.jump_url} <@&346842813687922689>")
 
     @Cog.listener("on_message")
     async def password_leak(self, message):
@@ -193,20 +193,22 @@ class ModCogs(commands.Cog):
     # @Cog.listener("on_message")
     # async def on_message_pirate_ping_new_account(self, message):
     #     if message.author.created_at.replace(tzinfo=None) > datetime.datetime.now() - datetime.timedelta(hours=24):
-    #         webhook = discord.SyncWebhook.from_url(secrets.webhook)
-    #         try:
-    #             muted = message.guild.get_role(542078638741520404)
-    #         except Exception as e:
-    #             webhook.send(e)
-    #             return
-    #         try:
-    #             await message.author.add_roles(muted)
-    #         except discord.Forbidden:
-    #             logging.warning(f"I don't have the required permissions to mute {message.author.mention}")
-    #         else:
-    #             await webhook.send(
-    #                 f"{message.author.mention} has been muted for pinging pirate on young account"
-    #                 f"<@268608466690506753>")
+    #         for mention in message.mentions:
+    #             if mention.id == 230442779803648000:
+    #                 webhook = discord.SyncWebhook.from_url(secrets.webhook)
+    #                 try:
+    #                     muted = message.guild.get_role(542078638741520404)
+    #                 except Exception as e:
+    #                     webhook.send(e)
+    #                     return
+    #                 try:
+    #                     await message.author.add_roles(muted)
+    #                 except discord.Forbidden:
+    #                     logging.warning(f"I don't have the required permissions to mute {message.author.mention}")
+    #                 else:
+    #                     await webhook.send(
+    #                         f"{message.author.mention} has been muted for pinging pirate on a young account"
+    #                         f"<@268608466690506753>")
 
     @Cog.listener("on_member_join")
     async def suspected_spammer(self, member):
@@ -224,7 +226,14 @@ class ModCogs(commands.Cog):
     @commands.is_owner()
     async def add_role_to_all(self, ctx, role: discord.Role):
         for member in ctx.guild.members:
-            await member.add_roles(role)
+            try:
+                await member.add_roles(role)
+            except discord.Forbidden:
+                logging.error(f"Can't add role 'verified' to user {member.name}")
+            except discord.HTTPException:
+                logging.error(f"Failed to add role 'verified' to user {member.name}")
+            except Exception as e:
+                logging.error(e)
             await asyncio.sleep(0.5)
 
     @Cog.listener("on_member_join")
