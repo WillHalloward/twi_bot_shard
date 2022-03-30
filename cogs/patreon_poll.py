@@ -1,9 +1,11 @@
+import json
+import logging
+from datetime import datetime, timezone
+from operator import itemgetter
+
 import aiohttp
 import discord
-import json
-from datetime import datetime, timezone
 from discord.ext import commands
-from operator import itemgetter
 
 import secrets
 
@@ -28,12 +30,13 @@ def is_bot_channel(ctx):
 
 
 async def get_poll(bot):
-    url = "https://www.patreon.com/api/" \
-          "posts?include=Cpoll.choices%2Cpoll.current_user_responses.poll&filter[campaign_id]=568211"
+    url = "https://www.patreon.com/api/posts?include=Cpoll.choices%2Cpoll.current_user_responses.poll&filter[campaign_id]=568211"
     while True:
         async with aiohttp.ClientSession(cookies=secrets.cookies) as session:
             html = await fetch(session, url)
             json_data = json.loads(html)
+            logging.error(json_data)
+            logging.error(json_data.text)
         for posts in json_data['data']:
             if posts['relationships']['poll']['data'] is not None:
                 poll_id = await bot.pg_con.fetch("SELECT * FROM poll WHERE id = $1",
