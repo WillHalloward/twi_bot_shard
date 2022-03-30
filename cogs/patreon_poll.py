@@ -34,9 +34,9 @@ async def get_poll(bot):
     while True:
         async with aiohttp.ClientSession(cookies=secrets.cookies) as session:
             html = await fetch(session, url)
+            logging.error(html)
+            logging.error(html.text)
             json_data = json.loads(html)
-            logging.error(json_data)
-            logging.error(json_data.text)
         for posts in json_data['data']:
             if posts['relationships']['poll']['data'] is not None:
                 poll_id = await bot.pg_con.fetch("SELECT * FROM poll WHERE id = $1",
