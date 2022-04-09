@@ -108,6 +108,7 @@ class LinkTags(commands.Cog, name="Links"):
         if query_r:
             message = ""
             for tags in sorted(query_r, key=numerical_sort):
+                logging.error(tags)
                 message = f"{message}\n`{tags['title']}`"
             await ctx.send(f"links: {message}")
         else:
