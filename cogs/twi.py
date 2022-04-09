@@ -194,7 +194,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                         value="#FFD700\n"
                               f"{'<:FFD700:666429505031897107>' * 4}"
                               "\n[4.23E](https://wanderinginn.com/2018/03/27/4-23-e/)")
-        embed.add_field(name="Class restoration",
+        embed.add_field(name="Class restoration/Conviction skill",
                         value="#99CCFF\n"
                               f"{'<:99CCFF:667886770679054357>' * 4}"
                               "\n[3.20T](https://wanderinginn.com/2017/10/03/3-20-t/)")
@@ -210,7 +210,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                         value="#FFCC00\n"
                               f"{'<:FFCC00:674267820678316052>' * 4}"
                               "\n[5.54](https://wanderinginn.com/2019/01/22/5-54-2/)")
-        embed.add_field(name="Silent Queen talking",
+        embed.add_field(name="Silent Queen talking and purple skills",
                         value="#CC99FF\n"
                               f"{'<:CC99FF:674267820732841984>' * 4}"
                               "\n[5.54](https://wanderinginn.com/2019/01/22/5-54-2/)")
@@ -230,6 +230,10 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                         value="#FDDBFF, #FFB8FD,\n#FD78FF, #FB00FF\n"
                               "<:FDDBFF:674370583412080670><:FFB8FD:674385325572751371><:FD78FF:674385325208109088><:FB00FF:674385325522681857>"
                               "\n[2.31](https://wanderinginn.com/2017/06/21/2-31/)")
+        embed.add_field(name="Invisible Skills/Text",
+                        value="#0C0E0E,\n"
+                              "emote white color here\n"
+                              "[x.xx](https://wanderinginn.com/)")
         await ctx.send(embed=embed)
 
     @commands.Cog.listener()
