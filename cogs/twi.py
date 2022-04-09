@@ -232,11 +232,11 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                               "\n[2.31](https://wanderinginn.com/2017/06/21/2-31/)")
         embed.add_field(name="Ceria cold skill",
                         value="#CCFFFF, #99CCFF,\n#3366FF\n"
-                              "<:CCFFFF:674370583412080670><:CCFFFF:674370583412080670><:99CCFF:674370583412080670><:3366FF:674370583412080670>"
+                              "<:CCFFFF:962498665317011527><:99CCFF:667886770679054357><:3366FF:962498751086338088>"
                               "\n[8.36H](https://wanderinginn.com/2021/08/15/8-36-h/)")
         embed.add_field(name="Siren water skill",
                         value="#00CCFF\n"
-                              f"{'<:00CCFF:674370583412080670>' * 4}"
+                              f"{'<:00CCFF:962498765879656498>' * 4}"
                               "\n[8.36H](https://wanderinginn.com/2021/08/15/8-36-h/)")
         embed.add_field(name="Invisible Skills/Text",
                         value="#0C0E0E,\n"
