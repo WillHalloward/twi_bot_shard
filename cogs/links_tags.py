@@ -101,16 +101,12 @@ class LinkTags(commands.Cog, name="Links"):
         hidden=False,
     )
     async def tag(self, ctx, user_input):
-        query_r = await self.bot.pg_con.fetchrow("SELECT title FROM links WHERE lower(tag) = lower($1) ORDER BY title",
-                                                 user_input)
-        logging.error(query_r)
-        logging.error(type(query_r))
+        query_r = await self.bot.pg_con.fetch(
+            "SELECT title FROM links WHERE lower(tag) = lower($1) ORDER BY NULLIF(regexp_replace(title, '\D', '', 'g'), '')::int",
+            user_input)
         if query_r:
             message = ""
-            # for tags in sorted(query_r, key=numerical_sort):
             for tags in query_r:
-                logging.error(tags)
-                logging.error(type(tags))
                 message = f"{message}\n`{tags['title']}`"
             await ctx.send(f"links: {message}")
         else:
