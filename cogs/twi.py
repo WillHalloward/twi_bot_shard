@@ -232,7 +232,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                               "\n[2.31](https://wanderinginn.com/2017/06/21/2-31/)")
         embed.add_field(name="Invisible Skills/Text",
                         value="#0C0E0E,\n"
-                              "f{'<:0C0E0E:666452140994330624>' * 4}\n"
+                              f"{'<:0C0E0E:666452140994330624>' * 4}\n"
                               "[1.08 R](https://wanderinginn.com/2016/12/18/1-08-r//)")
         await ctx.send(embed=embed)
 
