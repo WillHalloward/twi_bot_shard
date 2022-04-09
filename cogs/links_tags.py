@@ -1,5 +1,15 @@
+import logging
+import re
+
 import asyncpg
 from discord.ext import commands
+
+
+def numerical_sort(value):
+    numbers = re.compile(r'(\d+)')
+    parts = numbers.split(value)
+    parts[1::2] = map(int, parts[1::2])
+    return parts
 
 
 class LinkTags(commands.Cog, name="Links"):
@@ -14,12 +24,15 @@ class LinkTags(commands.Cog, name="Links"):
         hidden=False,
     )
     async def link(self, ctx, user_input):
-        query_r = await self.bot.pg_con.fetchrow("SELECT content, title FROM links WHERE lower(title) = lower($1)",
-                                                 user_input)
-        if query_r:
-            await ctx.send(f"{query_r['title']}: {query_r['content']}")
-        else:
-            await ctx.send(f"I could not find a link with the title **{user_input}**")
+        try:
+            query_r = await self.bot.pg_con.fetchrow("SELECT content, title FROM links WHERE lower(title) = lower($1)",
+                                                     user_input)
+            if query_r:
+                await ctx.send(f"{query_r['title']}: {query_r['content']}")
+            else:
+                await ctx.send(f"I could not find a link with the title **{user_input}**")
+        except:
+            logging.exception("Link")
 
     @commands.command(
         name="Links",
@@ -28,11 +41,14 @@ class LinkTags(commands.Cog, name="Links"):
         hidden=False,
     )
     async def links(self, ctx):
-        query_r = await self.bot.pg_con.fetch("SELECT title FROM links ORDER BY title")
-        message = ""
-        for tags in query_r:
-            message = f"{message} `{tags['title']}`"
-        await ctx.send(f"Links: {message}")
+        try:
+            query_r = await self.bot.pg_con.fetch("SELECT title FROM links ORDER BY title")
+            message = ""
+            for tags in query_r:
+                message = f"{message} `{tags['title']}`"
+            await ctx.send(f"Links: {message}")
+        except:
+            logging.exception("Link")
 
     @commands.command(
         name="AddLink",
@@ -85,8 +101,9 @@ class LinkTags(commands.Cog, name="Links"):
         hidden=False,
     )
     async def tag(self, ctx, user_input):
-        query_r = await self.bot.pg_con.fetch("SELECT title FROM links WHERE lower(tag) = lower($1) ORDER BY title",
-                                              user_input)
+        query_r = await self.bot.pg_con.fetch(
+            "SELECT title FROM links WHERE lower(tag) = lower($1) ORDER BY NULLIF(regexp_replace(title, '\D', '', 'g'), '')::int",
+            user_input)
         if query_r:
             message = ""
             for tags in query_r:

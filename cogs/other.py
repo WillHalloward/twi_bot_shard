@@ -1,6 +1,8 @@
-import discord
 import logging
+
+import discord
 from discord.ext import commands
+
 
 class OtherCogs(commands.Cog, name="Other"):
     def __init__(self, bot):
@@ -26,8 +28,8 @@ class OtherCogs(commands.Cog, name="Other"):
         if member is None:
             member = ctx.author
         embed = discord.Embed(title="Avatar", color=discord.Color(0x3cd63d))
-        logging.debug(f"Avatar url: {member.avatar_url}")
-        embed.set_image(url=member.avatar_url)
+        logging.debug(f"Avatar url: {member.avatar.url}")
+        embed.set_image(url=member.avatar.url)
         await ctx.send(embed=embed)
 
     @commands.command(
@@ -42,7 +44,7 @@ class OtherCogs(commands.Cog, name="Other"):
             member = ctx.author
 
         embed = discord.Embed(title=member.display_name, color=discord.Color(0x3cd63d))
-        embed.set_thumbnail(url=member.avatar_url)
+        embed.set_thumbnail(url=member.avatar.url)
         embed.add_field(name="Account created at", value=member.created_at.strftime("%d-%m-%Y @ %H:%M:%S"))
         embed.add_field(name="Joined server", value=member.joined_at.strftime("%d-%m-%Y @ %H:%M:%S"))
         embed.add_field(name="Id", value=member.id)
@@ -76,7 +78,7 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     @commands.is_owner()
     async def say_channel(self, ctx, channel_id, *, say):
-        channel = self.bot.get_channel(int(channel_id))
+        channel = self.bot.get_channel_or_thread(int(channel_id))
         await channel.send(say)
 
     @commands.Cog.listener()
@@ -113,7 +115,7 @@ class OtherCogs(commands.Cog, name="Other"):
                 else:
                     embed = discord.Embed(title=f"Make some room in the inn!",
                                           description=f"{after.mention} just joined the ranks of {gained.mention}!")
-                embed.set_thumbnail(url=after.avatar_url)
+                embed.set_thumbnail(url=after.avatar.url)
                 await channel.send(embed=embed, content=f"{after.mention}")
 
     @commands.command(
@@ -232,7 +234,7 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     async def role_list(self, ctx):
         roles = await self.bot.pg_con.fetch(
-            "SELECT id, name, required_role, display_order FROM roles WHERE guild_id = $1 AND self_assignable = TRUE order by display_order ASC, name desc",
+            "SELECT id, name, required_role, display_order FROM roles WHERE guild_id = $1 AND self_assignable = TRUE order by display_order, name desc",
             ctx.guild.id)
         embed = discord.Embed(title="Roles", color=discord.Color(0x3cd63d))
         embed.set_thumbnail(url=ctx.guild.icon_url)
@@ -247,13 +249,13 @@ class OtherCogs(commands.Cog, name="Other"):
     async def update_role_order(self, ctx, role, new_index: int):
         new_index = new_index - 1
         roles = await self.bot.pg_con.fetch(
-            "SELECT id, display_order FROM roles WHERE guild_id = $1 AND self_assignable = TRUE order by display_order ASC, name DESC",
+            "SELECT id, display_order FROM roles WHERE guild_id = $1 AND self_assignable = TRUE order by display_order, name DESC",
             ctx.guild.id)
         role_index = next((index for (index, d) in enumerate(roles) if d["id"] == int(role)), None)
         roles.insert(new_index, roles.pop(role_index))
         for index, role in enumerate(roles):
-            await self.bot.pg_con.execute("UPDATE roles set display_order = $1 WHERE id = $2",
-                                          index, role['id'])
+                await self.bot.pg_con.execute("UPDATE roles set display_order = $1 WHERE id = $2",
+                                              index, role['id'])
 
     @commands.command(
         name="add_role",
@@ -300,6 +302,24 @@ class OtherCogs(commands.Cog, name="Other"):
             await ctx.send(
                 "You don't need to ping the role, you can either use the Index value or name of the role instead")
         print()
+
+    @commands.command(
+        name="pin",
+        aliases=['pinn'],
+        brief="pinns a selected message",
+        description="",
+        enable=True,
+        help="",
+        hidden=False,
+        usage="[message_id]",
+    )
+    @commands.has_role(870298484484485190)
+    async def pin(self, ctx, message_id):
+        try:
+            message = await ctx.channel.fetch_message(message_id)
+            await message.pin()
+        except Exception as e:
+            await ctx.send(f"Error: - {e}")
 
 
 def setup(bot):

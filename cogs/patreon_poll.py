@@ -1,10 +1,11 @@
 import json
+import logging
 from datetime import datetime, timezone
+from operator import itemgetter
 
 import aiohttp
 import discord
 from discord.ext import commands
-from operator import itemgetter
 
 import secrets
 
@@ -29,11 +30,12 @@ def is_bot_channel(ctx):
 
 
 async def get_poll(bot):
-    url = "https://www.patreon.com/api/" \
-          "posts?include=Cpoll.choices%2Cpoll.current_user_responses.poll&filter[campaign_id]=568211"
+    url = "https://www.patreon.com/api/posts?include=Cpoll.choices%2Cpoll.current_user_responses.poll&filter[campaign_id]=568211"
     while True:
         async with aiohttp.ClientSession(cookies=secrets.cookies) as session:
             html = await fetch(session, url)
+            logging.error(html)
+            logging.error(html.text)
             json_data = json.loads(html)
         for posts in json_data['data']:
             if posts['relationships']['poll']['data'] is not None:
@@ -43,8 +45,6 @@ async def get_poll(bot):
                     async with aiohttp.ClientSession() as session:
                         html = await fetch(session, posts['relationships']['poll']['links']['related'])
                         json_data2 = json.loads(html)
-                    print("https://www.patreon.com" + posts['attributes']['patreon_url'])
-                    print(posts['relationships']['poll']['links']['related'])
                     open_at_converted = datetime.fromisoformat(json_data2['data']['attributes']['created_at'])
                     try:
                         closes_at_converted = datetime.fromisoformat(json_data2['data']['attributes']['closes_at'])
@@ -65,7 +65,6 @@ async def get_poll(bot):
                             int(json_data2["data"]["attributes"]["num_responses"]),
                             len(json_data2['data']['relationships']['choices']['data']))
                         for i in range(0, len(json_data2['data']['relationships']['choices']['data'])):
-                            print(json_data2['included'][i]['attributes'])
                             await bot.pg_con.execute(
                                 "INSERT INTO poll_option(option_text, poll_id, num_votes, option_id)"
                                 "VALUES ($1,$2,$3,$4)",
@@ -79,7 +78,7 @@ async def get_poll(bot):
                             "num_options) "
                             "VALUES ($1,$2,$3,$4,$5,$6, FALSE, $7)",
                             posts['relationships']['poll']['links']['related'],
-                            "https://www.patreon.com" + posts['attributes']['patreon_url'],
+                            posts['attributes']['patreon_url'],
                             int(posts['relationships']['poll']['data']['id']),
                             open_at_converted,
                             closes_at_converted,
@@ -156,19 +155,19 @@ class PollCog(commands.Cog, name="Poll"):
              "\nFind the poll id via !PollList or !FindPoll",
         hidden=False
     )
-    @commands.check(is_bot_channel)
+    # @commands.check(is_bot_channel)
     @commands.cooldown(1, 300, commands.BucketType.channel)
-    async def poll(self, ctx, x=None):
+    async def poll(self, ctx, id=None):
         if is_bot_channel(ctx):
             self.poll.reset_cooldown(ctx)
         active_polls = await self.bot.pg_con.fetch("SELECT * FROM poll WHERE expire_date > now()")
-        if active_polls and x is None:
+        if active_polls and id is None:
             await p_poll(active_polls, ctx, self.bot)
         else:
             last_poll = await self.bot.pg_con.fetch("SELECT COUNT (*) FROM poll")
-            if x is None:
-                x = last_poll[0][0]
-            value = await self.bot.pg_con.fetch("SELECT * FROM poll ORDER BY id OFFSET $1 LIMIT 1", int(x) - 1)
+            if id is None:
+                id = last_poll[0][0]
+            value = await self.bot.pg_con.fetch("SELECT * FROM poll ORDER BY id OFFSET $1 LIMIT 1", int(id) - 1)
             await p_poll(value, ctx, self.bot)
 
     @poll.error
@@ -187,7 +186,7 @@ class PollCog(commands.Cog, name="Poll"):
     @commands.check(is_bot_channel)
     async def poll_list(self, ctx, year=datetime.now(timezone.utc).year):
         polls_years = await self.bot.pg_con.fetch(
-            "SELECT title, index_serial FROM poll WHERE date_part('year', start_date) = $1",
+            "SELECT title, index_serial FROM poll WHERE date_part('year', start_date) = $1 ORDER BY start_date",
             year)
         if not polls_years:
             await ctx.send("Sorry there were no polls that year that i could find :(")

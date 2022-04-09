@@ -1,8 +1,9 @@
+import json
+import logging
+
 import aiohttp
 import asyncpg
 import discord
-import json
-import logging
 import praw
 from discord.ext import commands
 from googleapiclient.discovery import build
@@ -189,11 +190,11 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                         value="#FF9900\n"
                               f"{'<:FF9900:666435308480364554>' * 4}"
                               "\n[5.44](https://wanderinginn.com/2018/12/08/5-44/)")
-        embed.add_field(name="Temporary leader skills",
+        embed.add_field(name="Divine/Temporary skills",
                         value="#FFD700\n"
                               f"{'<:FFD700:666429505031897107>' * 4}"
                               "\n[4.23E](https://wanderinginn.com/2018/03/27/4-23-e/)")
-        embed.add_field(name="Class restoration",
+        embed.add_field(name="Class restoration / Conviction skill",
                         value="#99CCFF\n"
                               f"{'<:99CCFF:667886770679054357>' * 4}"
                               "\n[3.20T](https://wanderinginn.com/2017/10/03/3-20-t/)")
@@ -209,7 +210,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                         value="#FFCC00\n"
                               f"{'<:FFCC00:674267820678316052>' * 4}"
                               "\n[5.54](https://wanderinginn.com/2019/01/22/5-54-2/)")
-        embed.add_field(name="Silent Queen talking",
+        embed.add_field(name="Silent Queen talking and purple skills",
                         value="#CC99FF\n"
                               f"{'<:CC99FF:674267820732841984>' * 4}"
                               "\n[5.54](https://wanderinginn.com/2019/01/22/5-54-2/)")
@@ -229,6 +230,10 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                         value="#FDDBFF, #FFB8FD,\n#FD78FF, #FB00FF\n"
                               "<:FDDBFF:674370583412080670><:FFB8FD:674385325572751371><:FD78FF:674385325208109088><:FB00FF:674385325522681857>"
                               "\n[2.31](https://wanderinginn.com/2017/06/21/2-31/)")
+        embed.add_field(name="Invisible Skills/Text",
+                        value="#0C0E0E,\n"
+                              f"{'<:0C0E0E:666452140994330624>' * 4}\n"
+                              "[1.08 R](https://wanderinginn.com/2016/12/18/1-08-r//)")
         await ctx.send(embed=embed)
 
     @commands.Cog.listener()
@@ -239,7 +244,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
             if old_pin:
                 await self.bot.pg_con.execute(
                     "UPDATE webhook_pins_twi set message_id = $1, posted_date = $2 WHERE webhook_id = $3",
-                    message.id, message.created_at, message.webhook_id)
+                    message.id, message.created_at.replace(tzinfo=None), message.webhook_id)
                 for pin in await message.channel.pins():
                     if pin.id == old_pin['message_id']:
                         await pin.unpin()
@@ -247,7 +252,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
             else:
                 await self.bot.pg_con.execute(
                     "INSERT INTO webhook_pins_twi(message_id, webhook_id, posted_date) VALUES ($1,$2,$3)",
-                    message.id, message.webhook_id, message.created_at)
+                    message.id, message.webhook_id, message.created_at.replace(tzinfo=None))
             await message.pin()
 
     @commands.command(
@@ -261,7 +266,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     async def update_password(self, ctx, password, link):
         await self.bot.pg_con.execute(
             "INSERT INTO password_link(password, link, user_id, date) VALUES ($1, $2, $3, $4)",
-            password, link, ctx.author.id, ctx.message.created_at
+            password, link, ctx.author.id, ctx.message.created_at.replace(tzinfo=None)
         )
 
     @commands.command(name="reddit")

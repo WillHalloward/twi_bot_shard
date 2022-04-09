@@ -1,12 +1,12 @@
+import logging
+import os
+import ssl
 import sys
+import traceback
 from itertools import cycle
 
 import asyncpg
 import discord
-import logging
-import os
-import ssl
-import traceback
 from discord.ext import commands, tasks
 
 import secrets
@@ -17,7 +17,7 @@ context.load_verify_locations(f"{home}/ssl-cert/server-ca.pem")
 context.load_cert_chain(f"{home}/ssl-cert/client-cert.pem", f"{home}/ssl-cert/client-key.pem")
 logging.basicConfig(filename=f'{home}/twi_bot_shard/cognita.log',
                     format='%(asctime)s :: %(levelname)-8s :: %(filename)s :: %(message)s',
-                    level=logging.INFO)
+                    level=logging.WARNING)
 logging.info("Cognita starting")
 intents = discord.Intents.default()  # All but the two privileged ones
 intents.members = True  # Subscribe to the Members intent
@@ -46,8 +46,8 @@ async def on_ready():
     bot.remove_listener(stats_cog.save_listener, name="on_message")
     bot.remove_listener(stats_cog.message_deleted, name="on_raw_message_delete")
     bot.remove_listener(stats_cog.message_edited, name="on_raw_message_edit")
-    bot.remove_listener(stats_cog.reaction_add, name="on_raw_reaction_add")
-    bot.remove_listener(stats_cog.reaction_remove, name="on_raw_reaction_remove")
+    # bot.remove_listener(stats_cog.reaction_add, name="on_raw_reaction_add")
+    # bot.remove_listener(stats_cog.reaction_remove, name="on_raw_reaction_remove")
     status_loop.start()
     logging.info(f'Logged in as: {bot.user.name}\nVersion: {discord.__version__}\n')
 

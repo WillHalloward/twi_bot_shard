@@ -31,13 +31,12 @@ async def add_to_gallery(self, ctx, msg_id, title, channel_name):
 
 
 async def set_channel(self, ctx, channel_id: int, channel_name: str):
-    await self.bot.pg_con.execute("INSERT INTO gallery_mementos (channel_id, channel_name) "
-                                  "VALUES ($1, $2) "
-                                  "ON CONFLICT (channel_name) "
-                                  "DO UPDATE "
-                                  "SET channel_id = excluded.channel_id",
-                                  channel_id, channel_name)
-
+        await self.bot.pg_con.execute("INSERT INTO gallery_mementos (channel_id, channel_name) "
+                                      "VALUES ($1, $2) "
+                                      "ON CONFLICT (channel_name) "
+                                      "DO UPDATE "
+                                      "SET channel_id = excluded.channel_id",
+                                      channel_id, channel_name)
 
 def admin_or_me_check(ctx):
     role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
