@@ -103,6 +103,8 @@ class LinkTags(commands.Cog, name="Links"):
     async def tag(self, ctx, user_input):
         query_r = await self.bot.pg_con.fetch("SELECT title FROM links WHERE lower(tag) = lower($1) ORDER BY title",
                                               user_input)
+        logging.error(query_r)
+        logging.error(type(query_r))
         if query_r:
             message = ""
             for tags in sorted(query_r, key=numerical_sort):
