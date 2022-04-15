@@ -230,14 +230,14 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @commands.command(
         name="roles",
-        aliases=['rolelist', 'listroles']
+        aliases=['rolelist', 'listroles', 'rl']
     )
     async def role_list(self, ctx):
         roles = await self.bot.pg_con.fetch(
             "SELECT id, name, required_role, display_order FROM roles WHERE guild_id = $1 AND self_assignable = TRUE order by display_order, name desc",
             ctx.guild.id)
         embed = discord.Embed(title="Roles", color=discord.Color(0x3cd63d))
-        embed.set_thumbnail(url=ctx.guild.icon_url)
+        embed.set_thumbnail(url=ctx.guild.icon)
         for role in roles:
             embed.add_field(name=f"{role['name']}", value=role['id'], inline=False)
         await ctx.send(embed=embed)
