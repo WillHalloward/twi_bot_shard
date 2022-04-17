@@ -1,7 +1,17 @@
 import logging
-
+from itertools import groupby
 import discord
 from discord.ext import commands
+
+
+def admin_or_me_check(ctx):
+    role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
+    if ctx.message.author.id == 268608466690506753:
+        return True
+    elif role in ctx.message.author.roles:
+        return True
+    else:
+        return False
 
 
 class OtherCogs(commands.Cog, name="Other"):
@@ -230,50 +240,90 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @commands.command(
         name="roles",
-        aliases=['rolelist', 'listroles', 'rl']
+        aliases=['rolelist', 'listroles', 'rl', 'lr']
     )
     async def role_list(self, ctx):
+        list_r = list()
+        for role in ctx.author.roles:
+            list_r.append(role.id)
         roles = await self.bot.pg_con.fetch(
-            "SELECT id, name, required_role, display_order FROM roles WHERE guild_id = $1 AND self_assignable = TRUE order by display_order, name desc",
-            ctx.guild.id)
-        embed = discord.Embed(title="Roles", color=discord.Color(0x3cd63d))
-        embed.set_thumbnail(url=ctx.guild.icon)
-        for role in roles:
-            embed.add_field(name=f"{role['name']}", value=role['id'], inline=False)
-        await ctx.send(embed=embed)
+            "SELECT id, name, required_role, weight, alias, category "
+            "FROM roles "
+            "WHERE (required_roles && $2::bigint[] OR required_roles is NULL)"
+            "AND guild_id = $1 "
+            "AND self_assignable = TRUE "
+            "order by weight, name desc",
+            ctx.guild.id, list_r)
+        length = 0
+        for name in roles:
+            if len(name['alias']) > length:
+                length = len(name['alias'])
+
+        def key_func(k):
+            return k['category']
+
+        def key_func2(k):
+            return k['weight']
+
+        if len(roles) != 0:
+            embed = discord.Embed(title="List of all the roles in the server",
+                                  description="Explanation of the roles command",
+                                  color=0x00fcff)
+            embed.set_thumbnail(url=ctx.guild.icon)
+            roles = sorted(roles, key=key_func)
+            for key, value in groupby(roles, key_func):
+                foobar = ""
+                for row in sorted(value, key=key_func2):
+                    foobar = foobar + f"`{row['alias']}` `{'-' * (length - len(row['alias']) + 5)}` {ctx.guild.get_role(row['id']).mention}\n"
+                embed.add_field(name=f"**{key.capitalize()}**",
+                                value=foobar.strip(),
+                                inline=False)
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send("Doesn't look like any roles has been setup to be self assignable on this server."
+                           "The moderators can do that by using: "
+                           "`!addrole [Role]`")
 
     @commands.command(
-        name="update_role_order",
-        aliases=['uro']
+        name="update_role_weight",
+        aliases=['urw', 'role_weight', 'weight']
     )
-    async def update_role_order(self, ctx, role, new_index: int):
-        new_index = new_index - 1
-        roles = await self.bot.pg_con.fetch(
-            "SELECT id, display_order FROM roles WHERE guild_id = $1 AND self_assignable = TRUE order by display_order, name DESC",
-            ctx.guild.id)
-        role_index = next((index for (index, d) in enumerate(roles) if d["id"] == int(role)), None)
-        roles.insert(new_index, roles.pop(role_index))
-        for index, role in enumerate(roles):
-                await self.bot.pg_con.execute("UPDATE roles set display_order = $1 WHERE id = $2",
-                                              index, role['id'])
+    @commands.check(admin_or_me_check)
+    async def update_role_weight(self, ctx, role: discord.role.Role, new_weight: int):
+        await self.bot.pg_con.execute("UPDATE roles set weight = $1 WHERE id = $2 AND guild_id = $3",
+                                      new_weight, role['id'], ctx.guild.id)
 
     @commands.command(
         name="add_role",
-        aliases=['ar']
+        aliases=['ar', 'addrole']
     )
-    async def add_role(self, ctx, role: int, alias: str, required_role: int = None):
+    @commands.check(admin_or_me_check)
+    async def add_role(self, ctx, role: discord.role.Role, alias: str, category: str, *, required_role=None):
+        list_of_roles = list()
+        required_role = required_role.split(" ")
+        for user_role in required_role:
+            temp = await commands.RoleConverter().convert(ctx, user_role)
+            list_of_roles.append(temp.id)
         try:
-            await ctx.send(f"{required_role=}, {alias=}, {role=}, {ctx.guild.id=}")
-            test = await self.bot.pg_con.execute(
-                "UPDATE roles SET self_assignable = TRUE, required_role = $1, alias = $2 where id = $3 and guild_id = $4",
-                required_role, alias, role, ctx.guild.id)
-            await ctx.send(test)
+            if required_role is not None:
+                await self.bot.pg_con.execute(
+                    "UPDATE roles SET self_assignable = TRUE, required_roles = $1, alias = $2, category=$5 "
+                    "where id = $3 "
+                    "and guild_id = $4",
+                    list_of_roles, alias, role.id, ctx.guild.id, category.lower())
+            else:
+                await self.bot.pg_con.execute(
+                    "UPDATE roles SET self_assignable = TRUE, required_roles = NULL, alias = $1, category=$4 "
+                    "where id = $2 "
+                    "and guild_id = $3",
+                    alias, role.id, ctx.guild.id, category.lower())
         except Exception as e:
-            await ctx.send(e)
+            logging.error(e)
+            await ctx.send(f"Error: {e}")
 
     @commands.command(
         name="remove_roll",
-        aliases=['rr'],
+        aliases=['rr', 'removeroll'],
         brief="removes a role from self assign list",
         description="removes a role from the self assign list",
         enable=True,
@@ -281,32 +331,53 @@ class OtherCogs(commands.Cog, name="Other"):
         hidden=False,
         usage="!remove_roll [roll]",
     )
+    @commands.check(admin_or_me_check)
     async def remove_roll(self, ctx, role):
         await self.bot.pg_con.execute("UPDATE roles SET self_assignable = FALSE where id = $1 AND guild_id = $2",
                                       role, ctx.guild.id)
 
     @commands.command(
         name="role",
-        aliases=['requestrole', 'needrole', 'plzrole', 'r']
+        aliases=['requestrole', 'needrole', 'plzrole', 'r', 'takerole']
     )
-    async def toggle_role(self, ctx, *, alias: discord.Role):
-        logging.info(f"{type(alias)}")
-        logging.info(f"{alias}")
-        ctx.send(type(alias))
-        if isinstance(alias, (int, float)):
-            await ctx.send(type(alias))
-        elif isinstance(alias, str):
-            await ctx.send(type(alias))
-        elif isinstance(alias, discord.role):
-            await ctx.send(type(alias))
-            await ctx.send(
-                "You don't need to ping the role, you can either use the Index value or name of the role instead")
-        print()
+    async def toggle_role(self, ctx, *, role):
+        try:
+            role = await commands.RoleConverter().convert(ctx, role)
+        except discord.ext.commands.RoleNotFound:
+            role = ctx.guild.get_role(await self.bot.pg_con.fetchval("SELECT id FROM roles "
+                                                                     "WHERE lower(alias) = lower($1) "
+                                                                     "and guild_id = $2",
+                                                                     role, ctx.guild.id))
+        if type(role) == discord.role.Role:
+            s_role = await self.bot.pg_con.fetchrow("SELECT * FROM roles WHERE id = $1", role.id)
+            if s_role['self_assignable']:
+                b_role = list()
+                for a_role in ctx.author.roles:
+                    b_role.append(a_role.id)
+                if s_role['required_roles'] is None or [i for i in s_role['required_roles'] if i in b_role] != []:
+                    if role in ctx.author.roles:
+                        await ctx.author.remove_roles(role)
+                        await ctx.send(f"I removed {role}")
+                    else:
+                        await ctx.author.add_roles(role)
+                        await ctx.send(f"I added {role}")
+                else:
+                    await ctx.send("You do not have the required role for that.")
+            else:
+                await ctx.send(
+                    "Either the role requested is not self assignable or you don't have the required role for it")
+        else:
+            await ctx.send("Failed to find the role. Try again with the id of the role")
+
+    @toggle_role.error
+    async def isError(self, ctx, error):
+        if isinstance(error, commands.RoleNotFound):
+            print()
 
     @commands.command(
         name="pin",
         aliases=['pinn'],
-        brief="pinns a selected message",
+        brief="pins a selected message",
         description="",
         enable=True,
         help="",
