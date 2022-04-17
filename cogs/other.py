@@ -274,10 +274,13 @@ class OtherCogs(commands.Cog, name="Other"):
             for key, value in groupby(roles, key_func):
                 foobar = ""
                 for row in sorted(value, key=key_func2):
-                    foobar = foobar + f"`{row['alias']}` `{'-' * (length - len(row['alias']) + 5)}` {ctx.guild.get_role(row['id']).mention}\n"
-                embed.add_field(name=f"**{key.capitalize()}**",
-                                value=foobar.strip(),
-                                inline=False)
+                    temp_str = f"`{row['alias']}` `{'-' * (length - len(row['alias']) + 5)}` {ctx.guild.get_role(row['id']).mention}\n"
+                    if len(temp_str + foobar) > 1024:
+                        embed.add_field(name=f"**{key.capitalize()}**",value=foobar.strip(),inline=False)
+                        foobar = ""
+                        key = key + " 2"
+                    foobar = foobar + temp_str
+                embed.add_field(name=f"**{key.capitalize()}**",value=foobar.strip(),inline=False)
             await ctx.send(embed=embed)
         else:
             await ctx.send("Doesn't look like any roles has been setup to be self assignable on this server."
