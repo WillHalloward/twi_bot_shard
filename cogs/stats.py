@@ -260,6 +260,19 @@ class StatsCogs(commands.Cog, name="stats"):
         await ctx.send("Done")
 
     @commands.command(
+        name="update_role_color",
+        hidden=True
+    )
+    @commands.is_owner()
+    async def update_role_color(self, ctx):
+        for guild in self.bot.guilds:
+            for role in guild.roles:
+                if role.is_default():
+                    continue
+                await self.bot.pg_con.execute("UPDATE roles SET color = $1 WHERE id = $2",str(role.color),role.id)
+        await ctx.send("Done")
+
+    @commands.command(
         name="save_users_from_join_leave",
         hidden=True
     )
