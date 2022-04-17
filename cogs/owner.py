@@ -1,4 +1,5 @@
 import logging
+import subprocess
 
 from discord.ext import commands
 
@@ -51,6 +52,15 @@ class OwnerCog(commands.Cog, name="Owner"):
             logging.error(f'{type(e).__name__} - {e}')
         else:
             await ctx.send('**`SUCCESS`**')
+
+    @commands.command(name='cmd')
+    @commands.is_owner()
+    async def cmd(self, ctx, *, args):
+        args_array = args.split(" ")
+        try:
+            await ctx.send(subprocess.check_output(args_array, stderr=subprocess.STDOUT).decode("utf-8"))
+        except subprocess.CalledProcessError as e:
+            await ctx.send(f'Error: {e.output.decode("utf-8")}')
 
 
 def setup(bot):
