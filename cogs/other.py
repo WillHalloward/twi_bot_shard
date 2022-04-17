@@ -294,7 +294,7 @@ class OtherCogs(commands.Cog, name="Other"):
     @commands.check(admin_or_me_check)
     async def update_role_weight(self, ctx, role: discord.role.Role, new_weight: int):
         await self.bot.pg_con.execute("UPDATE roles set weight = $1 WHERE id = $2 AND guild_id = $3",
-                                      new_weight, role['id'], ctx.guild.id)
+                                      new_weight, role.id, ctx.guild.id)
 
     @commands.command(
         name="add_role",
