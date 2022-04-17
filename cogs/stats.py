@@ -760,10 +760,10 @@ class StatsCogs(commands.Cog, name="stats"):
                 str(after.id))
         if before.color != after.color:
             await self.bot.pg_con.execute("UPDATE roles set color = $1 where id = $2",
-                                          after.color, after.id)
+                                          str(after.color), after.id)
             await self.bot.pg_con.execute(
                 'INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)',
-                "roles", "UPDATE_ROLE_COLOR", before.color, after.color, datetime.now().replace(tzinfo=None),
+                "roles", "UPDATE_ROLE_COLOR", str(before.color), str(after.color), datetime.now().replace(tzinfo=None),
                 str(after.id))
         if before.hoist != after.hoist:
             await self.bot.pg_con.execute("UPDATE roles set hoisted = $1 where id = $2",
@@ -825,19 +825,22 @@ class StatsCogs(commands.Cog, name="stats"):
                    f"{user_join_leave_results['LEAVE']:<{length}}:: Left"
         logging.debug(f"Built message {message}")
         channel = self.bot.get_channel(871486325692432464)
-        logging.debug(f"Found channel {channel.name}")
-        if len(message) > 1900:
-            logging.debug("Message longer than 1900 characters")
-            str_list = [message[i:i + 1900] for i in range(0, len(message), 1900)]
-            for string in str_list:
-                await channel.send(f"```asciidoc\n{string}\n```")
-                await asyncio.sleep(0.5)
+        if channel is None:
+            logging.error("Could not find channel to post stats to 871486325692432464")
         else:
-            try:
-                await channel.send(f"```asciidoc\n{message}\n```")
-            except Exception as e:
-                logging.error(f"Could not post stats_loop to channel {channel.name} - {e}")
-        logging.info("Daily stats report done")
+            logging.debug(f"Found channel {channel.name}")
+            if len(message) > 1900:
+                logging.debug("Message longer than 1900 characters")
+                str_list = [message[i:i + 1900] for i in range(0, len(message), 1900)]
+                for string in str_list:
+                    await channel.send(f"```asciidoc\n{string}\n```")
+                    await asyncio.sleep(0.5)
+            else:
+                try:
+                    await channel.send(f"```asciidoc\n{message}\n```")
+                except Exception as e:
+                    logging.error(f"Could not post stats_loop to channel {channel.name} - {e}")
+            logging.info("Daily stats report done")
 
     @commands.command(
         name="messagecount",
