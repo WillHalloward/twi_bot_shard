@@ -15,9 +15,9 @@ context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
 home = os.path.expanduser('~')
 context.load_verify_locations(f"{home}/ssl-cert/server-ca.pem")
 context.load_cert_chain(f"{home}/ssl-cert/client-cert.pem", f"{home}/ssl-cert/client-key.pem")
-logging.basicConfig(filename=f'{home}/twi_bot_shard/cognita.log',
+logging.basicConfig(filename=f'{home}/twi_bot_shard/{secrets.logfile}.log',
                     format='%(asctime)s :: %(levelname)-8s :: %(filename)s :: %(message)s',
-                    level=logging.WARNING)
+                    level=secrets.logging_level)
 logging.info("Cognita starting")
 intents = discord.Intents.default()  # All but the two privileged ones
 intents.members = True  # Subscribe to the Members intent
