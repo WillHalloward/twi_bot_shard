@@ -267,18 +267,19 @@ class OtherCogs(commands.Cog, name="Other"):
 
         if len(roles) != 0:
             embed = discord.Embed(title="List of all the roles in the server",
-                                  description="Explanation of the roles command",
+                                  description="Request the role by doing !role [Rolename]",
                                   color=0x00fcff)
             embed.set_thumbnail(url=ctx.guild.icon)
             roles = sorted(roles, key=key_func)
             for key, value in groupby(roles, key_func):
                 foobar = ""
+                x = 1
                 for row in sorted(value, key=key_func2):
                     temp_str = f"`{row['alias']}` `{'-' * (length - len(row['alias']) + 5)}` {ctx.guild.get_role(row['id']).mention}\n"
                     if len(temp_str + foobar) > 1024:
                         embed.add_field(name=f"**{key.capitalize()}**",value=foobar.strip(),inline=False)
                         foobar = ""
-                        key = key + " 2"
+                        key = key + " " + str(x+1)
                     foobar = foobar + temp_str
                 embed.add_field(name=f"**{key.capitalize()}**",value=foobar.strip(),inline=False)
             await ctx.send(embed=embed)
@@ -368,14 +369,9 @@ class OtherCogs(commands.Cog, name="Other"):
                     await ctx.send("You do not have the required role for that.")
             else:
                 await ctx.send(
-                    "Either the role requested is not self assignable or you don't have the required role for it")
+                    "The requested role is not self assignable")
         else:
-            await ctx.send("Failed to find the role. Try again with the id of the role")
-
-    @toggle_role.error
-    async def isError(self, ctx, error):
-        if isinstance(error, commands.RoleNotFound):
-            print()
+            await ctx.send("Failed to find the role. Try again with the id of the role or its alias")
 
     @commands.command(
         name="pin",
