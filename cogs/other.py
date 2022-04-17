@@ -247,7 +247,7 @@ class OtherCogs(commands.Cog, name="Other"):
         for role in ctx.author.roles:
             list_r.append(role.id)
         roles = await self.bot.pg_con.fetch(
-            "SELECT id, name, required_role, weight, alias, category "
+            "SELECT id, name, required_roles, weight, alias, category "
             "FROM roles "
             "WHERE (required_roles && $2::bigint[] OR required_roles is NULL)"
             "AND guild_id = $1 "
@@ -298,14 +298,14 @@ class OtherCogs(commands.Cog, name="Other"):
         aliases=['ar', 'addrole']
     )
     @commands.check(admin_or_me_check)
-    async def add_role(self, ctx, role: discord.role.Role, alias: str, category: str, *, required_role=None):
+    async def add_role(self, ctx, role: discord.role.Role, alias: str, category: str, *, required_roles=None):
         list_of_roles = list()
-        required_role = required_role.split(" ")
-        for user_role in required_role:
+        required_roles = required_roles.split(" ")
+        for user_role in required_roles:
             temp = await commands.RoleConverter().convert(ctx, user_role)
             list_of_roles.append(temp.id)
         try:
-            if required_role is not None:
+            if required_roles is not None:
                 await self.bot.pg_con.execute(
                     "UPDATE roles SET self_assignable = TRUE, required_roles = $1, alias = $2, category=$5 "
                     "where id = $3 "
