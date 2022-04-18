@@ -302,25 +302,26 @@ class OtherCogs(commands.Cog, name="Other"):
         aliases=['ar', 'addrole']
     )
     @commands.check(admin_or_me_check)
-    async def add_role(self, ctx, role: discord.role.Role, alias: str, category: str, *, required_roles=None):
-        list_of_roles = list()
-        required_roles = required_roles.split(" ")
-        for user_role in required_roles:
-            temp = await commands.RoleConverter().convert(ctx, user_role)
-            list_of_roles.append(temp.id)
+    async def add_role(self, ctx, role: discord.role.Role, alias: str, category: str = 'Uncategorized',
+                       auto_replace: bool = False, *, required_roles=None):
         try:
             if required_roles is not None:
+                list_of_roles = list()
+                required_roles = required_roles.split(" ")
+                for user_role in required_roles:
+                    temp = await commands.RoleConverter().convert(ctx, user_role)
+                    list_of_roles.append(temp.id)
                 await self.bot.pg_con.execute(
-                    "UPDATE roles SET self_assignable = TRUE, required_roles = $1, alias = $2, category=$5 "
+                    "UPDATE roles SET self_assignable = TRUE, required_roles = $1, alias = $2, category=$5, auto_replace = $6 "
                     "where id = $3 "
                     "and guild_id = $4",
-                    list_of_roles, alias, role.id, ctx.guild.id, category.lower())
+                    list_of_roles, alias, role.id, ctx.guild.id, category.lower(), auto_replace)
             else:
                 await self.bot.pg_con.execute(
-                    "UPDATE roles SET self_assignable = TRUE, required_roles = NULL, alias = $1, category=$4 "
+                    "UPDATE roles SET self_assignable = TRUE, required_roles = NULL, alias = $1, category=$4, auto_replace = $5 "
                     "where id = $2 "
                     "and guild_id = $3",
-                    alias, role.id, ctx.guild.id, category.lower())
+                    alias, role.id, ctx.guild.id, category.lower(), auto_replace)
         except Exception as e:
             logging.error(e)
             await ctx.send(f"Error: {e}")
@@ -337,8 +338,11 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     @commands.check(admin_or_me_check)
     async def remove_roll(self, ctx, role):
-        await self.bot.pg_con.execute("UPDATE roles SET self_assignable = FALSE where id = $1 AND guild_id = $2",
-                                      role, ctx.guild.id)
+        await self.bot.pg_con.execute(
+            "UPDATE roles SET self_assignable = FALSE, weight = 0, alias = NULL, category = NULL, required_role = NULL, auto_replace = FALSE "
+            "where id = $1 "
+            "AND guild_id = $2",
+            role, ctx.guild.id)
 
     @commands.command(
         name="role",
@@ -363,6 +367,16 @@ class OtherCogs(commands.Cog, name="Other"):
                         await ctx.author.remove_roles(role)
                         await ctx.send(f"I removed {role}")
                     else:
+                        if await self.bot.pg_con.fetchval("SELECT auto_replace FROM roles WHERE id = $1", role.id):
+                            list_r = list()
+                            for r in ctx.author.roles:
+                                list_r.append(r.id)
+                            r_loop = self.bot.pg_con.fetch("SELECT id FROM roles WHERE id = ANY($1::bigint[]) "
+                                                           "AND category = "
+                                                           "(SELECT category FROM roles where id = $2)",
+                                                           list_r, role.id)
+                            for r in await r_loop:
+                                await ctx.author.remove_roles(await commands.RoleConverter().convert(ctx, str(r['id'])))
                         await ctx.author.add_roles(role)
                         await ctx.send(f"I added {role}")
                 else:
