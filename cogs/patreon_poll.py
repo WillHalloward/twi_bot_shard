@@ -32,10 +32,9 @@ def is_bot_channel(ctx):
 async def get_poll(bot):
     url = "https://www.patreon.com/api/posts?include=Cpoll.choices%2Cpoll.current_user_responses.poll&filter[campaign_id]=568211"
     while True:
-        async with aiohttp.ClientSession(cookies=secrets.cookies) as session:
+        async with aiohttp.ClientSession(cookies=secrets.cookies, headers=secrets.headers) as session:
             html = await fetch(session, url)
             logging.error(html)
-            logging.error(html.text)
             json_data = json.loads(html)
         for posts in json_data['data']:
             if posts['relationships']['poll']['data'] is not None:
@@ -86,7 +85,9 @@ async def get_poll(bot):
                             len(json_data2['data']['relationships']['choices']['data']))
         try:
             url = json_data['links']['next']
+            logging.error("going to next page")
         except KeyError:
+            logging.error("found no more pages")
             break
 
 
