@@ -1,5 +1,4 @@
 import json
-import logging
 from datetime import datetime, timezone
 from operator import itemgetter
 
@@ -32,10 +31,8 @@ def is_bot_channel(ctx):
 async def get_poll(bot):
     url = "https://www.patreon.com/api/posts?include=Cpoll.choices%2Cpoll.current_user_responses.poll&filter[campaign_id]=568211"
     while True:
-        async with aiohttp.ClientSession(cookies=secrets.cookies) as session:
+        async with aiohttp.ClientSession(cookies=secrets.cookies, headers=secrets.headers) as session:
             html = await fetch(session, url)
-            logging.error(html)
-            logging.error(html.text)
             json_data = json.loads(html)
         for posts in json_data['data']:
             if posts['relationships']['poll']['data'] is not None:
@@ -221,5 +218,5 @@ class PollCog(commands.Cog, name="Poll"):
         await ctx.send(embed=await search_poll(self.bot, query))
 
 
-def setup(bot):
-    bot.add_cog(PollCog(bot))
+async def setup(bot):
+    await bot.add_cog(PollCog(bot))
