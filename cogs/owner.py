@@ -17,7 +17,7 @@ class OwnerCog(commands.Cog, name="Owner"):
         Remember to use dot path. e.g: cogs.owner"""
 
         try:
-            self.bot.load_extension(cog)
+            await self.bot.load_extension(cog)
         except Exception as e:
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
             logging.error(f'{type(e).__name__} - {e}')
@@ -31,7 +31,7 @@ class OwnerCog(commands.Cog, name="Owner"):
         Remember to use dot path. e.g: cogs.owner"""
 
         try:
-            self.bot.unload_extension(cog)
+            await self.bot.unload_extension(cog)
         except Exception as e:
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
             logging.error(f'{type(e).__name__} - {e}')
@@ -45,8 +45,8 @@ class OwnerCog(commands.Cog, name="Owner"):
         Remember to use dot path. e.g: cogs.owner"""
 
         try:
-            self.bot.unload_extension(cog)
-            self.bot.load_extension(cog)
+            await self.bot.unload_extension(cog)
+            await self.bot.load_extension(cog)
         except Exception as e:
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
             logging.error(f'{type(e).__name__} - {e}')
@@ -63,5 +63,5 @@ class OwnerCog(commands.Cog, name="Owner"):
             await ctx.send(f'Error: {e.output.decode("utf-8")}')
 
 
-def setup(bot):
-    bot.add_cog(OwnerCog(bot))
+async def setup(bot):
+    await bot.add_cog(OwnerCog(bot))

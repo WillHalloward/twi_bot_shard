@@ -1,5 +1,4 @@
 import json
-import logging
 from datetime import datetime, timezone
 from operator import itemgetter
 
@@ -222,5 +221,5 @@ class PollCog(commands.Cog, name="Poll"):
         await ctx.send(embed=await search_poll(self.bot, query))
 
 
-def setup(bot):
-    bot.add_cog(PollCog(bot))
+async def setup(bot):
+    await bot.add_cog(PollCog(bot))

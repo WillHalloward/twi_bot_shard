@@ -269,7 +269,7 @@ class StatsCogs(commands.Cog, name="stats"):
             for role in guild.roles:
                 if role.is_default():
                     continue
-                await self.bot.pg_con.execute("UPDATE roles SET color = $1 WHERE id = $2",str(role.color),role.id)
+                await self.bot.pg_con.execute("UPDATE roles SET color = $1 WHERE id = $2", str(role.color), role.id)
         await ctx.send("Done")
 
     @commands.command(
@@ -596,7 +596,7 @@ class StatsCogs(commands.Cog, name="stats"):
             "channel", "DELETED_CHANNEL", channel.name, channel.name, datetime.now().replace(tzinfo=None),
             str(channel.id))
 
-    @Cog.listener("on_thread_join")
+    @Cog.listener("on_thread_create")
     async def thread_created(self, thread):
         logging.info(f"A new thread has been created: {thread}")
         try:
@@ -874,5 +874,5 @@ class StatsCogs(commands.Cog, name="stats"):
         logging.info(f"total messages: {results['total']} in channel {channel.name}")
 
 
-def setup(bot):
-    bot.add_cog(StatsCogs(bot))
+async def setup(bot):
+    await bot.add_cog(StatsCogs(bot))

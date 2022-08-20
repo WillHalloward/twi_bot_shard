@@ -1,5 +1,6 @@
 import logging
 from itertools import groupby
+
 import discord
 from discord.ext import commands
 
@@ -277,11 +278,11 @@ class OtherCogs(commands.Cog, name="Other"):
                 for row in sorted(value, key=key_func2):
                     temp_str = f"`{row['alias']}` `{'-' * (length - len(row['alias']) + 5)}` {ctx.guild.get_role(row['id']).mention}\n"
                     if len(temp_str + foobar) > 1024:
-                        embed.add_field(name=f"**{key.capitalize()}**",value=foobar.strip(),inline=False)
+                        embed.add_field(name=f"**{key.capitalize()}**", value=foobar.strip(), inline=False)
                         foobar = ""
-                        key = key + " " + str(x+1)
+                        key = key + " " + str(x + 1)
                     foobar = foobar + temp_str
-                embed.add_field(name=f"**{key.capitalize()}**",value=foobar.strip(),inline=False)
+                embed.add_field(name=f"**{key.capitalize()}**", value=foobar.strip(), inline=False)
             await ctx.send(embed=embed)
         else:
             await ctx.send("Doesn't look like any roles has been setup to be self assignable on this server."
@@ -406,5 +407,5 @@ class OtherCogs(commands.Cog, name="Other"):
             await ctx.send(f"Error: - {e}")
 
 
-def setup(bot):
-    bot.add_cog(OtherCogs(bot))
+async def setup(bot):
+    await bot.add_cog(OtherCogs(bot))

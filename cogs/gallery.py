@@ -147,5 +147,5 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         await ctx.message.delete()
 
 
-def setup(bot):
-    bot.add_cog(GalleryCog(bot))
+async def setup(bot):
+    await bot.add_cog(GalleryCog(bot))

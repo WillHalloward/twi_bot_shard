@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import ssl
@@ -21,14 +22,13 @@ logging.basicConfig(filename=f'{home}/twi_bot_shard/{secrets.logfile}.log',
 logging.info("Cognita starting")
 intents = discord.Intents.default()  # All but the two privileged ones
 intents.members = True  # Subscribe to the Members intent
+intents.message_content = True
+cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats']
 bot = commands.Bot(
     command_prefix='!',
     description="The Wandering Inn helper",
     case_insensitive=True,
     intents=intents)
-
-cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods',
-        'cogs.stats']
 
 
 @bot.event
@@ -36,32 +36,20 @@ async def on_ready():
     logging.info("Loading in Cogs")
     for extension in cogs:
         try:
-            bot.load_extension(extension)
+            await bot.load_extension(extension)
         except Exception as e:
             logging.error(f"Failed to load cog {extension} - {e}")
             print(f'Failed to load extension {extension}.', file=sys.stderr)
             traceback.print_exc()
     logging.info("Cogs loaded")
     stats_cog = bot.get_cog("stats")
-    bot.remove_listener(stats_cog.save_listener, name="on_message")
-    bot.remove_listener(stats_cog.message_deleted, name="on_raw_message_delete")
-    bot.remove_listener(stats_cog.message_edited, name="on_raw_message_edit")
-    # bot.remove_listener(stats_cog.reaction_add, name="on_raw_reaction_add")
-    # bot.remove_listener(stats_cog.reaction_remove, name="on_raw_reaction_remove")
+    bot.remove_listener(stats_cog.save_listener, "on_message")
+    bot.remove_listener(stats_cog.message_deleted, "on_raw_message_delete")
+    bot.remove_listener(stats_cog.message_edited, "on_raw_message_edit")
+    # bot.remove_listener(stats_cog.reaction_add, "on_raw_reaction_add")
+    # bot.remove_listener(stats_cog.reaction_remove, "on_raw_reaction_remove")
     status_loop.start()
     logging.info(f'Logged in as: {bot.user.name}\nVersion: {discord.__version__}\n')
-
-
-async def create_db_pool():
-    try:
-        bot.pg_con = await asyncpg.create_pool(database=secrets.database, user=secrets.DB_user,
-                                               password=secrets.DB_password,
-                                               host=secrets.host, ssl=context)
-    except Exception as e:
-        logging.critical(f"{type(e).__name__} - {e}")
-        sys.exit("Failed to connect to database")
-
-    logging.info("created database connection")
 
 
 status = cycle(["Killing the mages of Wistram",
@@ -108,5 +96,14 @@ async def on_command(ctx):
         f"{ctx.author.name} invoked {ctx.command} with arguments {ctx.kwargs} in channel {ctx.channel.name} from guild {ctx.guild.name}")
 
 
-bot.loop.run_until_complete(create_db_pool())
-bot.run(secrets.bot_token)
+async def main():
+    try:
+        async with bot, asyncpg.create_pool(database=secrets.database, user=secrets.DB_user, password=secrets.DB_password, host=secrets.host, ssl=context) as pool:
+            bot.pg_con = pool
+            await bot.start(secrets.bot_token)
+    except Exception as e:
+        logging.critical(f"{type(e).__name__} - {e}")
+        sys.exit("Failed to connect to database")
+
+
+asyncio.run(main())
