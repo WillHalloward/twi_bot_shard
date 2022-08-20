@@ -306,5 +306,5 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
             ctx.send(f"You are already in the list with username {dup_user['reddit_username']}")
 
 
-def setup(bot):
-    bot.add_cog(TwiCog(bot))
+async def setup(bot):
+    await bot.add_cog(TwiCog(bot))

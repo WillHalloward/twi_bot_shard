@@ -126,10 +126,7 @@ class ModCogs(commands.Cog):
             except Exception as e:
                 logging.error(f"Failed to delete message from {message.author.id} due to {e}")
                 webhook.send(f"Failed to delete message from {message.author.id} due to {e}")
-            try:
-                muted = message.guild.get_role(542078638741520404)
-            except Exception as e:
-                webhook.send(e)
+            muted = message.guild.get_role(542078638741520404)
             try:
                 await message.author.add_roles(muted)
             except discord.Forbidden:
@@ -243,5 +240,5 @@ class ModCogs(commands.Cog):
             await member.add_roles(verified)
 
 
-def setup(bot):
-    bot.add_cog(ModCogs(bot))
+async def setup(bot):
+    await bot.add_cog(ModCogs(bot))

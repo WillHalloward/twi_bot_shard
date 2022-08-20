@@ -115,5 +115,5 @@ class LinkTags(commands.Cog, name="Links"):
                 "or !links to see all links.")
 
 
-def setup(bot):
-    bot.add_cog(LinkTags(bot))
+async def setup(bot):
+    await bot.add_cog(LinkTags(bot))
