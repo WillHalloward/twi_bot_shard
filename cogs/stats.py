@@ -855,23 +855,22 @@ class StatsCogs(commands.Cog, name="stats"):
                     logging.error(f"Could not post stats_loop to channel {channel.name} - {e}")
             logging.info("Daily stats report done")
 
-    @commands.command(
+    @commands.hybrid_command(
         name="messagecount",
         brief="Retrieve message count from a channel in the last x hours",
-        help="",
+        help="Retrieve message count from a channel in the last x hours",
         aliases=['mc', 'count'],
         usage='[channel] [hours]',
         hidden=False,
     )
-    async def message_count(self, ctx, channel: discord.TextChannel, *, time: typing.Union[int, str]):
-        logging.debug(time)
-        d_time = dateparser.parse(f'{time} ago')
+    async def message_count(self, ctx, channel: discord.TextChannel, *, hours: int):
+        logging.debug(hours)
+        d_time = datetime.now() - timedelta(hours=hours)
         logging.debug(d_time)
         results = await self.bot.pg_con.fetchrow(
             "SELECT count(*) total FROM messages WHERE created_at > $1 and channel_id = $2",
             d_time, channel.id)
-        await ctx.send(f"There is a total of {results['total']} in channel {channel} since {d_time} UTC")
-        logging.info(f"total messages: {results['total']} in channel {channel.name}")
+        await ctx.send(f"There is a total of {results['total']} messages in channel {channel} since {d_time} UTC")
 
 
 async def setup(bot):
