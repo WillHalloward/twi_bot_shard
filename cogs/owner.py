@@ -62,6 +62,14 @@ class OwnerCog(commands.Cog, name="Owner"):
         except subprocess.CalledProcessError as e:
             await ctx.send(f'Error: {e.output.decode("utf-8")}')
 
+    @commands.command(name="sync")
+    @commands.is_owner()
+    async def sync(self, ctx):
+        try:
+            await self.bot.tree.sync()
+        except Exception as e:
+            logging.error(e)
+        logging.debug("Synced")
 
 async def setup(bot):
     await bot.add_cog(OwnerCog(bot))

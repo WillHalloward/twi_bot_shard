@@ -4,6 +4,7 @@ from operator import itemgetter
 
 import aiohttp
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 import secrets
@@ -33,7 +34,6 @@ async def get_poll(bot):
     while True:
         async with aiohttp.ClientSession(cookies=secrets.cookies, headers=secrets.headers) as session:
             html = await fetch(session, url)
-            logging.error(html)
             json_data = json.loads(html)
         for posts in json_data['data']:
             if posts['relationships']['poll']['data'] is not None:
@@ -145,8 +145,8 @@ class PollCog(commands.Cog, name="Poll"):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(
-        name="Poll",
+    @commands.hybrid_command(
+        name="poll",
         brief="Posts the latest poll or a specific poll",
         description="Returns a poll by it's given id.",
         aliases=['p'],
@@ -175,8 +175,8 @@ class PollCog(commands.Cog, name="Poll"):
         if isinstance(error, commands.CheckFailure):
             await ctx.send("Please use this command in <#361694671631548417> only. It takes up quite a bit of space.")
 
-    @commands.command(
-        name="PollList",
+    @commands.hybrid_command(
+        name="polllist",
         brief="Shows the list of poll ids sorted by year.",
         description="",
         aliases=['pl', 'ListPolls'],
@@ -202,16 +202,17 @@ class PollCog(commands.Cog, name="Poll"):
         if isinstance(error, commands.CheckFailure):
             await ctx.send("Please use this command in <#361694671631548417> only. It takes up quite a bit of space.")
 
-    @commands.command(
-        name="GetPoll"
+    @commands.hybrid_command(
+        name="getpoll"
     )
     @commands.check(admin_or_me_check)
+    @app_commands.default_permissions(manage_messages=True)
     async def getpoll(self, ctx):
         await get_poll(self.bot)
         await ctx.send("Done!")
 
-    @commands.command(
-        name="FindPoll",
+    @commands.hybrid_command(
+        name="findpoll",
         aliases=['fp', 'SearchPoll'],
         brief="Searches poll questions for a given query",
         usage='[Query]',

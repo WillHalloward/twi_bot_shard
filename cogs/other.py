@@ -2,6 +2,7 @@ import logging
 from itertools import groupby
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 
@@ -16,20 +17,20 @@ def admin_or_me_check(ctx):
 
 
 class OtherCogs(commands.Cog, name="Other"):
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot: commands.Bot = bot
 
-    @commands.command(
-        name="Ping",
+    @commands.hybrid_command(
+        name="ping",
         brief="Gives the latency of the bot",
         aliases=['latency', 'delay'],
         hidden=False,
     )
-    async def ping(self, ctx):
+    async def ping(self, ctx: commands.Context) -> None:
         await ctx.send(f"{round(self.bot.latency * 1000)} ms")
 
-    @commands.command(
-        name="Avatar",
+    @commands.hybrid_command(
+        name="avatar",
         brief="Posts the full version of a avatar",
         aliases=['Av'],
         usage='[@User]',
@@ -43,14 +44,18 @@ class OtherCogs(commands.Cog, name="Other"):
         embed.set_image(url=member.avatar.url)
         await ctx.send(embed=embed)
 
-    @commands.command(
-        name="Info",
+    @commands.hybrid_group(name="info")
+    async def info(self, ctx):
+        pass
+
+    @info.command(
+        name="user",
         brief="Gives the account information of a user.",
         aliases=['Stats', 'Information'],
         usage='[@user]',
         hidden=False,
     )
-    async def info(self, ctx, *, member: discord.Member = None):
+    async def info_user(self, ctx, *, member: discord.Member = None):
         if member is None:
             member = ctx.author
 
@@ -70,26 +75,35 @@ class OtherCogs(commands.Cog, name="Other"):
             embed.add_field(name="Roles", value=roles, inline=False)
         await ctx.send(embed=embed)
 
+    @info.command(name="server")
+    async def info_server(self, ctx):
+        print()
+        # TODO Implement !info server
+
+    @info.command(name="role")
+    async def info_role(self, ctx, role: discord.Role):
+        print()
+        # TODO Implement !info role
+
     @commands.command(
-        name="Say",
+        name="say",
         brief="Makes Cognita repeat whatever was said",
         aliases=['repeat'],
         usage='[message]'
     )
     @commands.is_owner()
     async def say(self, ctx, *, say):
-        await ctx.message.delete()
         await ctx.send(say)
 
     @commands.command(
-        name="SayChannel",
+        name="saychannel",
         brief="Makes Cognita repeat whatever was said in a specific channel",
         aliases=['sayc', 'repeatc', 'sc', 'repeatchannel'],
         usage='[Channel_id][message]'
     )
     @commands.is_owner()
     async def say_channel(self, ctx, channel_id, *, say):
-        channel = self.bot.get_channel_or_thread(int(channel_id))
+        channel = ctx.guild.get_channel_or_thread(int(channel_id))
         await channel.send(say)
 
     @commands.Cog.listener()
@@ -129,22 +143,26 @@ class OtherCogs(commands.Cog, name="Other"):
                 embed.set_thumbnail(url=after.avatar.url)
                 await channel.send(embed=embed, content=f"{after.mention}")
 
-    @commands.command(
-        name="addQuote",
+    @commands.hybrid_group(name="quote")
+    async def quote(self, ctx):
+        pass
+
+    @quote.command(
+        name="add",
         aliases=['aq']
     )
-    async def addquote(self, ctx, *, quote):
+    async def add_quote(self, ctx, *, quote):
         await self.bot.pg_con.execute(
             "INSERT INTO quotes(quote, author, author_id, time, tokens) VALUES ($1,$2,$3,now(),to_tsvector($4))",
             quote, ctx.author.display_name, ctx.author.id, quote)
         row_number = await self.bot.pg_con.fetchrow("SELECT COUNT(*) FROM quotes")
         await ctx.send(f"Added quote `{quote}` at index {row_number['count']}")
 
-    @commands.command(
-        name="findQuote",
+    @quote.command(
+        name="find",
         aliases=['fq']
     )
-    async def findquote(self, ctx, *, search):
+    async def quote_add(self, ctx, *, search):
         results = await self.bot.pg_con.fetch(
             "SELECT quote, ROW_NUMBER () OVER (ORDER BY time) FROM quotes WHERE tokens @@ to_tsquery($1);", search)
         if len(results) > 1:
@@ -164,11 +182,11 @@ class OtherCogs(commands.Cog, name="Other"):
         else:
             await ctx.send("How the fuck?")
 
-    @commands.command(
-        name="deleteQuote",
+    @quote.command(
+        name="delete",
         aliases=['dq', 'removequote', 'rq']
     )
-    async def deletequote(self, ctx, *, delete: int):
+    async def quote_delete(self, ctx, *, delete: int):
         u_quote = await self.bot.pg_con.fetchrow(
             "SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x WHERE ROW_NUMBER = $1",
             delete)
@@ -180,11 +198,11 @@ class OtherCogs(commands.Cog, name="Other"):
         else:
             await ctx.send("Im sorry. I could not find a quote on that index")
 
-    @commands.command(
-        name="Quote",
+    @quote.command(
+        name="get",
         aliases=['q']
     )
-    async def quote(self, ctx, index: int = None):
+    async def quote_get(self, ctx, index: int = None):
         if index is None:
             u_quote = await self.bot.pg_con.fetchrow(
                 "SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x  ORDER BY random() LIMIT 1")
@@ -197,11 +215,11 @@ class OtherCogs(commands.Cog, name="Other"):
         else:
             await ctx.send("Im sorry, i could not find a quote with that index value.")
 
-    @commands.command(
-        name="whoQuote",
+    @quote.command(
+        name="who",
         aliases=['infoquote', 'iq', 'wq']
     )
-    async def whoquote(self, ctx, index: int):
+    async def quote_who(self, ctx, index: int):
         u_quote = await self.bot.pg_con.fetchrow(
             "SELECT author, author_id, time, row_number FROM (SELECT author, author_id, time, ROW_NUMBER () OVER () FROM quotes) x WHERE ROW_NUMBER = $1",
             index)
@@ -211,35 +229,7 @@ class OtherCogs(commands.Cog, name="Other"):
         else:
             await ctx.send("Im sorry, i could not find a quote with that index value.")
 
-    @commands.command(
-        name="pink",
-        aliases=['nitro']
-    )
-    @commands.has_role(585789843368574997)
-    async def pink(self, ctx):
-        pink_role = ctx.guild.get_role(690373096099545168)
-        if pink_role in ctx.author.roles:
-            await ctx.author.remove_roles(pink_role)
-            await ctx.send(f"I removed {pink_role.name}")
-        else:
-            await ctx.author.add_roles(pink_role)
-            await ctx.send(f"I added {pink_role.name}")
-
-    @commands.command(
-        name="artistColor",
-        aliases=['artcolor', 'artcolour', 'artistcolour']
-    )
-    @commands.has_role(730704163792748625)
-    async def artistcolor(self, ctx):
-        artist_role = ctx.guild.get_role(740611013556043887)
-        if artist_role in ctx.author.roles:
-            await ctx.author.remove_roles(artist_role)
-            await ctx.send(f"I removed {artist_role.name}")
-        else:
-            await ctx.author.add_roles(artist_role)
-            await ctx.send(f"I added {artist_role.name}")
-
-    @commands.command(
+    @commands.hybrid_command(
         name="roles",
         aliases=['rolelist', 'listroles', 'rl', 'lr']
     )
@@ -289,21 +279,24 @@ class OtherCogs(commands.Cog, name="Other"):
                            "The moderators can do that by using: "
                            "`!addrole [Role]`")
 
-    @commands.command(
-        name="update_role_weight",
-        aliases=['urw', 'role_weight', 'weight']
+    @commands.hybrid_group(name="admin_role")
+    @app_commands.default_permissions(manage_roles=True)
+    async def admin_role(self, ctx):
+        pass
+
+    @admin_role.command(
+        name="weight"
     )
     @commands.check(admin_or_me_check)
     async def update_role_weight(self, ctx, role: discord.role.Role, new_weight: int):
         await self.bot.pg_con.execute("UPDATE roles set weight = $1 WHERE id = $2 AND guild_id = $3",
                                       new_weight, role.id, ctx.guild.id)
 
-    @commands.command(
-        name="add_role",
-        aliases=['ar', 'addrole']
+    @admin_role.command(
+        name="add"
     )
     @commands.check(admin_or_me_check)
-    async def add_role(self, ctx, role: discord.role.Role, alias: str, category: str = 'Uncategorized',
+    async def role_add(self, ctx, role: discord.role.Role, alias: str, category: str = 'Uncategorized',
                        auto_replace: bool = False, *, required_roles=None):
         try:
             if required_roles is not None:
@@ -327,37 +320,23 @@ class OtherCogs(commands.Cog, name="Other"):
             logging.error(e)
             await ctx.send(f"Error: {e}")
 
-    @commands.command(
-        name="remove_roll",
-        aliases=['rr', 'removeroll'],
-        brief="removes a role from self assign list",
-        description="removes a role from the self assign list",
-        enable=True,
-        help="role",
-        hidden=False,
-        usage="!remove_roll [roll]",
+    @admin_role.command(
+        name="remove",
+        description="removes a role from the self assign list"
     )
     @commands.check(admin_or_me_check)
-    async def remove_roll(self, ctx, role):
+    async def role_remove(self, ctx, role):
         await self.bot.pg_con.execute(
             "UPDATE roles SET self_assignable = FALSE, weight = 0, alias = NULL, category = NULL, required_role = NULL, auto_replace = FALSE "
             "where id = $1 "
             "AND guild_id = $2",
             role, ctx.guild.id)
 
-    @commands.command(
-        name="role",
-        aliases=['requestrole', 'needrole', 'plzrole', 'r', 'takerole']
+    @commands.hybrid_command(
+        name="role"
     )
-    async def toggle_role(self, ctx, *, role):
-        try:
-            role = await commands.RoleConverter().convert(ctx, role)
-        except discord.ext.commands.RoleNotFound:
-            role = ctx.guild.get_role(await self.bot.pg_con.fetchval("SELECT id FROM roles "
-                                                                     "WHERE lower(alias) = lower($1) "
-                                                                     "and guild_id = $2",
-                                                                     role, ctx.guild.id))
-        if type(role) == discord.role.Role:
+    async def role(self, ctx, *, role: discord.Role):
+        if type(role) == discord.Role:
             s_role = await self.bot.pg_con.fetchrow("SELECT * FROM roles WHERE id = $1", role.id)
             if s_role['self_assignable']:
                 b_role = list()
@@ -388,24 +367,17 @@ class OtherCogs(commands.Cog, name="Other"):
         else:
             await ctx.send("Failed to find the role. Try again with the id of the role or its alias")
 
-    @commands.command(
-        name="pin",
-        aliases=['pinn'],
-        brief="pins a selected message",
-        description="",
-        enable=True,
-        help="",
-        hidden=False,
-        usage="[message_id]",
+    @commands.hybrid_command(
+        name="pin"
     )
     @commands.has_role(870298484484485190)
-    async def pin(self, ctx, message_id):
+    async def pin(self, ctx, message_id: str):
         try:
-            message = await ctx.channel.fetch_message(message_id)
+            message = await ctx.channel.fetch_message(int(message_id))
             await message.pin()
         except Exception as e:
             await ctx.send(f"Error: - {e}")
 
 
-async def setup(bot):
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(OtherCogs(bot))

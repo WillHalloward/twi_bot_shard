@@ -16,31 +16,36 @@ class LinkTags(commands.Cog, name="Links"):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(
-        name="Link",
+    @commands.hybrid_group(name="link")
+    async def link(self, ctx):
+        pass
+
+    # TODO Implement auto complete
+    @link.command(
+        name="get",
         brief="Posts the link with the given name.",
         usage='[Title]',
         aliases=['map'],
         hidden=False,
     )
-    async def link(self, ctx, user_input):
+    async def link_get(self, ctx, title: str):
         try:
             query_r = await self.bot.pg_con.fetchrow("SELECT content, title FROM links WHERE lower(title) = lower($1)",
-                                                     user_input)
+                                                     title)
             if query_r:
                 await ctx.send(f"{query_r['title']}: {query_r['content']}")
             else:
-                await ctx.send(f"I could not find a link with the title **{user_input}**")
+                await ctx.send(f"I could not find a link with the title **{title}**")
         except:
             logging.exception("Link")
 
-    @commands.command(
-        name="Links",
+    @link.command(
+        name="list",
         brief="View all links.",
         aliases=['maps'],
         hidden=False,
     )
-    async def links(self, ctx):
+    async def link_list(self, ctx):
         try:
             query_r = await self.bot.pg_con.fetch("SELECT title FROM links ORDER BY title")
             message = ""
@@ -50,13 +55,13 @@ class LinkTags(commands.Cog, name="Links"):
         except:
             logging.exception("Link")
 
-    @commands.command(
-        name="AddLink",
+    @link.command(
+        name="add",
         brief="Adds a link with the given name to the given url and tag",
         usage='[url][title][tag]',
         hidden=False,
     )
-    async def add_link(self, ctx, content, title, tag=None):
+    async def link_add(self, ctx, content, title: str, tag: str = None):
         try:
             await self.bot.pg_con.execute(
                 "INSERT INTO links(content, tag, user_who_added, id_user_who_added, time_added, title) "
@@ -66,22 +71,22 @@ class LinkTags(commands.Cog, name="Links"):
         except asyncpg.exceptions.UniqueViolationError:
             await ctx.send("That name is already in the list.")
 
-    @commands.command(
-        name="Delink",
+    @link.command(
+        name="delete",
         brief="Deletes a link with the given name",
         aliases=['RemoveLink', 'DeleteLink'],
         usage='[Title]',
         hidden=False,
     )
-    async def delete_link(self, ctx, title):
+    async def link_delete(self, ctx, title: str):
         result = await self.bot.pg_con.execute("DELETE FROM links WHERE lower(title) = lower($1)", title)
         if result == "DELETE 1":
             await ctx.send(f"Deleted link: **{title}**")
         else:
             await ctx.send(f"I could not find a link with the title: **{title}**")
 
-    @commands.command(
-        name="Tags",
+    @commands.hybrid_command(
+        name="tags",
         brief="See all available tags",
         aliases=['ListTags', 'ShowTags'],
         hidden=False,
@@ -93,17 +98,17 @@ class LinkTags(commands.Cog, name="Links"):
             message = f"{message} `{tags['tag']}`"
         await ctx.send(f"Tags: {message}")
 
-    @commands.command(
-        name="Tag",
+    @commands.hybrid_command(
+        name="tag",
         brief="View all links that got a certain tag",
         aliases=['ShowTag'],
         usage='[Tag]',
         hidden=False,
     )
-    async def tag(self, ctx, user_input):
+    async def tag(self, ctx, tag):
         query_r = await self.bot.pg_con.fetch(
             "SELECT title FROM links WHERE lower(tag) = lower($1) ORDER BY NULLIF(regexp_replace(title, '\D', '', 'g'), '')::int",
-            user_input)
+            tag)
         if query_r:
             message = ""
             for tags in query_r:
@@ -111,7 +116,7 @@ class LinkTags(commands.Cog, name="Links"):
             await ctx.send(f"links: {message}")
         else:
             await ctx.send(
-                f"I could not find a link with the tag **{user_input}**. Use !tags to see all available tags. "
+                f"I could not find a link with the tag **{tag}**. Use !tags to see all available tags. "
                 "or !links to see all links.")
 
 

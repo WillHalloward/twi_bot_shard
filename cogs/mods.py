@@ -4,6 +4,7 @@ import logging
 import re
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import Cog
 
@@ -30,12 +31,15 @@ class ModCogs(commands.Cog):
         help="resets the cooldown of a command",
         aliases=['removecooldown', 'cooldown'],
         usage='[Command]',
-        hidden=False, )
+        hidden=False,
+    )
     @commands.check(admin_or_me_check)
+    @app_commands.default_permissions(manage_messages=True)
     async def reset(self, ctx, command):
         self.bot.get_command(command).reset_cooldown(ctx)
+        await ctx.send("reset!")
 
-    @commands.command(
+    @commands.hybrid_command(
         name="state",
         brief="Makes Cognita post a mod message",
         help="",
@@ -43,66 +47,67 @@ class ModCogs(commands.Cog):
         usage="[message]"
     )
     @commands.check(admin_or_me_check)
+    @app_commands.default_permissions(manage_messages=True)
     async def state(self, ctx, *, message):
         embed = discord.Embed(title="**MOD MESSAGE**", color=0xff0000)
-        embed.set_thumbnail(
-            url="https://cdn.discordapp.com/attachments/359864559361851392/715698476813385788/Exclamation-Mark-Symbol-PNG.png")
+        # embed.set_thumbnail(
+        #     url="https://cdn.discordapp.com/attachments/359864559361851392/715698476813385788/Exclamation-Mark-Symbol-PNG.png")
         embed.add_field(name="\u200b", value=message, inline=False)
         embed.set_footer(text=ctx.author.name, icon_url=ctx.author.avatar.url)
         await ctx.send(embed=embed)
 
-    @commands.command(
-        name="deletealluser",
-        alias=['dau']
-    )
-    @commands.is_owner()
-    async def delete_all_user(self, ctx, user: discord.User):
-        result = await self.bot.pg_con.fetchrow(
-            "SELECT COUNT(*) message_count FROM messages WHERE user_id = $1 AND deleted = False AND server_id = $2",
-            user.id, ctx.guild.id)
-        confirm = await ctx.send(
-            f"Are you sure you want do delete {result['message_count']} messages from user {user.mention}",
-            allowed_mentions=None)
-        await confirm.add_reaction('✅')
-        await confirm.add_reaction('❌')
-        logging.info(
-            f"requestion confirmation to delete: {result['message_count']} messages from user id {user.id} "
-            f"and user name {user.name}")
-
-        def check(reaction, author):
-            return str(reaction.emoji) in ['✅', '❌'] and author == ctx.author
-
-        try:
-            reaction, author = await self.bot.wait_for(
-                'reaction_add', timeout=60,
-                check=check)
-
-        except asyncio.TimeoutError:
-            await ctx.send("No reaction within 60 seconds")
-
-        else:
-            if str(reaction.emoji) == '✅':
-                await ctx.send("Confirmed")
-                all_messages = await self.bot.pg_con.fetch(
-                    "SELECT message_id from messages where user_id = $1 AND deleted = False AND server_id = $2",
-                    user.id, ctx.guild.id)
-                total_del = 0
-                for message in all_messages:
-                    try:
-                        msg = await ctx.fetch_message(message['message_id'])
-                        await msg.delete()
-                        total_del += 1
-                    except discord.Forbidden as e:
-                        logging.error(f"Forbidden {e} - {message['message_id']}")
-                    except discord.NotFound as e:
-                        logging.error(f"NotFound {e} - {message['message_id']}")
-                    except discord.HTTPException as e:
-                        logging.error(f"HTTPException {e} - {message['message_id']}")
-                    await asyncio.sleep(1)
-                await ctx.send(f"I succeeded in deleting {total_del} messages out of {result['message_count']}")
-
-            if str(reaction.emoji) == '❌':
-                await ctx.send("Denied")
+    # @commands.command(
+    #     name="deletealluser",
+    #     alias=['dau']
+    # )
+    # @commands.is_owner()
+    # async def delete_all_user(self, ctx, user: discord.User):
+    #     result = await self.bot.pg_con.fetchrow(
+    #         "SELECT COUNT(*) message_count FROM messages WHERE user_id = $1 AND deleted = False AND server_id = $2",
+    #         user.id, ctx.guild.id)
+    #     confirm = await ctx.send(
+    #         f"Are you sure you want do delete {result['message_count']} messages from user {user.mention}",
+    #         allowed_mentions=None)
+    #     await confirm.add_reaction('✅')
+    #     await confirm.add_reaction('❌')
+    #     logging.info(
+    #         f"requestion confirmation to delete: {result['message_count']} messages from user id {user.id} "
+    #         f"and user name {user.name}")
+    #
+    #     def check(reaction, author):
+    #         return str(reaction.emoji) in ['✅', '❌'] and author == ctx.author
+    #
+    #     try:
+    #         reaction, author = await self.bot.wait_for(
+    #             'reaction_add', timeout=60,
+    #             check=check)
+    #
+    #     except asyncio.TimeoutError:
+    #         await ctx.send("No reaction within 60 seconds")
+    #
+    #     else:
+    #         if str(reaction.emoji) == '✅':
+    #             await ctx.send("Confirmed")
+    #             all_messages = await self.bot.pg_con.fetch(
+    #                 "SELECT message_id from messages where user_id = $1 AND deleted = False AND server_id = $2",
+    #                 user.id, ctx.guild.id)
+    #             total_del = 0
+    #             for message in all_messages:
+    #                 try:
+    #                     msg = await ctx.fetch_message(message['message_id'])
+    #                     await msg.delete()
+    #                     total_del += 1
+    #                 except discord.Forbidden as e:
+    #                     logging.error(f"Forbidden {e} - {message['message_id']}")
+    #                 except discord.NotFound as e:
+    #                     logging.error(f"NotFound {e} - {message['message_id']}")
+    #                 except discord.HTTPException as e:
+    #                     logging.error(f"HTTPException {e} - {message['message_id']}")
+    #                 await asyncio.sleep(1)
+    #             await ctx.send(f"I succeeded in deleting {total_del} messages out of {result['message_count']}")
+    #
+    #         if str(reaction.emoji) == '❌':
+    #             await ctx.send("Denied")
 
     # @Cog.listener("on_message")
     # async def mention_pirate(self, message):
@@ -184,7 +189,7 @@ class ModCogs(commands.Cog):
                 logging.warning(f"I don't have the required permissions to mute {message.author.mention}")
             else:
                 await webhook.send(
-                    f"{message.author.mention} has been muted for pining more than 10 ppl in one message"
+                    f"{message.author.mention} has been muted for pining more than 10 users in one message"
                     f"<@268608466690506753>")
 
     # @Cog.listener("on_message")
@@ -207,11 +212,11 @@ class ModCogs(commands.Cog):
     #                         f"{message.author.mention} has been muted for pinging pirate on a young account"
     #                         f"<@268608466690506753>")
 
-    @Cog.listener("on_member_join")
-    async def suspected_spammer(self, member):
-        if member.created_at.replace(tzinfo=None) > datetime.datetime.now() - datetime.timedelta(hours=24):
-            webhook = discord.SyncWebhook.from_url(secrets.webhook)
-            await webhook.send(f"{member.mention} joined and has a account younger than 24 hours <@268608466690506753>")
+    # @Cog.listener("on_member_join")
+    # async def suspected_spammer(self, member):
+    #     if member.created_at.replace(tzinfo=None) > datetime.datetime.now() - datetime.timedelta(hours=24):
+    #         webhook = discord.SyncWebhook.from_url(secrets.webhook)
+    #         await webhook.send(f"{member.mention} joined and has a account younger than 24 hours <@268608466690506753>")
 
     @commands.command(
         name="add_role_to_all",
