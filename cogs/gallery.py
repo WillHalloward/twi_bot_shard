@@ -132,6 +132,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         await add_to_gallery(self, ctx, int(message_id), title, 'to_be_added')
 
     @commands.hybrid_group(name="set")
+    @app_commands.default_permissions(manage_messages=True)
     async def set(self, ctx):
         pass
 
@@ -143,7 +144,6 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         hidden=False,
     )
     @commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
     async def set_gallery(self, ctx, channel: discord.TextChannel):
         await set_channel(self, ctx, channel, "gallery")
 
@@ -155,7 +155,6 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         hidden=False,
     )
     @commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
     async def set_mementos(self, ctx, channel: discord.TextChannel):
         await set_channel(self, ctx, channel, "mementos")
 
@@ -167,7 +166,6 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         hidden=False,
     )
     @commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
     async def set_to_be_added(self, ctx, channel: discord.TextChannel):
         await set_channel(self, ctx, channel, "to_be_added")
 
