@@ -62,16 +62,15 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(self.ctx_menu.name, type=self.ctx_menu.type)
 
-    @app_commands.checks.has_permissions(manage_messages=True)
+    @app_commands.check(admin_or_me_check)
     @app_commands.default_permissions(manage_messages=True)
     async def post_to_gallery(self, interaction: discord.Interaction, message: discord.Message) -> None:
         channel_id = await self.bot.pg_con.fetchrow(
             "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'gallery')
         try:
-            # channel = self.bot.get_channel(channel_id["channel_id"])
-            channel = self.bot.get_channel(964519175320125490)
+            channel = self.bot.get_channel(channel_id["channel_id"])
         except KeyError:
-            await interaction.response.send_message("The channel for this command has not been configured.")
+            await interaction.response.send_message("The channel for this command has not been configured.", ephemeral=True)
             return
         attach = message.attachments
         if not attach:
