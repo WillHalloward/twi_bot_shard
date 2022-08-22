@@ -50,6 +50,19 @@ def admin_or_me_check(ctx):
         return False
 
 
+class MyModal(discord.ui.Modal, title="Embed generator"):
+    def __init__(self, mention: str, jump_url: str) -> None:
+        super().__init__()
+
+        self.title_item = discord.ui.TextInput(label="Title", style=discord.TextStyle.short, placeholder="The title of the embed", default=None, required=False)
+        self.description_item = discord.ui.TextInput(label="Title", style=discord.TextStyle.long, placeholder="The Description of the embed", default=f"Created by: {mention}\nSource: {jump_url}", required=False)
+        self.add_item(self.title_item)
+        self.add_item(self.description_item)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message("Posted!", ephemeral=True)
+
+
 class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     def __init__(self, bot):
         self.bot = bot
@@ -75,6 +88,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def post_to_gallery(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        modal = MyModal(jump_url=message.jump_url, mention=message.author.mention)
+        await interaction.response.send_modal(modal)
         channel_id = await self.bot.pg_con.fetchrow(
             "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'gallery')
         try:
@@ -87,14 +102,16 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             logging.warning(f"Could not find image on id {message.id}")
             await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
             return
-        embed = discord.Embed(title=None, description=f"Created by: {message.author.mention}\nSource: {message.jump_url}")
+        await modal.wait()
+        embed = discord.Embed(title=modal.title_item.value, description=modal.description_item.value)
         embed.set_image(url=attach[0].url)
         await channel.send(embed=embed)
-        await interaction.response.send_message(f'hello! {message.attachments}', ephemeral=True)
 
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def post_to_mementos(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        modal = MyModal(jump_url=message.jump_url, mention=message.author.mention)
+        await interaction.response.send_modal(modal)
         channel_id = await self.bot.pg_con.fetchrow(
             "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'mementos')
         try:
@@ -107,14 +124,16 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             logging.warning(f"Could not find image on id {message.id}")
             await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
             return
+        await modal.wait()
         embed = discord.Embed(title=None, description=f"Created by: {message.author.mention}\nSource: {message.jump_url}")
         embed.set_image(url=attach[0].url)
         await channel.send(embed=embed)
-        await interaction.response.send_message(f'hello! {message.attachments}', ephemeral=True)
 
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def post_to_toBeAdded(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        modal = MyModal(jump_url=message.jump_url, mention=message.author.mention)
+        await interaction.response.send_modal(modal)
         channel_id = await self.bot.pg_con.fetchrow(
             "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'to_be_added')
         try:
@@ -127,10 +146,10 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             logging.warning(f"Could not find image on id {message.id}")
             await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
             return
+        await modal.wait()
         embed = discord.Embed(title=None, description=f"Created by: {message.author.mention}\nSource: {message.jump_url}")
         embed.set_image(url=attach[0].url)
         await channel.send(embed=embed)
-        await interaction.response.send_message(f'hello! {message.attachments}', ephemeral=True)
 
     # TODO Bake all into a single context action
     @commands.hybrid_command(
@@ -232,7 +251,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     async def editembed(self, ctx, embed_id: int, *, title):
         msg = await ctx.fetch_message(embed_id)
         new_embed = msg.embeds
-        new_embed[0].title = title
+        new_embed[0].test_title = title
         await msg.edit(embed=new_embed[0])
         await ctx.message.delete()
 
