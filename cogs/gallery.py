@@ -72,8 +72,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(self.pt_gallery.name, type=self.pt_gallery.type)
 
-    @app_commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
+    @app_commands.checks.has_permissions(ban_members=True)
+    @app_commands.default_permissions(ban_members=True)
     async def post_to_gallery(self, interaction: discord.Interaction, message: discord.Message) -> None:
         channel_id = await self.bot.pg_con.fetchrow(
             "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'gallery')
@@ -92,8 +92,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         await channel.send(embed=embed)
         await interaction.response.send_message(f'hello! {message.attachments}', ephemeral=True)
 
-    @app_commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
+    @app_commands.checks.has_permissions(ban_members=True)
+    @app_commands.default_permissions(ban_members=True)
     async def post_to_mementos(self, interaction: discord.Interaction, message: discord.Message) -> None:
         channel_id = await self.bot.pg_con.fetchrow(
             "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'mementos')
@@ -112,8 +112,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         await channel.send(embed=embed)
         await interaction.response.send_message(f'hello! {message.attachments}', ephemeral=True)
 
-    @app_commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
+    @app_commands.checks.has_permissions(ban_members=True)
+    @app_commands.default_permissions(ban_members=True)
     async def post_to_toBeAdded(self, interaction: discord.Interaction, message: discord.Message) -> None:
         channel_id = await self.bot.pg_con.fetchrow(
             "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'to_be_added')
