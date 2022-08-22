@@ -53,20 +53,70 @@ def admin_or_me_check(ctx):
 class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     def __init__(self, bot):
         self.bot = bot
-        self.ctx_menu = app_commands.ContextMenu(
-            name="Post to Gallery",
+        self.pt_gallery = app_commands.ContextMenu(
+            name="Post to #Gallery",
             callback=self.post_to_gallery,
         )
-        self.bot.tree.add_command(self.ctx_menu)
+        self.pt_mementos = app_commands.ContextMenu(
+            name="Post to #Mementos",
+            callback=self.post_to_mementos,
+        )
+        self.pt_tobeadded = app_commands.ContextMenu(
+            name="Post to #To-Be-Added",
+            callback=self.post_to_toBeAdded,
+        )
+        self.bot.tree.add_command(self.pt_gallery)
+        self.bot.tree.add_command(self.pt_mementos)
+        self.bot.tree.add_command(self.pt_tobeadded)
 
     async def cog_unload(self) -> None:
-        self.bot.tree.remove_command(self.ctx_menu.name, type=self.ctx_menu.type)
+        self.bot.tree.remove_command(self.pt_gallery.name, type=self.pt_gallery.type)
 
     @app_commands.check(admin_or_me_check)
     @app_commands.default_permissions(manage_messages=True)
     async def post_to_gallery(self, interaction: discord.Interaction, message: discord.Message) -> None:
         channel_id = await self.bot.pg_con.fetchrow(
             "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'gallery')
+        try:
+            channel = self.bot.get_channel(channel_id["channel_id"])
+        except KeyError:
+            await interaction.response.send_message("The channel for this command has not been configured.", ephemeral=True)
+            return
+        attach = message.attachments
+        if not attach:
+            logging.warning(f"Could not find image on id {message.id}")
+            await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
+            return
+        embed = discord.Embed(title=None, description=f"Created by: {message.author.mention}\nSource: {message.jump_url}")
+        embed.set_image(url=attach[0].url)
+        await channel.send(embed=embed)
+        await interaction.response.send_message(f'hello! {message.attachments}', ephemeral=True)
+
+    @app_commands.check(admin_or_me_check)
+    @app_commands.default_permissions(manage_messages=True)
+    async def post_to_mementos(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        channel_id = await self.bot.pg_con.fetchrow(
+            "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'mementos')
+        try:
+            channel = self.bot.get_channel(channel_id["channel_id"])
+        except KeyError:
+            await interaction.response.send_message("The channel for this command has not been configured.", ephemeral=True)
+            return
+        attach = message.attachments
+        if not attach:
+            logging.warning(f"Could not find image on id {message.id}")
+            await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
+            return
+        embed = discord.Embed(title=None, description=f"Created by: {message.author.mention}\nSource: {message.jump_url}")
+        embed.set_image(url=attach[0].url)
+        await channel.send(embed=embed)
+        await interaction.response.send_message(f'hello! {message.attachments}', ephemeral=True)
+
+    @app_commands.check(admin_or_me_check)
+    @app_commands.default_permissions(manage_messages=True)
+    async def post_to_toBeAdded(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        channel_id = await self.bot.pg_con.fetchrow(
+            "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'to_be_added')
         try:
             channel = self.bot.get_channel(channel_id["channel_id"])
         except KeyError:
@@ -94,7 +144,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         usage='[Msg Id][Title]',
         hidden=False,
     )
-    @commands.check(admin_or_me_check)
+    # @commands.check(admin_or_me_check)
     @app_commands.default_permissions(manage_messages=True)
     async def g(self, ctx, message_id: str, *, title: str):
         await add_to_gallery(self, ctx, int(message_id), title, 'gallery')
