@@ -144,7 +144,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         usage='[Msg Id][Title]',
         hidden=False,
     )
-    # @commands.check(admin_or_me_check)
+    @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(manage_messages=True)
     async def g(self, ctx, message_id: str, *, title: str):
         await add_to_gallery(self, ctx, int(message_id), title, 'gallery')
@@ -160,7 +160,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         usage='[message Id] [title]\nEx: !mementos 123123123 A nice meme',
         hidden=False,
     )
-    @commands.check(admin_or_me_check)
+    @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(manage_messages=True)
     async def m(self, ctx, message_id: str, *, title: str):
         await add_to_gallery(self, ctx, int(message_id), title, 'mementos')
@@ -175,7 +175,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         aliases=['tba'],
         usage="[Message id] [Title]"
     )
-    @commands.check(admin_or_me_check)
+    @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(manage_messages=True)
     async def to_be_added(self, ctx, message_id: str, *, title: str):
         await add_to_gallery(self, ctx, int(message_id), title, 'to_be_added')
