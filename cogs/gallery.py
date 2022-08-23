@@ -125,7 +125,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
             return
         await modal.wait()
-        embed = discord.Embed(title=None, description=f"Created by: {message.author.mention}\nSource: {message.jump_url}")
+        embed = discord.Embed(title=modal.title_item.value, description=modal.description_item.value)
         embed.set_image(url=attach[0].url)
         await channel.send(embed=embed)
 
@@ -147,7 +147,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
             return
         await modal.wait()
-        embed = discord.Embed(title=None, description=f"Created by: {message.author.mention}\nSource: {message.jump_url}")
+        embed = discord.Embed(title=modal.title_item.value, description=modal.description_item.value)
         embed.set_image(url=attach[0].url)
         await channel.send(embed=embed)
 
