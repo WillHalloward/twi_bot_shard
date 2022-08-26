@@ -164,7 +164,7 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     async def quote_find(self, ctx, *, search):
         results = await self.bot.pg_con.fetch(
-            "SELECT quote, ROW_NUMBER () OVER (ORDER BY time) FROM quotes WHERE tokens @@ to_tsquery($1);", search)
+            "SELECT quote, x.row_number FROM (SELECT tokens, quote, ROW_NUMBER() OVER () as row_number FROM quotes) x WHERE x.tokens @@ to_tsquery($1);", search)
         if len(results) > 1:
             index_res = "["
             iterres = iter(results)
