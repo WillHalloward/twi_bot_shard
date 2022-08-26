@@ -258,7 +258,7 @@ class OtherCogs(commands.Cog, name="Other"):
 
         if len(roles) != 0:
             embed = discord.Embed(title="List of all the roles in the server",
-                                  description="Request the role by doing !role [Rolename]",
+                                  description="Request the role by doing /role @Role",
                                   color=0x00fcff)
             embed.set_thumbnail(url=ctx.guild.icon)
             roles = sorted(roles, key=key_func)
