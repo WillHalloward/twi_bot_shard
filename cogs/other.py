@@ -151,7 +151,7 @@ class OtherCogs(commands.Cog, name="Other"):
         name="add",
         aliases=['aq']
     )
-    async def add_quote(self, ctx, *, quote):
+    async def quote_add(self, ctx, *, quote):
         await self.bot.pg_con.execute(
             "INSERT INTO quotes(quote, author, author_id, time, tokens) VALUES ($1,$2,$3,now(),to_tsvector($4))",
             quote, ctx.author.display_name, ctx.author.id, quote)
@@ -162,7 +162,7 @@ class OtherCogs(commands.Cog, name="Other"):
         name="find",
         aliases=['fq']
     )
-    async def quote_add(self, ctx, *, search):
+    async def quote_find(self, ctx, *, search):
         results = await self.bot.pg_con.fetch(
             "SELECT quote, ROW_NUMBER () OVER (ORDER BY time) FROM quotes WHERE tokens @@ to_tsquery($1);", search)
         if len(results) > 1:
@@ -333,7 +333,8 @@ class OtherCogs(commands.Cog, name="Other"):
             role, ctx.guild.id)
 
     @commands.hybrid_command(
-        name="role"
+        name="role",
+        aliases=['r', 'iam', 'iamnot', 'giverole']
     )
     async def role(self, ctx, *, role: discord.Role):
         if type(role) == discord.Role:
