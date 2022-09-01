@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timezone
 from operator import itemgetter
 
@@ -34,7 +35,10 @@ async def get_poll(bot):
     while True:
         async with aiohttp.ClientSession(cookies=secrets.cookies, headers=secrets.headers) as session:
             html = await fetch(session, url)
-            json_data = json.loads(html)
+            try:
+                json_data = json.loads(html)
+            except Exception as e:
+                logging.error(e)
         for posts in json_data['data']:
             if posts['relationships']['poll']['data'] is not None:
                 poll_id = await bot.pg_con.fetch("SELECT * FROM poll WHERE id = $1",

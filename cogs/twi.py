@@ -1,4 +1,5 @@
 import json
+import logging
 
 import aiohttp
 import discord
@@ -272,6 +273,11 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
             "INSERT INTO password_link(password, link, user_id, date) VALUES ($1, $2, $3, $4)",
             password, link, ctx.author.id, ctx.message.created_at.replace(tzinfo=None)
         )
+
+    @commands.hybrid_command(name="getrules")
+    @commands.is_owner()
+    async def get_rules(self, ctx):
+        logging.error(ctx.guild.fetch_automod_rules())
 
     # @commands.command(name="reddit")
     # async def reddit_verification(self, ctx, username):
