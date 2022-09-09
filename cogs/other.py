@@ -77,13 +77,33 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @info.command(name="server")
     async def info_server(self, ctx):
-        print()
-        # TODO Implement !info server
+        embed = discord.Embed(title=ctx.guild.name, color=discord.Color(0x3cd63d))
+        embed.set_thumbnail(url=ctx.guild.icon)
+        embed.add_field(name="Banner", value=ctx.guild.banner, inline=False)
+        embed.add_field(name="Created At", value=ctx.guild.created_at, inline=False)
+        embed.add_field(name="Description", value=ctx.guild.description, inline=False)
+        embed.add_field(name="Id", value=ctx.guild.id)
+        embed.add_field(name="Member count", value=ctx.guild.member_count)
+        embed.add_field(name="Owner", value=ctx.guild.owner.mention)
+        embed.add_field(name="Number of roles", value=f"{len(ctx.guild.roles)}/250")
+        embed.add_field(name="Number of emojis", value=f"{len(ctx.guild.emojis)}/{ctx.guild.emoji_limit}")
+        embed.add_field(name="Number of stickers", value=f"{len(ctx.guild.stickers)}/{ctx.guild.sticker_limit}")
+        embed.add_field(name="Number of active threads", value=f"{len(await ctx.guild.active_threads())}")
+        embed.add_field(name="Number of Text Channels", value=f"{len(ctx.guild.text_channels)}")
+        embed.add_field(name="Number of Voice channels", value=f"{len(ctx.guild.voice_channels)}")
+        if ctx.guild.vanity_url is not None:
+            embed.add_field(name="Invite link", value=ctx.guild.vanity_url)
+        await ctx.send(embed=embed)
 
     @info.command(name="role")
     async def info_role(self, ctx, role: discord.Role):
-        print()
-        # TODO Implement !info role
+        embed = discord.Embed(title=role.name, color=(discord.Color(role.color.value)))
+        embed.add_field(name="Color: ", value=hex(role.color.value), inline=False)
+        embed.add_field(name="Created at", value=role.created_at, inline=False)
+        embed.add_field(name="Hoisted", value=role.hoist, inline=False)
+        embed.add_field(name="Id", value=role.id, inline=False)
+        embed.add_field(name="Member count", value=len(role.members), inline=False)
+        await ctx.send(embed=embed)
 
     @commands.command(
         name="say",
