@@ -80,7 +80,7 @@ class OtherCogs(commands.Cog, name="Other"):
         embed = discord.Embed(title=ctx.guild.name, color=discord.Color(0x3cd63d))
         embed.set_thumbnail(url=ctx.guild.icon)
         embed.add_field(name="Banner", value=ctx.guild.banner, inline=False)
-        embed.add_field(name="Created At", value=ctx.guild.created_at, inline=False)
+        embed.add_field(name="Created At", value=ctx.guild.created_at.strftime("%d-%m-%Y @ %H:%M:%S"), inline=False)
         embed.add_field(name="Description", value=ctx.guild.description, inline=False)
         embed.add_field(name="Id", value=ctx.guild.id)
         embed.add_field(name="Member count", value=ctx.guild.member_count)
@@ -106,7 +106,7 @@ class OtherCogs(commands.Cog, name="Other"):
     async def info_role(self, ctx, role: discord.Role):
         embed = discord.Embed(title=role.name, color=(discord.Color(role.color.value)))
         embed.add_field(name="Color: ", value=hex(role.color.value), inline=False)
-        embed.add_field(name="Created at", value=role.created_at, inline=False)
+        embed.add_field(name="Created at", value=role.created_at.strftime("%d-%m-%Y @ %H:%M:%S"), inline=False)
         embed.add_field(name="Hoisted", value=role.hoist, inline=False)
         embed.add_field(name="Id", value=role.id, inline=False)
         embed.add_field(name="Member count", value=len(role.members), inline=False)
