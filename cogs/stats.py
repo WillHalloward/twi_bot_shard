@@ -388,10 +388,11 @@ class StatsCogs(commands.Cog, name="stats"):
 
     @Cog.listener("on_message")
     async def save_listener(self, message):
-        try:
-            await save_message(self, message)
-        except Exception as e:
-            logging.error(f"Error: {e} on message save")
+        if not isinstance(message.channel, discord.channel.DMChannel):
+            try:
+                await save_message(self, message)
+            except Exception as e:
+                logging.error(f"Error: {e} on message save")
 
     @Cog.listener("on_raw_message_edit")
     async def message_edited(self, message):
