@@ -145,7 +145,7 @@ class ModCogs(commands.Cog):
 
     @Cog.listener("on_message")
     async def log_attachment(self, message):
-        if message.attachments and message.author.bot is False:
+        if message.attachments and message.author.bot is False and not isinstance(message.channel, discord.channel.DMChannel):
             logging.debug(message.attachments)
             webhook = discord.SyncWebhook.from_url(secrets.webhook)
             for attachment in message.attachments:
@@ -156,9 +156,34 @@ class ModCogs(commands.Cog):
                     embed.set_image(url=f"attachment://{attachment.filename}")
                     embed.add_field(name="User", value=message.author.mention, inline=True)
                     embed.add_field(name="Channel", value=message.channel.mention, inline=True)
-                    embed.set_thumbnail(url=message.author.avatar.url)
+                    if message.author.avatar is not None:
+                        embed.set_thumbnail(url=message.author.avatar.url)
                     webhook.send(file=file, embed=embed,
                                  allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
+                except Exception as e:
+                    logging.exception('Log_attachments')
+
+    @Cog.listener("on_message")
+    async def dm_watch(self, message):
+        if isinstance(message.channel, discord.channel.DMChannel):
+            webhook = discord.SyncWebhook.from_url(secrets.webook_testing_log)
+            if message.attachments:
+                for attachment in message.attachments:
+                    try:
+                        embed = discord.Embed(title="New attachment",
+                                              description=f"content: {message.content}")
+                        file = await attachment.to_file(spoiler=attachment.is_spoiler())
+                        embed.set_image(url=f"attachment://{attachment.filename}")
+                        embed.add_field(name="User", value=message.author.mention, inline=True)
+                        webhook.send(file=file, embed=embed)
+                    except Exception as e:
+                        logging.exception('Log_attachments')
+            else:
+                try:
+                    embed = discord.Embed(title="New message",
+                                          description=f"content: {message.content}")
+                    embed.add_field(name="User", value=message.author.mention, inline=True)
+                    webhook.send(embed=embed)
                 except Exception as e:
                     logging.exception('Log_attachments')
 
