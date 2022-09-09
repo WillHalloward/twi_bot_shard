@@ -86,7 +86,14 @@ class OtherCogs(commands.Cog, name="Other"):
         embed.add_field(name="Member count", value=ctx.guild.member_count)
         embed.add_field(name="Owner", value=ctx.guild.owner.mention)
         embed.add_field(name="Number of roles", value=f"{len(ctx.guild.roles)}/250")
-        embed.add_field(name="Number of emojis", value=f"{len(ctx.guild.emojis)}/{ctx.guild.emoji_limit}")
+        normal, animated = 0, 0
+        for emoji in ctx.guild.emojis:
+            if emoji.animated:
+                animated += 1
+            else:
+                normal += 1
+        embed.add_field(name="Number of emojis", value=f"{normal}/{ctx.guild.emoji_limit}")
+        embed.add_field(name="Number of Animated emojis", value=f"{animated}/{ctx.guild.emoji_limit}")
         embed.add_field(name="Number of stickers", value=f"{len(ctx.guild.stickers)}/{ctx.guild.sticker_limit}")
         embed.add_field(name="Number of active threads", value=f"{len(await ctx.guild.active_threads())}")
         embed.add_field(name="Number of Text Channels", value=f"{len(ctx.guild.text_channels)}")
