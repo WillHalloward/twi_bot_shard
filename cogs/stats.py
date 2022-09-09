@@ -1,10 +1,8 @@
 import asyncio
 import logging
-import typing
 from datetime import datetime, timedelta
 
 import asyncpg
-import dateparser
 import discord
 from discord.ext import commands
 from discord.ext import tasks
@@ -640,7 +638,7 @@ class StatsCogs(commands.Cog, name="stats"):
             await self.bot.pg_con.execute(
                 "INSERT INTO updates(updated_table, action, before, after, date, primary_key) "
                 "VALUES ($1,$2,$3,$4,$5,$6)",
-                "threads", "THREAD_SLOWMODE_UPDATED", before.slowmode_delay, after.slowmode_delay,
+                "threads", "THREAD_SLOWMODE_UPDATED", str(before.slowmode_delay), str(after.slowmode_delay),
                 datetime.now().replace(tzinfo=None), str(after.id))
         if before.archived != after.archived:
             if after.archiver_id:
@@ -652,7 +650,7 @@ class StatsCogs(commands.Cog, name="stats"):
             await self.bot.pg_con.execute(
                 "INSERT INTO updates(updated_table, action, before, after, date, primary_key) "
                 "VALUES ($1,$2,$3,$4,$5,$6)",
-                "threads", "THREAD_ARCHIVED_UPDATED", before.archived, after.archived,
+                "threads", "THREAD_ARCHIVED_UPDATED", str(before.archived), str(after.archived),
                 datetime.now().replace(tzinfo=None), str(after.id))
         if before.locked != after.locked:
             await self.bot.pg_con.execute("UPDATE threads set locked = $1 where id = $2",
@@ -660,7 +658,7 @@ class StatsCogs(commands.Cog, name="stats"):
             await self.bot.pg_con.execute(
                 "INSERT INTO updates(updated_table, action, before, after, date, primary_key) "
                 "VALUES ($1,$2,$3,$4,$5,$6)",
-                "threads", "THREAD_LOCKED_UPDATED", before.locked, after.locked, datetime.now().replace(tzinfo=None),
+                "threads", "THREAD_LOCKED_UPDATED", str(before.locked), str(after.locked), datetime.now().replace(tzinfo=None),
                 str(after.id))
         if before.auto_archive_duration != after.auto_archive_duration:
             await self.bot.pg_con.execute("UPDATE threads set auto_archive_duration = $1 where id = $2",
@@ -668,15 +666,15 @@ class StatsCogs(commands.Cog, name="stats"):
             await self.bot.pg_con.execute(
                 "INSERT INTO updates(updated_table, action, before, after, date, primary_key) "
                 "VALUES ($1,$2,$3,$4,$5,$6)",
-                "threads", "THREAD_AUTO_ARCHIVE_DURATION_UPDATED", before.auto_archive_duration,
-                after.auto_archive_duration, datetime.now().replace(tzinfo=None), str(after.id))
+                "threads", "THREAD_AUTO_ARCHIVE_DURATION_UPDATED", str(before.auto_archive_duration),
+                str(after.auto_archive_duration), datetime.now().replace(tzinfo=None), str(after.id))
         if before.is_private() != after.is_private():
             await self.bot.pg_con.execute("UPDATE threads set is_private = $1 where id = $2",
                                           after.is_private(), after.id)
             await self.bot.pg_con.execute(
                 "INSERT INTO updates(updated_table, action, before, after, date, primary_key) "
                 "VALUES ($1,$2,$3,$4,$5,$6)",
-                "threads", "THREAD_PRIVATE_UPDATED", before.is_private(), after.is_private(),
+                "threads", "THREAD_PRIVATE_UPDATED", str(before.is_private()), str(after.is_private()),
                 datetime.now().replace(tzinfo=None), str(after.id))
         if before.name != after.name:
             await self.bot.pg_con.execute("UPDATE threads set name = $1 where id = $2",
