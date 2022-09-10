@@ -53,7 +53,7 @@ class ModCogs(commands.Cog):
         # embed.set_thumbnail(
         #     url="https://cdn.discordapp.com/attachments/359864559361851392/715698476813385788/Exclamation-Mark-Symbol-PNG.png")
         embed.add_field(name="\u200b", value=message, inline=False)
-        embed.set_footer(text=ctx.author.name, icon_url=ctx.author.avatar.url)
+        embed.set_footer(text=ctx.author.name, icon_url=ctx.author.display_avatar.url)
         await ctx.send(embed=embed)
 
     # @commands.command(
@@ -157,7 +157,7 @@ class ModCogs(commands.Cog):
                     embed.add_field(name="User", value=message.author.mention, inline=True)
                     embed.add_field(name="Channel", value=message.channel.mention, inline=True)
                     if message.author.avatar is not None:
-                        embed.set_thumbnail(url=message.author.avatar.url)
+                        embed.set_thumbnail(url=message.author.display_avatar.url)
                     webhook.send(file=file, embed=embed,
                                  allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
                 except Exception as e:

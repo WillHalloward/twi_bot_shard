@@ -71,5 +71,6 @@ class OwnerCog(commands.Cog, name="Owner"):
             logging.error(e)
         logging.debug("Synced")
 
+
 async def setup(bot):
     await bot.add_cog(OwnerCog(bot))

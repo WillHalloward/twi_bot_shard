@@ -40,8 +40,8 @@ class OtherCogs(commands.Cog, name="Other"):
         if member is None:
             member = ctx.author
         embed = discord.Embed(title="Avatar", color=discord.Color(0x3cd63d))
-        logging.debug(f"Avatar url: {member.avatar.url}")
-        embed.set_image(url=member.avatar.url)
+        logging.debug(f"Avatar url: {member.display_avatar.url}")
+        embed.set_image(url=member.display_avatar.url)
         await ctx.send(embed=embed)
 
     @commands.hybrid_group(name="info")
@@ -60,7 +60,7 @@ class OtherCogs(commands.Cog, name="Other"):
             member = ctx.author
 
         embed = discord.Embed(title=member.display_name, color=discord.Color(0x3cd63d))
-        embed.set_thumbnail(url=member.avatar.url)
+        embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name="Account created at", value=member.created_at.strftime("%d-%m-%Y @ %H:%M:%S"))
         embed.add_field(name="Joined server", value=member.joined_at.strftime("%d-%m-%Y @ %H:%M:%S"))
         embed.add_field(name="Id", value=member.id)
@@ -79,12 +79,12 @@ class OtherCogs(commands.Cog, name="Other"):
     async def info_server(self, ctx):
         embed = discord.Embed(title=ctx.guild.name, color=discord.Color(0x3cd63d))
         embed.set_thumbnail(url=ctx.guild.icon)
-        embed.add_field(name="Banner", value=ctx.guild.banner, inline=False)
-        embed.add_field(name="Created At", value=ctx.guild.created_at.strftime("%d-%m-%Y @ %H:%M:%S"), inline=False)
-        embed.add_field(name="Description", value=ctx.guild.description, inline=False)
-        embed.add_field(name="Id", value=ctx.guild.id)
-        embed.add_field(name="Member count", value=ctx.guild.member_count)
+        embed.add_field(name="Id", value=ctx.guild.id, inline=False)
         embed.add_field(name="Owner", value=ctx.guild.owner.mention)
+        embed.add_field(name="Created At", value=ctx.guild.created_at.strftime("%d-%m-%Y @ %H:%M:%S"), inline=False)
+        embed.add_field(name="Banner", value=ctx.guild.banner, inline=False)
+        embed.add_field(name="Description", value=ctx.guild.description, inline=False)
+        embed.add_field(name="Member count", value=ctx.guild.member_count)
         embed.add_field(name="Number of roles", value=f"{len(ctx.guild.roles)}/250")
         normal, animated = 0, 0
         for emoji in ctx.guild.emojis:
@@ -167,7 +167,7 @@ class OtherCogs(commands.Cog, name="Other"):
                 else:
                     embed = discord.Embed(title=f"Make some room in the inn!",
                                           description=f"{after.mention} just joined the ranks of {gained.mention}!")
-                embed.set_thumbnail(url=after.avatar.url)
+                embed.set_thumbnail(url=after.display_avatar.url)
                 await channel.send(embed=embed, content=f"{after.mention}")
 
     @commands.hybrid_group(name="quote")

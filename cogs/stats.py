@@ -709,7 +709,7 @@ class StatsCogs(commands.Cog, name="stats"):
                                           after.category_id, after.id)
             await self.bot.pg_con.execute(
                 'INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)',
-                "channels", "UPDATE_CHANNEL_CATEGORY_ID", before.category_id, after.category_id,
+                "channels", "UPDATE_CHANNEL_CATEGORY_ID", str(before.category_id), str(after.category_id),
                 datetime.now().replace(tzinfo=None),
                 str(after.id))
         if before.position != after.position:
@@ -717,7 +717,7 @@ class StatsCogs(commands.Cog, name="stats"):
                                           after.position, after.id)
             await self.bot.pg_con.execute(
                 'INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)',
-                "channels", "UPDATE_CHANNEL_POSITION", before.position, after.position,
+                "channels", "UPDATE_CHANNEL_POSITION", str(before.position), str(after.position),
                 datetime.now().replace(tzinfo=None),
                 str(after.id))
         if before.topic != after.topic:
@@ -732,7 +732,7 @@ class StatsCogs(commands.Cog, name="stats"):
                                           after.is_nsfw(), after.id)
             await self.bot.pg_con.execute(
                 'INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)',
-                "channels", "UPDATE_CHANNEL_IS_NSFW", before.is_nsfw(), after.is_nsfw(),
+                "channels", "UPDATE_CHANNEL_IS_NSFW", str(before.is_nsfw()), str(after.is_nsfw()),
                 datetime.now().replace(tzinfo=None),
                 str(after.id))
 
@@ -782,14 +782,14 @@ class StatsCogs(commands.Cog, name="stats"):
                                           after.hoist, after.id)
             await self.bot.pg_con.execute(
                 'INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)',
-                "roles", "UPDATE_ROLE_HOISTED", before.hoist, after.hoist, datetime.now().replace(tzinfo=None),
+                "roles", "UPDATE_ROLE_HOISTED", str(before.hoist), str(after.hoist), datetime.now().replace(tzinfo=None),
                 str(after.id))
         if before.position != after.position:
             await self.bot.pg_con.execute("UPDATE roles set position = $1 where id = $2",
                                           after.position, after.id)
             await self.bot.pg_con.execute(
                 'INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)',
-                "roles", "UPDATE_ROLE_POSITION", before.position, after.position,
+                "roles", "UPDATE_ROLE_POSITION", str(before.position), str(after.position),
                 datetime.now().replace(tzinfo=None),
                 str(after.id))
 
