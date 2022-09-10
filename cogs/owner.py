@@ -94,6 +94,7 @@ class OwnerCog(commands.Cog, name="Owner"):
 
     @commands.hybrid_command(name="sync")
     @commands.is_owner()
+    @app_commands.guilds(297916314239107072)
     async def sync(self, ctx, *, all_guilds: bool):
         if all_guilds:
             try:
