@@ -17,6 +17,7 @@ class OwnerCog(commands.Cog, name="Owner"):
     # Hidden means it won't show up on the default help.
     @commands.hybrid_command(name='load', hidden=True)
     @commands.is_owner()
+    @app_commands.guilds(297916314239107072)
     async def load_cog(self, ctx, *, cog: str):
         """Command which Loads a Module.
         Remember to use dot path. e.g: cogs.owner"""
@@ -38,6 +39,7 @@ class OwnerCog(commands.Cog, name="Owner"):
 
     @commands.hybrid_command(name='unload', hidden=True)
     @commands.is_owner()
+    @app_commands.guilds(297916314239107072)
     async def unload_cog(self, ctx, *, cog: str):
         """Command which Unloads a Module.
         Remember to use dot path. e.g: cogs.owner"""
@@ -59,6 +61,7 @@ class OwnerCog(commands.Cog, name="Owner"):
 
     @commands.hybrid_command(name='reload', hidden=True)
     @commands.is_owner()
+    @app_commands.guilds(297916314239107072)
     async def reload_cog(self, ctx, cog: str):
         """Command which Reloads a Module.
         Remember to use dot path. e.g: cogs.owner"""
@@ -81,6 +84,7 @@ class OwnerCog(commands.Cog, name="Owner"):
 
     @commands.hybrid_command(name='cmd')
     @commands.is_owner()
+    @app_commands.guilds(297916314239107072)
     async def cmd(self, ctx, *, args):
         args_array = args.split(" ")
         try:
