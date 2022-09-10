@@ -1,7 +1,12 @@
 import logging
 import subprocess
+from typing import List
 
+import discord
+from discord import app_commands
 from discord.ext import commands
+
+cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats']
 
 
 class OwnerCog(commands.Cog, name="Owner"):
@@ -10,7 +15,7 @@ class OwnerCog(commands.Cog, name="Owner"):
         self.bot = bot
 
     # Hidden means it won't show up on the default help.
-    @commands.command(name='load', hidden=True)
+    @commands.hybrid_command(name='load', hidden=True)
     @commands.is_owner()
     async def load_cog(self, ctx, *, cog: str):
         """Command which Loads a Module.
@@ -24,7 +29,14 @@ class OwnerCog(commands.Cog, name="Owner"):
         else:
             await ctx.send('**`SUCCESS`**')
 
-    @commands.command(name='unload', hidden=True)
+    @load_cog.autocomplete('cog')
+    async def reload_cog_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+        return [
+            app_commands.Choice(name=cog, value=cog)
+            for cog in cogs if current.lower() in cog.lower()
+        ]
+
+    @commands.hybrid_command(name='unload', hidden=True)
     @commands.is_owner()
     async def unload_cog(self, ctx, *, cog: str):
         """Command which Unloads a Module.
@@ -38,9 +50,16 @@ class OwnerCog(commands.Cog, name="Owner"):
         else:
             await ctx.send('**`SUCCESS`**')
 
-    @commands.command(name='reload', hidden=True)
+    @unload_cog.autocomplete('cog')
+    async def reload_cog_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+        return [
+            app_commands.Choice(name=cog, value=cog)
+            for cog in cogs if current.lower() in cog.lower()
+        ]
+
+    @commands.hybrid_command(name='reload', hidden=True)
     @commands.is_owner()
-    async def reload_cog(self, ctx, *, cog: str):
+    async def reload_cog(self, ctx, cog: str):
         """Command which Reloads a Module.
         Remember to use dot path. e.g: cogs.owner"""
 
@@ -53,7 +72,14 @@ class OwnerCog(commands.Cog, name="Owner"):
         else:
             await ctx.send('**`SUCCESS`**')
 
-    @commands.command(name='cmd')
+    @reload_cog.autocomplete('cog')
+    async def reload_cog_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+        return [
+            app_commands.Choice(name=cog, value=cog)
+            for cog in cogs if current.lower() in cog.lower()
+        ]
+
+    @commands.hybrid_command(name='cmd')
     @commands.is_owner()
     async def cmd(self, ctx, *, args):
         args_array = args.split(" ")
@@ -62,15 +88,22 @@ class OwnerCog(commands.Cog, name="Owner"):
         except subprocess.CalledProcessError as e:
             await ctx.send(f'Error: {e.output.decode("utf-8")}')
 
-    @commands.command(name="sync")
+    @commands.hybrid_command(name="sync")
     @commands.is_owner()
-    async def sync(self, ctx):
-        try:
-            await self.bot.tree.sync()
-        except Exception as e:
-            logging.error(e)
-        logging.debug("Synced")
+    async def sync(self, ctx, *, all_guilds: bool):
+        if all_guilds:
+            try:
+                await self.bot.tree.sync()
+            except Exception as e:
+                logging.error(e)
+            await ctx.send("Synced Globally")
+        else:
+            try:
+                await self.bot.tree.sync(guild=ctx.guild)
+            except Exception as e:
+                logging.error(e)
+            await ctx.send("Synced Locally")
 
 
 async def setup(bot):
-    await bot.add_cog(OwnerCog(bot))
+    await bot.add_cog(OwnerCog(bot), guilds=[discord.Object(id=297916314239107072)])
