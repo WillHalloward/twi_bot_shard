@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import List
 
 import aiohttp
 import discord
@@ -42,6 +43,10 @@ reddit = praw.Reddit(client_id=secrets.client_id,
 class TwiCog(commands.Cog, name="The Wandering Inn"):
     def __init__(self, bot):
         self.bot = bot
+        self.invis_text_cache = None
+
+    async def cog_load(self) -> None:
+        self.invis_text_cache = await self.bot.pg_con.fetch("SELECT DISTINCT title FROM invisible_text_twi")
 
     @commands.hybrid_command(
         name="password",
@@ -158,6 +163,16 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
             else:
                 await ctx.send("Sorry i could not find any invisible text on that chapter.\n"
                                "Please give me the chapters exact title.")
+
+    @invis_text.autocomplete('chapter')
+    async def invis_text_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+        ln = []
+        for x in self.invis_text_cache:
+            ln.append(x['title'])
+        return [
+                   app_commands.Choice(name=title, value=title)
+                   for title in ln if current.lower() in title.lower() or current == ""
+               ][0:25]
 
     @commands.hybrid_command(
         name="coloredtext",

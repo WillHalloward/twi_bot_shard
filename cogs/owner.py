@@ -2,7 +2,6 @@ import logging
 import subprocess
 from typing import List
 
-import discord
 from discord import app_commands
 from discord.ext import commands
 
@@ -14,14 +13,10 @@ class OwnerCog(commands.Cog, name="Owner"):
     def __init__(self, bot):
         self.bot = bot
 
-    # Hidden means it won't show up on the default help.
     @commands.hybrid_command(name='load', hidden=True)
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     async def load_cog(self, ctx, *, cog: str):
-        """Command which Loads a Module.
-        Remember to use dot path. e.g: cogs.owner"""
-
         try:
             await self.bot.load_extension(cog)
         except Exception as e:
@@ -41,9 +36,6 @@ class OwnerCog(commands.Cog, name="Owner"):
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     async def unload_cog(self, ctx, *, cog: str):
-        """Command which Unloads a Module.
-        Remember to use dot path. e.g: cogs.owner"""
-
         try:
             await self.bot.unload_extension(cog)
         except Exception as e:
@@ -63,9 +55,6 @@ class OwnerCog(commands.Cog, name="Owner"):
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     async def reload_cog(self, ctx, cog: str):
-        """Command which Reloads a Module.
-        Remember to use dot path. e.g: cogs.owner"""
-
         try:
             await self.bot.unload_extension(cog)
             await self.bot.load_extension(cog)
@@ -111,4 +100,4 @@ class OwnerCog(commands.Cog, name="Owner"):
 
 
 async def setup(bot):
-    await bot.add_cog(OwnerCog(bot), guilds=[discord.Object(id=297916314239107072)])
+    await bot.add_cog(OwnerCog(bot))

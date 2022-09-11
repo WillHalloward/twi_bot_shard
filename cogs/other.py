@@ -1,5 +1,6 @@
 import logging
 from itertools import groupby
+from typing import List
 
 import discord
 from discord import app_commands
@@ -19,6 +20,10 @@ def admin_or_me_check(ctx):
 class OtherCogs(commands.Cog, name="Other"):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot: commands.Bot = bot
+        self.quote_cache = None
+
+    async def cog_load(self) -> None:
+        self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
 
     @commands.hybrid_command(
         name="ping",
@@ -184,6 +189,7 @@ class OtherCogs(commands.Cog, name="Other"):
             quote, ctx.author.display_name, ctx.author.id, quote)
         row_number = await self.bot.pg_con.fetchrow("SELECT COUNT(*) FROM quotes")
         await ctx.send(f"Added quote `{quote}` at index {row_number['count']}")
+        self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
 
     @quote.command(
         name="find",
@@ -222,8 +228,19 @@ class OtherCogs(commands.Cog, name="Other"):
                 "DELETE FROM quotes WHERE serial_id in (SELECT serial_id FROM QUOTES ORDER BY TIME LIMIT 1 OFFSET $1)",
                 delete - 1)
             await ctx.send(f"Deleted quote `{u_quote['quote']}` from position {u_quote['row_number']}")
+            self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
         else:
             await ctx.send("Im sorry. I could not find a quote on that index")
+
+    @quote_delete.autocomplete('delete')
+    async def quote_delete_autocomplete(self, ctx, current: int, ) -> List[app_commands.Choice[int]]:
+        ln = []
+        for x in self.quote_cache:
+            ln.append({"quote": x['quote'], "row_number": x['row_number']})
+        return [
+                   app_commands.Choice(name=f"{quote['row_number']}: {quote['quote']}", value=quote['row_number'])
+                   for quote in ln if str(current) in str(quote['row_number']) or current == ""
+               ][0:25]
 
     @quote.command(
         name="get",
@@ -242,6 +259,16 @@ class OtherCogs(commands.Cog, name="Other"):
         else:
             await ctx.send("Im sorry, i could not find a quote with that index value.")
 
+    @quote_get.autocomplete('index')
+    async def quote_get_autocomplete(self, ctx, current: int, ) -> List[app_commands.Choice[int]]:
+        ln = []
+        for x in self.quote_cache:
+            ln.append({"quote": x['quote'], "row_number": x['row_number']})
+        return [
+                   app_commands.Choice(name=f"{quote['row_number']}: {quote['quote']}", value=quote['row_number'])
+                   for quote in ln if str(current) in str(quote['row_number']) or current == ""
+               ][0:25]
+
     @quote.command(
         name="who",
         aliases=['infoquote', 'iq', 'wq']
@@ -255,6 +282,16 @@ class OtherCogs(commands.Cog, name="Other"):
                 f"Quote {u_quote['row_number']} was added by: {u_quote['author']} ({u_quote['author_id']}) at {u_quote['time']}")
         else:
             await ctx.send("Im sorry, i could not find a quote with that index value.")
+
+    @quote_who.autocomplete('index')
+    async def quote_who_autocomplete(self, ctx, current: int, ) -> List[app_commands.Choice[int]]:
+        ln = []
+        for x in self.quote_cache:
+            ln.append({"quote": x['quote'], "row_number": x['row_number']})
+        return [
+                   app_commands.Choice(name=f"{quote['row_number']}: {quote['quote']}", value=quote['row_number'])
+                   for quote in ln if str(current) in str(quote['row_number']) or current == ""
+               ][0:25]
 
     @commands.hybrid_command(
         name="roles",

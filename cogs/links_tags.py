@@ -1,7 +1,9 @@
 import logging
 import re
+from typing import List
 
 import asyncpg
+from discord import app_commands
 from discord.ext import commands
 
 
@@ -15,6 +17,10 @@ def numerical_sort(value):
 class LinkTags(commands.Cog, name="Links"):
     def __init__(self, bot):
         self.bot = bot
+        self.links_cache = None
+
+    async def cog_load(self) -> None:
+        self.links_cache = await self.bot.pg_con.fetch("SELECT * FROM links")
 
     @commands.hybrid_group(name="link")
     async def link(self, ctx):
@@ -38,6 +44,16 @@ class LinkTags(commands.Cog, name="Links"):
                 await ctx.send(f"I could not find a link with the title **{title}**")
         except:
             logging.exception("Link")
+
+    @link_get.autocomplete('title')
+    async def link_get_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+        ln = []
+        for x in self.links_cache:
+            ln.append({"title": x['title'], "content": x['content']})
+        return [
+                   app_commands.Choice(name=f"{link['title']}: {link['content']}"[0:100], value=link['title'])
+                   for link in ln if str(current) in str(link['title']) or current == ""
+               ][0:25]
 
     @link.command(
         name="list",
@@ -68,6 +84,7 @@ class LinkTags(commands.Cog, name="Links"):
                 "VALUES ($1,$2,$3,$4,now(),$5)",
                 content, tag, ctx.author.display_name, ctx.author.id, title)
             await ctx.send(f"Added Link: {title}\nLink: <{content}>\nTag: {tag}")
+            self.links_cache = await self.bot.pg_con.fetch("SELECT * FROM links")
         except asyncpg.exceptions.UniqueViolationError:
             await ctx.send("That name is already in the list.")
 
@@ -82,8 +99,19 @@ class LinkTags(commands.Cog, name="Links"):
         result = await self.bot.pg_con.execute("DELETE FROM links WHERE lower(title) = lower($1)", title)
         if result == "DELETE 1":
             await ctx.send(f"Deleted link: **{title}**")
+            self.links_cache = await self.bot.pg_con.fetch("SELECT * FROM links")
         else:
             await ctx.send(f"I could not find a link with the title: **{title}**")
+
+    @link_delete.autocomplete('title')
+    async def link_delete_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+        ln = []
+        for x in self.links_cache:
+            ln.append({"title": x['title'], "content": x['content']})
+        return [
+                   app_commands.Choice(name=f"{link['title']}: {link['content']}"[0:100], value=link['title'])
+                   for link in ln if str(current) in str(link['title']) or current == ""
+               ][0:25]
 
     @commands.hybrid_command(
         name="tags",
