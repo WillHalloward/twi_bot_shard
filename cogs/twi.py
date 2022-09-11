@@ -294,7 +294,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     async def get_rules(self, ctx):
         rules_list = await ctx.guild.fetch_automod_rules()
         for rule in rules_list:
-            logging.error(f"{rule}, {rule.id}, {rule.name}, {rule.trigger}, {rule.enabled}, {rule.action}")
+            logging.error(f"{rule}, {rule.id}, {rule.name}, {rule.trigger}, {rule.enabled}, {rule.actions}")
 
     # @commands.command(name="reddit")
     # async def reddit_verification(self, ctx, username):
