@@ -292,8 +292,9 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     @commands.hybrid_command(name="getrules")
     @commands.is_owner()
     async def get_rules(self, ctx):
-        rules_list = ctx.guild.fetch_automod_rules()
-        logging.error(rules_list)
+        rules_list = await ctx.guild.fetch_automod_rules()
+        for rule in rules_list:
+            logging.error(rule, rule.trigger)
 
     # @commands.command(name="reddit")
     # async def reddit_verification(self, ctx, username):

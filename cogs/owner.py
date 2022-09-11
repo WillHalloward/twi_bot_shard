@@ -2,6 +2,7 @@ import logging
 import subprocess
 from typing import List
 
+import discord
 from discord import app_commands
 from discord.ext import commands
 
@@ -100,4 +101,4 @@ class OwnerCog(commands.Cog, name="Owner"):
 
 
 async def setup(bot):
-    await bot.add_cog(OwnerCog(bot))
+    await bot.add_cog(OwnerCog(bot), guilds=[discord.Object(id=297916314239107072)])
