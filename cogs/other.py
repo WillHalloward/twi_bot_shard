@@ -238,7 +238,7 @@ class OtherCogs(commands.Cog, name="Other"):
         for x in self.quote_cache:
             ln.append({"quote": x['quote'], "row_number": x['row_number']})
         return [
-                   app_commands.Choice(name=f"{quote['row_number']}: {quote['quote']}", value=quote['row_number'])
+                   app_commands.Choice(name=f"{quote['row_number']}: {quote['quote']}"[0:100], value=quote['row_number'])
                    for quote in ln if str(current) in str(quote['row_number']) or current == ""
                ][0:25]
 
@@ -265,7 +265,7 @@ class OtherCogs(commands.Cog, name="Other"):
         for x in self.quote_cache:
             ln.append({"quote": x['quote'], "row_number": x['row_number']})
         return [
-                   app_commands.Choice(name=f"{quote['row_number']}: {quote['quote']}", value=quote['row_number'])
+                   app_commands.Choice(name=f"{quote['row_number']}: {quote['quote']}"[0:100], value=quote['row_number'])
                    for quote in ln if str(current) in str(quote['row_number']) or current == ""
                ][0:25]
 
@@ -289,7 +289,7 @@ class OtherCogs(commands.Cog, name="Other"):
         for x in self.quote_cache:
             ln.append({"quote": x['quote'], "row_number": x['row_number']})
         return [
-                   app_commands.Choice(name=f"{quote['row_number']}: {quote['quote']}", value=quote['row_number'])
+                   app_commands.Choice(name=f"{quote['row_number']}: {quote['quote']}"[0:100], value=quote['row_number'])
                    for quote in ln if str(current) in str(quote['row_number']) or current == ""
                ][0:25]
 
