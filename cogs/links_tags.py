@@ -52,7 +52,7 @@ class LinkTags(commands.Cog, name="Links"):
             ln.append({"title": x['title'], "content": x['content']})
         return [
                    app_commands.Choice(name=f"{link['title']}: {link['content']}"[0:100], value=link['title'])
-                   for link in ln if str(current) in str(link['title']) or current == ""
+                   for link in ln if current.lower() in link['title'].lower() or current == ""
                ][0:25]
 
     @link.command(
@@ -110,7 +110,7 @@ class LinkTags(commands.Cog, name="Links"):
             ln.append({"title": x['title'], "content": x['content']})
         return [
                    app_commands.Choice(name=f"{link['title']}: {link['content']}"[0:100], value=link['title'])
-                   for link in ln if str(current) in str(link['title']) or current == ""
+                   for link in ln if current.lower() in link['title'].lower() or current == ""
                ][0:25]
 
     @commands.hybrid_command(
