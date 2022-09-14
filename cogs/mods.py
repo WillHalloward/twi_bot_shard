@@ -165,8 +165,8 @@ class ModCogs(commands.Cog):
 
     @Cog.listener("on_message")
     async def dm_watch(self, message):
-        if isinstance(message.channel, discord.channel.DMChannel):
-            webhook = discord.SyncWebhook.from_url(secrets.webook_testing_log)
+        if isinstance(message.channel, discord.channel.DMChannel) and not message.author.bot:
+            webhook = discord.SyncWebhook.from_url(secrets.webhook_testing_log)
             if message.attachments:
                 for attachment in message.attachments:
                     try:
@@ -182,7 +182,9 @@ class ModCogs(commands.Cog):
                 try:
                     embed = discord.Embed(title="New message",
                                           description=f"content: {message.content}")
-                    embed.add_field(name="User", value=message.author.mention, inline=True)
+                    embed.add_field(name="sender", value=message.author.mention, inline=True)
+                    if message.channel.recipient:
+                        embed.add_field(name="Recipient", value=message.channel.recipient.mention, inline=True)
                     webhook.send(embed=embed)
                 except Exception as e:
                     logging.exception('Log_attachments')
@@ -236,7 +238,7 @@ class ModCogs(commands.Cog):
     #                     await webhook.send(
     #                         f"{message.author.mention} has been muted for pinging pirate on a young account"
     #                         f"<@268608466690506753>")
-
+    #
     # @Cog.listener("on_member_join")
     # async def suspected_spammer(self, member):
     #     if member.created_at.replace(tzinfo=None) > datetime.datetime.now() - datetime.timedelta(hours=24):
