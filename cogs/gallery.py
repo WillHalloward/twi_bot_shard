@@ -5,30 +5,39 @@ from discord import app_commands
 from discord.ext import commands
 
 
-async def add_to_gallery(self, ctx, msg_id, title, channel_name):
-    channel_id = await self.bot.pg_con.fetchrow(
-        "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", channel_name)
-    try:
-        channel = self.bot.get_channel(channel_id["channel_id"])
-    except KeyError:
-        await ctx.send("The channel for this command has not been configured.")
-        logging.warning(f"{ctx.command} channel was not configured.")
-        return
-    msg = await ctx.fetch_message(msg_id)
-    attach = msg.attachments
-    if not attach:
-        logging.warning(f"Could not find image on id {msg_id}")
-        await ctx.send("I could not find an attachment with that message id")
-        return
-    embed = discord.Embed(title=title, description=f"Created by: {msg.author.mention}\nSource: {msg.jump_url}")
-    embed.set_image(url=attach[0].url)
-    await channel.send(embed=embed)
-    try:
-        await ctx.message.delete()
-    except discord.NotFound:
-        logging.warning(f"The message {ctx.message} was already deleted")
-    except discord.Forbidden:
-        logging.warning(f"Missing delete message permissions in server {ctx.guild.name}.")
+async def repost_image(self, interaction: discord.Interaction, message: discord.message, destination: str):
+    if message.attachments:
+        modal = MyModal(jump_url=message.jump_url, mention=message.author.mention)
+        for channel in self.channel_ids:
+            if channel["channel_name"] == destination and channel['guild_id'] == interaction.guild.id:
+                try:
+                    channel = self.bot.get_channel(channel["channel_id"])
+                except:
+                    await interaction.response.send_message("This command has not been properly setup", ephemeral=True)
+                    logging.error(f"Could not get channel via id {channel['channel_id']} via /{destination}")
+                    return
+                await interaction.response.send_modal(modal)
+                for attachment in message.attachments:
+                    await modal.wait()
+                    embed = discord.Embed(title=modal.title_item.value, description=modal.description_item.value)
+                    embed.set_image(url=attachment.url)
+                    await channel.send(embed=embed)
+                    return
+        channel = self.channel_ids = await self.bot.pg_con.fetchrow("SELECT channel_id FROM gallery_mementos WHERE channel_name  = $2 and gallery_mementos.guild_id = $1", interaction.guild.id, destination)
+        try:
+            channel = self.bot.get_channel(channel["channel_id"])
+        except:
+            await interaction.response.send_message("The channel for this command has not been configured.", ephemeral=True)
+            return
+        for attachment in message.attachments:
+            await modal.wait()
+            embed = discord.Embed(title=modal.title_item.value, description=modal.description_item.value)
+            embed.set_image(url=attachment.url)
+            await channel.send(embed=embed)
+            return
+    else:
+        logging.warning(f"Could not find image on id {message.id}")
+        await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
 
 
 async def set_channel(self, ctx, channel: discord.TextChannel, channel_name: str):
@@ -38,6 +47,7 @@ async def set_channel(self, ctx, channel: discord.TextChannel, channel_name: str
                                   "DO UPDATE "
                                   "SET channel_id = excluded.channel_id",
                                   channel.id, channel_name)
+    self.channel_ids = await self.bot.pg_con.fetch("SELECT channel_id, channel_name, guild_id FROM gallery_mementos")
 
 
 def admin_or_me_check(ctx):
@@ -60,11 +70,12 @@ class MyModal(discord.ui.Modal, title="Embed generator"):
         self.add_item(self.description_item)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_message("Posted!", ephemeral=True)
+        await interaction.response.defer()
 
 
 class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     def __init__(self, bot):
+        self.channel_ids = None
         self.bot = bot
         self.pt_gallery = app_commands.ContextMenu(
             name="Post to #Gallery",
@@ -84,120 +95,26 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
 
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(self.pt_gallery.name, type=self.pt_gallery.type)
+        self.bot.tree.remove_command(self.pt_mementos.name, type=self.pt_mementos.type)
+        self.bot.tree.remove_command(self.pt_tobeadded.name, type=self.pt_tobeadded.type)
+
+    async def cog_load(self) -> None:
+        self.channel_ids = await self.bot.pg_con.fetch("SELECT channel_id, channel_name, guild_id FROM gallery_mementos")
 
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def post_to_gallery(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        modal = MyModal(jump_url=message.jump_url, mention=message.author.mention)
-        await interaction.response.send_modal(modal)
-        channel_id = await self.bot.pg_con.fetchrow(
-            "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'gallery')
-        try:
-            channel = self.bot.get_channel(channel_id["channel_id"])
-        except KeyError:
-            await interaction.response.send_message("The channel for this command has not been configured.", ephemeral=True)
-            return
-        attach = message.attachments
-        if not attach:
-            logging.warning(f"Could not find image on id {message.id}")
-            await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
-            return
-        await modal.wait()
-        embed = discord.Embed(title=modal.title_item.value, description=modal.description_item.value)
-        embed.set_image(url=attach[0].url)
-        await channel.send(embed=embed)
+        await repost_image(self, interaction, message, "gallery")
 
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def post_to_mementos(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        modal = MyModal(jump_url=message.jump_url, mention=message.author.mention)
-        await interaction.response.send_modal(modal)
-        channel_id = await self.bot.pg_con.fetchrow(
-            "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'mementos')
-        try:
-            channel = self.bot.get_channel(channel_id["channel_id"])
-        except KeyError:
-            await interaction.response.send_message("The channel for this command has not been configured.", ephemeral=True)
-            return
-        attach = message.attachments
-        if not attach:
-            logging.warning(f"Could not find image on id {message.id}")
-            await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
-            return
-        await modal.wait()
-        embed = discord.Embed(title=modal.title_item.value, description=modal.description_item.value)
-        embed.set_image(url=attach[0].url)
-        await channel.send(embed=embed)
+        await repost_image(self, interaction, message, "mementos")
 
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def post_to_toBeAdded(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        modal = MyModal(jump_url=message.jump_url, mention=message.author.mention)
-        await interaction.response.send_modal(modal)
-        channel_id = await self.bot.pg_con.fetchrow(
-            "SELECT channel_id FROM gallery_mementos WHERE channel_name = $1", 'to_be_added')
-        try:
-            channel = self.bot.get_channel(channel_id["channel_id"])
-        except KeyError:
-            await interaction.response.send_message("The channel for this command has not been configured.", ephemeral=True)
-            return
-        attach = message.attachments
-        if not attach:
-            logging.warning(f"Could not find image on id {message.id}")
-            await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
-            return
-        await modal.wait()
-        embed = discord.Embed(title=modal.title_item.value, description=modal.description_item.value)
-        embed.set_image(url=attach[0].url)
-        await channel.send(embed=embed)
-
-    # TODO Bake all into a single context action
-    @commands.hybrid_command(
-        name="gallery",
-        brief="Adds a image to #gallery",
-        help="'!gallery 123123123 a nice image A nice image' will add a image with the id '123123123' called 'A nice "
-             "image' to #gallery\n "
-             "Get the id of the image by right clicking it and selecting 'Copy id' **Note you need to use the command "
-             "in the same channel as the image**",
-        aliases=['g'],
-        usage='[Msg Id][Title]',
-        hidden=False,
-    )
-    @app_commands.checks.has_permissions(ban_members=True)
-    @app_commands.default_permissions(manage_messages=True)
-    async def g(self, ctx, message_id: str, *, title: str):
-        await add_to_gallery(self, ctx, int(message_id), title, 'gallery')
-
-    @commands.hybrid_command(
-        name="mementos",
-        brief="Adds an image to #mementos",
-        help="'!Mementos 123123123 a nice image A nice image' will add a image with the id '123123123' called 'A nice "
-             "image' to #mementos\n "
-             "Get the id of the image by right clicking it and selecting 'Copy id' **Note you need to use the command "
-             "in the same channel as the image**",
-        aliases=['m'],
-        usage='[message Id] [title]\nEx: !mementos 123123123 A nice meme',
-        hidden=False,
-    )
-    @app_commands.checks.has_permissions(ban_members=True)
-    @app_commands.default_permissions(manage_messages=True)
-    async def m(self, ctx, message_id: str, *, title: str):
-        await add_to_gallery(self, ctx, int(message_id), title, 'mementos')
-
-    @commands.hybrid_command(
-        name="tobeadded",
-        brief="Adds a image to the channel <#697663359444713482>",
-        help="'!ToBeAdded 123123123 nice image' will add a image with the id '123123123' called 'A nice image' to "
-             "#To-be-added\n "
-             "Get the id of the image by right clicking it and selecting 'Copy id' "
-             "\nNote you need to use the command in the same channel as the image",
-        aliases=['tba'],
-        usage="[Message id] [Title]"
-    )
-    @app_commands.checks.has_permissions(ban_members=True)
-    @app_commands.default_permissions(manage_messages=True)
-    async def to_be_added(self, ctx, message_id: str, *, title: str):
-        await add_to_gallery(self, ctx, int(message_id), title, 'to_be_added')
+        await repost_image(self, interaction, message, "to_be_added")
 
     @commands.hybrid_group(name="set")
     @app_commands.default_permissions(manage_messages=True)
