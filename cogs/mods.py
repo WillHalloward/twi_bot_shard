@@ -272,6 +272,7 @@ class ModCogs(commands.Cog):
             await member.add_roles(verified)
 
     @commands.command("populate_forum")
+    @commands.is_owner()
     async def populate_forum(self, ctx):
         chapters = [
             "1.00",
