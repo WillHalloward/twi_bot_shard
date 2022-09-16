@@ -885,7 +885,7 @@ class ModCogs(commands.Cog):
         for channel in ctx.guild.channels:
             if channel.type == discord.ChannelType.forum and channel.id == 1020273330160414750:
                 for chapter in chapters:
-                    await channel.create_thread(name=chapter)
+                    await channel.create_thread(name=chapter, content="Chapter " + chapter)
                     await asyncio.sleep(1)
 
 
