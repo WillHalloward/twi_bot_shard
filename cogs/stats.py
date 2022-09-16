@@ -862,7 +862,7 @@ class StatsCogs(commands.Cog, name="stats"):
         usage='[channel] [hours]',
         hidden=False,
     )
-    async def message_count(self, ctx, channel: discord.TextChannel, *, hours: int):
+    async def message_count(self, ctx, channel: discord.TextChannel, hours: int):
         logging.debug(hours)
         d_time = datetime.now() - timedelta(hours=hours)
         logging.debug(d_time)

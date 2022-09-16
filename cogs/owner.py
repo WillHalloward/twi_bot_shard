@@ -99,6 +99,11 @@ class OwnerCog(commands.Cog, name="Owner"):
                 logging.error(e)
             await ctx.send("Synced Locally")
 
+    @commands.command(name="exit")
+    @commands.is_owner()
+    async def exit(self, ctx):
+        await ctx.send("Exiting...")
+        await self.bot.close()
 
 async def setup(bot):
     await bot.add_cog(OwnerCog(bot), guilds=[discord.Object(id=297916314239107072)])

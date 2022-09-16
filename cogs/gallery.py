@@ -36,7 +36,7 @@ async def repost_image(self, interaction: discord.Interaction, message: discord.
             await channel.send(embed=embed)
             return
     else:
-        logging.warning(f"Could not find image on id {message.id}")
+        logging.warning(f"Could not find image on id {message.id} {message.attachments}")
         await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
 
 
