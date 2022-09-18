@@ -116,32 +116,32 @@ class ModCogs(commands.Cog):
     #             webhook = discord.SyncWebhook.from_url(secrets.webhook)
     #             webhook.send(f"User {message.author.name} @ Pirate at {message.jump_url} <@&346842813687922689>")
 
-    @Cog.listener("on_message")
-    async def password_leak(self, message):
-        banned_words = {'warAnts', "Iwalkedameadowweary"}
-        allowed_channel_ids = [620021401516113940, 346842161704075265, 521403093892726785, 362248294849576960,
-                               359864559361851392, 668721870488469514, 930596086547116112, 871486325692432464]
-        if any(x in message.content for x in banned_words) and message.channel.id not in allowed_channel_ids:
-            webhook = discord.SyncWebhook.from_url(secrets.webhook)
-            try:
-                await message.delete()
-            except discord.Forbidden:
-                logging.error(f"Failed to delete message from {message.author.id} due to Forbidden")
-                webhook.send(f"Failed to delete message from {message.author.id} due to Forbidden")
-            except Exception as e:
-                logging.error(f"Failed to delete message from {message.author.id} due to {e}")
-                webhook.send(f"Failed to delete message from {message.author.id} due to {e}")
-            muted = message.guild.get_role(542078638741520404)
-            try:
-                await message.author.add_roles(muted)
-            except discord.Forbidden:
-                logging.error(f"Failed to add Muted role to {message.author.id} due to Forbidden")
-                webhook.send(f"Failed to add Muted role to {message.author.id} due to Forbidden")
-            except Exception as e:
-                logging.error(f"Failed to add mute role to {message.author.id} due to {e}")
-                webhook.send(f"Failed to add Muted role to {message.author.id} due to {e}")
-            webhook.send(f"Deleted `{message.content}` and muted user {message.author.name} for posting gravesong "
-                         f"password outside of patreon channels <@268608466690506753>")
+    # @Cog.listener("on_message")
+    # async def password_leak(self, message):
+    #     banned_words = {'warAnts', "Iwalkedameadowweary"}
+    #     allowed_channel_ids = [620021401516113940, 346842161704075265, 521403093892726785, 362248294849576960,
+    #                            359864559361851392, 668721870488469514, 930596086547116112, 871486325692432464]
+    #     if any(x in message.content for x in banned_words) and message.channel.id not in allowed_channel_ids:
+    #         webhook = discord.SyncWebhook.from_url(secrets.webhook)
+    #         try:
+    #             await message.delete()
+    #         except discord.Forbidden:
+    #             logging.error(f"Failed to delete message from {message.author.id} due to Forbidden")
+    #             webhook.send(f"Failed to delete message from {message.author.id} due to Forbidden")
+    #         except Exception as e:
+    #             logging.error(f"Failed to delete message from {message.author.id} due to {e}")
+    #             webhook.send(f"Failed to delete message from {message.author.id} due to {e}")
+    #         muted = message.guild.get_role(542078638741520404)
+    #         try:
+    #             await message.author.add_roles(muted)
+    #         except discord.Forbidden:
+    #             logging.error(f"Failed to add Muted role to {message.author.id} due to Forbidden")
+    #             webhook.send(f"Failed to add Muted role to {message.author.id} due to Forbidden")
+    #         except Exception as e:
+    #             logging.error(f"Failed to add mute role to {message.author.id} due to {e}")
+    #             webhook.send(f"Failed to add Muted role to {message.author.id} due to {e}")
+    #         webhook.send(f"Deleted `{message.content}` and muted user {message.author.name} for posting gravesong "
+    #                      f"password outside of patreon channels <@268608466690506753>")
 
     @Cog.listener("on_message")
     async def log_attachment(self, message):
@@ -200,23 +200,23 @@ class ModCogs(commands.Cog):
                          f"Jump Url: {message.jump_url}",
                          allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
 
-    @Cog.listener("on_message")
-    async def on_message_mass_ping(self, message):
-        if len(message.mentions) >= 10:
-            webhook = discord.SyncWebhook.from_url(secrets.webhook)
-            try:
-                muted = message.guild.get_role(542078638741520404)
-            except Exception as e:
-                webhook.send(e)
-                return
-            try:
-                await message.author.add_roles(muted)
-            except discord.Forbidden:
-                logging.warning(f"I don't have the required permissions to mute {message.author.mention}")
-            else:
-                await webhook.send(
-                    f"{message.author.mention} has been muted for pining more than 10 users in one message"
-                    f"<@268608466690506753>")
+    # @Cog.listener("on_message")
+    # async def on_message_mass_ping(self, message):
+    #     if len(message.mentions) >= 10:
+    #         webhook = discord.SyncWebhook.from_url(secrets.webhook)
+    #         try:
+    #             muted = message.guild.get_role(542078638741520404)
+    #         except Exception as e:
+    #             webhook.send(e)
+    #             return
+    #         try:
+    #             await message.author.add_roles(muted)
+    #         except discord.Forbidden:
+    #             logging.warning(f"I don't have the required permissions to mute {message.author.mention}")
+    #         else:
+    #             await webhook.send(
+    #                 f"{message.author.mention} has been muted for pining more than 10 users in one message"
+    #                 f"<@268608466690506753>")
 
     # @Cog.listener("on_message")
     # async def on_message_pirate_ping_new_account(self, message):
