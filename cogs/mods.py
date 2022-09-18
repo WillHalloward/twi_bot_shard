@@ -158,8 +158,7 @@ class ModCogs(commands.Cog):
                     embed.add_field(name="Channel", value=message.channel.mention, inline=True)
                     if message.author.avatar is not None:
                         embed.set_thumbnail(url=message.author.display_avatar.url)
-                    webhook.send(file=file, embed=embed,
-                                 allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
+                    webhook.send(file=file, embed=embed, allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
                 except Exception as e:
                     logging.exception('Log_attachments')
 
