@@ -408,7 +408,6 @@ class StatsCogs(commands.Cog, name="stats"):
                 logging.debug("post insert")
                 await self.bot.pg_con.execute("UPDATE messages set content = $1 WHERE message_id = $2",
                                               message.data['content'], int(message.data['id']))
-                webhook = discord.SyncWebhook.from_url(secrets.webhook)
                 logging.debug("post update")
         except:
             logging.exception(f"message_edited - {message.data}")
