@@ -46,8 +46,8 @@ async def on_ready():
     bot.remove_listener(stats_cog.save_listener, "on_message")
     bot.remove_listener(stats_cog.message_deleted, "on_raw_message_delete")
     bot.remove_listener(stats_cog.message_edited, "on_raw_message_edit")
-    # bot.remove_listener(stats_cog.reaction_add, "on_raw_reaction_add")
-    # bot.remove_listener(stats_cog.reaction_remove, "on_raw_reaction_remove")
+    bot.remove_listener(stats_cog.reaction_add, "on_raw_reaction_add")
+    bot.remove_listener(stats_cog.reaction_remove, "on_raw_reaction_remove")
     status_loop.start()
     logging.info(f'Logged in as: {bot.user.name}\nVersion: {discord.__version__}\n')
 
