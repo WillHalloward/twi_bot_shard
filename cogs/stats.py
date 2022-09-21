@@ -8,8 +8,6 @@ from discord.ext import commands
 from discord.ext import tasks
 from discord.ext.commands import Cog
 
-import secrets
-
 
 def admin_or_me_check(ctx):
     role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
@@ -35,7 +33,7 @@ async def save_reaction(self, reaction):
             for user in await reaction.users().flatten():
                 await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
                                               "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE",
-                                              reaction.emoji.name, reaction.message_id, reaction.user_id,
+                                              reaction.emoji.name, reaction.message_id, user.id,
                                               reaction.emoji.name, None, None,
                                               None, datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
     except Exception as e:
@@ -107,7 +105,7 @@ class StatsCogs(commands.Cog, name="stats"):
 
     def __init__(self, bot):
         self.bot = bot
-        self.stats_loop.start()
+        # self.stats_loop.start()
 
     @commands.command(
         name="save_users",
@@ -432,20 +430,23 @@ class StatsCogs(commands.Cog, name="stats"):
                                               reaction.emoji.name, None, None,
                                               None, datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
         except Exception as e:
-            print(e)
+            logging.error(f"Error: {e} on reaction add")
 
     @Cog.listener("on_raw_reaction_remove")
     async def reaction_remove(self, reaction):
-        if reaction.emoji.is_custom_emoji():
-            await self.bot.pg_con.execute("UPDATE reactions "
-                                          "SET removed = TRUE "
-                                          "WHERE message_id = $1 AND user_id = $2 AND emoji_id = $3",
-                                          reaction.message_id, reaction.user_id, reaction.emoji.id)
-        else:
-            await self.bot.pg_con.execute("UPDATE reactions "
-                                          "SET removed = TRUE "
-                                          "WHERE message_id = $1 AND user_id = $2 AND unicode_emoji = $3",
-                                          reaction.message_id, reaction.user_id, reaction.emoji.name)
+        try:
+            if reaction.emoji.is_custom_emoji():
+                await self.bot.pg_con.execute("UPDATE reactions "
+                                              "SET removed = TRUE "
+                                              "WHERE message_id = $1 AND user_id = $2 AND emoji_id = $3",
+                                              reaction.message_id, reaction.user_id, reaction.emoji.id)
+            else:
+                await self.bot.pg_con.execute("UPDATE reactions "
+                                              "SET removed = TRUE "
+                                              "WHERE message_id = $1 AND user_id = $2 AND unicode_emoji = $3",
+                                              reaction.message_id, reaction.user_id, reaction.emoji.name)
+        except Exception as e:
+            logging.error(f"Error: {e} on reaction remove")
 
     @Cog.listener("on_member_join")
     async def member_join(self, member):
