@@ -105,7 +105,7 @@ class StatsCogs(commands.Cog, name="stats"):
 
     def __init__(self, bot):
         self.bot = bot
-        # self.stats_loop.start()
+        self.stats_loop.start()
 
     @commands.command(
         name="save_users",
