@@ -22,25 +22,22 @@ def admin_or_me_check(ctx):
 
 
 async def save_reaction(self, reaction):
-    if type(reaction.emoji) == discord.partial_emoji.PartialEmoji or type(reaction.emoji) == discord.emoji.Emoji:
-        emoji = None
-        name = reaction.emoji.name
-        animated = reaction.emoji.animated
-        emoji_id = reaction.emoji.id
-        url = reaction.emoji.url
-    else:
-        emoji = reaction.emoji
-        name = None
-        animated = False
-        emoji_id = None
-        url = None
     try:
-        for user in await reaction.users().flatten():
-            await self.bot.pg_con.execute("INSERT INTO reactions "
-                                          "VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
-                                          emoji,
-                                          reaction.message.id, user.id,
-                                          name, animated, emoji_id, str(url), datetime.now().replace(tzinfo=None))
+        if reaction.emoji.is_custom_emoji():
+            for user in await reaction.users().flatten():
+                await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
+                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE",
+                                              None, reaction.message_id, user.id,
+                                              reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id,
+                                              f"https://cdn.discordapp.com/emojis/{reaction.emoji.id}.{'gif' if reaction.emoji.animated else 'png'}",
+                                              datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
+        else:
+            for user in await reaction.users().flatten():
+                await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
+                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE",
+                                              reaction.emoji.name, reaction.message_id, reaction.user_id,
+                                              reaction.emoji.name, None, None,
+                                              None, datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
     except Exception as e:
         logging.error(f"Failed to insert reaction into db. {e}")
 
@@ -420,53 +417,26 @@ class StatsCogs(commands.Cog, name="stats"):
 
     @Cog.listener("on_raw_reaction_add")
     async def reaction_add(self, reaction):
-
-        if type(reaction.emoji) == discord.partial_emoji.PartialEmoji or type(reaction.emoji) == discord.emoji.Emoji:
-            old_react = await self.bot.pg_con.fetchrow("SELECT * "
-                                                       "FROM reactions "
-                                                       "WHERE (message_id = $1 AND user_id = $2 AND emoji_id = $3)",
-                                                       reaction.message_id, reaction.user_id, reaction.emoji.id)
-        else:
-            old_react = await self.bot.pg_con.fetchrow("SELECT * "
-                                                       "FROM reactions "
-                                                       "WHERE (message_id = $1 AND user_id = $2 AND unicode_emoji = $3)",
-                                                       reaction.message_id, reaction.user_id, reaction.emoji)
-        if type(reaction.emoji) == discord.partial_emoji.PartialEmoji or type(reaction.emoji) == discord.emoji.Emoji:
-            if old_react is not None:
-                await self.bot.pg_con.execute("UPDATE reactions "
-                                              "SET removed = FALSE "
-                                              "WHERE message_id = $1 AND user_id = $2 AND emoji_id = $3",
-                                              reaction.message_id, reaction.user_id, reaction.emoji.id)
-                return
-        else:
-            if old_react is not None:
-                await self.bot.pg_con.execute("UPDATE reactions "
-                                              "SET removed = FALSE "
-                                              "WHERE message_id = $1 AND user_id = $2 AND unicode_emoji = $3",
-                                              reaction.message_id, reaction.user_id, reaction.emoji)
-                return
-        if type(reaction.emoji) == discord.partial_emoji.PartialEmoji or type(reaction.emoji) == discord.emoji.Emoji:
-            emoji = None
-            name = reaction.emoji.name
-            animated = reaction.emoji.animated
-            emoji_id = reaction.emoji.id
-        else:
-            emoji = reaction.emoji
-            name = None
-            animated = False
-            emoji_id = None
-            await self.bot.pg_con.execute("INSERT INTO reactions "
-                                          "VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
-                                          emoji, reaction.message_id, reaction.user_id,
-                                          name, animated, emoji_id,
-                                          f"https://cdn.discordapp.com/emojis/{emoji_id}.{'gif' if animated else 'png'}",
-                                          datetime.now())
+        try:
+            if reaction.emoji.is_custom_emoji():
+                await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
+                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE",
+                                              None, reaction.message_id, reaction.user_id,
+                                              reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id,
+                                              f"https://cdn.discordapp.com/emojis/{reaction.emoji.id}.{'gif' if reaction.emoji.animated else 'png'}",
+                                              datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
+            else:
+                await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
+                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE",
+                                              reaction.emoji.name, reaction.message_id, reaction.user_id,
+                                              reaction.emoji.name, None, None,
+                                              None, datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
+        except Exception as e:
+            print(e)
 
     @Cog.listener("on_raw_reaction_remove")
     async def reaction_remove(self, reaction):
-
-        if type(reaction.emoji) == discord.partial_emoji.PartialEmoji or type(
-                reaction.emoji) == discord.emoji.Emoji:
+        if reaction.emoji.is_custom_emoji():
             await self.bot.pg_con.execute("UPDATE reactions "
                                           "SET removed = TRUE "
                                           "WHERE message_id = $1 AND user_id = $2 AND emoji_id = $3",
@@ -475,7 +445,7 @@ class StatsCogs(commands.Cog, name="stats"):
             await self.bot.pg_con.execute("UPDATE reactions "
                                           "SET removed = TRUE "
                                           "WHERE message_id = $1 AND user_id = $2 AND unicode_emoji = $3",
-                                          reaction.message_id, reaction.user_id, reaction.emoji)
+                                          reaction.message_id, reaction.user_id, reaction.emoji.name)
 
     @Cog.listener("on_member_join")
     async def member_join(self, member):
