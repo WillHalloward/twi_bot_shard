@@ -21,14 +21,14 @@ def admin_or_me_check(ctx):
 
 async def save_reaction(self, reaction):
     try:
-        if reaction.emoji.is_custom_emoji():
+        if reaction.is_custom_emoji():
             for user in await reaction.users().flatten():
                 await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
                                               "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE",
                                               None, reaction.message_id, user.id,
                                               reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id,
                                               f"https://cdn.discordapp.com/emojis/{reaction.emoji.id}.{'gif' if reaction.emoji.animated else 'png'}",
-                                              datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
+                                              datetime.now().replace(tzinfo=None), reaction.is_custom_emoji())
         else:
             for user in await reaction.users().flatten():
                 await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
