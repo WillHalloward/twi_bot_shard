@@ -1,6 +1,7 @@
 import logging
 from itertools import groupby
 from typing import List
+import random
 
 import discord
 from discord import app_commands
@@ -442,6 +443,19 @@ class OtherCogs(commands.Cog, name="Other"):
             await message.pin()
         except Exception as e:
             await ctx.send(f"Error: - {e}")
+
+    @commands.command(
+        name="roll",
+        aliases="d"
+    )
+    async def roll(self, ctx, amount: int, dice: int, modifier: int = 0):
+        if amount > 100:
+            await ctx.send("I can't roll more than 100 dice")
+        else:
+            rolls = list()
+            for x in range(amount):
+                rolls.append(random.randint(1, dice))
+            await ctx.send(f"Rolled {amount}d{dice} + {modifier} = {sum(rolls) + modifier} ({rolls})")
 
 
 async def setup(bot: commands.Bot) -> None:
