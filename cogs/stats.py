@@ -564,12 +564,8 @@ class StatsCogs(commands.Cog, name="stats"):
             await self.bot.pg_con.execute(
                 "INSERT INTO updates(updated_table, action, before, after, date, primary_key) "
                 "VALUES ($1,$2,$3,$4,$5,$6)",
-                "threads", "THREAD_CREATED", thread.name, thread.name, datetime.now().replace(tzinfo=None),
-                str(thread.id))
-            channel = self.bot.get_channel(871486325692432464)
-            await channel.send(f"A new thread has been created: <#{thread.id}>")
-            me = await self.bot.fetch_user(268608466690506753)
-            await thread.add_user(me)
+                "threads", "THREAD_CREATED", thread.name, thread.name, datetime.now().replace(tzinfo=None), str(thread.id))
+            await thread.send("<@&1153075640535367721>")
         except asyncpg.UniqueViolationError:
             logging.warning(f"Duplicate on {thread} in db")
         except Exception as e:

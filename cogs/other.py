@@ -444,11 +444,10 @@ class OtherCogs(commands.Cog, name="Other"):
         except Exception as e:
             await ctx.send(f"Error: - {e}")
 
-    @commands.command(
-        name="roll",
-        aliases="d"
+    @commands.hybrid_command(
+        name="roll"
     )
-    async def roll(self, ctx, amount: int, dice: int, modifier: int = 0):
+    async def roll(self, ctx, dice: int = 20, amount: int = 1, modifier: int = 0):
         if amount > 100:
             await ctx.send("I can't roll more than 100 dice")
         else:
