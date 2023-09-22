@@ -745,6 +745,36 @@ class StatsCogs(commands.Cog, name="stats"):
                 datetime.now().replace(tzinfo=None),
                 str(after.id))
 
+    @Cog.listener("on_voice_state_update")
+    async def voice_state_update(self, member, before, after):
+        if before.afk != after.afk:
+            await self.bot.pg_con.execute("INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
+                                          "voice_state", "UPDATE_VOICE_STATE_AFK", str(before.afk), str(after.afk), datetime.now().replace(tzinfo=None), str(member.id))
+        if before.channel != after.channel:
+            await self.bot.pg_con.execute("INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
+                                          "voice_state", "UPDATE_VOICE_STATE_CHANNEL", str(before.channel), str(after.channel), datetime.now().replace(tzinfo=None), str(member.id))
+        if before.deaf != after.deaf:
+            await self.bot.pg_con.execute("INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
+                                          "voice_state", "UPDATE_VOICE_STATE_DEAF", str(before.deaf), str(after.deaf), datetime.now().replace(tzinfo=None), str(member.id))
+        if before.mute != after.mute:
+            await self.bot.pg_con.execute("INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
+                                          "voice_state", "UPDATE_VOICE_STATE_MUTE", str(before.mute), str(after.mute), datetime.now().replace(tzinfo=None), str(member.id))
+        if before.self_deaf != after.self_deaf:
+            await self.bot.pg_con.execute("INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
+                                          "voice_state", "UPDATE_VOICE_STATE_SELF_DEAF", str(before.self_deaf), str(after.self_deaf), datetime.now().replace(tzinfo=None), str(member.id))
+        if before.self_mute != after.self_mute:
+            await self.bot.pg_con.execute("INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
+                                          "voice_state", "UPDATE_VOICE_STATE_SELF_MUTE", str(before.self_mute), str(after.self_mute), datetime.now().replace(tzinfo=None), str(member.id))
+        if before.self_stream != after.self_stream:
+            await self.bot.pg_con.execute("INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
+                                          "voice_state", "UPDATE_VOICE_STATE_SELF_STREAM", str(before.self_stream), str(after.self_stream), datetime.now().replace(tzinfo=None), str(member.id))
+        if before.self_video != after.self_video:
+            await self.bot.pg_con.execute("INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
+                                          "voice_state", "UPDATE_VOICE_STATE_SELF_VIDEO", str(before.self_video), str(after.self_video), datetime.now().replace(tzinfo=None), str(member.id))
+        if before.suppress != after.suppress:
+            await self.bot.pg_con.execute("INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
+                                          "voice_state", "UPDATE_VOICE_STATE_SUPPRESS", str(before.suppress), str(after.suppress), datetime.now().replace(tzinfo=None), str(member.id))
+
     @tasks.loop(hours=24)
     async def stats_loop(self):
         logging.info("Starting daily server activity stats gathering")
