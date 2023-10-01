@@ -26,7 +26,7 @@ class OtherCogs(commands.Cog, name="Other"):
 
     async def cog_load(self) -> None:
         self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
-        self.category_cache = await self.bot.pg_con.fetch("SELECT category FROM roles")
+        self.category_cache = await self.bot.pg_con.fetch("SELECT DISTINCT (category) FROM roles WHERE category IS NOT NULL")
 
     @commands.hybrid_command(
         name="ping",
