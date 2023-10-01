@@ -22,9 +22,11 @@ class OtherCogs(commands.Cog, name="Other"):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot: commands.Bot = bot
         self.quote_cache = None
+        self.category_cache = None
 
     async def cog_load(self) -> None:
         self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
+        self.category_cache = await self.bot.pg_con.fetch("SELECT category FROM roles")
 
     @commands.hybrid_command(
         name="ping",
@@ -384,6 +386,14 @@ class OtherCogs(commands.Cog, name="Other"):
         except Exception as e:
             logging.error(e)
             await ctx.send(f"Error: {e}")
+
+    @role_add.autocomplete('category')
+    async def role_add_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+        return [
+            app_commands.Choice(name=category, value=category)
+            for category in self.category_cache if current.lower() in category.lower() or current == ""
+        ][0:25]
+
 
     @admin_role.command(
         name="remove",
