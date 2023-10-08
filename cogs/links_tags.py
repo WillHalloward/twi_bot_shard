@@ -26,7 +26,6 @@ class LinkTags(commands.Cog, name="Links"):
     async def link(self, ctx):
         pass
 
-    # TODO Implement auto complete
     @link.command(
         name="get",
         brief="Posts the link with the given name.",

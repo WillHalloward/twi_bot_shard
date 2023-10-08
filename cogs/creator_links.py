@@ -7,7 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 
 
-class CreatorLinks(commands.Cog, name="Links"):
+class CreatorLinks(commands.Cog, name="Creator"):
     def __init__(self, bot):
         self.links_cache = None
         self.bot = bot
@@ -83,9 +83,7 @@ class CreatorLinks(commands.Cog, name="Links"):
         except Exception as e:
             logging.exception(f"Creator Link {e}")
 
-    @creator_link_edit.auto_complete('title')
-    async def creator_link_edit_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
-        return [
-                   app_commands.Choice(name=x['title'], value=x['title'])
-                   for x in self.links_cache if current.lower() in x['title'].lower() or current == ""
-               ][0:25]
+
+
+async def setup(bot):
+    await bot.add_cog(CreatorLinks(bot))
