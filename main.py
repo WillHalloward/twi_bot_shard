@@ -23,7 +23,7 @@ logging.info("Cognita starting")
 intents = discord.Intents.default()  # All but the two privileged ones
 intents.members = True  # Subscribe to the Members intent
 intents.message_content = True
-cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.forum']
+cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.forum', 'cogs.creator_links']
 bot = commands.Bot(
     command_prefix='!',
     description="The Wandering Inn helper",
