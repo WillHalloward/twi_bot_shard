@@ -50,7 +50,7 @@ class CreatorLinks(commands.Cog, name="Creator"):
     async def creator_link_add(self, ctx, title: str, link: str, nsfw: bool = False, weight: int = 0):
         try:
             await self.bot.pg_con.execute("INSERT INTO creator_links (user_id, title, link, nsfw, weight) VALUES ($1, $2, $3,$4,$5)",
-                                          ctx.author.id, title, link, nsfw)
+                                          ctx.author.id, title, link, nsfw, weight)
             await ctx.send(f"Added link **{title}** to your links.")
         except asyncpg.UniqueViolationError:
             await ctx.send(f"You already have a link with the title **{title}**")
@@ -64,7 +64,7 @@ class CreatorLinks(commands.Cog, name="Creator"):
     )
     async def creator_link_remove(self, ctx, title: str):
         try:
-            await self.bot.pg_con.execute("DELETE FROM creator_links WHERE user_id = $1 AND title = $2",
+            await self.bot.pg_con.execute("DELETE FROM creator_links WHERE user_id = $1 AND lower(title) = lower($2)",
                                           ctx.author.id, title)
             await ctx.send(f"Removed link **{title}** from your links.")
         except Exception as e:
@@ -77,7 +77,7 @@ class CreatorLinks(commands.Cog, name="Creator"):
     )
     async def creator_link_edit(self, ctx, title: str, link: str, nsfw: bool = False, weight: int = 0):
         try:
-            await self.bot.pg_con.execute("UPDATE creator_links SET link = $1, nsfw = $2, weight = $5 WHERE user_id = $3 AND title = $4",
+            await self.bot.pg_con.execute("UPDATE creator_links SET link = $1, nsfw = $2, weight = $5 WHERE user_id = $3 AND lower(title) = lower($4)",
                                           link, nsfw, ctx.author.id, title)
             await ctx.send(f"Edited link **{title}** in your links.")
         except Exception as e:
