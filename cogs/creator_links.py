@@ -28,11 +28,11 @@ class CreatorLinks(commands.Cog, name="Creator"):
         if not creator:
             creator = ctx.author
         try:
-            query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1",
+            query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
                                                   creator.id)
             if query_r:
                 embed = discord.Embed(title=f"{creator.display_name}'s links", color=0x00ff00)
-                embed.set_thumbnail(url=creator.avatar_url)
+                embed.set_thumbnail(url=creator.display_avatar.url)
                 for x in query_r:
                     embed.add_field(name=f"{x['title']} {' - NSFW' if x['nsfw'] else ''}", value=x['link'], inline=False)
                 await ctx.send(embed=embed)
@@ -47,9 +47,9 @@ class CreatorLinks(commands.Cog, name="Creator"):
         brief="Adds a link to your creator links.",
         usage='[Title] [Link]'
     )
-    async def creator_link_add(self, ctx, title: str, link: str, nsfw: bool = False):
+    async def creator_link_add(self, ctx, title: str, link: str, nsfw: bool = False, weight: int = 0):
         try:
-            await self.bot.pg_con.execute("INSERT INTO creator_links (user_id, title, link, nsfw) VALUES ($1, $2, $3,$4)",
+            await self.bot.pg_con.execute("INSERT INTO creator_links (user_id, title, link, nsfw, weight) VALUES ($1, $2, $3,$4,$5)",
                                           ctx.author.id, title, link, nsfw)
             await ctx.send(f"Added link **{title}** to your links.")
         except asyncpg.UniqueViolationError:
@@ -75,14 +75,13 @@ class CreatorLinks(commands.Cog, name="Creator"):
         brief="Edits a link from your creator links.",
         usage='[Title] [Link]'
     )
-    async def creator_link_edit(self, ctx, title: str, link: str, nsfw: bool = False):
+    async def creator_link_edit(self, ctx, title: str, link: str, nsfw: bool = False, weight: int = 0):
         try:
-            await self.bot.pg_con.execute("UPDATE creator_links SET link = $1, nsfw = $2 WHERE user_id = $3 AND title = $4",
+            await self.bot.pg_con.execute("UPDATE creator_links SET link = $1, nsfw = $2, weight = $5 WHERE user_id = $3 AND title = $4",
                                           link, nsfw, ctx.author.id, title)
             await ctx.send(f"Edited link **{title}** in your links.")
         except Exception as e:
             logging.exception(f"Creator Link {e}")
-
 
 
 async def setup(bot):
