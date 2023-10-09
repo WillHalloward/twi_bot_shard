@@ -78,7 +78,7 @@ class CreatorLinks(commands.Cog, name="Creator"):
     async def creator_link_edit(self, ctx, title: str, link: str, nsfw: bool = False, weight: int = 0):
         try:
             await self.bot.pg_con.execute("UPDATE creator_links SET link = $1, nsfw = $2, weight = $5 WHERE user_id = $3 AND lower(title) = lower($4)",
-                                          link, nsfw, ctx.author.id, title)
+                                          link, nsfw, ctx.author.id, title, weight)
             await ctx.send(f"Edited link **{title}** in your links.")
         except Exception as e:
             logging.exception(f"Creator Link {e}")
