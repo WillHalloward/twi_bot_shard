@@ -24,8 +24,8 @@ class CreatorLinks(commands.Cog, name="Creator"):
         brief="Posts the creators links.",
         usage='@Creator'
     )
-    async def creator_link_get(self, ctx, *, creator: discord.User):
-        if not creator:
+    async def creator_link_get(self, ctx, *, creator: discord.User = None):
+        if creator is None:
             creator = ctx.author
         try:
             query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
