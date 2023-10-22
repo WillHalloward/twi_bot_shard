@@ -35,13 +35,16 @@ class LinkTags(commands.Cog, name="Links"):
     )
     async def link_get(self, ctx, title: str):
         try:
-            query_r = await self.bot.pg_con.fetchrow("SELECT content, title FROM links WHERE lower(title) = lower($1)",
+            query_r = await self.bot.pg_con.fetchrow("SELECT content, title, embed FROM links WHERE lower(title) = lower($1)",
                                                      title)
             if query_r:
-                await ctx.send(f"{query_r['title']}: {query_r['content']}")
+                if query_r['embed']:
+                    await ctx.send(f"[{query_r['title']}]({query_r['content']})")
+                else:
+                    await ctx.send(f"{query_r['title']}: {query_r['content']}")
             else:
                 await ctx.send(f"I could not find a link with the title **{title}**")
-        except:
+        except Exception as e:
             logging.exception("Link")
 
     @link_get.autocomplete('title')
@@ -66,7 +69,7 @@ class LinkTags(commands.Cog, name="Links"):
             message = ""
             for tags in query_r:
                 message = f"{message} `{tags['title']}`"
-            await ctx.send(f"Links: {message}")
+            await ctx.send(f"Links: {message[0:1990]}")
         except:
             logging.exception("Link")
 
@@ -76,12 +79,12 @@ class LinkTags(commands.Cog, name="Links"):
         usage='[url][title][tag]',
         hidden=False,
     )
-    async def link_add(self, ctx, content, title: str, tag: str = None):
+    async def link_add(self, ctx, content, title: str, tag: str = None, embed: bool = True):
         try:
             await self.bot.pg_con.execute(
-                "INSERT INTO links(content, tag, user_who_added, id_user_who_added, time_added, title) "
-                "VALUES ($1,$2,$3,$4,now(),$5)",
-                content, tag, ctx.author.display_name, ctx.author.id, title)
+                "INSERT INTO links(content, tag, user_who_added, id_user_who_added, time_added, title, embed) "
+                "VALUES ($1,$2,$3,$4,now(),$5, $6)",
+                content, tag, ctx.author.display_name, ctx.author.id, title, embed)
             await ctx.send(f"Added Link: {title}\nLink: <{content}>\nTag: {tag}")
             self.links_cache = await self.bot.pg_con.fetch("SELECT * FROM links")
         except asyncpg.exceptions.UniqueViolationError:

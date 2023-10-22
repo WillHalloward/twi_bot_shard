@@ -6,7 +6,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.forum', 'cogs.creator_links']
+cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links']
 
 
 class OwnerCog(commands.Cog, name="Owner"):
@@ -63,7 +63,8 @@ class OwnerCog(commands.Cog, name="Owner"):
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
             logging.error(f'{type(e).__name__} - {e}')
         else:
-            await ctx.send('**`SUCCESS`**')
+            await ctx.send('**`SUCCESS`**', delete_after=5)
+            await ctx.message.delete()
 
     @reload_cog.autocomplete('cog')
     async def reload_cog_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
