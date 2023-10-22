@@ -1,13 +1,24 @@
 import logging
+import os
+import re
+from datetime import datetime
 from itertools import groupby
+from os.path import exists
 from typing import List
 import random
 
 import discord
 from discord import app_commands
 from discord.ext import commands
+import lxml
+from openpyxl.utils import get_column_letter
+from openpyxl import load_workbook, Workbook
 
+import AO3
 
+import secrets
+
+session = AO3.Session(secrets.ao3_username, secrets.ao3_password)
 def admin_or_me_check(ctx):
     role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
     if ctx.message.author.id == 268608466690506753:
@@ -390,10 +401,9 @@ class OtherCogs(commands.Cog, name="Other"):
     @role_add.autocomplete('category')
     async def role_add_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
         return [
-            app_commands.Choice(name=category, value=category)
-            for category in self.category_cache if current.lower() in category.lower() or current == ""
-        ][0:25]
-
+                   app_commands.Choice(name=category, value=category)
+                   for category in self.category_cache if current.lower() in category.lower() or current == ""
+               ][0:25]
 
     @admin_role.command(
         name="remove",
@@ -465,6 +475,42 @@ class OtherCogs(commands.Cog, name="Other"):
             for x in range(amount):
                 rolls.append(random.randint(1, dice))
             await ctx.send(f"Rolled {amount}d{dice} + {modifier} = {sum(rolls) + modifier} ({rolls})")
+
+    @app_commands.command(name="ao3")
+    async def ao3(self, interaction: discord.Interaction, ao3_work: str) -> None:
+        session.refresh_auth_token()
+        ao3_id = AO3.utils.workid_from_url(ao3_work)
+        work = AO3.Work(ao3_id)
+        work.set_session(session)
+        embed = discord.Embed(title=work.title, description=work.summary, color=discord.Color(0x3cd63d), url=work.url)
+        new_line = "\n"
+        try:
+            authors = ""
+            for author in work.authors:
+                author_name = re.search(r'https?://archiveofourown.org/users/(\w+)', author.url).group(1)
+                authors += f"[{author_name}]({author.url})\n"
+            embed.add_field(name="Author", value=authors)
+            embed.add_field(name="Rating", value=work.rating)
+            embed.add_field(name="Category", value=f"{','.join(work.categories)}")
+            embed.add_field(name="Fandoms", value=f"{new_line.join(work.fandoms)}")
+            embed.add_field(name="Relationships", value=f"{new_line.join(work.relationships)}")
+            embed.add_field(name="Characters", value=f"{new_line.join(work.characters)}")
+            embed.add_field(name="Warnings", value=f"{new_line.join(work.warnings)}")
+            embed.add_field(name="Language", value=work.language)
+            embed.add_field(name="Words", value=work.words)
+            embed.add_field(name="Chapters", value=f"{work.nchapters}/{work.expected_chapters if work.expected_chapters is not None else '?'}")
+            embed.add_field(name="Comments", value=work.comments)
+            embed.add_field(name="Kudos", value=work.kudos)
+            embed.add_field(name="Bookmarks", value=work.bookmarks)
+            embed.add_field(name="Hits", value=work.hits)
+            embed.add_field(name="Published", value=work.date_published.strftime("%Y-%m-%d"))
+            embed.add_field(name="Updated", value=work.date_updated.strftime("%Y-%m-%d"))
+            embed.add_field(name="Status", value=work.status)
+            embed.add_field(name="URL", value=work.url)
+            await interaction.response.send_message(embed=embed)
+        except AttributeError as e:
+            logging.warning(f"AO3: {e}")
+            await interaction.response.send_message("I could not find that work on AO3", ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:
