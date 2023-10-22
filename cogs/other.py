@@ -478,39 +478,46 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @app_commands.command(name="ao3")
     async def ao3(self, interaction: discord.Interaction, ao3_work: str) -> None:
-        session.refresh_auth_token()
-        ao3_id = AO3.utils.workid_from_url(ao3_work)
-        work = AO3.Work(ao3_id)
-        work.set_session(session)
-        embed = discord.Embed(title=work.title, description=work.summary, color=discord.Color(0x3cd63d), url=work.url)
-        new_line = "\n"
-        try:
-            authors = ""
-            for author in work.authors:
-                author_name = re.search(r'https?://archiveofourown.org/users/(\w+)', author.url).group(1)
-                authors += f"[{author_name}]({author.url})\n"
-            embed.add_field(name="Author", value=authors)
-            embed.add_field(name="Rating", value=work.rating)
-            embed.add_field(name="Category", value=f"{','.join(work.categories)}")
-            embed.add_field(name="Fandoms", value=f"{new_line.join(work.fandoms)}")
-            embed.add_field(name="Relationships", value=f"{new_line.join(work.relationships)}")
-            embed.add_field(name="Characters", value=f"{new_line.join(work.characters)}")
-            embed.add_field(name="Warnings", value=f"{new_line.join(work.warnings)}")
-            embed.add_field(name="Language", value=work.language)
-            embed.add_field(name="Words", value=work.words)
-            embed.add_field(name="Chapters", value=f"{work.nchapters}/{work.expected_chapters if work.expected_chapters is not None else '?'}")
-            embed.add_field(name="Comments", value=work.comments)
-            embed.add_field(name="Kudos", value=work.kudos)
-            embed.add_field(name="Bookmarks", value=work.bookmarks)
-            embed.add_field(name="Hits", value=work.hits)
-            embed.add_field(name="Published", value=work.date_published.strftime("%Y-%m-%d"))
-            embed.add_field(name="Updated", value=work.date_updated.strftime("%Y-%m-%d"))
-            embed.add_field(name="Status", value=work.status)
-            embed.add_field(name="URL", value=work.url)
-            await interaction.response.send_message(embed=embed)
-        except AttributeError as e:
-            logging.warning(f"AO3: {e}")
-            await interaction.response.send_message("I could not find that work on AO3", ephemeral=True)
+        if re.search(r'https?://archiveofourown.org/works/\d+', interaction.message.content):
+            session.refresh_auth_token()
+            ao3_id = AO3.utils.workid_from_url(ao3_work)
+            try:
+                work = AO3.Work(ao3_id)
+            except AO3.utils.InvalidIdError:
+                await interaction.response.send_message("I could not find that work on AO3", ephemeral=True)
+                return
+            work.set_session(session)
+            embed = discord.Embed(title=work.title, description=work.summary, color=discord.Color(0x3cd63d), url=work.url)
+            new_line = "\n"
+            try:
+                authors = ""
+                for author in work.authors:
+                    author_name = re.search(r'https?://archiveofourown.org/users/(\w+)', author.url).group(1)
+                    authors += f"[{author_name}]({author.url})\n"
+                embed.add_field(name="Author", value=authors)
+                embed.add_field(name="Rating", value=work.rating)
+                embed.add_field(name="Category", value=f"{','.join(work.categories)}")
+                embed.add_field(name="Fandoms", value=f"{new_line.join(work.fandoms)}")
+                embed.add_field(name="Relationships", value=f"{new_line.join(work.relationships)}")
+                embed.add_field(name="Characters", value=f"{new_line.join(work.characters)}")
+                embed.add_field(name="Warnings", value=f"{new_line.join(work.warnings)}")
+                embed.add_field(name="Language", value=work.language)
+                embed.add_field(name="Words", value=work.words)
+                embed.add_field(name="Chapters", value=f"{work.nchapters}/{work.expected_chapters if work.expected_chapters is not None else '?'}")
+                embed.add_field(name="Comments", value=work.comments)
+                embed.add_field(name="Kudos", value=work.kudos)
+                embed.add_field(name="Bookmarks", value=work.bookmarks)
+                embed.add_field(name="Hits", value=work.hits)
+                embed.add_field(name="Published", value=work.date_published.strftime("%Y-%m-%d"))
+                embed.add_field(name="Updated", value=work.date_updated.strftime("%Y-%m-%d"))
+                embed.add_field(name="Status", value=work.status)
+                embed.add_field(name="URL", value=work.url)
+                await interaction.response.send_message(embed=embed)
+            except AttributeError as e:
+                logging.warning(f"AO3: {e}")
+                await interaction.response.send_message("I could not find that work on AO3", ephemeral=True)
+        else:
+            await interaction.response.send_message("That doesn't look like a link to ao3", ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:
