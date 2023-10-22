@@ -478,7 +478,7 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @app_commands.command(name="ao3")
     async def ao3(self, interaction: discord.Interaction, ao3_work: str) -> None:
-        if re.search(r'https?://archiveofourown.org/works/\d+', interaction.message.content):
+        if re.search(r'https?://archiveofourown.org/works/\d+', ao3_work):
             session.refresh_auth_token()
             ao3_id = AO3.utils.workid_from_url(ao3_work)
             try:
