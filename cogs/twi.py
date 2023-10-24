@@ -37,7 +37,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     def __init__(self, bot):
         self.bot = bot
         self.invis_text_cache = None
-        self.last_run = datetime.datetime.now()
+        self.last_run = datetime.datetime.now() - datetime.timedelta(minutes=10)
 
     async def cog_load(self) -> None:
         self.invis_text_cache = await self.bot.pg_con.fetch("SELECT DISTINCT title FROM invisible_text_twi")
