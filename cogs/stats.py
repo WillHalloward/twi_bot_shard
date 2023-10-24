@@ -410,7 +410,9 @@ class StatsCogs(commands.Cog, name="stats"):
     @Cog.listener("on_message")
     async def old_prefix_listener(self, message: discord.Message):
         if message.content.startswith("!"):
-            await message.channel.send("The ! commands have all been replaced with / commands.")
+            await message.channel.send("The ! commands have all been replaced with / commands.\n"
+                                       "To see the full list of commands type / and click on my avatar.\n"
+                                       "(pssst. !pw is now /password)")
 
     @Cog.listener("on_raw_message_delete")
     async def message_deleted(self, message):
