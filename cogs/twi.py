@@ -33,7 +33,6 @@ async def is_bot_channel(interaction):
     return interaction.channel.id == 361694671631548417
 
 
-
 class TwiCog(commands.Cog, name="The Wandering Inn"):
     def __init__(self, bot):
         self.bot = bot
@@ -43,6 +42,10 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     async def cog_load(self) -> None:
         self.invis_text_cache = await self.bot.pg_con.fetch("SELECT DISTINCT title FROM invisible_text_twi")
 
+    # button class for linking people to the chapter
+    class Button(discord.ui.Button):
+        def __init__(self, url):
+            super().__init__(style=discord.ButtonStyle.link, url=url, label="Chapter")
 
     @app_commands.command(
         name="password",
@@ -57,12 +60,11 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                                                       "WHERE password IS NOT NULL "
                                                       "ORDER BY serial_id DESC "
                                                       "LIMIT 1")
-            if self.last_run < datetime.datetime.now()-datetime.timedelta(minutes=10):
-                await interaction.response.send_message(f"<{password['link']}>")
-                await interaction.channel.send(password['password'])
+            if self.last_run < datetime.datetime.now() - datetime.timedelta(minutes=10):
+                await interaction.response.send_message(f"{password['password']}", view=discord.ui.View().add_item(self.Button(password['link'])))
                 self.last_run = datetime.datetime.now()
             else:
-                await interaction.response.send_message(f"<{password['link']}>\n{password['password']}", ephemeral=True)
+                await interaction.response.send_message(f"{password['password']}", ephemeral=True, view=discord.ui.View().add_item(self.Button(password['link'])))
         else:
             await interaction.response.send_message(
                 "There are 3 ways to get you patreon password.\n"
