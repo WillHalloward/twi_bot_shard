@@ -252,7 +252,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     async def update_password(self, interaction: discord.Interaction, password: str, link: str):
         await self.bot.pg_con.execute(
             "INSERT INTO password_link(password, link, user_id, date) VALUES ($1, $2, $3, $4)",
-            password, link, interaction.author.id, interaction.message.created_at.replace(tzinfo=None)
+            password, link, interaction.user.id, interaction.message.created_at.replace(tzinfo=None)
         )
 
     # @commands.command(name="reddit")
