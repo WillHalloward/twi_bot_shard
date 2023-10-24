@@ -19,21 +19,22 @@ def admin_or_me_check(ctx):
         return False
 
 
-async def save_reaction(self, reaction):
+async def save_reaction(self, reaction: discord.Reaction):
     try:
         if reaction.is_custom_emoji():
-            for user in reaction.users():
+
+            for user in [user async for user in reaction.users()]:
                 await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
                                               "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE",
-                                              None, reaction.message_id, user.id,
+                                              None, reaction.message.id, user.id,
                                               reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id,
                                               f"https://cdn.discordapp.com/emojis/{reaction.emoji.id}.{'gif' if reaction.emoji.animated else 'png'}",
                                               datetime.now().replace(tzinfo=None), reaction.is_custom_emoji())
         else:
-            for user in reaction.users():
+            for user in [user async for user in reaction.users()]:
                 await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
                                               "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE",
-                                              reaction.emoji.name, reaction.message_id, user.id,
+                                              reaction.emoji.name, reaction.message.id, user.id,
                                               reaction.emoji.name, None, None,
                                               None, datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
     except Exception as e:
