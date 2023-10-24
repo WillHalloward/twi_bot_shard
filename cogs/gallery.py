@@ -127,7 +127,6 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                     for attachment in message.attachments:
                         embed = discord.Embed(title=menu.title_item, description=menu.description_item, url="https://wanderinginn.com/")
                         embed.set_thumbnail(url=message.author.display_avatar.url)
-                        print(attachment.content_type)
                         if query_r:
                             for query in query_r:
                                 if repost_channel.is_nsfw() or not query['nsfw']:
@@ -141,11 +140,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                                 x = 1
                             x += 1
                         # check if the attachment is a video
-                        elif attachment.content_type.startswith("video"):
-                            files_list.append(await attachment.to_file())
-                        elif attachment.content_type.startswith("audio"):
-                            files_list.append(await attachment.to_file())
-                        elif attachment.content_type.startswith("text"):
+                        elif attachment.content_type.startswith("video") or attachment.content_type.startswith("audio") or attachment.content_type.startswith("text"):
                             files_list.append(await attachment.to_file())
                     if embed_list and files_list:
                         await repost_channel.send(embeds=embed_list, files=files_list)
@@ -155,9 +150,6 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                     await interaction.delete_original_response()
             else:
                 interaction.response.send_message("I could not find a supported attachment in that message", ephemeral=True)
-
-
-
         elif re.search(ao3_pattern, message.content):
             # AO3 link found
             url = re.search(ao3_pattern, message.content).group(0)
