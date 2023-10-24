@@ -26,34 +26,29 @@ class ModCogs(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(
+    @app_commands.command(
         name="reset",
-        brief="resets the cooldown of a command",
-        help="resets the cooldown of a command",
-        aliases=['removecooldown', 'cooldown'],
-        usage='[Command]',
-        hidden=False,
+        description="resets the cooldown of a command"
     )
     @commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
-    async def reset(self, ctx, command):
-        self.bot.get_command(command).reset_cooldown(ctx)
-        await ctx.send("reset!")
+    @app_commands.checks.has_permissions(ban_members=True)
+    @app_commands.default_permissions(ban_members=True)
+    async def reset(self, interaction: discord.Interaction, command: str):
+        self.bot.get_command(command).cooldown.reset()
+        await interaction.response.send_message(f"Reset the cooldown of {command}")
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="state",
-        brief="Makes Cognita post a mod message",
-        help="",
-        aliases=['modState'],
-        usage="[message]"
+        description="Makes Cognita post a mod message"
     )
-    @commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
-    async def state(self, ctx, *, message):
+    @app_commands.check(admin_or_me_check)
+    @app_commands.checks.has_permissions(ban_members=True)
+    @app_commands.default_permissions(ban_members=True)
+    async def state(self, interaction: discord.Interaction, message: str):
         embed = discord.Embed(title="**MOD MESSAGE**", color=0xff0000)
         embed.add_field(name="\u200b", value=message, inline=False)
-        embed.set_footer(text=ctx.author.name, icon_url=ctx.author.display_avatar.url)
-        await ctx.send(embed=embed)
+        embed.set_footer(text=interaction.user.name, icon_url=interaction.user.display_avatar.url)
+        await interaction.response.send_message(embed=embed)
 
     @Cog.listener("on_message")
     async def log_attachment(self, message):
@@ -88,6 +83,7 @@ class ModCogs(commands.Cog):
                             file = await attachment.to_file(spoiler=attachment.is_spoiler())
                             embed.set_image(url=f"attachment://{attachment.filename}")
                             embed.add_field(name="User", value=message.author.mention, inline=True)
+                            embed.add_field(name="Username", value=message.author.name, inline=True)
                             await webhook.send(file=file, embed=embed)
                         except Exception as e:
                             logging.exception('DM_watch')
@@ -96,6 +92,7 @@ class ModCogs(commands.Cog):
                         embed = discord.Embed(title="New message",
                                               description=f"content: {message.content}")
                         embed.add_field(name="sender", value=message.author.mention, inline=True)
+                        embed.add_field(name="Username", value=message.author.name, inline=True)
                         if message.channel.recipient:
                             embed.add_field(name="Recipient", value=message.channel.recipient.mention, inline=True)
                         await webhook.send(embed=embed)
@@ -115,31 +112,12 @@ class ModCogs(commands.Cog):
                                    f"Jump Url: {message.jump_url}",
                                    allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
 
-    @commands.command(
-        name="add_role_to_all",
-        aliases=['arta', 'roleall'],
-        brief="Adds a role to all users on the server",
-        usage='@Role',
-        hidden=True
-    )
-    @commands.is_owner()
-    async def add_role_to_all(self, ctx, role: discord.Role):
-        for member in ctx.guild.members:
-            try:
-                await member.add_roles(role)
-            except discord.Forbidden:
-                logging.error(f"Can't add role 'verified' to user {member.name}")
-            except discord.HTTPException:
-                logging.error(f"Failed to add role 'verified' to user {member.name}")
-            except Exception as e:
-                logging.error(e)
-            await asyncio.sleep(0.5)
-
     @Cog.listener("on_member_join")
     async def filter_new_users(self, member):
         if member.created_at.replace(tzinfo=None) < datetime.datetime.now() - datetime.timedelta(hours=72):
             verified = member.guild.get_role(945388135355924571)
             await member.add_roles(verified)
+
 
 async def setup(bot):
     await bot.add_cog(ModCogs(bot))

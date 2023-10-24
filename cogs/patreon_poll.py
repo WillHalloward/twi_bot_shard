@@ -26,8 +26,8 @@ async def fetch(session, url):
         return await respons.text()
 
 
-def is_bot_channel(ctx):
-    return ctx.channel.id == 361694671631548417
+def is_bot_channel(interaction: discord.Interaction):
+    return interaction.channel.id == 361694671631548417
 
 
 async def get_poll(bot):
@@ -94,7 +94,7 @@ async def get_poll(bot):
             break
 
 
-async def p_poll(polls, ctx, bot):
+async def p_poll(polls, interaction, bot):
     for poll in polls:
         if not poll['expired']:
             async with aiohttp.ClientSession(cookies=secrets.cookies) as session:
@@ -127,10 +127,10 @@ async def p_poll(polls, ctx, bot):
 
         for option in options:
             embed.add_field(name=option[0], value=option[1], inline=False)
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
 
-async def search_poll(bot, query):
+async def search_poll(bot, query: str):
     test = await bot.pg_con.fetch(
         "SELECT poll_id, option_text FROM poll_option WHERE tokens @@ plainto_tsquery($1)",
         query)
@@ -149,81 +149,70 @@ class PollCog(commands.Cog, name="Poll"):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="poll",
-        brief="Posts the latest poll or a specific poll",
-        description="Returns a poll by it's given id.",
-        aliases=['p'],
-        usage='[Id]',
-        help="Shows the current active polls if no id is given. If there is no active poll, the latest poll is shown."
-             "\nFind the poll id via !PollList or !FindPoll",
-        hidden=False
+        description="Posts the latest poll or a specific poll",
     )
     # @commands.check(is_bot_channel)
-    @commands.cooldown(1, 300, commands.BucketType.channel)
-    async def poll(self, ctx, id=None):
-        if is_bot_channel(ctx):
-            self.poll.reset_cooldown(ctx)
+    @app_commands.checks.cooldown(1, 60.0, key=lambda i: (i.user.id, i.channel.id))
+    async def poll(self, interaction: discord.Interaction, poll_id: int = None):
         active_polls = await self.bot.pg_con.fetch("SELECT * FROM poll WHERE expire_date > now()")
-        if active_polls and id is None:
-            await p_poll(active_polls, ctx, self.bot)
+        if active_polls and poll_id is None:
+            await p_poll(active_polls, interaction, self.bot)
         else:
             last_poll = await self.bot.pg_con.fetch("SELECT COUNT (*) FROM poll")
-            if id is None:
-                id = last_poll[0][0]
-            value = await self.bot.pg_con.fetch("SELECT * FROM poll ORDER BY id OFFSET $1 LIMIT 1", int(id) - 1)
-            await p_poll(value, ctx, self.bot)
+            if poll_id is None:
+                poll_id = last_poll[0][0]
+            value = await self.bot.pg_con.fetch("SELECT * FROM poll ORDER BY id OFFSET $1 LIMIT 1", int(poll_id) - 1)
+            await p_poll(value, interaction, self.bot)
 
     @poll.error
-    async def isError(self, ctx, error):
-        if isinstance(error, commands.CheckFailure):
-            await ctx.send("Please use this command in <#361694671631548417> only. It takes up quite a bit of space.")
+    async def on_poll_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        if isinstance(error, discord.app_commands.errors.CommandOnCooldown):
+            print(error.retry_after)
+            await interaction.response.send_message(f"Please wait {round(error.retry_after, 2)} seconds before using this command again.", ephemeral=True)
+        else:
+            logging.exception(error)
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="polllist",
-        brief="Shows the list of poll ids sorted by year.",
-        description="",
-        aliases=['pl', 'ListPolls'],
-        usage='[Year]',
-        hidden=False
+        description="Shows the list of poll ids sorted by year.",
     )
     @commands.check(is_bot_channel)
-    async def poll_list(self, ctx, year=datetime.now(timezone.utc).year):
+    async def poll_list(self, interaction: discord.Interaction, year: int = datetime.now(timezone.utc).year):
         polls_years = await self.bot.pg_con.fetch(
             "SELECT title, index_serial FROM poll WHERE date_part('year', start_date) = $1 ORDER BY start_date",
             year)
         if not polls_years:
-            await ctx.send("Sorry there were no polls that year that i could find :(")
+            await interaction.response.send_message("Sorry there were no polls that year that i could find :(")
         else:
             embed = discord.Embed(title="List of polls", color=discord.Color(0x3cd63d),
                                   description=f"**{year}**")
             for polls in polls_years:
                 embed.add_field(name=f"{polls['title']}", value=polls['index_serial'], inline=False)
-            await ctx.send(embed=embed)
+            await interaction.response.send_message(embed=embed)
 
     @poll_list.error
-    async def isError(self, ctx, error):
+    async def isError(self, interaction: discord.Interaction, error):
         if isinstance(error, commands.CheckFailure):
-            await ctx.send("Please use this command in <#361694671631548417> only. It takes up quite a bit of space.")
+            await interaction.response.send_message("Please use this command in <#361694671631548417> only. It takes up quite a bit of space.", ephemeral=True)
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="getpoll"
     )
     @commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
-    async def getpoll(self, ctx):
+    @app_commands.checks.has_permissions(ban_members=True)
+    @app_commands.default_permissions(ban_members=True)
+    async def getpoll(self, interaction: discord.Interaction):
         await get_poll(self.bot)
-        await ctx.send("Done!")
+        await interaction.response.send_message("Done!",ephemeral=True)
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="findpoll",
-        aliases=['fp', 'SearchPoll'],
-        brief="Searches poll questions for a given query",
-        usage='[Query]',
-        hidden=False
+        description="Searches poll questions for a given query",
     )
-    async def findpoll(self, ctx, *, query):
-        await ctx.send(embed=await search_poll(self.bot, query))
+    async def findpoll(self, interaction: discord.Interaction,  query: str):
+        await interaction.response.send_message(embed=await search_poll(self.bot, query))
 
 
 async def setup(bot):

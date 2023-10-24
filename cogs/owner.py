@@ -14,97 +14,98 @@ class OwnerCog(commands.Cog, name="Owner"):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.hybrid_command(name='load', hidden=True)
+    @app_commands.command(name='load')
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
-    async def load_cog(self, ctx, *, cog: str):
+    async def load_cog(self, interaction: discord.Interaction, *, cog: str):
         try:
             await self.bot.load_extension(cog)
         except Exception as e:
-            await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
+            await interaction.response.send_message(f'**`ERROR:`** {type(e).__name__} - {e}')
             logging.error(f'{type(e).__name__} - {e}')
         else:
-            await ctx.send('**`SUCCESS`**')
+            await interaction.response.send_message('**`SUCCESS`**', delete_after=5)
 
     @load_cog.autocomplete('cog')
-    async def reload_cog_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+    async def reload_cog_autocomplete(self, interaction: discord.Interaction, current: str, ) -> List[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
             for cog in cogs if current.lower() in cog.lower()
         ]
 
-    @commands.hybrid_command(name='unload', hidden=True)
+    @app_commands.command(name='unload')
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
-    async def unload_cog(self, ctx, *, cog: str):
+    async def unload_cog(self, interaction: discord.Interaction, *, cog: str):
         try:
             await self.bot.unload_extension(cog)
         except Exception as e:
-            await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
+            await interaction.response.send_message(f'**`ERROR:`** {type(e).__name__} - {e}')
             logging.error(f'{type(e).__name__} - {e}')
         else:
-            await ctx.send('**`SUCCESS`**')
+            await interaction.response.send_message('**`SUCCESS`**', delete_after=5)
 
     @unload_cog.autocomplete('cog')
-    async def reload_cog_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+    async def reload_cog_autocomplete(self, interaction: discord.Interaction, current: str, ) -> List[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
             for cog in cogs if current.lower() in cog.lower()
         ]
 
-    @commands.hybrid_command(name='reload', hidden=True)
+    @app_commands.command(name='reload')
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
-    async def reload_cog(self, ctx, cog: str):
+    async def reload_cog(self, interaction: discord.Interaction, cog: str):
         try:
             await self.bot.unload_extension(cog)
             await self.bot.load_extension(cog)
         except Exception as e:
-            await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
+            await interaction.response.send_message(f'**`ERROR:`** {type(e).__name__} - {e}')
             logging.error(f'{type(e).__name__} - {e}')
         else:
-            await ctx.send('**`SUCCESS`**', delete_after=5)
-            await ctx.message.delete()
+            await interaction.response.send_message('**`SUCCESS`**', delete_after=5)
 
     @reload_cog.autocomplete('cog')
-    async def reload_cog_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+    async def reload_cog_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
             for cog in cogs if current.lower() in cog.lower()
         ]
 
-    @commands.hybrid_command(name='cmd')
+    @app_commands.command(name='cmd')
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
-    async def cmd(self, ctx, *, args):
+    async def cmd(self, interaction: discord.Interaction, args: str):
         args_array = args.split(" ")
         try:
-            await ctx.send(subprocess.check_output(args_array, stderr=subprocess.STDOUT).decode("utf-8"))
+            await interaction.response.send_message(subprocess.check_output(args_array, stderr=subprocess.STDOUT).decode("utf-8"))
         except subprocess.CalledProcessError as e:
-            await ctx.send(f'Error: {e.output.decode("utf-8")}')
+            await interaction.response.send_message(f'Error: {e.output.decode("utf-8")}')
 
-    @commands.hybrid_command(name="sync")
+    @app_commands.command(name="sync")
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
-    async def sync(self, ctx, *, all_guilds: bool):
+    async def sync(self, interaction: discord.Interaction, all_guilds: bool):
         if all_guilds:
             try:
                 await self.bot.tree.sync()
             except Exception as e:
                 logging.error(e)
-            await ctx.send("Synced Globally")
+            await interaction.response.send_message("Synced Globally")
         else:
             try:
-                await self.bot.tree.sync(guild=ctx.guild)
+                await self.bot.tree.sync(guild=interaction.guild)
             except Exception as e:
                 logging.error(e)
-            await ctx.send("Synced Locally")
+            await interaction.response.send_message("Synced Locally")
 
-    @commands.command(name="exit")
+    @app_commands.command(name="exit")
     @commands.is_owner()
-    async def exit(self, ctx):
-        await ctx.send("Exiting...")
+    @app_commands.guilds(297916314239107072)
+    async def exit(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Exiting...")
         await self.bot.close()
+
 
 async def setup(bot):
     await bot.add_cog(OwnerCog(bot), guilds=[discord.Object(id=297916314239107072)])

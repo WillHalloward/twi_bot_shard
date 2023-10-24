@@ -7,7 +7,7 @@ import discord
 from discord.ext import commands
 from discord.ext import tasks
 from discord.ext.commands import Cog
-
+from discord import app_commands
 
 def admin_or_me_check(ctx):
     role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
@@ -406,6 +406,11 @@ class StatsCogs(commands.Cog, name="stats"):
                 logging.debug("post update")
         except:
             logging.exception(f"message_edited - {message.data}")
+
+    @Cog.listener("on_message")
+    async def old_prefix_listener(self, message: discord.Message):
+        if message.content.startswith("!"):
+            await message.channel.send("The ! commands have all been replaced with / commands.")
 
     @Cog.listener("on_raw_message_delete")
     async def message_deleted(self, message):
@@ -836,22 +841,16 @@ class StatsCogs(commands.Cog, name="stats"):
                     logging.error(f"Could not post stats_loop to channel {channel.name} - {e}")
             logging.info("Daily stats report done")
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="messagecount",
-        brief="Retrieve message count from a channel in the last x hours",
-        help="Retrieve message count from a channel in the last x hours",
-        aliases=['mc', 'count'],
-        usage='[channel] [hours]',
-        hidden=False,
+        description="Retrieve message count from a channel in the last x hours",
     )
-    async def message_count(self, ctx, channel: discord.TextChannel, hours: int):
-        logging.debug(hours)
+    async def message_count(self, interaction: discord.Interaction, channel: discord.TextChannel, hours: int):
         d_time = datetime.now() - timedelta(hours=hours)
-        logging.debug(d_time)
         results = await self.bot.pg_con.fetchrow(
             "SELECT count(*) total FROM messages WHERE created_at > $1 and channel_id = $2",
             d_time, channel.id)
-        await ctx.send(f"There is a total of {results['total']} messages in channel {channel} since {d_time} UTC")
+        await interaction.response.send_message(f"There is a total of {results['total']} messages in channel {channel} since {d_time} UTC")
 
 
 async def setup(bot):

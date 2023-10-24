@@ -19,11 +19,13 @@ import AO3
 import secrets
 
 session = AO3.Session(secrets.ao3_username, secrets.ao3_password)
-def admin_or_me_check(ctx):
-    role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
-    if ctx.message.author.id == 268608466690506753:
+
+
+def admin_or_me_check(interaction):
+    role = discord.utils.get(interaction.guild.roles, id=346842813687922689)
+    if interaction.message.author.id == 268608466690506753:
         return True
-    elif role in ctx.message.author.roles:
+    elif role in interaction.message.author.roles:
         return True
     else:
         return False
@@ -39,45 +41,33 @@ class OtherCogs(commands.Cog, name="Other"):
         self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
         self.category_cache = await self.bot.pg_con.fetch("SELECT DISTINCT (category) FROM roles WHERE category IS NOT NULL")
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="ping",
-        brief="Gives the latency of the bot",
-        aliases=['latency', 'delay'],
-        hidden=False,
+        description="Gives the latency of the bot",
     )
-    async def ping(self, ctx: commands.Context) -> None:
-        await ctx.send(f"{round(self.bot.latency * 1000)} ms")
+    async def ping(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(f"{round(self.bot.latency * 1000)} ms")
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="avatar",
-        brief="Posts the full version of a avatar",
-        aliases=['Av'],
-        usage='[@User]',
-        hidden=False,
+        description="Posts the full version of a avatar"
     )
-    async def av(self, ctx, *, member: discord.Member = None):
+    async def av(self, interaction: discord.Interaction, member: discord.Member = None):
         if member is None:
-            member = ctx.author
+            member = interaction.user
         embed = discord.Embed(title="Avatar", color=discord.Color(0x3cd63d))
-        logging.debug(f"Avatar url: {member.display_avatar.url}")
         embed.set_image(url=member.display_avatar.url)
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.hybrid_group(name="info")
-    async def info(self, ctx):
-        pass
+    info = app_commands.Group(name="info", description="Information commands")
 
     @info.command(
         name="user",
-        brief="Gives the account information of a user.",
-        aliases=['Stats', 'Information'],
-        usage='[@user]',
-        hidden=False,
+        description="Gives the account information of a user.",
     )
-    async def info_user(self, ctx, *, member: discord.Member = None):
+    async def info_user(self, interaction: discord.Interaction, member: discord.Member = None):
         if member is None:
-            member = ctx.author
-
+            member = interaction.user
         embed = discord.Embed(title=member.display_name, color=discord.Color(0x3cd63d))
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name="Account created at", value=member.created_at.strftime("%d-%m-%Y @ %H:%M:%S"))
@@ -92,64 +82,61 @@ class OtherCogs(commands.Cog, name="Other"):
                 roles += f"{role.mention}\n"
         if roles != "":
             embed.add_field(name="Roles", value=roles, inline=False)
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
     @info.command(name="server")
-    async def info_server(self, ctx):
-        embed = discord.Embed(title=ctx.guild.name, color=discord.Color(0x3cd63d))
-        embed.set_thumbnail(url=ctx.guild.icon)
-        embed.add_field(name="Id", value=ctx.guild.id, inline=False)
-        embed.add_field(name="Owner", value=ctx.guild.owner.mention)
-        embed.add_field(name="Created At", value=ctx.guild.created_at.strftime("%d-%m-%Y @ %H:%M:%S"), inline=False)
-        embed.add_field(name="Banner", value=ctx.guild.banner, inline=False)
-        embed.add_field(name="Description", value=ctx.guild.description, inline=False)
-        embed.add_field(name="Member count", value=ctx.guild.member_count)
-        embed.add_field(name="Number of roles", value=f"{len(ctx.guild.roles)}/250")
+    async def info_server(self, interaction: discord.Interaction):
+        embed = discord.Embed(title=interaction.guild.name, color=discord.Color(0x3cd63d))
+        embed.set_thumbnail(url=interaction.guild.icon)
+        embed.add_field(name="Id", value=interaction.guild.id, inline=False)
+        embed.add_field(name="Owner", value=interaction.guild.owner.mention)
+        embed.add_field(name="Created At", value=interaction.guild.created_at.strftime("%d-%m-%Y @ %H:%M:%S"), inline=False)
+        embed.add_field(name="Banner", value=interaction.guild.banner, inline=False)
+        embed.add_field(name="Description", value=interaction.guild.description, inline=False)
+        embed.add_field(name="Member count", value=interaction.guild.member_count)
+        embed.add_field(name="Number of roles", value=f"{len(interaction.guild.roles)}/250")
         normal, animated = 0, 0
-        for emoji in ctx.guild.emojis:
+        for emoji in interaction.guild.emojis:
             if emoji.animated:
                 animated += 1
             else:
                 normal += 1
-        embed.add_field(name="Number of emojis", value=f"{normal}/{ctx.guild.emoji_limit}")
-        embed.add_field(name="Number of Animated emojis", value=f"{animated}/{ctx.guild.emoji_limit}")
-        embed.add_field(name="Number of stickers", value=f"{len(ctx.guild.stickers)}/{ctx.guild.sticker_limit}")
-        embed.add_field(name="Number of active threads", value=f"{len(await ctx.guild.active_threads())}")
-        embed.add_field(name="Number of Text Channels", value=f"{len(ctx.guild.text_channels)}")
-        embed.add_field(name="Number of Voice channels", value=f"{len(ctx.guild.voice_channels)}")
-        if ctx.guild.vanity_url is not None:
-            embed.add_field(name="Invite link", value=ctx.guild.vanity_url)
-        await ctx.send(embed=embed)
+        embed.add_field(name="Number of emojis", value=f"{normal}/{interaction.guild.emoji_limit}")
+        embed.add_field(name="Number of Animated emojis", value=f"{animated}/{interaction.guild.emoji_limit}")
+        embed.add_field(name="Number of stickers", value=f"{len(interaction.guild.stickers)}/{interaction.guild.sticker_limit}")
+        embed.add_field(name="Number of active threads", value=f"{len(await interaction.guild.active_threads())}")
+        embed.add_field(name="Number of Text Channels", value=f"{len(interaction.guild.text_channels)}")
+        embed.add_field(name="Number of Voice channels", value=f"{len(interaction.guild.voice_channels)}")
+        if interaction.guild.vanity_url is not None:
+            embed.add_field(name="Invite link", value=interaction.guild.vanity_url)
+        await interaction.response.send_message(embed=embed)
 
     @info.command(name="role")
-    async def info_role(self, ctx, role: discord.Role):
+    async def info_role(self, interaction: discord.Interaction, role: discord.Role):
         embed = discord.Embed(title=role.name, color=(discord.Color(role.color.value)))
         embed.add_field(name="Color: ", value=hex(role.color.value), inline=False)
         embed.add_field(name="Created at", value=role.created_at.strftime("%d-%m-%Y @ %H:%M:%S"), inline=False)
         embed.add_field(name="Hoisted", value=role.hoist, inline=False)
         embed.add_field(name="Id", value=role.id, inline=False)
         embed.add_field(name="Member count", value=len(role.members), inline=False)
-        await ctx.send(embed=embed)
+        await interaction.response.send(embed=embed)
 
-    @commands.command(
+    @app_commands.command(
         name="say",
-        brief="Makes Cognita repeat whatever was said",
-        aliases=['repeat'],
-        usage='[message]'
+        description="Makes Cognita repeat whatever was said",
     )
     @commands.is_owner()
-    async def say(self, ctx, *, say):
-        await ctx.send(say)
+    async def say(self, interaction: discord.Interaction, say: str):
+        await interaction.response.send_message("Sent message", ephemeral=True)
+        await interaction.channel.send(say)
 
-    @commands.command(
+    @app_commands.command(
         name="saychannel",
-        brief="Makes Cognita repeat whatever was said in a specific channel",
-        aliases=['sayc', 'repeatc', 'sc', 'repeatchannel'],
-        usage='[Channel_id][message]'
+        description="Makes Cognita repeat whatever was said in a specific channel",
     )
     @commands.is_owner()
-    async def say_channel(self, ctx, channel_id, *, say):
-        channel = ctx.guild.get_channel_or_thread(int(channel_id))
+    async def say_channel(self, interaction: discord.Interaction, channel: discord.TextChannel, say: str):
+        await interaction.response.send_message("Sent message", ephemeral=True)
         await channel.send(say)
 
     @commands.Cog.listener()
@@ -189,27 +176,25 @@ class OtherCogs(commands.Cog, name="Other"):
                 embed.set_thumbnail(url=after.display_avatar.url)
                 await channel.send(embed=embed, content=f"{after.mention}")
 
-    @commands.hybrid_group(name="quote")
-    async def quote(self, ctx):
-        pass
+    quote = app_commands.Group(name="quote", description="Quote commands")
 
     @quote.command(
         name="add",
-        aliases=['aq']
+        description="Adds a quote to the list of quotes"
     )
-    async def quote_add(self, ctx, *, quote):
+    async def quote_add(self, interaction: discord.Interaction, quote: str):
         await self.bot.pg_con.execute(
             "INSERT INTO quotes(quote, author, author_id, time, tokens) VALUES ($1,$2,$3,now(),to_tsvector($4))",
-            quote, ctx.author.display_name, ctx.author.id, quote)
+            quote, interaction.user.display_name, interaction.user.id, quote)
         row_number = await self.bot.pg_con.fetchrow("SELECT COUNT(*) FROM quotes")
-        await ctx.send(f"Added quote `{quote}` at index {row_number['count']}")
+        await interaction.response.send_message(f"Added quote `{quote}` at index {row_number['count']}")
         self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
 
     @quote.command(
         name="find",
-        aliases=['fq']
+        description="Searches for a quote"
     )
-    async def quote_find(self, ctx, *, search):
+    async def quote_find(self, interaction: discord.Interaction, search: str):
         results = await self.bot.pg_con.fetch(
             "SELECT quote, x.row_number FROM (SELECT tokens, quote, ROW_NUMBER() OVER () as row_number FROM quotes) x WHERE x.tokens @@ to_tsquery($1);", search)
         if len(results) > 1:
@@ -220,20 +205,20 @@ class OtherCogs(commands.Cog, name="Other"):
                 index_res = f"{index_res}{str(result['row_number'])}, "
             index_res = index_res[:-2]
             index_res = f"{index_res}]"
-            await ctx.send(
+            await interaction.response.send_message(
                 f"Quote {results[0]['row_number']}: {results[0]['quote']}\nThere is also results at {index_res}")
         elif len(results) == 1:
-            await ctx.send(f"Quote {results[0]['row_number']}: {results[0]['quote']}")
+            await interaction.response.send_message(f"Quote {results[0]['row_number']}: {results[0]['quote']}")
         elif len(results) < 1:
-            await ctx.send("I found no results")
+            await interaction.response.send_message("I found no results")
         else:
-            await ctx.send("How the fuck?")
+            await interaction.response.send_message("How the fuck?")
 
     @quote.command(
         name="delete",
-        aliases=['dq', 'removequote', 'rq']
+        description="Delete a quote"
     )
-    async def quote_delete(self, ctx, *, delete: int):
+    async def quote_delete(self, interaction: discord.Interaction, delete: int):
         u_quote = await self.bot.pg_con.fetchrow(
             "SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x WHERE ROW_NUMBER = $1",
             delete)
@@ -241,13 +226,13 @@ class OtherCogs(commands.Cog, name="Other"):
             await self.bot.pg_con.execute(
                 "DELETE FROM quotes WHERE serial_id in (SELECT serial_id FROM QUOTES ORDER BY TIME LIMIT 1 OFFSET $1)",
                 delete - 1)
-            await ctx.send(f"Deleted quote `{u_quote['quote']}` from position {u_quote['row_number']}")
+            await interaction.response.send_message(f"Deleted quote `{u_quote['quote']}` from position {u_quote['row_number']}")
             self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
         else:
-            await ctx.send("Im sorry. I could not find a quote on that index")
+            await interaction.response.send_message("Im sorry. I could not find a quote on that index")
 
     @quote_delete.autocomplete('delete')
-    async def quote_delete_autocomplete(self, ctx, current: int, ) -> List[app_commands.Choice[int]]:
+    async def quote_delete_autocomplete(self, interaction: discord.Interaction, current: int) -> List[app_commands.Choice[int]]:
         ln = []
         for x in self.quote_cache:
             ln.append({"quote": x['quote'], "row_number": x['row_number']})
@@ -258,9 +243,9 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @quote.command(
         name="get",
-        aliases=['q']
+        description="Posts a quote a random quote or a quote with the given index"
     )
-    async def quote_get(self, ctx, index: int = None):
+    async def quote_get(self, interaction, index: int = None):
         if index is None:
             u_quote = await self.bot.pg_con.fetchrow(
                 "SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x  ORDER BY random() LIMIT 1")
@@ -269,12 +254,12 @@ class OtherCogs(commands.Cog, name="Other"):
                 "SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x WHERE ROW_NUMBER = $1",
                 index)
         if u_quote:
-            await ctx.send(f"Quote {u_quote['row_number']}: `{u_quote['quote']}`")
+            await interaction.response.send_message(f"Quote {u_quote['row_number']}: `{u_quote['quote']}`")
         else:
-            await ctx.send("Im sorry, i could not find a quote with that index value.")
+            await interaction.response.send_message("Im sorry, i could not find a quote with that index value.")
 
     @quote_get.autocomplete('index')
-    async def quote_get_autocomplete(self, ctx, current: int, ) -> List[app_commands.Choice[int]]:
+    async def quote_get_autocomplete(self, interaction, current: int, ) -> List[app_commands.Choice[int]]:
         ln = []
         for x in self.quote_cache:
             ln.append({"quote": x['quote'], "row_number": x['row_number']})
@@ -285,20 +270,20 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @quote.command(
         name="who",
-        aliases=['infoquote', 'iq', 'wq']
+        description="Posts who added a quote"
     )
-    async def quote_who(self, ctx, index: int):
+    async def quote_who(self, interaction, index: int):
         u_quote = await self.bot.pg_con.fetchrow(
             "SELECT author, author_id, time, row_number FROM (SELECT author, author_id, time, ROW_NUMBER () OVER () FROM quotes) x WHERE ROW_NUMBER = $1",
             index)
         if u_quote:
-            await ctx.send(
+            await interaction.response.send_message(
                 f"Quote {u_quote['row_number']} was added by: {u_quote['author']} ({u_quote['author_id']}) at {u_quote['time']}")
         else:
-            await ctx.send("Im sorry, i could not find a quote with that index value.")
+            await interaction.response.send_message("Im sorry, i could not find a quote with that index value.")
 
     @quote_who.autocomplete('index')
-    async def quote_who_autocomplete(self, ctx, current: int, ) -> List[app_commands.Choice[int]]:
+    async def quote_who_autocomplete(self, interaction, current: int, ) -> List[app_commands.Choice[int]]:
         ln = []
         for x in self.quote_cache:
             ln.append({"quote": x['quote'], "row_number": x['row_number']})
@@ -307,13 +292,13 @@ class OtherCogs(commands.Cog, name="Other"):
                    for quote in ln if str(current) in str(quote['row_number']) or current == ""
                ][0:25]
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="roles",
-        aliases=['rolelist', 'listroles', 'rl', 'lr']
+        description="Posts all the roles in the server you can assign yourself"
     )
-    async def role_list(self, ctx):
+    async def role_list(self, interaction: discord.Interaction):
         list_r = list()
-        for role in ctx.author.roles:
+        for role in interaction.user.roles:
             list_r.append(role.id)
         roles = await self.bot.pg_con.fetch(
             "SELECT id, name, required_roles, weight, alias, category "
@@ -322,7 +307,7 @@ class OtherCogs(commands.Cog, name="Other"):
             "AND guild_id = $1 "
             "AND self_assignable = TRUE "
             "order by weight, name desc",
-            ctx.guild.id, list_r)
+            interaction.guild.id, list_r)
         length = 0
         for name in roles:
             if len(name['alias']) > length:
@@ -338,68 +323,66 @@ class OtherCogs(commands.Cog, name="Other"):
             embed = discord.Embed(title="List of all the roles in the server",
                                   description="Request the role by doing /role @Role",
                                   color=0x00fcff)
-            embed.set_thumbnail(url=ctx.guild.icon)
+            embed.set_thumbnail(url=interaction.guild.icon)
             roles = sorted(roles, key=key_func)
             for key, value in groupby(roles, key_func):
                 foobar = ""
                 x = 1
                 for row in sorted(value, key=key_func2):
-                    temp_str = f"`{row['alias']}` `{'-' * (length - len(row['alias']) + 5)}` {ctx.guild.get_role(row['id']).mention}\n"
+                    temp_str = f"`{row['alias']}` `{'-' * (length - len(row['alias']) + 5)}` {interaction.guild.get_role(row['id']).mention}\n"
                     if len(temp_str + foobar) > 1024:
                         embed.add_field(name=f"**{key.capitalize()}**", value=foobar.strip(), inline=False)
                         foobar = ""
                         key = key + " " + str(x + 1)
                     foobar = foobar + temp_str
                 embed.add_field(name=f"**{key.capitalize()}**", value=foobar.strip(), inline=False)
-            await ctx.send(embed=embed)
+            await interaction.response.send_message(embed=embed)
         else:
-            await ctx.send("Doesn't look like any roles has been setup to be self assignable on this server."
-                           "The moderators can do that by using: "
-                           "`!addrole [Role]`")
+            await interaction.response.send_message("Doesn't look like any roles has been setup to be self assignable on this server."
+                                                    "The moderators can do that by using: "
+                                                    "`!addrole [Role]`")
 
-    @commands.hybrid_group(name="admin_role")
-    @app_commands.default_permissions(manage_roles=True)
-    async def admin_role(self, ctx):
-        pass
+    admin_role = app_commands.Group(name="admin_role", description="Admin role commands")
 
     @admin_role.command(
-        name="weight"
+        name="weight",
+        description="Changes the weight of a role"
     )
     @commands.check(admin_or_me_check)
-    async def update_role_weight(self, ctx, role: discord.role.Role, new_weight: int):
+    async def update_role_weight(self, interaction: discord.Interaction, role: discord.role.Role, new_weight: int):
         await self.bot.pg_con.execute("UPDATE roles set weight = $1 WHERE id = $2 AND guild_id = $3",
-                                      new_weight, role.id, ctx.guild.id)
+                                      new_weight, role.id, interaction.guild.id)
 
     @admin_role.command(
-        name="add"
+        name="add",
+        description="Adds a role to the self assign list"
     )
     @commands.check(admin_or_me_check)
-    async def role_add(self, ctx, role: discord.role.Role, alias: str, category: str = 'Uncategorized',
-                       auto_replace: bool = False, *, required_roles=None):
+    async def role_add(self, interaction: discord.Interaction, role: discord.role.Role, alias: str, category: str = 'Uncategorized', auto_replace: bool = False, required_roles: str = None):
         try:
             if required_roles is not None:
                 list_of_roles = list()
                 required_roles = required_roles.split(" ")
                 for user_role in required_roles:
-                    temp = await commands.RoleConverter().convert(ctx, user_role)
+                    temp = discord.utils.get(interaction.guild.roles, id=re.search(r'\d+', user_role).group())
                     list_of_roles.append(temp.id)
                 await self.bot.pg_con.execute(
                     "UPDATE roles SET self_assignable = TRUE, required_roles = $1, alias = $2, category=$5, auto_replace = $6 "
                     "where id = $3 "
                     "and guild_id = $4",
-                    list_of_roles, alias, role.id, ctx.guild.id, category.lower(), auto_replace)
+                    list_of_roles, alias, role.id, interaction.guild.id, category.lower(), auto_replace)
             else:
                 await self.bot.pg_con.execute(
                     "UPDATE roles SET self_assignable = TRUE, required_roles = NULL, alias = $1, category=$4, auto_replace = $5 "
                     "where id = $2 "
                     "and guild_id = $3",
-                    alias, role.id, ctx.guild.id, category.lower(), auto_replace)
+                    alias, role.id, interaction.guild.id, category.lower(), auto_replace)
         except Exception as e:
-            logging.error(e)
-            await ctx.send(f"Error: {e}")
+            logging.exception(e)
+            await interaction.response.send_message(f"Error: {e}")
 
     @role_add.autocomplete('category')
-    async def role_add_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+    async def role_add_autocomplete(self, interaction: discord.Interaction, current: str, ) -> List[app_commands.Choice[str]]:
         return [
                    app_commands.Choice(name=category, value=category)
                    for category in self.category_cache if current.lower() in category.lower() or current == ""
@@ -410,77 +393,104 @@ class OtherCogs(commands.Cog, name="Other"):
         description="removes a role from the self assign list"
     )
     @commands.check(admin_or_me_check)
-    async def role_remove(self, ctx, role):
+    async def role_remove(self, interaction: discord.Interaction, role: discord.Role):
         await self.bot.pg_con.execute(
             "UPDATE roles SET self_assignable = FALSE, weight = 0, alias = NULL, category = NULL, required_role = NULL, auto_replace = FALSE "
             "where id = $1 "
             "AND guild_id = $2",
-            role, ctx.guild.id)
+            role, interaction.guild.id)
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="role",
-        aliases=['r', 'iam', 'iamnot', 'giverole']
+        description="Adds or removes a role from yourself"
     )
-    async def role(self, ctx, *, role: discord.Role):
-        if type(role) == discord.Role:
-            s_role = await self.bot.pg_con.fetchrow("SELECT * FROM roles WHERE id = $1", role.id)
-            if s_role['self_assignable']:
-                b_role = list()
-                for a_role in ctx.author.roles:
-                    b_role.append(a_role.id)
-                if s_role['required_roles'] is None or [i for i in s_role['required_roles'] if i in b_role] != []:
-                    if role in ctx.author.roles:
-                        await ctx.author.remove_roles(role)
-                        await ctx.send(f"I removed {role}")
-                    else:
-                        if await self.bot.pg_con.fetchval("SELECT auto_replace FROM roles WHERE id = $1", role.id):
-                            list_r = list()
-                            for r in ctx.author.roles:
-                                list_r.append(r.id)
-                            r_loop = self.bot.pg_con.fetch("SELECT id FROM roles WHERE id = ANY($1::bigint[]) "
-                                                           "AND category = "
-                                                           "(SELECT category FROM roles where id = $2)",
-                                                           list_r, role.id)
-                            for r in await r_loop:
-                                await ctx.author.remove_roles(await commands.RoleConverter().convert(ctx, str(r['id'])))
-                        await ctx.author.add_roles(role)
-                        await ctx.send(f"I added {role}")
+    async def role(self, interaction: discord.Interaction, role: discord.Role):
+        s_role = await self.bot.pg_con.fetchrow("SELECT * FROM roles WHERE id = $1", role.id)
+        if s_role['self_assignable']:
+            b_role = list()
+            for a_role in interaction.user.roles:
+                b_role.append(a_role.id)
+            if s_role['required_roles'] is None or [i for i in s_role['required_roles'] if i in b_role] != []:
+                if role in interaction.user.roles:
+                    await interaction.user.remove_roles(role)
+                    await interaction.response.send_message(f"I removed {role}")
                 else:
-                    await ctx.send("You do not have the required role for that.")
+                    if await self.bot.pg_con.fetchval("SELECT auto_replace FROM roles WHERE id = $1", role.id):
+                        list_r = list()
+                        for r in interaction.user.roles:
+                            list_r.append(r.id)
+                        r_loop = self.bot.pg_con.fetch("SELECT id FROM roles WHERE id = ANY($1::bigint[]) "
+                                                       "AND category = "
+                                                       "(SELECT category FROM roles where id = $2)",
+                                                       list_r, role.id)
+                        for r in await r_loop:
+                            await interaction.user.remove_roles(interaction.guild.get_role(r['id']))
+                    await interaction.user.add_roles(role)
+                    await interaction.response.send_message(f"I added {role}")
             else:
-                await ctx.send(
-                    "The requested role is not self assignable")
+                await interaction.response.send_message("You do not have the required role for that.")
         else:
-            await ctx.send("Failed to find the role. Try again with the id of the role or its alias")
+            await interaction.response.send_message("The requested role is not self assignable")
 
-    @commands.hybrid_command(
-        name="pin"
+    @app_commands.command(
+        name="roll",
+        description="Rolls a dice"
     )
-    @commands.has_role(870298484484485190)
-    async def pin(self, ctx, message_id: str):
-        try:
-            message = await ctx.channel.fetch_message(int(message_id))
-            await message.pin()
-        except Exception as e:
-            await ctx.send(f"Error: - {e}")
-
-    @commands.hybrid_command(
-        name="roll"
-    )
-    async def roll(self, ctx, dice: int = 20, amount: int = 1, modifier: int = 0):
+    async def roll(self, interaction: discord.Interaction, dice: int = 20, amount: int = 1, modifier: int = 0):
         if amount > 100:
-            await ctx.send("I can't roll more than 100 dice")
+            await interaction.response.send_message("I can't roll more than 100 dice")
         else:
             rolls = list()
             for x in range(amount):
                 rolls.append(random.randint(1, dice))
-            await ctx.send(f"Rolled {amount}d{dice} + {modifier} = {sum(rolls) + modifier} ({rolls})")
+            await interaction.response.send_message(f"Rolled {amount}d{dice} + {modifier} = {sum(rolls) + modifier} ({rolls})")
+
+    @app_commands.command(
+        name="gallery_stats"
+    )
+    async def gallery_stats(self, interaction: discord.Interaction):
+        gallery = interaction.guild.get_channel_or_thread(964519175320125490)
+        if exists('gallery.xlsx'):
+            os.remove('gallery.xlsx')
+        wb = Workbook()
+        ws = wb.active
+        ws['A1'] = 'Entry #'
+        ws['B1'] = 'Title (if given)'
+        ws['C1'] = 'Link'
+        ws['D1'] = 'Fanwork Message link'
+        ws['E1'] = 'Type of Submission (Classify based on posting location-- gallery or nsfw-gallery)'
+        ws['F1'] = 'Creator (Use their Discord username, not their handle)'
+        ws['G1'] = 'Posted Date'
+        ws['H1'] = 'Inktober Prompt'
+        ws['I1'] = 'Quest( if applicable)'
+        ws['J1'] = 'Name'
+        ws['K1'] = 'Notes'
+        ws['L1'] = 'Image'
+        first = datetime.strptime('2022-09-14', '%Y-%m-%d')
+        row = 2
+        async for message in gallery.history(limit=None, after=first, oldest_first=True):
+            if len(message.embeds) != 0 and message.author.id == 631257798465945650:
+                logging.info(f"Message: {message.embeds[0].description}")
+                # ws.cell(row=row, column=1).value = entry
+                ws.cell(row=row, column=2).value = message.embeds[0].title
+                ws.cell(row=row, column=3).value = message.embeds[0].image.url
+                ws.cell(row=row, column=4).value = re.findall(r'(https://discord\.com/channels/\d*/\d*/\d*)|$', message.embeds[0].description)[0]
+                # ws.cell(row=row, column=5).value = 'gallery'
+                ws.cell(row=row, column=6).value = interaction.guild.get_member(int(re.findall(r'<@(\d*)>|$', message.embeds[0].description)[0])).name
+                ws.cell(row=row, column=7).value = message.created_at.strftime("%d-%m-%Y @ %H:%M:%S")
+                # ws.cell(row=row, column=8).value = message.embeds[0].description
+                # ws.cell(row=row, column=9).value = message.embeds[0].fields[0].value
+                # ws.cell(row=row, column=10).value = message.embeds[0].fields[1].value
+                # ws.cell(row=row, column=11).value = message.embeds[0].fields[2].value
+                # ws.cell(row=row, column=12).value = message.embeds[0].image.url
+                wb.save('gallery.xlsx')
+                row += 1
 
     @app_commands.command(name="ao3")
-    async def ao3(self, interaction: discord.Interaction, ao3_work: str) -> None:
-        if re.search(r'https?://archiveofourown.org/works/\d+', ao3_work):
+    async def ao3(self, interaction: discord.Interaction, ao3_url: str) -> None:
+        if re.search(r'https?://archiveofourown.org/works/\d+', ao3_url):
             session.refresh_auth_token()
-            ao3_id = AO3.utils.workid_from_url(ao3_work)
+            ao3_id = AO3.utils.workid_from_url(ao3_url)
             try:
                 work = AO3.Work(ao3_id)
             except AO3.utils.InvalidIdError:

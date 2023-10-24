@@ -3,51 +3,13 @@ import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
+import re
+import AO3
+from typing import List
 
-
-async def repost_image(self, interaction: discord.Interaction, message: discord.message, destination: str):
-    if message.attachments:
-        modal = MyModal(jump_url=message.jump_url, mention=message.author.mention)
-        for channel in self.channel_ids:
-            if channel["channel_name"] == destination and channel['guild_id'] == interaction.guild.id:
-                try:
-                    channel = self.bot.get_channel(channel["channel_id"])
-                except:
-                    await interaction.response.send_message("This command has not been properly setup", ephemeral=True)
-                    logging.error(f"Could not get channel via id {channel['channel_id']} via /{destination}")
-                    return
-                await interaction.response.send_modal(modal)
-                for attachment in message.attachments:
-                    await modal.wait()
-                    embed = discord.Embed(title=modal.title_item.value, description=modal.description_item.value)
-                    embed.set_image(url=attachment.url)
-                    await channel.send(embed=embed)
-                    return
-        channel = self.channel_ids = await self.bot.pg_con.fetchrow("SELECT channel_id FROM gallery_mementos WHERE channel_name  = $2 and gallery_mementos.guild_id = $1", interaction.guild.id, destination)
-        try:
-            channel = self.bot.get_channel(channel["channel_id"])
-        except:
-            await interaction.response.send_message("The channel for this command has not been configured.", ephemeral=True)
-            return
-        for attachment in message.attachments:
-            await modal.wait()
-            embed = discord.Embed(title=modal.title_item.value, description=modal.description_item.value)
-            embed.set_image(url=attachment.url)
-            await channel.send(embed=embed)
-            return
-    else:
-        logging.warning(f"Could not find image on id {message.id} {message.attachments}")
-        await interaction.response.send_message("I could not find an attachment with that message id", ephemeral=True)
-
-
-async def set_channel(self, ctx, channel: discord.TextChannel, channel_name: str):
-    await self.bot.pg_con.execute("INSERT INTO gallery_mementos (channel_id, channel_name) "
-                                  "VALUES ($1, $2) "
-                                  "ON CONFLICT (channel_name) "
-                                  "DO UPDATE "
-                                  "SET channel_id = excluded.channel_id",
-                                  channel.id, channel_name)
-    self.channel_ids = await self.bot.pg_con.fetch("SELECT channel_id, channel_name, guild_id FROM gallery_mementos")
+ao3_pattern = r'https?://archiveofourown.org/works/\d+'
+twitter_pattern = r'https?://twitter.com/[^/]+/status/\d+'
+instagram_pattern = r'https?://www.instagram.com/p/[^/]+'
 
 
 def admin_or_me_check(ctx):
@@ -60,117 +22,167 @@ def admin_or_me_check(ctx):
         return False
 
 
-class MyModal(discord.ui.Modal, title="Embed generator"):
-    def __init__(self, mention: str, jump_url: str) -> None:
+class RepostModal(discord.ui.Modal, title="Repost"):
+    def __init__(self, mention: str, jump_url: str, title: str) -> None:
         super().__init__()
 
-        self.title_item = discord.ui.TextInput(label="Title", style=discord.TextStyle.short, placeholder="The title of the embed", default=None, required=False)
-        self.description_item = discord.ui.TextInput(label="Title", style=discord.TextStyle.long, placeholder="The Description of the embed", default=f"Created by: {mention}\nSource: {jump_url}", required=False)
+        self.title_item = discord.ui.TextInput(label="Title", style=discord.TextStyle.short, placeholder="The title of the embed", default=title, required=False)
+        self.description_item = discord.ui.TextInput(label="Description", style=discord.TextStyle.long, placeholder="The Description of the embed", default=f"Created by: {mention}\nSource: {jump_url}", required=False)
         self.add_item(self.title_item)
         self.add_item(self.description_item)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer()
+        self.stop()
+
+
+
+
+
+class RepostMenu(discord.ui.View):
+    def __init__(self, mention: str, jump_url: str, title: str) -> None:
+        super().__init__()
+        self.message = None
+        self.title_item = None
+        self.description_item = None
+        self.mention = mention
+        self.jump_url = jump_url
+        self.title = title
+
+        # self.nsfw_toggle = discord.ui.Select(options=[discord.SelectOption(label="True", value="True"), discord.SelectOption(label="False", value="False")], placeholder="NSFW?")
+        # self.nsfw_toggle.callback = defer_callback
+        # self.add_item(self.nsfw_toggle)
+
+        self.channel_select = discord.ui.Select(placeholder="Where to post?")
+        self.channel_select.callback = self.channel_select_callback
+        self.add_item(self.channel_select)
+
+        self.submit_button = discord.ui.Button(label="Submit", style=discord.ButtonStyle.primary, emoji="✅", disabled=True)
+        self.submit_button.callback = self.submit_callback
+        self.add_item(self.submit_button)
+
+        self.modal_button = discord.ui.Button(label="Set Title", style=discord.ButtonStyle.primary, emoji="📝", disabled=True)
+        self.modal_button.callback = self.modal_open_callback
+        self.add_item(self.modal_button)
+
+    async def channel_select_callback(self, interaction: discord.Interaction) -> None:
+        for option in self.channel_select.options:
+            if int(option.value) == int(self.channel_select.values[0]):
+                self.channel_select.placeholder = option.label
+        self.modal_button.disabled = False
+        await interaction.response.edit_message(view=self)
+
+    async def modal_open_callback(self, interaction: discord.Interaction) -> None:
+        modal = RepostModal(jump_url=self.jump_url, mention=self.mention, title=self.title)
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        self.title_item = modal.title_item.value
+        self.description_item = modal.description_item.value
+        self.submit_button.disabled = False
+        await self.message.edit(view=self)
+
+    async def submit_callback(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer()
+        self.stop()
 
 
 class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     def __init__(self, bot):
-        self.channel_ids = None
         self.bot = bot
-        self.pt_gallery = app_commands.ContextMenu(
-            name="Post to #Gallery",
-            callback=self.post_to_gallery,
+        self.repost = app_commands.ContextMenu(
+            name="Repost",
+            callback=self.repost,
         )
-        self.pt_mementos = app_commands.ContextMenu(
-            name="Post to #Mementos",
-            callback=self.post_to_mementos,
-        )
-        self.pt_tobeadded = app_commands.ContextMenu(
-            name="Post to #To-Be-Added",
-            callback=self.post_to_toBeAdded,
-        )
-        self.bot.tree.add_command(self.pt_gallery)
-        self.bot.tree.add_command(self.pt_mementos)
-        self.bot.tree.add_command(self.pt_tobeadded)
+        self.bot.tree.add_command(self.repost)
+        self.repost_cache = None
 
     async def cog_unload(self) -> None:
-        self.bot.tree.remove_command(self.pt_gallery.name, type=self.pt_gallery.type)
-        self.bot.tree.remove_command(self.pt_mementos.name, type=self.pt_mementos.type)
-        self.bot.tree.remove_command(self.pt_tobeadded.name, type=self.pt_tobeadded.type)
+        self.bot.tree.remove_command(self.repost.name, type=self.repost.type)
 
     async def cog_load(self) -> None:
-        self.channel_ids = await self.bot.pg_con.fetch("SELECT channel_id, channel_name, guild_id FROM gallery_mementos")
+        self.repost_cache = await self.bot.pg_con.fetch("SELECT * FROM gallery_mementos")
 
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
-    async def post_to_gallery(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        await repost_image(self, interaction, message, "gallery")
+    async def repost(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        if message.attachments:
+            # Attachment found
+            menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
+            for channel in self.repost_cache:
+                if channel['guild_id'] == interaction.guild.id:
+                    menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+            await interaction.response.send_message("I found an attachment, please select where to repost it", ephemeral=True, view=menu)
+            menu.message = await interaction.original_response()
+            if not await menu.wait() and menu.channel_select.values:
+                await interaction.delete_original_response()
+                repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
+                x = 1
+                embed_list = []
+                query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+                for attachment in message.attachments:
+                    embed = discord.Embed(title=menu.title_item, description=menu.description_item, url="https://wanderinginn.com/")
+                    embed.set_image(url=attachment.url)
+                    if query_r:
+                        for query in query_r:
+                            if repost_channel.is_nsfw() or not query['nsfw']:
+                                embed.add_field(name=f"{query['title']} {' - **NSFW**' if query['nsfw'] else ''}", value=query['link'], inline=False)
+                    embed_list.append(embed)
+                    if x == 4:
+                        await repost_channel.send(embeds=embed_list)
+                        embed_list = []
+                        x = 1
+                    x += 1
+                if embed_list:
+                    await repost_channel.send(embeds=embed_list)
+            else:
+                await interaction.delete_original_response()
 
-    @app_commands.checks.has_permissions(ban_members=True)
-    @app_commands.default_permissions(ban_members=True)
-    async def post_to_mementos(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        await repost_image(self, interaction, message, "mementos")
+        elif re.search(ao3_pattern, message.content):
+            # AO3 link found
+            url = re.search(ao3_pattern, message.content).group(0)
+            work = AO3.Work(AO3.utils.workid_from_url(url))
+            menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=work.title)
+            for channel in self.repost_cache:
+                if channel['guild_id'] == interaction.guild.id:
+                    menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+            await interaction.response.send_message("I found an AO3 link, please select where to repost it", ephemeral=True, view=menu)
+            menu.message = await interaction.original_response()
+            if not await menu.wait() and menu.channel_select.values:
+                await interaction.delete_original_response()
+                embed = discord.Embed(title=f"{menu.title_item} - **AO3**", description=f"{menu.description_item}\n{work.summary}", url=url)
+                repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
+                query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",message.author.id)
+                if query_r:
+                    for x in query_r:
+                        if repost_channel.is_nsfw() or not x['nsfw']:
+                            embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
+                await repost_channel.send(embed=embed)
+        elif re.search(twitter_pattern, message.content):
+            # Twitter link found
+            await interaction.response.send_message("Twitter links are not supported yet", ephemeral=True)
+            pass
+        elif re.search(instagram_pattern, message.content):
+            # Instagram link found
+            await interaction.response.send_message("Instagram links are not supported yet", ephemeral=True)
+            pass
+        else:
+            # No links found and no attachments
+            await interaction.response.send_message("I could not find an attachment or link in that message", ephemeral=True)
+            pass
 
-    @app_commands.checks.has_permissions(ban_members=True)
-    @app_commands.default_permissions(ban_members=True)
-    async def post_to_toBeAdded(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        await repost_image(self, interaction, message, "to_be_added")
-
-    @commands.hybrid_group(name="set")
-    @app_commands.default_permissions(manage_messages=True)
-    async def set(self, ctx):
-        pass
-
-    @set.command(
-        name="gallery",
-        brief="Set what channel !gallery posts to",
-        aliases=['sg'],
-        usage='[Channel id]',
-        hidden=False,
+    @app_commands.command(
+        name="set_repost"
     )
     @commands.check(admin_or_me_check)
-    async def set_gallery(self, ctx, channel: discord.TextChannel):
-        await set_channel(self, ctx, channel, "gallery")
-
-    @set.command(
-        name="mementos",
-        brief="Set what channel !mementos posts to",
-        aliases=['sm'],
-        usage='[Channel id]',
-        hidden=False,
-    )
-    @commands.check(admin_or_me_check)
-    async def set_mementos(self, ctx, channel: discord.TextChannel):
-        await set_channel(self, ctx, channel, "mementos")
-
-    @set.command(
-        name="tobeadded",
-        brief="Set what channel !ToBeAdded posts to",
-        aliases=['stba'],
-        usage='[Channel id]',
-        hidden=False,
-    )
-    @commands.check(admin_or_me_check)
-    async def set_to_be_added(self, ctx, channel: discord.TextChannel):
-        await set_channel(self, ctx, channel, "to_be_added")
-
-    @commands.hybrid_command(
-        name="editembed",
-        brief="Edits the title a of embed by its message id.",
-        help="Ex: '!EditEmbed 704581082808320060 New title' will give a new title to the embed with the id "
-             "704581082808320060\n "
-             "Needs to be used in the same channel as the embed",
-        aliases=['ee'],
-        usage='[message id] [New title]'
-    )
-    @commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
-    async def editembed(self, ctx, embed_id: int, *, title):
-        msg = await ctx.fetch_message(embed_id)
-        new_embed = msg.embeds
-        new_embed[0].test_title = title
-        await msg.edit(embed=new_embed[0])
-        await ctx.message.delete()
+    async def set_repost(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        if channel.id in [x['channel_id'] for x in self.repost_cache]:
+            await self.bot.pg_con.execute("DELETE FROM gallery_mementos WHERE channel_id = $1", channel.id)
+            self.repost_cache = await self.bot.pg_con.fetch("SELECT * FROM gallery_mementos")
+            await interaction.response.send_message(f"Removed {channel.mention} from repost channels", ephemeral=True)
+        else:
+            await self.bot.pg_con.execute("INSERT INTO gallery_mementos VALUES ($1, $2, $3)", channel.name, channel.id, channel.guild.id)
+            self.repost_cache = await self.bot.pg_con.fetch("SELECT * FROM gallery_mementos")
+            await interaction.response.send_message(f"Added {channel.mention} to repost channels", ephemeral=True)
 
 
 async def setup(bot):

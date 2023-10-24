@@ -1,10 +1,10 @@
+import datetime
 import json
 import logging
 from typing import List
 
 import aiohttp
 import discord
-import praw
 from discord import app_commands
 from discord.ext import commands
 from googleapiclient.discovery import build
@@ -13,11 +13,11 @@ import secrets
 from cogs.patreon_poll import fetch
 
 
-def admin_or_me_check(ctx):
-    role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
-    if ctx.message.author.id == 268608466690506753:
+def admin_or_me_check(interaction):
+    role = discord.utils.get(interaction.guild.roles, id=346842813687922689)
+    if interaction.message.author.id == 268608466690506753:
         return True
-    elif role in ctx.message.author.roles:
+    elif role in interaction.message.author.roles:
         return True
     else:
         return False
@@ -29,69 +29,60 @@ def google_search(search_term, api_key, cse_id, **kwargs):
     return res
 
 
-async def is_bot_channel(ctx):
-    return ctx.channel.id == 361694671631548417
+async def is_bot_channel(interaction):
+    return interaction.channel.id == 361694671631548417
 
-
-reddit = praw.Reddit(client_id=secrets.client_id,
-                     client_secret=secrets.client_secret,
-                     user_agent=secrets.user_agent,
-                     username=secrets.username,
-                     password=secrets.password)
 
 
 class TwiCog(commands.Cog, name="The Wandering Inn"):
     def __init__(self, bot):
         self.bot = bot
         self.invis_text_cache = None
+        self.last_run = datetime.datetime.now()
 
     async def cog_load(self) -> None:
         self.invis_text_cache = await self.bot.pg_con.fetch("SELECT DISTINCT title FROM invisible_text_twi")
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="password",
-        brief="Information for patreons on how to get the chapter password",
-        aliases=['pw'],
-        hidden=False,
+        description="Gives the password for the latest chapter for patreons or instructions for non patreons."
     )
-    async def password(self, ctx):
+    async def password(self, interaction: discord.Interaction):
         allowed_channel_ids = [620021401516113940, 346842161704075265, 521403093892726785, 362248294849576960,
-                               359864559361851392, 668721870488469514]
-        if ctx.message.channel.id in allowed_channel_ids:
+                               359864559361851392, 668721870488469514, 964519175320125490]
+        if interaction.channel.id in allowed_channel_ids:
             password = await self.bot.pg_con.fetchrow("SELECT password, link "
                                                       "FROM password_link "
                                                       "WHERE password IS NOT NULL "
                                                       "ORDER BY serial_id DESC "
                                                       "LIMIT 1")
-            await ctx.send(password['password'])
-            await ctx.send(f"<{password['link']}>")
+            if self.last_run < datetime.datetime.now()-datetime.timedelta(minutes=10):
+                await interaction.response.send_message(f"<{password['link']}>")
+                await interaction.channel.send(password['password'])
+                self.last_run = datetime.datetime.now()
+            else:
+                await interaction.response.send_message(f"<{password['link']}>\n{password['password']}", ephemeral=True)
         else:
-            await ctx.send(
-                "3 ways.\n"
-                "1. Link discord to patreon and go to <#346842161704075265> and check pins or use !pw inside it.\n"
-                "If you don't know how to connect discord to patreon use the command !cd\n"
+            await interaction.response.send_message(
+                "There are 3 ways to get you patreon password.\n"
+                "1. Link discord to patreon and go to <#346842161704075265> and check pins or use /pw inside it.\n"
+                "If you don't know how to connect discord to patreon use the command /cd\n"
                 "2. You will get an email with the password every time pirate posts it.\n"
                 "3. go to <https://www.patreon.com/pirateaba> and check the latest posts. It has the password.\n"
             )
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="connectdiscord",
-        brief="Information for patreons on how to connect their patreon account to discord.",
-        aliases=['cd', 'connectpatreon', 'patreon', 'connect'],
-        hidden=False,
+        description="Information for patreons on how to connect their patreon account to discord."
     )
-    async def connect_discord(self, ctx):
-        await ctx.send(
-            "Check this link https://support.patreon.com/hc/en-us/articles/212052266-How-do-I-receive-my-Discord-role")
+    async def connect_discord(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Check this link https://support.patreon.com/hc/en-us/articles/212052266-How-do-I-receive-my-Discord-role")
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="wiki",
-        brief="Searches the The Wandering Inn wiki for a matching article.",
-        aliases=['w'],
-        usage='[Query]',
-        hidden=False,
+        description="Searches the The Wandering Inn wiki for a matching article."
     )
-    async def wiki(self, ctx, *, query):
+    async def wiki(self, interaction: discord.Interaction, query: str):
         embed = discord.Embed(title=f"Wiki results search **{query}**")
         async with aiohttp.ClientSession() as session:
             html = await fetch(session,
@@ -99,7 +90,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         try:
             sorted_json_data = sorted(json.loads(html)['query']['pages'].values(), key=lambda k: k['index'])
         except KeyError:
-            await ctx.send(f"I'm sorry, I could not find a article matching **{query}**.")
+            await interaction.response.send_message(f"I'm sorry, I could not find a article matching **{query}**.")
             return
         for results in sorted_json_data:
             embed.add_field(name="\u200b", value=f"[{results['title']}]({results['fullurl']})", inline=False)
@@ -111,38 +102,34 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
             embed.set_thumbnail(url=image_urls['imageinfo'][0]['url'])
         except KeyError:
             pass
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="find",
-        brief="Does a google search on 'Wanderinginn.com' and returns the results",
-        aliases=['F', 'search'],
-        usage='[Query]',
-        hidden=False,
+        description="Does a google search on 'Wanderinginn.com' and returns the results",
     )
     @commands.check(is_bot_channel)
-    async def find(self, ctx, *, query):
+    async def find(self, interaction: discord.Interaction, query: str):
         results = google_search(query, secrets.google_api_key, secrets.google_cse_id)
         if results['searchInformation']['totalResults'] == "0":
-            await ctx.send("I could not find anything that matches your search.")
+            await interaction.response.send_message("I could not find anything that matches your search.")
         else:
             embed = discord.Embed(title="Search", description=f"**{query}**")
             for result in results['items']:
                 embed.add_field(name=result['title'],
                                 value=f"{result['snippet']}\n{result['link']}")
-            await ctx.send(embed=embed)
+            await interaction.response.send_message(embed=embed)
 
     @find.error
-    async def isError(self, ctx, error):
+    async def isError(self, interaction: discord.Interaction, error):
         if isinstance(error, commands.CheckFailure):
-            await ctx.send("Please use this command in <#361694671631548417> only. It takes up quite a bit of space.")
+            await interaction.response.send_message("Please use this command in <#361694671631548417> only. It takes up quite a bit of space.")
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="invistext",
-        brief="Gives a list of all the invisible text in TWI.",
-        aliases=['ht', 'hiddentext', 'hidden_text', 'invisbletext', 'invisible_text', 'it', 'invisitext']
+        description="Gives a list of all the invisible text in TWI."
     )
-    async def invis_text(self, ctx, *, chapter=None):
+    async def invis_text(self, interaction: discord.Interaction, chapter: str = None):
         if chapter is None:
             invis_text_chapters = await self.bot.pg_con.fetch(
                 "SELECT title, COUNT(*) FROM invisible_text_twi GROUP BY title, date ORDER BY date"
@@ -150,7 +137,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
             embed = discord.Embed(title="Chapters with invisible text")
             for posts in invis_text_chapters:
                 embed.add_field(name=f"Chapter: {posts['title']}", value=f"{posts['count']}", inline=False)
-            await ctx.send(embed=embed)
+            await interaction.response.send_message(embed=embed)
         else:
             texts = await self.bot.pg_con.fetch(
                 "SELECT title, content FROM invisible_text_twi WHERE lower(title) similar to lower($1)",
@@ -159,13 +146,13 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                 embed = discord.Embed(title=f"Search for: **{chapter}** invisible text")
                 for text in texts:
                     embed.add_field(name=f"{text['title']}", value=text['content'], inline=False)
-                await ctx.send(embed=embed)
+                await interaction.response.send_message(embed=embed)
             else:
-                await ctx.send("Sorry i could not find any invisible text on that chapter.\n"
-                               "Please give me the chapters exact title.")
+                await interaction.response.send_message("Sorry i could not find any invisible text on that chapter.\n"
+                                                        "Please give me the chapters exact title.")
 
     @invis_text.autocomplete('chapter')
-    async def invis_text_autocomplete(self, ctx, current: str, ) -> List[app_commands.Choice[str]]:
+    async def invis_text_autocomplete(self, interaction, current: str, ) -> List[app_commands.Choice[str]]:
         ln = []
         for x in self.invis_text_cache:
             ln.append(x['title'])
@@ -174,12 +161,11 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                    for title in ln if current.lower() in title.lower() or current == ""
                ][0:25]
 
-    @commands.hybrid_command(
+    @app_commands.command(
         name="coloredtext",
-        brief="List of all the different colored texts in twi",
-        aliases=['ct', 'textcolor', 'tc', 'color', 'colour']
+        description="List of all the different colored texts in twi"
     )
-    async def colored_text(self, ctx):
+    async def colored_text(self, interaction: discord.Interaction):
         embed = discord.Embed(title="Twi's different colored text")
         embed.add_field(name="Red skills and classes",
                         value="#FF0000\n"
@@ -253,51 +239,23 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                         value="#0C0E0E,\n"
                               f"{'<:0C0E0E:666452140994330624>' * 4}\n"
                               "[1.08 R](https://wanderinginn.com/2016/12/18/1-08-r//)")
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    # @commands.Cog.listener()
-    # async def on_message(self, message):
-    #     if message.author.id in {579061805335183370, 579060950867640332}:
-    #         old_pin = await self.bot.pg_con.fetchrow("SELECT * FROM webhook_pins_twi WHERE webhook_id = $1",
-    #                                                  message.webhook_id)
-    #         if old_pin:
-    #             await self.bot.pg_con.execute(
-    #                 "UPDATE webhook_pins_twi set message_id = $1, posted_date = $2 WHERE webhook_id = $3",
-    #                 message.id, message.created_at.replace(tzinfo=None), message.webhook_id)
-    #             for pin in await message.channel.pins():
-    #                 if pin.id == old_pin['message_id']:
-    #                     await pin.unpin()
-    #                     break
-    #         else:
-    #             await self.bot.pg_con.execute(
-    #                 "INSERT INTO webhook_pins_twi(message_id, webhook_id, posted_date) VALUES ($1,$2,$3)",
-    #                 message.id, message.webhook_id, message.created_at.replace(tzinfo=None))
-    #         await message.pin()
-
-    @commands.hybrid_command(
-        name="updatepassword",
-        brief="Updates the password and link from !password",
-        aliases=['up', 'update', 'upp'],
-        usage='[Password] [Link]',
-        hidden=False,
+    @app_commands.command(
+        name="update_password",
+        description="Updates the password and link from /password",
     )
     @commands.check(admin_or_me_check)
-    @app_commands.default_permissions(manage_messages=True)
-    async def update_password(self, ctx, password: str, link: str):
+    @app_commands.checks.has_permissions(ban_members=True)
+    @app_commands.default_permissions(ban_members=True)
+    async def update_password(self, interaction: discord.Interaction, password: str, link: str):
         await self.bot.pg_con.execute(
             "INSERT INTO password_link(password, link, user_id, date) VALUES ($1, $2, $3, $4)",
-            password, link, ctx.author.id, ctx.message.created_at.replace(tzinfo=None)
+            password, link, interaction.author.id, interaction.message.created_at.replace(tzinfo=None)
         )
 
-    @commands.hybrid_command(name="getrules")
-    @commands.is_owner()
-    async def get_rules(self, ctx):
-        rules_list = await ctx.guild.fetch_automod_rules()
-        for rule in rules_list:
-            logging.error(f"{rule}, {rule.id}, {rule.name}, {rule.trigger}, {rule.enabled}, {rule.actions}")
-
     # @commands.command(name="reddit")
-    # async def reddit_verification(self, ctx, username):
+    # async def reddit_verification(self, interaction, username):
     #     if username.startswith("/"):
     #         logging.info("Removing first /")
     #         username = username[1:]
@@ -316,13 +274,13 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     #             time_added, discord_username, discord_id, reddit_username, currant_patreon, subreddit
     #             )
     #             VALUES (NOW(), $1, $2, $3, True, 'TWI_patreon')""",
-    #             ctx.author.name, ctx.author.id, username
+    #             interaction.author.name, interaction.author.id, username
     #         )
     #     except asyncpg.UniqueViolationError as e:
     #         logging.exception(f'{e}')
     #         dup_user = await self.bot.pg_con.fetchrow("SELECT reddit_username FROM twi_reddit WHERE discord_id = $1",
-    #                                                   ctx.author.id)
-    #         await ctx.send(f"You are already in the list with username {dup_user['reddit_username']}")
+    #                                                   interaction.author.id)
+    #         await interaction.response.send_message(f"You are already in the list with username {dup_user['reddit_username']}")
 
 
 async def setup(bot):
