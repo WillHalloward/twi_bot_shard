@@ -253,6 +253,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         await self.bot.pg_con.execute(
             "INSERT INTO password_link(password, link, user_id, date) VALUES ($1, $2, $3, now())",
             password, link, interaction.user.id)
+        await interaction.response.send_message("Updated password and link", ephemeral=True)
 
     # @commands.command(name="reddit")
     # async def reddit_verification(self, interaction, username):
