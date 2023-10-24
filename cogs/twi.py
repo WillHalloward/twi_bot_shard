@@ -251,9 +251,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     @app_commands.default_permissions(ban_members=True)
     async def update_password(self, interaction: discord.Interaction, password: str, link: str):
         await self.bot.pg_con.execute(
-            "INSERT INTO password_link(password, link, user_id, date) VALUES ($1, $2, $3, $4)",
-            password, link, interaction.user.id, interaction.message.created_at.replace(tzinfo=None)
-        )
+            "INSERT INTO password_link(password, link, user_id, date) VALUES ($1, $2, $3, now())",
+            password, link, interaction.user.id)
 
     # @commands.command(name="reddit")
     # async def reddit_verification(self, interaction, username):
