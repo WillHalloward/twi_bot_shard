@@ -43,6 +43,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     async def cog_load(self) -> None:
         self.invis_text_cache = await self.bot.pg_con.fetch("SELECT DISTINCT title FROM invisible_text_twi")
 
+
     @app_commands.command(
         name="password",
         description="Gives the password for the latest chapter for patreons or instructions for non patreons."

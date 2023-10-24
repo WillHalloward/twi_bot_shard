@@ -84,7 +84,8 @@ class OtherCogs(commands.Cog, name="Other"):
             embed.add_field(name="Roles", value=roles, inline=False)
         await interaction.response.send_message(embed=embed)
 
-    @info.command(name="server")
+    @info.command(name="server",
+                  description="Gives the server information of the server the command was used in.")
     async def info_server(self, interaction: discord.Interaction):
         embed = discord.Embed(title=interaction.guild.name, color=discord.Color(0x3cd63d))
         embed.set_thumbnail(url=interaction.guild.icon)
@@ -111,7 +112,8 @@ class OtherCogs(commands.Cog, name="Other"):
             embed.add_field(name="Invite link", value=interaction.guild.vanity_url)
         await interaction.response.send_message(embed=embed)
 
-    @info.command(name="role")
+    @info.command(name="role",
+                  description="Gives the role information of the role given.")
     async def info_role(self, interaction: discord.Interaction, role: discord.Role):
         embed = discord.Embed(title=role.name, color=(discord.Color(role.color.value)))
         embed.add_field(name="Color: ", value=hex(role.color.value), inline=False)
@@ -446,7 +448,8 @@ class OtherCogs(commands.Cog, name="Other"):
             await interaction.response.send_message(f"Rolled {amount}d{dice} + {modifier} = {sum(rolls) + modifier} ({rolls})")
 
     @app_commands.command(
-        name="gallery_stats"
+        name="gallery_stats",
+        description="Posts the gallery stats"
     )
     async def gallery_stats(self, interaction: discord.Interaction):
         gallery = interaction.guild.get_channel_or_thread(964519175320125490)
@@ -486,7 +489,7 @@ class OtherCogs(commands.Cog, name="Other"):
                 wb.save('gallery.xlsx')
                 row += 1
 
-    @app_commands.command(name="ao3")
+    @app_commands.command(name="ao3", description="Posts information about a ao3 work")
     async def ao3(self, interaction: discord.Interaction, ao3_url: str) -> None:
         if re.search(r'https?://archiveofourown.org/works/\d+', ao3_url):
             session.refresh_auth_token()

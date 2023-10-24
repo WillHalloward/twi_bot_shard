@@ -36,9 +36,6 @@ class RepostModal(discord.ui.Modal, title="Repost"):
         self.stop()
 
 
-
-
-
 class RepostMenu(discord.ui.View):
     def __init__(self, mention: str, jump_url: str, title: str) -> None:
         super().__init__()
@@ -107,35 +104,59 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     async def repost(self, interaction: discord.Interaction, message: discord.Message) -> None:
         if message.attachments:
             # Attachment found
-            menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
-            for channel in self.repost_cache:
-                if channel['guild_id'] == interaction.guild.id:
-                    menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
-            await interaction.response.send_message("I found an attachment, please select where to repost it", ephemeral=True, view=menu)
-            menu.message = await interaction.original_response()
-            if not await menu.wait() and menu.channel_select.values:
-                await interaction.delete_original_response()
-                repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
-                x = 1
-                embed_list = []
-                query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
-                for attachment in message.attachments:
-                    embed = discord.Embed(title=menu.title_item, description=menu.description_item, url="https://wanderinginn.com/")
-                    embed.set_image(url=attachment.url)
-                    if query_r:
-                        for query in query_r:
-                            if repost_channel.is_nsfw() or not query['nsfw']:
-                                embed.add_field(name=f"{query['title']} {' - **NSFW**' if query['nsfw'] else ''}", value=query['link'], inline=False)
-                    embed_list.append(embed)
-                    if x == 4:
-                        await repost_channel.send(embeds=embed_list)
-                        embed_list = []
-                        x = 1
-                    x += 1
-                if embed_list:
-                    await repost_channel.send(embeds=embed_list)
+            # check if one of the attachments are supported
+            supported = False
+            for attachment in message.attachments:
+                if attachment.content_type.startswith("image") or attachment.content_type.startswith("video") or attachment.content_type.startswith("audio") or attachment.content_type.startswith("text"):
+                    supported = True
+            if supported:
+                menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
+                for channel in self.repost_cache:
+                    if channel['guild_id'] == interaction.guild.id:
+                        menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+                await interaction.response.send_message("I found an attachment, please select where to repost it", ephemeral=True, view=menu)
+                menu.message = await interaction.original_response()
+                if not await menu.wait() and menu.channel_select.values:
+                    await interaction.delete_original_response()
+                    repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
+                    x = 1
+                    embed_list = []
+                    files_list = []
+                    query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+
+                    for attachment in message.attachments:
+                        embed = discord.Embed(title=menu.title_item, description=menu.description_item, url="https://wanderinginn.com/")
+                        embed.set_thumbnail(url=message.author.display_avatar.url)
+                        print(attachment.content_type)
+                        if query_r:
+                            for query in query_r:
+                                if repost_channel.is_nsfw() or not query['nsfw']:
+                                    embed.add_field(name=f"{query['title']} {' - **NSFW**' if query['nsfw'] else ''}", value=query['link'], inline=False)
+                        if attachment.content_type.startswith("image"):
+                            embed.set_image(url=attachment.url)
+                            embed_list.append(embed)
+                            if x == 4:
+                                await repost_channel.send(embeds=embed_list)
+                                embed_list = []
+                                x = 1
+                            x += 1
+                        # check if the attachment is a video
+                        elif attachment.content_type.startswith("video"):
+                            files_list.append(await attachment.to_file())
+                        elif attachment.content_type.startswith("audio"):
+                            files_list.append(await attachment.to_file())
+                        elif attachment.content_type.startswith("text"):
+                            files_list.append(await attachment.to_file())
+                    if embed_list and files_list:
+                        await repost_channel.send(embeds=embed_list, files=files_list)
+                    elif files_list and not embed_list:
+                        await repost_channel.send(files=files_list, embed=embed)
+                else:
+                    await interaction.delete_original_response()
             else:
-                await interaction.delete_original_response()
+                interaction.response.send_message("I could not find a supported attachment in that message", ephemeral=True)
+
+
 
         elif re.search(ao3_pattern, message.content):
             # AO3 link found
@@ -151,7 +172,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                 await interaction.delete_original_response()
                 embed = discord.Embed(title=f"{menu.title_item} - **AO3**", description=f"{menu.description_item}\n{work.summary}", url=url)
                 repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
-                query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",message.author.id)
+                query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
                 if query_r:
                     for x in query_r:
                         if repost_channel.is_nsfw() or not x['nsfw']:
