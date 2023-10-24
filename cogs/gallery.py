@@ -144,6 +144,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                             files_list.append(await attachment.to_file())
                     if embed_list and files_list:
                         await repost_channel.send(embeds=embed_list, files=files_list)
+                    elif embed_list and not files_list:
+                        await repost_channel.send(embeds=embed_list)
                     elif files_list and not embed_list:
                         await repost_channel.send(files=files_list, embed=embed)
                 else:
