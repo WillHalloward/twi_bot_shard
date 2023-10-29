@@ -36,10 +36,17 @@ class OtherCogs(commands.Cog, name="Other"):
         self.bot: commands.Bot = bot
         self.quote_cache = None
         self.category_cache = None
+        self.pin = app_commands.ContextMenu(
+            name="Pin",
+            callback=self.pin,
+        )
+        self.bot.tree.add_command(self.pin)
+        self.pin_cache = None
 
     async def cog_load(self) -> None:
         self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
         self.category_cache = await self.bot.pg_con.fetch("SELECT DISTINCT (category) FROM roles WHERE category IS NOT NULL")
+        self.pin_cache = await self.bot.pg_con.fetch("SELECT id FROM channels where allow_pins = TRUE")
 
     @app_commands.command(
         name="ping",
@@ -531,6 +538,38 @@ class OtherCogs(commands.Cog, name="Other"):
                 await interaction.response.send_message("I could not find that work on AO3", ephemeral=True)
         else:
             await interaction.response.send_message("That doesn't look like a link to ao3", ephemeral=True)
+
+    #context menu command to pin a message
+    async def pin(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        if message.channel.id in [x['id'] for x in self.pin_cache]:
+            try:
+                await message.pin()
+            except discord.Forbidden:
+                await interaction.response.send_message("I don't have permission to pin messages in this channel", ephemeral=True)
+                return
+            except discord.NotFound:
+                await interaction.response.send_message("I could not find that message", ephemeral=True)
+                return
+            except discord.HTTPException:
+                await interaction.response.send_message("Failed to pin the message. There are probably too many pins in this channel", ephemeral=True)
+                return
+            await interaction.response.send_message(f"{interaction.user.mention} pinned a message")
+        else:
+            await interaction.response.send_message("You can't pin messages in this channel", ephemeral=True)
+
+    #Set which channels the pin command should work in
+    @app_commands.checks.has_permissions(ban_members=True)
+    @app_commands.default_permissions(ban_members=True)
+    @app_commands.command(name="set_pin_channels", description="Set which channels the pin command should work in")
+    async def set_pin_channels(self, interaction: discord.Interaction, channel: discord.TextChannel) -> None:
+        if channel.id in [x['id'] for x in self.pin_cache]:
+            await self.bot.pg_con.execute("UPDATE channels SET allow_pins = FALSE WHERE id = $1", channel.id)
+            await interaction.response.send_message(f"Removed {channel.name} to allowed pin channels", ephemeral=True)
+            self.pin_cache = await self.bot.pg_con.fetch("SELECT id FROM channels where allow_pins = TRUE")
+        else:
+            await self.bot.pg_con.execute("UPDATE channels SET allow_pins = TRUE WHERE id = $1", channel.id)
+            await interaction.response.send_message(f"Added {channel.name} to allowed pin channels", ephemeral=True)
+            self.pin_cache = await self.bot.pg_con.fetch("SELECT id FROM channels where allow_pins = TRUE")
 
 
 async def setup(bot: commands.Bot) -> None:
