@@ -18,7 +18,7 @@ class OwnerCog(commands.Cog, name="Owner"):
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     async def load_cog(self, interaction: discord.Interaction, *, cog: str):
-        interaction.response.defer()
+        await interaction.response.defer()
         try:
             await self.bot.load_extension(cog)
         except Exception as e:
@@ -38,7 +38,7 @@ class OwnerCog(commands.Cog, name="Owner"):
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     async def unload_cog(self, interaction: discord.Interaction, *, cog: str):
-        interaction.response.defer()
+        await interaction.response.defer()
         try:
             await self.bot.unload_extension(cog)
         except Exception as e:
@@ -58,7 +58,7 @@ class OwnerCog(commands.Cog, name="Owner"):
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     async def reload_cog(self, interaction: discord.Interaction, cog: str):
-        interaction.response.defer()
+        await interaction.response.defer()
         try:
             await self.bot.unload_extension(cog)
             await self.bot.load_extension(cog)
