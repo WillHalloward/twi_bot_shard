@@ -542,18 +542,21 @@ class OtherCogs(commands.Cog, name="Other"):
     #context menu command to pin a message
     async def pin(self, interaction: discord.Interaction, message: discord.Message) -> None:
         if message.channel.id in [x['id'] for x in self.pin_cache]:
-            try:
-                await message.pin()
-            except discord.Forbidden:
-                await interaction.response.send_message("I don't have permission to pin messages in this channel", ephemeral=True)
-                return
-            except discord.NotFound:
-                await interaction.response.send_message("I could not find that message", ephemeral=True)
-                return
-            except discord.HTTPException:
-                await interaction.response.send_message("Failed to pin the message. There are probably too many pins in this channel", ephemeral=True)
-                return
-            await interaction.response.send_message(f"{interaction.user.mention} pinned a message")
+            if not message.pinned:
+                try:
+                    await message.pin()
+                except discord.Forbidden:
+                    await interaction.response.send_message("I don't have permission to pin messages in this channel", ephemeral=True)
+                    return
+                except discord.NotFound:
+                    await interaction.response.send_message("I could not find that message", ephemeral=True)
+                    return
+                except discord.HTTPException:
+                    await interaction.response.send_message("Failed to pin the message. There are probably too many pins in this channel", ephemeral=True)
+                    return
+                await interaction.response.send_message(f"{interaction.user.mention} pinned a message")
+            else:
+                await interaction.response.send_message("That message is already pinned", ephemeral=True)
         else:
             await interaction.response.send_message("You can't pin messages in this channel", ephemeral=True)
 
