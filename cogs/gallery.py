@@ -27,8 +27,8 @@ class RepostModal(discord.ui.Modal, title="Repost"):
         super().__init__()
 
         self.title_item = discord.ui.TextInput(label="Title", style=discord.TextStyle.short, placeholder="The title of the embed", default=title, required=False)
-        self.description_item = discord.ui.TextInput(label="Description", style=discord.TextStyle.long, placeholder="The Description of the embed", default=f"Created by: {mention}\nSource: {jump_url}", required=False)
         self.add_item(self.title_item)
+        self.description_item = discord.ui.TextInput(label="Description", style=discord.TextStyle.long, placeholder="The Description of the embed", default=f"Created by: {mention}\nSource: {jump_url}", required=False)
         self.add_item(self.description_item)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
@@ -135,7 +135,14 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                             embed.set_image(url=attachment.url)
                             embed_list.append(embed)
                             if x == 4:
-                                await repost_channel.send(embeds=embed_list)
+                                try:
+                                    await repost_channel.send(embeds=embed_list)
+                                except discord.HTTPException:
+                                    await interaction.response.send_message("I could not send the embeds to that channel", ephemeral=True)
+                                except discord.Forbidden:
+                                    await interaction.response.send_message("I do not have permission to send messages to that channel", ephemeral=True)
+                                except ValueError:
+                                    await interaction.response.send_message("The files or embeds list is not of the appropriate size", ephemeral=True)
                                 embed_list = []
                                 x = 1
                             x += 1
@@ -165,6 +172,13 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             if not await menu.wait() and menu.channel_select.values:
                 await interaction.delete_original_response()
                 embed = discord.Embed(title=f"{menu.title_item} - **AO3**", description=f"{menu.description_item}\n{work.summary}", url=url)
+                embed.set_thumbnail(url=message.author.display_avatar.url)
+                embed.add_field(name="Rating", value=work.rating, inline=True)
+                embed.add_field(name="Warnings", value="\n".join(work.warnings), inline=True)
+                embed.add_field(name="Categories", value=','.join(work.categories))
+                embed.add_field(name="Chapters", value=f"{work.nchapters}/{work.expected_chapters if work.expected_chapters is not None else '?'}", inline=True)
+                embed.add_field(name="Words", value=f"{int(work.words):,}", inline=True)
+                embed.add_field(name="Status", value=work.status, inline=True)
                 repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
                 query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
                 if query_r:
