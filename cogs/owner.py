@@ -2,6 +2,7 @@ import logging
 import subprocess
 from typing import List
 
+import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -22,10 +23,12 @@ class OwnerCog(commands.Cog, name="Owner"):
         try:
             await self.bot.load_extension(cog)
         except Exception as e:
-            await interaction.response.send_message(f'**`ERROR:`** {type(e).__name__} - {e}')
+            await interaction.followup.send(f'**`ERROR:`** {type(e).__name__} - {e}')
             logging.error(f'{type(e).__name__} - {e}')
         else:
-            await interaction.response.send_message('**`SUCCESS`**', delete_after=5)
+            await interaction.followup.send('**`SUCCESS`**')
+            await asyncio.sleep(5)
+            await interaction.delete_original_response()
 
     @load_cog.autocomplete('cog')
     async def reload_cog_autocomplete(self, interaction: discord.Interaction, current: str, ) -> List[app_commands.Choice[str]]:
@@ -42,10 +45,12 @@ class OwnerCog(commands.Cog, name="Owner"):
         try:
             await self.bot.unload_extension(cog)
         except Exception as e:
-            await interaction.response.send_message(f'**`ERROR:`** {type(e).__name__} - {e}')
+            await interaction.followup.send(f'**`ERROR:`** {type(e).__name__} - {e}')
             logging.error(f'{type(e).__name__} - {e}')
         else:
-            await interaction.response.send_message('**`SUCCESS`**', delete_after=5)
+            await interaction.followup.send('**`SUCCESS`**')
+            await asyncio.sleep(5)
+            await interaction.delete_original_response()
 
     @unload_cog.autocomplete('cog')
     async def reload_cog_autocomplete(self, interaction: discord.Interaction, current: str, ) -> List[app_commands.Choice[str]]:
@@ -63,10 +68,12 @@ class OwnerCog(commands.Cog, name="Owner"):
             await self.bot.unload_extension(cog)
             await self.bot.load_extension(cog)
         except Exception as e:
-            await interaction.response.send_message(f'**`ERROR:`** {type(e).__name__} - {e}')
+            await interaction.followup.send(f'**`ERROR:`** {type(e).__name__} - {e}')
             logging.exception(f'{type(e).__name__} - {e}')
         else:
-            await interaction.response.send_message('**`SUCCESS`**', delete_after=5)
+            await interaction.followup.send('**`SUCCESS`**')
+            await asyncio.sleep(5)
+            await interaction.delete_original_response()
 
     @reload_cog.autocomplete('cog')
     async def reload_cog_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
