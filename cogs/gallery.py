@@ -1,4 +1,5 @@
 import logging
+import os
 
 import discord
 from discord import app_commands
@@ -6,11 +7,13 @@ from discord.ext import commands
 import re
 import AO3
 from typing import List
+import gallery_dl
 
 ao3_pattern = r'https?://archiveofourown.org/works/\d+'
-twitter_pattern = r'https?://twitter.com/[^/]+/status/\d+'
+# twitter_pattern = r'https?://twitter.com/[^/]+/status/\d+'
+twitter_pattern = r"((?:https?://)?(?:www\.|mobile\.)?(?:(?:[fv]x)?twitter|x)\.com/[^/]+/status/\d+)"
 instagram_pattern = r'https?://www.instagram.com/p/[^/]+'
-
+# BASE_PATTERN = r"(?:https?://)?(?:www\.|mobile\.)?(?:(?:[fv]x)?twitter|x)\.com"
 
 def admin_or_me_check(ctx):
     role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
@@ -125,7 +128,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                     query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
 
                     for attachment in message.attachments:
-                        embed = discord.Embed(title=menu.title_item, description=menu.description_item, url="https://wanderinginn.com/")
+                        embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url)
                         embed.set_thumbnail(url=message.author.display_avatar.url)
                         if query_r:
                             for query in query_r:
@@ -187,9 +190,67 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                             embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
                 await repost_channel.send(embed=embed)
         elif re.search(twitter_pattern, message.content):
-            # Twitter link found
-            await interaction.response.send_message("Twitter links are not supported yet", ephemeral=True)
-            pass
+            url = re.search(twitter_pattern, message.content).group(0)
+            gallery_dl.config.load()
+            tweet = gallery_dl.job.DownloadJob(url)
+            tweet_content = None
+            for x in tweet.extractor:
+                if x[0] == 2:
+                    if x[1] is not None:
+                        tweet_content = x[1]
+                        break
+            if tweet_content is not None:
+                content = tweet_content['content']
+                tweet_id = tweet_content['tweet_id']
+                author = tweet_content['author']
+                menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
+                for channel in self.repost_cache:
+                    if channel['guild_id'] == interaction.guild.id:
+                        menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+                await interaction.response.send_message("I found an attachment, please select where to repost it", ephemeral=True, view=menu)
+                menu.message = await interaction.original_response()
+                tweet.run()
+                if not await menu.wait() and menu.channel_select.values:
+                    embed_list = []
+                    files_list = []
+                    await interaction.delete_original_response()
+                    repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
+                    query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+                    for image in sorted(os.listdir("temp_files")):
+                        if image.startswith(str(tweet_id)) and not image.endswith(".mp4"):
+                            file = discord.File(f"temp_files/{image}")
+                            embed = discord.Embed(title=f"{author['name']} - **Twitter**", description=f"{menu.description_item}\n{content}", url=url)
+                            embed.set_image(url=f"attachment://{image}")
+                            if query_r:
+                                for x in query_r:
+                                    if repost_channel.is_nsfw() or not x['nsfw']:
+                                        embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
+                            embed.set_thumbnail(url=author['profile_image'])
+                            embed_list.append(embed)
+                            files_list.append(file)
+                        elif image.startswith(str(tweet_id)) and image.endswith(".mp4"):
+                            embed = discord.Embed(title=f"{author['name']} - **Twitter**", description=f"{menu.description_item}\n{content}", url=url)
+                            if query_r:
+                                for x in query_r:
+                                    if repost_channel.is_nsfw() or not x['nsfw']:
+                                        embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
+                            embed.set_thumbnail(url=author['profile_image'])
+                            file = discord.File(f"temp_files/{image}")
+                            files_list.append(file)
+                    if embed_list and files_list:
+                        await repost_channel.send(embeds=embed_list, files=files_list)
+                    elif embed_list and not files_list:
+                        await repost_channel.send(embeds=embed_list)
+                    elif files_list and not embed_list:
+                        await repost_channel.send(files=files_list, embed=embed)
+                    else:
+                        await interaction.response.send_message("I could not find any images to repost", ephemeral=True)
+                    for file in os.listdir("temp_files"):
+                        os.remove(f"temp_files/{file}")
+                else:
+                    await interaction.delete_original_response()
+            else:
+                await interaction.response.send_message("I could not read that twitter url", ephemeral=True)
         elif re.search(instagram_pattern, message.content):
             # Instagram link found
             await interaction.response.send_message("Instagram links are not supported yet", ephemeral=True)
