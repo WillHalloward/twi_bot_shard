@@ -48,7 +48,8 @@ async def on_ready():
     bot.remove_listener(stats_cog.message_edited, "on_raw_message_edit")
     bot.remove_listener(stats_cog.reaction_add, "on_raw_reaction_add")
     bot.remove_listener(stats_cog.reaction_remove, "on_raw_reaction_remove")
-    status_loop.start()
+    if secrets.logfile != 'test':
+        status_loop.start()
     logging.info(f'Logged in as: {bot.user.name}\nVersion: {discord.__version__}\n')
 
 
@@ -97,6 +98,7 @@ async def on_command(ctx):
 
 
 async def main():
+    await bot.load_extension("jishaku")
     try:
         async with bot, asyncpg.create_pool(database=secrets.database, user=secrets.DB_user, password=secrets.DB_password, host=secrets.host, ssl=context) as pool:
             bot.pg_con = pool
