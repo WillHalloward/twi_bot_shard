@@ -539,7 +539,7 @@ class OtherCogs(commands.Cog, name="Other"):
         else:
             await interaction.response.send_message("That doesn't look like a link to ao3", ephemeral=True)
 
-    #context menu command to pin a message
+    # context menu command to pin a message
     async def pin(self, interaction: discord.Interaction, message: discord.Message) -> None:
         if message.channel.id in [x['id'] for x in self.pin_cache]:
             if not message.pinned:
@@ -560,7 +560,7 @@ class OtherCogs(commands.Cog, name="Other"):
         else:
             await interaction.response.send_message("You can't pin messages in this channel", ephemeral=True)
 
-    #Set which channels the pin command should work in
+    # Set which channels the pin command should work in
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     @app_commands.command(name="set_pin_channels", description="Set which channels the pin command should work in")
