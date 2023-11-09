@@ -28,12 +28,16 @@ def admin_or_me_check(ctx):
 
 
 class RepostModal(discord.ui.Modal, title="Repost"):
-    def __init__(self, mention: str, jump_url: str, title: str) -> None:
+    def __init__(self, mention: str, jump_url: str, title: str, extra_description=None) -> None:
         super().__init__()
 
+        self.extra_description = extra_description
         self.title_item = discord.ui.TextInput(label="Title", style=discord.TextStyle.short, placeholder="The title of the embed", default=title, required=False)
         self.add_item(self.title_item)
-        self.description_item = discord.ui.TextInput(label="Description", style=discord.TextStyle.long, placeholder="The Description of the embed", default=f"Created by: {mention}\nSource: {jump_url}", required=False)
+        if extra_description is None:
+            self.description_item = discord.ui.TextInput(label="Description", style=discord.TextStyle.long, placeholder="The Description of the embed", default=f"Created by: {mention}\nSource: {jump_url}", required=False)
+        else:
+            self.description_item = discord.ui.TextInput(label="Description", style=discord.TextStyle.long, placeholder="The Description of the embed", default=f"Created by: {mention}\nSource: {jump_url}\n{extra_description}", required=False)
         self.add_item(self.description_item)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
@@ -42,11 +46,11 @@ class RepostModal(discord.ui.Modal, title="Repost"):
 
 
 class RepostMenu(discord.ui.View):
-    def __init__(self, mention: str, jump_url: str, title: str) -> None:
+    def __init__(self, mention: str, jump_url: str, title: str, description_item=None) -> None:
         super().__init__()
         self.message = None
         self.title_item = None
-        self.description_item = None
+        self.description_item = description_item
         self.mention = mention
         self.jump_url = jump_url
         self.title = title
@@ -94,7 +98,7 @@ class RepostMenu(discord.ui.View):
         await interaction.response.edit_message(view=self)
 
     async def modal_open_callback(self, interaction: discord.Interaction) -> None:
-        modal = RepostModal(jump_url=self.jump_url, mention=self.mention, title=self.title)
+        modal = RepostModal(jump_url=self.jump_url, mention=self.mention, title=self.title, extra_description=self.description_item)
         await interaction.response.send_modal(modal)
         await modal.wait()
         self.title_item = modal.title_item.value
@@ -370,7 +374,23 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         await interaction.response.send_message("Instagram links are not supported yet", ephemeral=True)
 
     async def repost_text(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        await interaction.response.send_message("Text reposts are not supported yet", ephemeral=True)
+        menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=f"", description_item=message.content)
+        for channel in self.repost_cache:
+            if channel['guild_id'] == interaction.guild.id:
+                menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+        await interaction.response.send_message("I found a text message, please select where to repost it", ephemeral=True, view=menu)
+        menu.message = await interaction.original_response()
+        if not await menu.wait() and menu.channel_select.values:
+            await interaction.delete_original_response()
+            repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
+            query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+            embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url)
+            if query_r:
+                for x in query_r:
+                    if repost_channel.is_nsfw() or not x['nsfw']:
+                        embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
+            embed.set_thumbnail(url=message.author.display_avatar.url)
+            await repost_channel.send(embed=embed)
 
     @app_commands.command(
         name="set_repost"
