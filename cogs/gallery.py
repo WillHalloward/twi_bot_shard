@@ -279,7 +279,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     async def repost_ao3(self, interaction: discord.Interaction, message: discord.Message) -> None:
         url = re.search(ao3_pattern, message.content).group(0)
         work = AO3.Work(AO3.utils.workid_from_url(url))
-        menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=work.title)
+        menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=f"{work.title} - **AO3**")
         for channel in self.repost_cache:
             if channel['guild_id'] == interaction.guild.id:
                 menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
@@ -287,7 +287,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         menu.message = await interaction.original_response()
         if not await menu.wait() and menu.channel_select.values:
             await interaction.delete_original_response()
-            embed = discord.Embed(title=f"{menu.title_item} - **AO3**", description=f"{menu.description_item}\n{work.summary}", url=url)
+            embed = discord.Embed(title=f"{menu.title_item}", description=f"{menu.description_item}\n{work.summary}", url=url)
             embed.set_thumbnail(url=message.author.display_avatar.url)
             embed.add_field(name="Rating", value=work.rating, inline=True)
             embed.add_field(name="Warnings", value="\n".join(work.warnings), inline=True)
@@ -317,7 +317,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             content = tweet_content['content']
             tweet_id = tweet_content['tweet_id']
             author = tweet_content['author']
-            menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
+            menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=f"{author['name']} - **Twitter**")
             for channel in self.repost_cache:
                 if channel['guild_id'] == interaction.guild.id:
                     menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
@@ -333,7 +333,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                 for image in sorted(os.listdir("temp_files")):
                     if image.startswith(str(tweet_id)) and not image.endswith(".mp4"):
                         file = discord.File(f"temp_files/{image}")
-                        embed = discord.Embed(title=f"{author['name']} - **Twitter**", description=f"{menu.description_item}\n{content}", url=url)
+                        embed = discord.Embed(title=menu.title_item, description=f"{menu.description_item}\n{content}", url=url)
                         embed.set_image(url=f"attachment://{image}")
                         if query_r:
                             for x in query_r:
