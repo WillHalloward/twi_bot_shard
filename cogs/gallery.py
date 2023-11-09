@@ -170,7 +170,6 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     async def cog_load(self) -> None:
         self.repost_cache = await self.bot.pg_con.fetch("SELECT * FROM gallery_mementos")
 
-    @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def repost(self, interaction: discord.Interaction, message: discord.Message) -> None:
         repost_type = []
@@ -346,7 +345,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                         embed_list.append(embed)
                         files_list.append(file)
                     elif image.startswith(str(tweet_id)) and image.endswith(".mp4"):
-                        embed = discord.Embed(title=f"{author['name']} - **Twitter**", description=f"{menu.description_item}\n{content}", url=url)
+                        embed = discord.Embed(title=menu.title_item, description=f"{menu.description_item}\n{content}", url=url)
                         if query_r:
                             for x in query_r:
                                 if repost_channel.is_nsfw() or not x['nsfw']:
