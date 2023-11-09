@@ -13,6 +13,8 @@ ao3_pattern = r'https?://archiveofourown.org/works/\d+'
 # twitter_pattern = r'https?://twitter.com/[^/]+/status/\d+'
 twitter_pattern = r"((?:https?://)?(?:www\.|mobile\.)?(?:(?:[fv]x)?twitter|x)\.com/[^/]+/status/\d+)"
 instagram_pattern = r'https?://www.instagram.com/p/[^/]+'
+
+
 # BASE_PATTERN = r"(?:https?://)?(?:www\.|mobile\.)?(?:(?:[fv]x)?twitter|x)\.com"
 
 def admin_or_me_check(ctx):
@@ -49,9 +51,28 @@ class RepostMenu(discord.ui.View):
         self.jump_url = jump_url
         self.title = title
 
-        # self.nsfw_toggle = discord.ui.Select(options=[discord.SelectOption(label="True", value="True"), discord.SelectOption(label="False", value="False")], placeholder="NSFW?")
-        # self.nsfw_toggle.callback = defer_callback
-        # self.add_item(self.nsfw_toggle)
+        # @discord.ui.select(placeholder="Where to post?")
+        # async def channel_select(select, interaction):
+        #     for option in select.options:
+        #         if int(option.value) == int(select.values[0]):
+        #             select.placeholder = option.label
+        #     self.modal_button.disabled = False
+        #     await interaction.response.edit_message(view=self)
+        #
+        # @discord.ui.button(label="Submit", style=discord.ButtonStyle.primary, emoji="✅", disabled=True)
+        # async def submit_button(button, interaction):
+        #     await interaction.response.defer()
+        #     self.stop()
+        #
+        # @discord.ui.button(label="Set Title", style=discord.ButtonStyle.primary, emoji="📝", disabled=True)
+        # async def modal_button(button, interaction):
+        #     modal = RepostModal(jump_url=self.jump_url, mention=self.mention, title=self.title)
+        #     await interaction.response.send_modal(modal)
+        #     await modal.wait()
+        #     self.title_item = modal.title_item.value
+        #     self.description_item = modal.description_item.value
+        #     self.submit_button.disabled = False
+        #     await self.message.edit(view=self)
 
         self.channel_select = discord.ui.Select(placeholder="Where to post?")
         self.channel_select.callback = self.channel_select_callback
@@ -86,6 +107,49 @@ class RepostMenu(discord.ui.View):
         self.stop()
 
 
+class ButtonView(discord.ui.View):
+    def __init__(self, invoker) -> None:
+        super().__init__()
+        self.repost_choice = None
+        self.invoker = invoker
+        self.interaction = None
+
+    @discord.ui.button(label="Attachment", style=discord.ButtonStyle.secondary, emoji="📎", disabled=True)
+    async def attachment(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if interaction.user.id == self.invoker.id:
+            self.repost_choice = 1
+            self.stop()
+            self.interaction = interaction
+
+    @discord.ui.button(label="AO3", style=discord.ButtonStyle.secondary, emoji="📖", disabled=True)
+    async def ao3(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if interaction.user.id == self.invoker.id:
+            self.repost_choice = 2
+            self.stop()
+            self.interaction = interaction
+
+    @discord.ui.button(label="Twitter", style=discord.ButtonStyle.secondary, emoji="🐦", disabled=True)
+    async def twitter(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if interaction.user.id == self.invoker.id:
+            self.repost_choice = 3
+            self.stop()
+            self.interaction = interaction
+
+    @discord.ui.button(label="Instagram", style=discord.ButtonStyle.secondary, emoji="📸", disabled=True)
+    async def instagram(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if interaction.user.id == self.invoker.id:
+            self.repost_choice = 4
+            self.stop()
+            self.interaction = interaction
+
+    @discord.ui.button(label="Text", style=discord.ButtonStyle.secondary, emoji="📝", disabled=True)
+    async def text(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if interaction.user.id == self.invoker.id:
+            self.repost_choice = 5
+            self.stop()
+            self.interaction = interaction
+
+
 class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     def __init__(self, bot):
         self.bot = bot
@@ -105,160 +169,208 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def repost(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        repost_type = []
         if message.attachments:
-            # Attachment found
-            # check if one of the attachments are supported
-            supported = False
-            for attachment in message.attachments:
-                if attachment.content_type.startswith("image") or attachment.content_type.startswith("video") or attachment.content_type.startswith("audio") or attachment.content_type.startswith("text"):
-                    supported = True
-            if supported:
-                menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
-                for channel in self.repost_cache:
-                    if channel['guild_id'] == interaction.guild.id:
-                        menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
-                await interaction.response.send_message("I found an attachment, please select where to repost it", ephemeral=True, view=menu)
-                menu.message = await interaction.original_response()
-                if not await menu.wait() and menu.channel_select.values:
-                    await interaction.delete_original_response()
-                    repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
-                    x = 1
-                    embed_list = []
-                    files_list = []
-                    query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+            repost_type.append(1)
+        if re.search(ao3_pattern, message.content):
+            repost_type.append(2)
+        if re.search(twitter_pattern, message.content):
+            repost_type.append(3)
+        if re.search(instagram_pattern, message.content):
+            repost_type.append(4)
+        if not repost_type:
+            repost_type.append(5)
 
-                    for attachment in message.attachments:
-                        embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url)
-                        embed.set_thumbnail(url=message.author.display_avatar.url)
-                        if query_r:
-                            for query in query_r:
-                                if repost_channel.is_nsfw() or not query['nsfw']:
-                                    embed.add_field(name=f"{query['title']} {' - **NSFW**' if query['nsfw'] else ''}", value=query['link'], inline=False)
-                        if attachment.content_type.startswith("image"):
-                            embed.set_image(url=attachment.url)
-                            embed_list.append(embed)
-                            if x == 4:
-                                try:
-                                    await repost_channel.send(embeds=embed_list)
-                                except discord.HTTPException:
-                                    await interaction.response.send_message("I could not send the embeds to that channel", ephemeral=True)
-                                except discord.Forbidden:
-                                    await interaction.response.send_message("I do not have permission to send messages to that channel", ephemeral=True)
-                                except ValueError:
-                                    await interaction.response.send_message("The files or embeds list is not of the appropriate size", ephemeral=True)
-                                embed_list = []
-                                x = 1
-                            x += 1
-                        # check if the attachment is a video
-                        elif attachment.content_type.startswith("video") or attachment.content_type.startswith("audio") or attachment.content_type.startswith("text"):
-                            files_list.append(await attachment.to_file())
-                    if embed_list and files_list:
-                        await repost_channel.send(embeds=embed_list, files=files_list)
-                    elif embed_list and not files_list:
-                        await repost_channel.send(embeds=embed_list)
-                    elif files_list and not embed_list:
-                        await repost_channel.send(files=files_list, embed=embed)
-                else:
-                    await interaction.delete_original_response()
+        if repost_type:
+            view = ButtonView(invoker=interaction.user)
+
+            # if len(repost_type) > 1:
+            #     view.right_navigation.disabled = False
+            embed = discord.Embed(title="Repost", description="I found the following repostable content in that message", color=discord.Color.green())
+            if 1 in repost_type:
+                embed.add_field(name="Attachment", value=f"I found {len(message.attachments)} attachments", inline=False)
+                view.attachment.disabled = False
+            if 2 in repost_type:
+                embed.add_field(name="AO3 Link", value=f"I found an AO3 link: {re.search(ao3_pattern, message.content).group(0)}", inline=False)
+                view.ao3.disabled = False
+            if 3 in repost_type:
+                embed.add_field(name="Twitter Link", value=f"I found a Twitter link: {re.search(twitter_pattern, message.content).group(0)}", inline=False)
+                view.twitter.disabled = False
+            if 4 in repost_type:
+                embed.add_field(name="Instagram Link", value=f"I found an Instagram link: {re.search(instagram_pattern, message.content).group(0)}", inline=False)
+                view.instagram.disabled = False
+            if 5 in repost_type:
+                embed.add_field(name="Unsupported", value="I could not find any repostable content in that message, But i can post the text", inline=False)
+                view.text.disabled = False
+            embed.add_field(name="Please select the type of repost you want to do", value="If you want to repost multiple types, you will have to do it one by one", inline=False)
+            await interaction.response.send_message(embed=embed, view=view)
+            if not await view.wait():
+                await interaction.delete_original_response()
+                match view.repost_choice:
+                    case 1:
+                        await self.repost_attachment(view.interaction, message)
+                    case 2:
+                        await self.repost_ao3(view.interaction, message)
+                    case 3:
+                        await self.repost_twitter(view.interaction, message)
+                    case 4:
+                        await self.repost_instagram(view.interaction, message)
+                    case 5:
+                        await self.repost_text(view.interaction, message)
             else:
-                interaction.response.send_message("I could not find a supported attachment in that message", ephemeral=True)
-        elif re.search(ao3_pattern, message.content):
-            # AO3 link found
-            url = re.search(ao3_pattern, message.content).group(0)
-            work = AO3.Work(AO3.utils.workid_from_url(url))
-            menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=work.title)
+                await interaction.delete_original_response()
+
+    async def repost_attachment(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        supported = False
+        for attachment in message.attachments:
+            if attachment.content_type.startswith("image") or attachment.content_type.startswith("video") or attachment.content_type.startswith("audio") or attachment.content_type.startswith("text"):
+                supported = True
+        if supported:
+            menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
             for channel in self.repost_cache:
                 if channel['guild_id'] == interaction.guild.id:
                     menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
-            await interaction.response.send_message("I found an AO3 link, please select where to repost it", ephemeral=True, view=menu)
+            await interaction.response.send_message("I found an attachment, please select where to repost it", ephemeral=True, view=menu)
             menu.message = await interaction.original_response()
             if not await menu.wait() and menu.channel_select.values:
                 await interaction.delete_original_response()
-                embed = discord.Embed(title=f"{menu.title_item} - **AO3**", description=f"{menu.description_item}\n{work.summary}", url=url)
-                embed.set_thumbnail(url=message.author.display_avatar.url)
-                embed.add_field(name="Rating", value=work.rating, inline=True)
-                embed.add_field(name="Warnings", value="\n".join(work.warnings), inline=True)
-                embed.add_field(name="Categories", value=','.join(work.categories))
-                embed.add_field(name="Chapters", value=f"{work.nchapters}/{work.expected_chapters if work.expected_chapters is not None else '?'}", inline=True)
-                embed.add_field(name="Words", value=f"{int(work.words):,}", inline=True)
-                embed.add_field(name="Status", value=work.status, inline=True)
+                repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
+                x = 1
+                embed_list = []
+                files_list = []
+                query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+                for attachment in message.attachments:
+                    embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url)
+                    embed.set_thumbnail(url=message.author.display_avatar.url)
+                    if query_r:
+                        for query in query_r:
+                            if repost_channel.is_nsfw() or not query['nsfw']:
+                                embed.add_field(name=f"{query['title']} {' - **NSFW**' if query['nsfw'] else ''}", value=query['link'], inline=False)
+                    if attachment.content_type.startswith("image"):
+                        embed.set_image(url=attachment.url)
+                        embed_list.append(embed)
+                        if x == 4:
+                            try:
+                                await repost_channel.send(embeds=embed_list)
+                            except discord.HTTPException:
+                                await interaction.response.send_message("I could not send the embeds to that channel", ephemeral=True)
+                            except discord.Forbidden:
+                                await interaction.response.send_message("I do not have permission to send messages to that channel", ephemeral=True)
+                            except ValueError:
+                                await interaction.response.send_message("The files or embeds list is not of the appropriate size", ephemeral=True)
+                            embed_list = []
+                            x = 1
+                        x += 1
+                    # check if the attachment is a video
+                    elif attachment.content_type.startswith("video") or attachment.content_type.startswith("audio") or attachment.content_type.startswith("text"):
+                        files_list.append(await attachment.to_file())
+                if embed_list and files_list:
+                    await repost_channel.send(embeds=embed_list, files=files_list)
+                elif embed_list and not files_list:
+                    await repost_channel.send(embeds=embed_list)
+                elif files_list and not embed_list:
+                    await repost_channel.send(files=files_list, embed=embed)
+            else:
+                await interaction.delete_original_response()
+        else:
+            print("Unsupported attachment")
+            await interaction.response.send_message("I could not find a supported attachment in that message", ephemeral=True)
+
+    async def repost_ao3(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        url = re.search(ao3_pattern, message.content).group(0)
+        work = AO3.Work(AO3.utils.workid_from_url(url))
+        menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=work.title)
+        for channel in self.repost_cache:
+            if channel['guild_id'] == interaction.guild.id:
+                menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+        await interaction.response.send_message("I found an AO3 link, please select where to repost it", ephemeral=True, view=menu)
+        menu.message = await interaction.original_response()
+        if not await menu.wait() and menu.channel_select.values:
+            await interaction.delete_original_response()
+            embed = discord.Embed(title=f"{menu.title_item} - **AO3**", description=f"{menu.description_item}\n{work.summary}", url=url)
+            embed.set_thumbnail(url=message.author.display_avatar.url)
+            embed.add_field(name="Rating", value=work.rating, inline=True)
+            embed.add_field(name="Warnings", value="\n".join(work.warnings), inline=True)
+            embed.add_field(name="Categories", value=','.join(work.categories))
+            embed.add_field(name="Chapters", value=f"{work.nchapters}/{work.expected_chapters if work.expected_chapters is not None else '?'}", inline=True)
+            embed.add_field(name="Words", value=f"{int(work.words):,}", inline=True)
+            embed.add_field(name="Status", value=work.status, inline=True)
+            repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
+            query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+            if query_r:
+                for x in query_r:
+                    if repost_channel.is_nsfw() or not x['nsfw']:
+                        embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
+            await repost_channel.send(embed=embed)
+
+    async def repost_twitter(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        url = re.search(twitter_pattern, message.content).group(0)
+        gallery_dl.config.load()
+        tweet = gallery_dl.job.DownloadJob(url)
+        tweet_content = None
+        for x in tweet.extractor:
+            if x[0] == 2:
+                if x[1] is not None:
+                    tweet_content = x[1]
+                    break
+        if tweet_content is not None:
+            content = tweet_content['content']
+            tweet_id = tweet_content['tweet_id']
+            author = tweet_content['author']
+            menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
+            for channel in self.repost_cache:
+                if channel['guild_id'] == interaction.guild.id:
+                    menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+            await interaction.response.send_message("I found an Tweet, please select where to repost it", ephemeral=True, view=menu)
+            menu.message = await interaction.original_response()
+            tweet.run()
+            if not await menu.wait() and menu.channel_select.values:
+                embed_list = []
+                files_list = []
+                await interaction.delete_original_response()
                 repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
                 query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
-                if query_r:
-                    for x in query_r:
-                        if repost_channel.is_nsfw() or not x['nsfw']:
-                            embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
-                await repost_channel.send(embed=embed)
-        elif re.search(twitter_pattern, message.content):
-            url = re.search(twitter_pattern, message.content).group(0)
-            gallery_dl.config.load()
-            tweet = gallery_dl.job.DownloadJob(url)
-            tweet_content = None
-            for x in tweet.extractor:
-                if x[0] == 2:
-                    if x[1] is not None:
-                        tweet_content = x[1]
-                        break
-            if tweet_content is not None:
-                content = tweet_content['content']
-                tweet_id = tweet_content['tweet_id']
-                author = tweet_content['author']
-                menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
-                for channel in self.repost_cache:
-                    if channel['guild_id'] == interaction.guild.id:
-                        menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
-                await interaction.response.send_message("I found an attachment, please select where to repost it", ephemeral=True, view=menu)
-                menu.message = await interaction.original_response()
-                tweet.run()
-                if not await menu.wait() and menu.channel_select.values:
-                    embed_list = []
-                    files_list = []
-                    await interaction.delete_original_response()
-                    repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
-                    query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
-                    for image in sorted(os.listdir("temp_files")):
-                        if image.startswith(str(tweet_id)) and not image.endswith(".mp4"):
-                            file = discord.File(f"temp_files/{image}")
-                            embed = discord.Embed(title=f"{author['name']} - **Twitter**", description=f"{menu.description_item}\n{content}", url=url)
-                            embed.set_image(url=f"attachment://{image}")
-                            if query_r:
-                                for x in query_r:
-                                    if repost_channel.is_nsfw() or not x['nsfw']:
-                                        embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
-                            embed.set_thumbnail(url=author['profile_image'])
-                            embed_list.append(embed)
-                            files_list.append(file)
-                        elif image.startswith(str(tweet_id)) and image.endswith(".mp4"):
-                            embed = discord.Embed(title=f"{author['name']} - **Twitter**", description=f"{menu.description_item}\n{content}", url=url)
-                            if query_r:
-                                for x in query_r:
-                                    if repost_channel.is_nsfw() or not x['nsfw']:
-                                        embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
-                            embed.set_thumbnail(url=author['profile_image'])
-                            file = discord.File(f"temp_files/{image}")
-                            files_list.append(file)
-                    if embed_list and files_list:
-                        await repost_channel.send(embeds=embed_list, files=files_list)
-                    elif embed_list and not files_list:
-                        await repost_channel.send(embeds=embed_list)
-                    elif files_list and not embed_list:
-                        await repost_channel.send(files=files_list, embed=embed)
-                    else:
-                        await interaction.response.send_message("I could not find any images to repost", ephemeral=True)
-                    for file in os.listdir("temp_files"):
-                        os.remove(f"temp_files/{file}")
+                for image in sorted(os.listdir("temp_files")):
+                    if image.startswith(str(tweet_id)) and not image.endswith(".mp4"):
+                        file = discord.File(f"temp_files/{image}")
+                        embed = discord.Embed(title=f"{author['name']} - **Twitter**", description=f"{menu.description_item}\n{content}", url=url)
+                        embed.set_image(url=f"attachment://{image}")
+                        if query_r:
+                            for x in query_r:
+                                if repost_channel.is_nsfw() or not x['nsfw']:
+                                    embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
+                        embed.set_thumbnail(url=author['profile_image'])
+                        embed_list.append(embed)
+                        files_list.append(file)
+                    elif image.startswith(str(tweet_id)) and image.endswith(".mp4"):
+                        embed = discord.Embed(title=f"{author['name']} - **Twitter**", description=f"{menu.description_item}\n{content}", url=url)
+                        if query_r:
+                            for x in query_r:
+                                if repost_channel.is_nsfw() or not x['nsfw']:
+                                    embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
+                        embed.set_thumbnail(url=author['profile_image'])
+                        file = discord.File(f"temp_files/{image}")
+                        files_list.append(file)
+                if embed_list and files_list:
+                    await repost_channel.send(embeds=embed_list, files=files_list)
+                elif embed_list and not files_list:
+                    await repost_channel.send(embeds=embed_list)
+                elif files_list and not embed_list:
+                    await repost_channel.send(files=files_list, embed=embed)
                 else:
-                    await interaction.delete_original_response()
+                    await interaction.response.send_message("I could not find any images to repost", ephemeral=True)
+                for file in os.listdir("temp_files"):
+                    os.remove(f"temp_files/{file}")
             else:
-                await interaction.response.send_message("I could not read that twitter url", ephemeral=True)
-        elif re.search(instagram_pattern, message.content):
-            # Instagram link found
-            await interaction.response.send_message("Instagram links are not supported yet", ephemeral=True)
-            pass
+                await interaction.delete_original_response()
         else:
-            # No links found and no attachments
-            await interaction.response.send_message("I could not find an attachment or link in that message", ephemeral=True)
-            pass
+            await interaction.response.send_message("I could not read that twitter url", ephemeral=True)
+
+    async def repost_instagram(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        await interaction.response.send_message("Instagram links are not supported yet", ephemeral=True)
+
+    async def repost_text(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        await interaction.response.send_message("Text reposts are not supported yet", ephemeral=True)
 
     @app_commands.command(
         name="set_repost"
