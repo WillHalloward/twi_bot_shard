@@ -9,6 +9,7 @@ from discord.ext import tasks
 from discord.ext.commands import Cog
 from discord import app_commands
 
+
 def admin_or_me_check(ctx):
     role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
     if ctx.message.author.id == 268608466690506753:
@@ -135,7 +136,7 @@ class StatsCogs(commands.Cog, name="stats"):
                             "INSERT INTO server_membership(user_id, server_id) VALUES ($1,$2)",
                             member.id, member.guild.id)
                         logging.info(f"Added {member.name} - {member.id}")
-                    else:
+                    elif member.id not in flat_user_memberships:
                         try:
                             await self.bot.pg_con.execute(
                                 "INSERT INTO server_membership(user_id, server_id) VALUES ($1,$2)",
@@ -480,12 +481,10 @@ class StatsCogs(commands.Cog, name="stats"):
     async def member_remove(self, member):
         await self.bot.pg_con.execute("DELETE FROM server_membership WHERE user_id = $1 AND server_id = $2",
                                       member.id, member.guild.id)
-        await self.bot.pg_con.execute(
-            "DELETE FROM role_membership WHERE role_id IN (SELECT id FROM roles WHERE guild_id = $2) AND user_id = $1",
-            member.id, member.guild.id)
+        await self.bot.pg_con.execute("DELETE FROM role_membership WHERE role_id IN (SELECT id FROM roles WHERE guild_id = $2) AND user_id = $1",
+                                      member.id, member.guild.id)
         await self.bot.pg_con.execute("INSERT INTO join_leave VALUES($1,$2,$3,$4,$5,$6)",
-                                      member.id, datetime.now(), "LEAVE",
-                                      member.guild.name, member.guild.id, member.created_at.replace(tzinfo=None))
+                                      member.id, datetime.now(), "LEAVE", member.guild.name, member.guild.id, member.created_at.replace(tzinfo=None))
 
     @Cog.listener("on_member_update")
     async def member_roles_update(self, before, after):
@@ -493,20 +492,23 @@ class StatsCogs(commands.Cog, name="stats"):
             if len(before.roles) < len(after.roles):
                 gained = set(after.roles) - set(before.roles)
                 gained = gained.pop()
-                await self.bot.pg_con.execute("INSERT INTO role_membership(user_id, role_id) VALUES($1,$2)",
-                                              after.id, gained.id)
-                await self.bot.pg_con.execute(
-                    "INSERT INTO role_history(role_id, user_id, date) VALUES($1,$2,$3)",
-                    gained.id, after.id, datetime.now().replace(tzinfo=None))
+                try:
+                    await self.bot.pg_con.execute("INSERT INTO role_membership(user_id, role_id) VALUES($1,$2)",
+                                                  after.id, gained.id)
+                except asyncpg.exceptions.ForeignKeyViolationError:
+                    await self.bot.pg_con.execute("INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4)",
+                                                  after.id, after.created_at.replace(tzinfo=None), after.bot, after.name)
+                    await self.bot.pg_con.execute("INSERT INTO role_membership(user_id, role_id) VALUES($1,$2)",
+                                                  after.id, gained.id)
+                await self.bot.pg_con.execute("INSERT INTO role_history(role_id, user_id, date) VALUES($1,$2,$3)",
+                                              gained.id, after.id, datetime.now().replace(tzinfo=None))
             else:
                 lost = set(before.roles) - set(after.roles)
                 lost = lost.pop()
-                await self.bot.pg_con.execute(
-                    "DELETE FROM role_membership WHERE user_id = $1 AND role_id = $2",
-                    after.id, lost.id)
-                await self.bot.pg_con.execute(
-                    "INSERT INTO role_history(role_id, user_id, date, gained) VALUES($1,$2,$3,FALSE)",
-                    lost.id, after.id, datetime.now().replace(tzinfo=None))
+                await self.bot.pg_con.execute("DELETE FROM role_membership WHERE user_id = $1 AND role_id = $2",
+                                              after.id, lost.id)
+                await self.bot.pg_con.execute("INSERT INTO role_history(role_id, user_id, date, gained) VALUES($1,$2,$3,FALSE)",
+                                              lost.id, after.id, datetime.now().replace(tzinfo=None))
                 if lost.id == 585789843368574997:
                     pink_role = await after.guild.get_role(690373096099545168)
                     after.remove_roles(pink_role)
