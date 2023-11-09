@@ -146,7 +146,7 @@ class ButtonView(discord.ui.View):
             self.stop()
             self.interaction = interaction
 
-    @discord.ui.button(label="Text", style=discord.ButtonStyle.secondary, emoji="📝", disabled=True)
+    @discord.ui.button(label="Text", style=discord.ButtonStyle.secondary, emoji="📝", disabled=False)
     async def text(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if interaction.user.id == self.invoker.id:
             self.repost_choice = 5
@@ -204,8 +204,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                 embed.add_field(name="Instagram Link", value=f"I found an Instagram link: {re.search(instagram_pattern, message.content).group(0)}", inline=False)
                 view.instagram.disabled = False
             if 5 in repost_type:
-                embed.add_field(name="Unsupported", value="I could not find any repostable content in that message, But i can post the text", inline=False)
-                view.text.disabled = False
+                embed.add_field(name="Text", value="I can also repost the text in the message.", inline=False)
             embed.add_field(name="Please select the type of repost you want to do", value="If you want to repost multiple types, you will have to do it one by one", inline=False)
             await interaction.response.send_message(embed=embed, view=view)
             if not await view.wait():
