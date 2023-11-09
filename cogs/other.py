@@ -554,7 +554,7 @@ class OtherCogs(commands.Cog, name="Other"):
                 except discord.HTTPException:
                     await interaction.response.send_message("Failed to pin the message. There are probably too many pins in this channel", ephemeral=True)
                     return
-                await interaction.response.send_message(f"{interaction.user.mention} pinned a message")
+                await interaction.response.send_message(f"Message pinned")
             else:
                 await interaction.response.send_message("That message is already pinned", ephemeral=True)
         else:
