@@ -100,17 +100,19 @@ class ModCogs(commands.Cog):
                         logging.exception('DM_watch')
 
     @Cog.listener("on_message")
-    async def find_links(self, message):
-        if re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content) \
-                and message.author.bot is False:
-            async with aiohttp.ClientSession() as session:
-                webhook = discord.Webhook.from_url(secrets.webhook, session=session)
-                await webhook.send(f"Link detected: {message.content}\n"
-                                   f"User: {message.author.name} {message.author.id}\n"
-                                   f"Channel: {message.channel.mention}\n"
-                                   f"Date: {message.created_at}\n"
-                                   f"Jump Url: {message.jump_url}",
-                                   allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
+    async def find_links(self, message: discord.Message):
+        # if message not in dm channel and in guild
+        if not isinstance(message.channel, discord.channel.DMChannel) and message.author.bot is False and message.guild.id == 346842016480755724:
+            if re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content) \
+                    and message.author.bot is False:
+                async with aiohttp.ClientSession() as session:
+                    webhook = discord.Webhook.from_url(secrets.webhook, session=session)
+                    await webhook.send(f"Link detected: {message.content[0:1800]}\n"  # Send the content cutting it at 1800 characters
+                                       f"User: {message.author.name} {message.author.id}\n"
+                                       f"Channel: {message.channel.mention}\n"
+                                       f"Date: {message.created_at}\n"
+                                       f"Jump Url: {message.jump_url}",
+                                       allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
 
     @Cog.listener("on_member_join")
     async def filter_new_users(self, member):
