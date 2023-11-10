@@ -432,6 +432,11 @@ class StatsCogs(commands.Cog, name="stats"):
                                               reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id,
                                               f"https://cdn.discordapp.com/emojis/{reaction.emoji.id}.{'gif' if reaction.emoji.animated else 'png'}",
                                               datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
+            elif isinstance(reaction.emoji, str):
+                await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
+                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE",
+                                              reaction.emoji, reaction.message_id, reaction.user_id,
+                                              None, False, None, None, datetime.now().replace(tzinfo=None), False)
             else:
                 await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
                                               "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE",
