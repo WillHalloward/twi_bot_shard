@@ -34,7 +34,7 @@ async def save_reaction(self, reaction: discord.Reaction):
             for user in [user async for user in reaction.users()]:
                 await self.bot.pg_con.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
                                               "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE",
-                                              reaction.emoji, reaction.message_id, user.id,
+                                              reaction.emoji, reaction.message.id, user.id,
                                               None, False, None, None, datetime.now().replace(tzinfo=None), False)
         else:
             for user in [user async for user in reaction.users()]:
