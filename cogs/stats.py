@@ -127,10 +127,9 @@ class StatsCogs(commands.Cog, name="stats"):
                 members_list = guild.members
                 user_ids = await self.bot.pg_con.fetch("SELECT user_id FROM users")
                 flat_user_ids = [item for sublist in user_ids for item in sublist]
-                logging.debug(f"{flat_user_ids=}")
-                logging.debug(f"{user_ids=}")
+                user_memberships = await self.bot.pg_con.fetch("SELECT user_id FROM server_membership")
+                flat_user_memberships = [item for sublist in user_memberships for item in sublist]
                 for member in members_list:
-                    logging.debug(f"{member=}")
                     if member.id not in flat_user_ids:
                         await self.bot.pg_con.execute("INSERT INTO "
                                                       "users(user_id, created_at, bot, username) "
@@ -148,6 +147,8 @@ class StatsCogs(commands.Cog, name="stats"):
                                 member.id, member.guild.id)
                         except asyncpg.UniqueViolationError:
                             pass
+                    else:
+                        pass
         except Exception as e:
             logging.exception(f'{type(e).__name__} - {e}')
         await ctx.send("Done!")
@@ -413,13 +414,6 @@ class StatsCogs(commands.Cog, name="stats"):
                 logging.debug("post update")
         except:
             logging.exception(f"message_edited - {message.data}")
-
-    @Cog.listener("on_message")
-    async def old_prefix_listener(self, message: discord.Message):
-        if message.content.startswith("!"):
-            await message.channel.send("The ! commands have all been replaced with / commands.\n"
-                                       "To see the full list of commands type / and click on my avatar.\n"
-                                       "(pssst. !pw is now /password)")
 
     @Cog.listener("on_raw_message_delete")
     async def message_deleted(self, message):
