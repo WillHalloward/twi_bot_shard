@@ -31,17 +31,42 @@ def admin_or_me_check(interaction):
         return False
 
 
+async def user_info_function(interaction: discord.Interaction, member: discord.Member):
+    if member is None:
+        member = interaction.user
+    embed = discord.Embed(title=member.display_name, color=discord.Color(0x3cd63d))
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="Account created at", value=member.created_at.strftime("%d-%m-%Y @ %H:%M:%S"))
+    embed.add_field(name="Joined server", value=member.joined_at.strftime("%d-%m-%Y @ %H:%M:%S"))
+    embed.add_field(name="Id", value=member.id)
+    embed.add_field(name="Color", value=member.color)
+    roles = ""
+    for role in reversed(member.roles):
+        if role.is_default():
+            pass
+        else:
+            roles += f"{role.mention}\n"
+    if roles != "":
+        embed.add_field(name="Roles", value=roles, inline=False)
+    await interaction.response.send_message(embed=embed)
+
+
 class OtherCogs(commands.Cog, name="Other"):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot: commands.Bot = bot
         self.quote_cache = None
         self.category_cache = None
+        self.pin_cache = None
         self.pin = app_commands.ContextMenu(
             name="Pin",
             callback=self.pin,
         )
         self.bot.tree.add_command(self.pin)
-        self.pin_cache = None
+        self.info_user_context = app_commands.ContextMenu(
+            name="User info",
+            callback=self.info_user_context,
+        )
+        self.bot.tree.add_command(self.info_user_context)
 
     async def cog_load(self) -> None:
         self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
@@ -73,23 +98,10 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Gives the account information of a user.",
     )
     async def info_user(self, interaction: discord.Interaction, member: discord.Member = None):
-        if member is None:
-            member = interaction.user
-        embed = discord.Embed(title=member.display_name, color=discord.Color(0x3cd63d))
-        embed.set_thumbnail(url=member.display_avatar.url)
-        embed.add_field(name="Account created at", value=member.created_at.strftime("%d-%m-%Y @ %H:%M:%S"))
-        embed.add_field(name="Joined server", value=member.joined_at.strftime("%d-%m-%Y @ %H:%M:%S"))
-        embed.add_field(name="Id", value=member.id)
-        embed.add_field(name="Color", value=member.color)
-        roles = ""
-        for role in reversed(member.roles):
-            if role.is_default():
-                pass
-            else:
-                roles += f"{role.mention}\n"
-        if roles != "":
-            embed.add_field(name="Roles", value=roles, inline=False)
-        await interaction.response.send_message(embed=embed)
+        await user_info_function(interaction, member)
+
+    async def info_user_context(self, interaction: discord.Interaction, member: discord.Member) -> None:
+        await user_info_function(interaction, member)
 
     @info.command(name="server",
                   description="Gives the server information of the server the command was used in.")
@@ -349,7 +361,7 @@ class OtherCogs(commands.Cog, name="Other"):
         else:
             await interaction.response.send_message("Doesn't look like any roles has been setup to be self assignable on this server."
                                                     "The moderators can do that by using: "
-                                                    "`!addrole [Role]`")
+                                                    "`/addrole [Role]`")
 
     admin_role = app_commands.Group(name="admin_role", description="Admin role commands")
 
@@ -361,6 +373,7 @@ class OtherCogs(commands.Cog, name="Other"):
     async def update_role_weight(self, interaction: discord.Interaction, role: discord.role.Role, new_weight: int):
         await self.bot.pg_con.execute("UPDATE roles set weight = $1 WHERE id = $2 AND guild_id = $3",
                                       new_weight, role.id, interaction.guild.id)
+        await interaction.response.send_message(f"Changed the weight of {role} to {new_weight}")
 
     @admin_role.command(
         name="add",
@@ -386,6 +399,7 @@ class OtherCogs(commands.Cog, name="Other"):
                     "where id = $2 "
                     "and guild_id = $3",
                     alias, role.id, interaction.guild.id, category.lower(), auto_replace)
+            await interaction.response.send_message(f"Added {role} to the self assign list")
         except Exception as e:
             logging.exception(e)
             await interaction.response.send_message(f"Error: {e}")
@@ -408,6 +422,7 @@ class OtherCogs(commands.Cog, name="Other"):
             "where id = $1 "
             "AND guild_id = $2",
             role, interaction.guild.id)
+        await interaction.response.send_message(f"Removed {role} from the self assign list")
 
     @app_commands.command(
         name="role",
