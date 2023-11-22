@@ -219,14 +219,13 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                         await self.repost_instagram(view.interaction, message)
                     case 5:
                         await self.repost_text(view.interaction, message)
+                    case _:  # default
+                        await interaction.response.send_message("Something appears to have gone wrong", ephemeral=True)
             else:
                 await interaction.delete_original_response()
 
     async def repost_attachment(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        supported = False
-        for attachment in message.attachments:
-            if attachment.content_type.startswith("image") or attachment.content_type.startswith("video") or attachment.content_type.startswith("audio") or attachment.content_type.startswith("text"):
-                supported = True
+        supported = any(attachment.content_type.startswith(media_type) for attachment in message.attachments for media_type in ["image", "video", "audio", "text", "pdf"])
         if supported:
             menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
             for channel in self.repost_cache:
