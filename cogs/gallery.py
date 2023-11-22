@@ -275,7 +275,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                 await interaction.delete_original_response()
         else:
             print("Unsupported attachment")
-            await interaction.response.send_message("I could not find a supported attachment in that message", ephemeral=True)
+            await interaction.response.send_message(f"I could not find a supported attachment in that message. Attachment types: {', '.join([attachment.content_type for attachment in message.attachments])}", ephemeral=True)
 
     async def repost_ao3(self, interaction: discord.Interaction, message: discord.Message) -> None:
         url = re.search(ao3_pattern, message.content).group(0)
