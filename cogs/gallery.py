@@ -263,7 +263,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                             x = 1
                         x += 1
                     # check if the attachment is a video
-                    elif attachment.content_type.startswith("video") or attachment.content_type.startswith("audio") or attachment.content_type.startswith("text"):
+                    else:
                         files_list.append(await attachment.to_file())
                 if embed_list and files_list:
                     await repost_channel.send(embeds=embed_list, files=files_list)
