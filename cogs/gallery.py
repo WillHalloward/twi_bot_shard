@@ -225,7 +225,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                 await interaction.delete_original_response()
 
     async def repost_attachment(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        supported = any(attachment.content_type.startswith(media_type) for attachment in message.attachments for media_type in ["image", "video", "audio", "text", "pdf"])
+        supported = any(attachment.content_type.startswith(media_type) for attachment in message.attachments for media_type in ["image", "video", "audio", "text", "application"])
         if supported:
             menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
             for channel in self.repost_cache:
