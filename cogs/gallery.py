@@ -9,7 +9,7 @@ import AO3
 from typing import List
 import gallery_dl
 
-ao3_pattern = r'https?://archiveofourown.org/works/\d+'
+ao3_pattern = r'https?://archiveofourown\.org/.*'
 # twitter_pattern = r'https?://twitter.com/[^/]+/status/\d+'
 twitter_pattern = r"((?:https?://)?(?:www\.|mobile\.)?(?:(?:[fv]x)?twitter|x)\.com/[^/]+/status/\d+)"
 instagram_pattern = r'https?://www.instagram.com/p/[^/]+'
