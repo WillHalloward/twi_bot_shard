@@ -318,50 +318,42 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Posts all the roles in the server you can assign yourself"
     )
     async def role_list(self, interaction: discord.Interaction):
-        list_r = list()
-        for role in interaction.user.roles:
-            list_r.append(role.id)
+        user_roles = [role.id for role in interaction.user.roles]
         roles = await self.bot.pg_con.fetch(
-            "SELECT id, name, required_roles, weight, alias, category "
+            "SELECT id, name, required_roles, weight, category "
             "FROM roles "
             "WHERE (required_roles && $2::bigint[] OR required_roles is NULL)"
             "AND guild_id = $1 "
             "AND self_assignable = TRUE "
             "order by weight, name desc",
-            interaction.guild.id, list_r)
-        length = 0
-        for name in roles:
-            if len(name['alias']) > length:
-                length = len(name['alias'])
+            interaction.guild.id, user_roles)
 
-        def key_func(k):
-            return k['category']
-
-        def key_func2(k):
-            return k['weight']
-
-        if len(roles) != 0:
-            embed = discord.Embed(title="List of all the roles in the server",
-                                  description="Request the role by doing /role @Role",
-                                  color=0x00fcff)
-            embed.set_thumbnail(url=interaction.guild.icon)
-            roles = sorted(roles, key=key_func)
-            for key, value in groupby(roles, key_func):
-                foobar = ""
-                x = 1
-                for row in sorted(value, key=key_func2):
-                    temp_str = f"`{row['alias']}` `{'-' * (length - len(row['alias']) + 5)}` {interaction.guild.get_role(row['id']).mention}\n"
-                    if len(temp_str + foobar) > 1024:
-                        embed.add_field(name=f"**{key.capitalize()}**", value=foobar.strip(), inline=False)
-                        foobar = ""
-                        key = key + " " + str(x + 1)
-                    foobar = foobar + temp_str
-                embed.add_field(name=f"**{key.capitalize()}**", value=foobar.strip(), inline=False)
-            await interaction.response.send_message(embed=embed)
-        else:
+        if not roles:
             await interaction.response.send_message("Doesn't look like any roles has been setup to be self assignable on this server."
                                                     "The moderators can do that by using: "
                                                     "`/addrole [Role]`")
+            return
+
+        embed = discord.Embed(title="List of all the roles in the server",
+                              description="Request the role by doing /role @Role",
+                              color=0x00fcff)
+        embed.set_thumbnail(url=interaction.guild.icon)
+        roles.sort(key=lambda k: (k['category'], k['weight']))
+        for key, group in groupby(roles, key=lambda k: k['category']):
+            role_mentions = ""
+            x = 1
+            for row in group:
+                role = interaction.guild.get_role(row['id'])
+                if role:
+                    temp_str = f"{role.mention}\n"
+                    if len(temp_str + role_mentions) > 1024:
+                        embed.add_field(name=f"**{key.capitalize()}**", value=role_mentions.strip(), inline=False)
+                        role_mentions = ""
+                        x += 1
+                        key = f"{key} {x}"
+                    role_mentions = role_mentions + temp_str
+            embed.add_field(name=f"**{key.capitalize()}**", value=role_mentions.strip(), inline=False)
+        await interaction.response.send_message(embed=embed)
 
     admin_role = app_commands.Group(name="admin_role", description="Admin role commands")
 
@@ -380,7 +372,7 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Adds a role to the self assign list"
     )
     @commands.check(admin_or_me_check)
-    async def role_add(self, interaction: discord.Interaction, role: discord.role.Role, alias: str, category: str = 'Uncategorized', auto_replace: bool = False, required_roles: str = None):
+    async def role_add(self, interaction: discord.Interaction, role: discord.role.Role, category: str = 'Uncategorized', auto_replace: bool = False, required_roles: str = None):
         try:
             if required_roles is not None:
                 list_of_roles = list()
@@ -392,13 +384,13 @@ class OtherCogs(commands.Cog, name="Other"):
                     "UPDATE roles SET self_assignable = TRUE, required_roles = $1, alias = $2, category=$5, auto_replace = $6 "
                     "where id = $3 "
                     "and guild_id = $4",
-                    list_of_roles, alias, role.id, interaction.guild.id, category.lower(), auto_replace)
+                    list_of_roles, role.id, interaction.guild.id, category.lower(), auto_replace)
             else:
                 await self.bot.pg_con.execute(
                     "UPDATE roles SET self_assignable = TRUE, required_roles = NULL, alias = $1, category=$4, auto_replace = $5 "
                     "where id = $2 "
                     "and guild_id = $3",
-                    alias, role.id, interaction.guild.id, category.lower(), auto_replace)
+                    role.id, interaction.guild.id, category.lower(), auto_replace)
             await interaction.response.send_message(f"Added {role} to the self assign list")
         except Exception as e:
             logging.exception(e)
