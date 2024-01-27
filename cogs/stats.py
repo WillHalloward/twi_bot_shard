@@ -584,7 +584,8 @@ class StatsCogs(commands.Cog, name="stats"):
                 "INSERT INTO updates(updated_table, action, before, after, date, primary_key) "
                 "VALUES ($1,$2,$3,$4,$5,$6)",
                 "threads", "THREAD_CREATED", thread.name, thread.name, datetime.now().replace(tzinfo=None), str(thread.id))
-            await thread.send("<@&1153075640535367721>")
+            if thread.parent_id != 1190045713778868335:
+                await thread.send("<@&1153075640535367721>")
         except asyncpg.UniqueViolationError:
             logging.warning(f"Duplicate on {thread} in db")
         except Exception as e:
