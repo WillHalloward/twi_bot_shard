@@ -810,8 +810,12 @@ class StatsCogs(commands.Cog, name="stats"):
             """)
         if not messages_result:
             length = 6
-            logging.error(
-                f"No messages found in guild 346842016480755724 during the last {datetime.now() - timedelta(hours=24)} - {datetime.now()}")
+            logging.error(f"No messages found in guild 346842016480755724 during the last {datetime.now() - timedelta(hours=24)} - {datetime.now()}")
+            owner = self.bot.get_user(self.bot.owner_id)
+            if owner is not None:
+                await owner.send(f"No messages found in guild 346842016480755724 during the last {datetime.now() - timedelta(hours=24)} - {datetime.now()}")
+            else:
+                logging.error(f"I couldn't find the owner")
         else:
             logging.debug(f"Found results {messages_result}")
             length = len(str(messages_result[0]['total'])) + 1
