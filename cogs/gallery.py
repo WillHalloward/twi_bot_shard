@@ -238,7 +238,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
 
                 repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
                 query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
-                if repost_channel.type != discord.channel.ForumChannel:
+                if repost_channel.type != 'forum':
+                    logging.info(type(repost_channel))
                     for attachment in message.attachments:
                         embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url)
                         embed.set_thumbnail(url=message.author.display_avatar.url)
@@ -274,7 +275,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                     for attachment in message.attachments:
                         file = await attachment.to_file()
                         list_of_files.append(file)
-                    embed = discord.Embed(title=f"{message.author.display_name}'s links", color=0x00ff00)
+                    embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url, color=0x00ff00)
                     embed.set_thumbnail(url=message.author.display_avatar.url)
                     if query_r:
                         for x in query_r:
