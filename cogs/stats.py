@@ -4,10 +4,10 @@ from datetime import datetime, timedelta
 
 import asyncpg
 import discord
+from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
 from discord.ext.commands import Cog
-from discord import app_commands
 
 
 def admin_or_me_check(ctx):
@@ -376,6 +376,11 @@ class StatsCogs(commands.Cog, name="stats"):
                 else:
                     logging.info(f"I was not allowed access to {thread.name}")
         logging.info("!save completed")
+        owner = self.bot.get_user(self.bot.owner_id)
+        if owner is not None:
+            await owner.send('The save command is now complete')
+        else:
+            logging.error(f"I couldn't find the owner")
         if self.save_listener not in self.bot.extra_events['on_message']:
             self.bot.add_listener(self.save_listener, name='on_message')
         if self.message_deleted not in self.bot.extra_events['on_raw_message_delete']:
@@ -443,7 +448,7 @@ class StatsCogs(commands.Cog, name="stats"):
                                               reaction.emoji.name, None, None,
                                               None, datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
         except Exception as e:
-            logging.error(f"Error: {e} on reaction add")
+            logging.exception(f"Error: {e} on reaction add")
 
     @Cog.listener("on_raw_reaction_remove")
     async def reaction_remove(self, reaction):
