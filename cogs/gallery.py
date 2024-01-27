@@ -170,6 +170,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         if not repost_type:
             repost_type.append(5)
 
+
         if repost_type:
             view = ButtonView(invoker=interaction.user)
 
@@ -238,7 +239,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
 
                 repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
                 query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
-                if repost_channel.type != 'forum':
+                if type(repost_channel) != discord.channel.ForumChannel:
                     logging.info(type(repost_channel))
                     for attachment in message.attachments:
                         embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url)
