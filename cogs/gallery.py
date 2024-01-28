@@ -345,7 +345,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                 query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
                 for image in sorted(os.listdir(f"{interaction.guild_id}_temp_files")):
                     if image.startswith(str(tweet_id)) and not image.endswith(".mp4"):
-                        file = discord.File(f"{interaction.guild_id}_temp_files/{image}")
+                        file = discord.File(f"temp_files/{image}")
                         embed = discord.Embed(title=menu.title_item, description=f"{menu.description_item}\n{content}", url=url)
                         embed.set_image(url=f"attachment://{image}")
                         if query_r:
@@ -362,7 +362,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                                 if repost_channel.is_nsfw() or not x['nsfw']:
                                     embed.add_field(name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}", value=x['link'], inline=False)
                         embed.set_thumbnail(url=author['profile_image'])
-                        file = discord.File(f"{interaction.guild_id}_temp_files/{image}")
+                        file = discord.File(f"temp_files/{image}")
                         files_list.append(file)
                 if embed_list and files_list:
                     await repost_channel.send(embeds=embed_list, files=files_list)
