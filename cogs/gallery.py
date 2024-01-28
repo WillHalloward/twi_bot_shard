@@ -343,7 +343,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                 await interaction.delete_original_response()
                 repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
                 query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
-                for image in sorted(os.listdir(f"{interaction.guild_id}_temp_files")):
+                for image in sorted(os.listdir(f"temp_files")):
                     if image.startswith(str(tweet_id)) and not image.endswith(".mp4"):
                         file = discord.File(f"temp_files/{image}")
                         embed = discord.Embed(title=menu.title_item, description=f"{menu.description_item}\n{content}", url=url)
@@ -372,8 +372,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                     await repost_channel.send(files=files_list, embed=embed)
                 else:
                     await interaction.response.send_message("I could not find any images to repost", ephemeral=True)
-                for file in os.listdir(f"{interaction.guild_id}_temp_files"):
-                    os.remove(f"{interaction.guild_id}_temp_files/{file}")
+                for file in os.listdir(f"temp_files"):
+                    os.remove(f"temp_files/{file}")
             else:
                 await interaction.delete_original_response()
         else:
