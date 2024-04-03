@@ -103,7 +103,7 @@ async def main():
         exts = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report']
         intents = discord.Intents.default()
         intents.members = True
-        intents.messages = True
+        intents.message_content = True
         async with Cognita(
             commands.when_mentioned_or("!"),
             db_pool=pool,
