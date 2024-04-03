@@ -9,6 +9,8 @@ from discord.ext import commands
 from discord.ext import tasks
 from discord.ext.commands import Cog
 
+import secrets
+
 
 def admin_or_me_check(ctx):
     role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
@@ -112,7 +114,8 @@ class StatsCogs(commands.Cog, name="stats"):
 
     def __init__(self, bot):
         self.bot = bot
-        self.stats_loop.start()
+        if secrets.logfile != "test":
+            self.stats_loop.start()
 
     @commands.command(
         name="save_users",

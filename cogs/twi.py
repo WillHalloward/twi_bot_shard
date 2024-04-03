@@ -1,14 +1,15 @@
 import datetime
 import json
 import logging
+import os
 from typing import List
-
+from PIL import Image, ImageSequence
 import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
 from googleapiclient.discovery import build
-
+from os import remove
 import secrets
 from cogs.patreon_poll import fetch
 
@@ -29,9 +30,107 @@ def google_search(search_term, api_key, cse_id, **kwargs):
     return res
 
 
+def add_emblem_to_image(profile_image_path, emblem_path, user_id):
+    profile_image = Image.open(profile_image_path)
+    emblem = Image.open(emblem_path)
+
+    # resize emblem to be 1/4 of the profile image
+    width, height = profile_image.size
+    emblem = emblem.resize((width // 4, height // 4))
+
+    # calculate the position for emblem which is at the bottom right of the profile image
+    position = (width - emblem.width, height - emblem.height)
+
+    profile_image.paste(emblem, position, emblem)
+    new_image_path = f'emblems/{user_id}_new_profile_image.png'
+    profile_image.save(new_image_path)
+
+    # remove the original image
+    os.remove(profile_image_path)
+
+    return new_image_path
+
+
+
+def add_emblem_to_gif(profile_gif_path, emblem_path, user_id):
+    # Open the gif and the emblem
+    profile_gif = Image.open(profile_gif_path)
+    emblem = Image.open(emblem_path)
+
+    frames = []
+
+    # Resize emblem to be 1/4 of the gif
+    width, height = profile_gif.size
+    emblem = emblem.resize((width // 4, height // 4))
+
+    # Calculate the position for emblem (bottom right of the gif)
+    position = (width - emblem.width, height - emblem.height)
+
+    # Loop over each frame in the animated gif
+    for frame in ImageSequence.Iterator(profile_gif):
+        # Paste the emblem into the frame and append it to our frames list
+        frame.paste(emblem, position, emblem)
+        frames.append(frame)
+
+    # Save frames as new gif
+    frames[0].save(f'emblems/{user_id}_new_profile_gif.gif', save_all=True, append_images=frames[1:], optimize=True, loop=0)
+    os.remove(profile_gif_path)
+    return f'emblems/{user_id}_new_profile_gif.gif'
+
+
+
 async def is_bot_channel(interaction):
     return interaction.channel.id == 361694671631548417
 
+class PersistentView(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(label='Green', style=discord.ButtonStyle.green, custom_id='persistent_view_button:ghost', emoji="👻")
+    async def green(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self.bot.pg_con.fetch("SELECT * FROM button_action_history WHERE user_id = $1 AND view_id = 1", interaction.user.id):
+            await interaction.user.display_avatar.save(f'emblems/{interaction.user.id}_avatar.{"gif" if interaction.user.display_avatar.is_animated() else "png"}')
+            if interaction.user.display_avatar.is_animated():
+                # return_path = add_emblem_to_gif(f'emblems/{interaction.user.id}_avatar.gif', 'emblems/Squre_emblem.png', interaction.user.id)
+                return_path = ""
+            else:
+                return_path = add_emblem_to_image(f'emblems/{interaction.user.id}_avatar.png', 'emblems/Squre_emblem.png', interaction.user.id)
+            await interaction.response.send_message('This is ghost.', ephemeral=True, file=discord.File(return_path))
+            await self.bot.pg_con.execute("INSERT INTO button_action_history VALUES (default, $1, 1, $2,now())", interaction.user.id, interaction.guild.id)
+            remove(return_path)
+        else:
+            await interaction.send_message("You have already chosen your path")
+
+
+    @discord.ui.button(label='Red', style=discord.ButtonStyle.red, custom_id='persistent_view_button:!?', emoji="⁉️")
+    async def red(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self.bot.pg_con.fetch("SELECT * FROM button_action_history WHERE user_id = $1 AND view_id = 1", interaction.user.id):
+            await interaction.user.display_avatar.save(f'emblems/{interaction.user.id}_avatar.{"gif" if interaction.user.display_avatar.is_animated() else "png"}')
+            if interaction.user.display_avatar.is_animated():
+                return_path = add_emblem_to_gif(f'emblems/{interaction.user.id}_avatar.gif', 'emblems/Squre_emblem.png', interaction.user.id)
+            else:
+                return_path = add_emblem_to_image(f'emblems/{interaction.user.id}_avatar.png', 'emblems/Squre_emblem.png', interaction.user.id)
+            await interaction.response.send_message('This is !?.', ephemeral=True, file=discord.File(return_path))
+            await self.bot.pg_con.execute("INSERT INTO button_action_history VALUES (default, $1, 1, $2,now())", interaction.user.id, interaction.guild.id)
+            remove(return_path)
+        else:
+            await interaction.send_message("You have already chosen your path")
+
+
+    @discord.ui.button(label='Grey', style=discord.ButtonStyle.grey, custom_id='persistent_view_button:grave', emoji="🪦")
+    async def grey(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self.bot.pg_con.fetch("SELECT * FROM button_action_history WHERE user_id = $1 AND view_id = 1", interaction.user.id):
+            await interaction.user.display_avatar.save(f'emblems/{interaction.user.id}_avatar.{"gif" if interaction.user.display_avatar.is_animated() else "png"}')
+            if interaction.user.display_avatar.is_animated():
+                return_path = add_emblem_to_gif(f'emblems/{interaction.user.id}_avatar.gif', 'emblems/Squre_emblem.png', interaction.user.id)
+            else:
+                return_path = add_emblem_to_image(f'emblems/{interaction.user.id}_avatar.png', 'emblems/Squre_emblem.png', interaction.user.id)
+            await interaction.response.send_message('This is grave.', ephemeral=True, file=discord.File(return_path))
+            await self.bot.pg_con.execute("INSERT INTO button_action_history VALUES (default, $1, 1, $2,now())", interaction.user.id, interaction.guild.id)
+            remove(return_path)
+        else:
+            await interaction.send_message("You have already chosen your path")
 
 class TwiCog(commands.Cog, name="The Wandering Inn"):
     def __init__(self, bot):
@@ -67,9 +166,9 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                 await interaction.response.send_message(f"{password['password']}", ephemeral=True, view=discord.ui.View().add_item(self.Button(password['link'])))
         else:
             await interaction.response.send_message(
-                "There are 3 ways to get you patreon password.\n"
-                "1. Link discord to patreon and go to <#346842161704075265> and check pins or use /pw inside it.\n"
-                "If you don't know how to connect discord to patreon use the command /cd\n"
+                "There are 3 ways to get the patreon password.\n"
+                "1. Link discord to patreon and go to <#346842161704075265> and check pins or use /password inside it.\n"
+                "If you don't know how to connect discord to patreon use the command /connectdiscord\n"
                 "2. You will get an email with the password every time pirate posts it.\n"
                 "3. go to <https://www.patreon.com/pirateaba> and check the latest posts. It has the password.\n"
             )
@@ -284,6 +383,12 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     #         dup_user = await self.bot.pg_con.fetchrow("SELECT reddit_username FROM twi_reddit WHERE discord_id = $1",
     #                                                   interaction.author.id)
     #         await interaction.response.send_message(f"You are already in the list with username {dup_user['reddit_username']}")
+
+    @app_commands.command(name="create_persistent_button")
+    @commands.is_owner()
+    async def prepare(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Because…I don’t want it. I don’t want people to have that kind of power. To make an army of the ___. For one person to change everything?", view=PersistentView(self.bot))
+
 
 
 async def setup(bot):

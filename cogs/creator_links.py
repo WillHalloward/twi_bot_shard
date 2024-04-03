@@ -25,8 +25,7 @@ class CreatorLinks(commands.Cog, name="Creator"):
         if creator is None:
             creator = interaction.user
         try:
-            query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
-                                                  creator.id)
+            query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",creator.id)
             if query_r:
                 embed = discord.Embed(title=f"{creator.display_name}'s links", color=0x00ff00)
                 embed.set_thumbnail(url=creator.display_avatar.url)
