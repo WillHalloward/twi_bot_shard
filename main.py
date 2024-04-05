@@ -4,7 +4,7 @@ import logging.handlers
 import ssl
 from itertools import cycle
 from typing import List, Optional
-
+from discord.ext import tasks
 import asyncpg
 import discord
 from aiohttp import ClientSession
@@ -42,7 +42,7 @@ class Cognita(commands.Bot):
         self.testing_guild = 297916314239107072
 
     async def setup_hook(self) -> None:
-        self.bg_task = self.loop.create_task(self.start_status_loop())
+        self.start_status_loop.start()
         self.add_view(PersistentView(self))
         await self.load_extensions()
         if self.testing_guild_id:
@@ -72,11 +72,9 @@ class Cognita(commands.Bot):
     async def on_command_completion(self, ctx: discord.ext.commands.Context):
         logging.info(f"{ctx.author.name} invoked {ctx.command} with arguments {ctx.kwargs} in channel {ctx.channel.name} from guild {ctx.guild.name}")
 
+    @tasks.loop(seconds=10)
     async def start_status_loop(self):
-        await self.wait_until_ready()
-        if secrets.logfile != 'test':
-            await self.change_presence(activity=discord.Game(next(status)))
-            await asyncio.sleep(10)
+        await self.change_presence(activity=discord.Game(next(status)))
 
 async def main():
 
@@ -100,7 +98,7 @@ async def main():
     context.load_cert_chain(f"ssl-cert/client-cert.pem", f"ssl-cert/client-key.pem")
 
     async with ClientSession() as our_client, asyncpg.create_pool(database=secrets.database, user=secrets.DB_user, password=secrets.DB_password, host=secrets.host, ssl=context, command_timeout=300) as pool:
-        exts = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report']
+        cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report']
         intents = discord.Intents.default()
         intents.members = True
         intents.message_content = True
@@ -108,7 +106,7 @@ async def main():
             commands.when_mentioned_or("!"),
             db_pool=pool,
             web_client=our_client,
-            initial_extensions=exts,
+            initial_extensions=cogs,
             intents=intents
         ) as bot:
             await bot.start(secrets.bot_token)
