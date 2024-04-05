@@ -90,7 +90,7 @@ async def main():
         backupCount=10
     )
     dt_fmt = '%Y-%m-%d %H:%M:%S'
-    formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message}', dt_fmt, style='{')
+    formatter = logging.Formatter('{asctime} {levelname:<8} {name}: {message} - :%(lineno)d', dt_fmt, style='{')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.info("Logging started...")

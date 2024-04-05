@@ -507,13 +507,15 @@ class StatsCogs(commands.Cog, name="stats"):
                 try:
                     await self.bot.pg_con.execute("INSERT INTO role_membership(user_id, role_id) VALUES($1,$2)",
                                                   after.id, gained.id)
+                    await self.bot.pg_con.execute("INSERT INTO role_history(role_id, user_id, date) VALUES($1,$2,$3)",
+                                                  gained.id, after.id, datetime.now().replace(tzinfo=None))
                 except asyncpg.exceptions.ForeignKeyViolationError:
                     await self.bot.pg_con.execute("INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4)",
                                                   after.id, after.created_at.replace(tzinfo=None), after.bot, after.name)
                     await self.bot.pg_con.execute("INSERT INTO role_membership(user_id, role_id) VALUES($1,$2)",
                                                   after.id, gained.id)
-                await self.bot.pg_con.execute("INSERT INTO role_history(role_id, user_id, date) VALUES($1,$2,$3)",
-                                              gained.id, after.id, datetime.now().replace(tzinfo=None))
+                except asyncpg.exceptions.UniqueViolationError:
+                    logging.warning(f"Duplicate key value violation {after.id}, {gained.id}")
             else:
                 lost = set(before.roles) - set(after.roles)
                 lost = lost.pop()
