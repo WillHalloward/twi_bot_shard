@@ -524,7 +524,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 await self.bot.pg_con.execute("INSERT INTO role_history(role_id, user_id, date, gained) VALUES($1,$2,$3,FALSE)",
                                               lost.id, after.id, datetime.now().replace(tzinfo=None))
                 if lost.id == 585789843368574997:
-                    pink_role = await after.guild.get_role(690373096099545168)
+                    pink_role = after.guild.get_role(690373096099545168)
                     after.remove_roles(pink_role)
 
     @Cog.listener("on_user_update")
