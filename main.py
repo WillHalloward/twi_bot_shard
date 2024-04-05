@@ -4,7 +4,7 @@ import logging.handlers
 import ssl
 from itertools import cycle
 from typing import List, Optional
-from discord.ext import tasks
+
 import asyncpg
 import discord
 from aiohttp import ClientSession
@@ -42,7 +42,7 @@ class Cognita(commands.Bot):
         self.testing_guild = 297916314239107072
 
     async def setup_hook(self) -> None:
-        self.start_status_loop.start()
+        self.bg_task = self.loop.create_task(self.start_status_loop())
         self.add_view(PersistentView(self))
         await self.load_extensions()
         if self.testing_guild_id:
@@ -72,9 +72,11 @@ class Cognita(commands.Bot):
     async def on_command_completion(self, ctx: discord.ext.commands.Context):
         logging.info(f"{ctx.author.name} invoked {ctx.command} with arguments {ctx.kwargs} in channel {ctx.channel.name} from guild {ctx.guild.name}")
 
-    @tasks.loop(seconds=10)
     async def start_status_loop(self):
-        await self.change_presence(activity=discord.Game(next(status)))
+        await self.wait_until_ready()
+        while not self.is_closed():
+            await self.change_presence(activity=discord.Game(next(status)))
+            await asyncio.sleep(10)
 
 async def main():
 
