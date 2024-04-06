@@ -216,8 +216,11 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Searches for a quote"
     )
     async def quote_find(self, interaction: discord.Interaction, search: str):
+        formatted_search = search.replace(' ', ' & ')
         results = await self.bot.pg_con.fetch(
-            "SELECT quote, x.row_number FROM (SELECT tokens, quote, ROW_NUMBER() OVER () as row_number FROM quotes) x WHERE x.tokens @@ to_tsquery($1);", search)
+            "SELECT quote, x.row_number FROM (SELECT tokens, quote, ROW_NUMBER() OVER () as row_number FROM quotes) x WHERE x.tokens @@ to_tsquery($1);",
+            formatted_search)
+
         if len(results) > 1:
             index_res = "["
             iterres = iter(results)
