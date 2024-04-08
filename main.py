@@ -1,10 +1,12 @@
 import asyncio
+import json
 import logging
 import logging.handlers
 import ssl
 from itertools import cycle
-from typing import List, Optional
-
+from pprint import pprint
+from typing import List, Optional, Union
+import datetime
 import asyncpg
 import discord
 from aiohttp import ClientSession
@@ -24,6 +26,8 @@ status = cycle(["Killing the mages of Wistram",
                 "Humming while dusting the graves",
                 "Harmonizing the tombstones",
                 "Writing songs to ward off the departed"])
+
+
 class Cognita(commands.Bot):
     def __init__(
             self,
@@ -31,24 +35,17 @@ class Cognita(commands.Bot):
             initial_extensions: List[str],
             db_pool: asyncpg.Pool,
             web_client: ClientSession,
-            testing_guild_id: Optional[int] = None,
             **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.initial_extensions = initial_extensions
         self.pg_con = db_pool
         self.web_client = web_client
-        self.testing_guild_id = testing_guild_id
-        self.testing_guild = 297916314239107072
 
     async def setup_hook(self) -> None:
         self.bg_task = self.loop.create_task(self.start_status_loop())
         self.add_view(PersistentView(self))
         await self.load_extensions()
-        if self.testing_guild_id:
-            guild = discord.Object(self.testing_guild_id)
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
         self.unsubscribe_stats_listeners()
 
     async def load_extensions(self):
@@ -69,8 +66,39 @@ class Cognita(commands.Bot):
     async def on_ready(self):
         logging.info(f"Logged in as {self}")
 
-    async def on_command_completion(self, ctx: discord.ext.commands.Context):
-        logging.info(f"{ctx.author.name} invoked {ctx.command} with arguments {ctx.kwargs} in channel {ctx.channel.name} from guild {ctx.guild.name}")
+    async def on_app_command_completion(self, interaction: discord.Interaction, command: Union[discord.app_commands.Command, discord.app_commands.ContextMenu]):
+        user_id = interaction.user.id  # get id of the user who performed the command
+        guild_id = interaction.guild.id if interaction.guild else None  # get the id of the guild
+        command_name = command.name  # get the name of the command
+        channel_id = interaction.channel.id if interaction.channel else None  # get the id of the channel
+        slash_command = isinstance(command, discord.app_commands.Command)
+        finished_successfully = True  # This should be calculated based on the success of the command
+        response_time = datetime.timedelta()
+        command_args = json.dumps(interaction.data.get('options', []))  # Convert options to JSON string
+
+        sql_query = """
+        INSERT INTO command_history(
+            date, 
+            user_id, 
+            command_name, 
+            channel_id, 
+            guild_id, 
+            slash_command, 
+            args, 
+            finished_successfully, 
+            response_time
+        )
+        VALUES(NOW(), $1, $2, $3, $4, $5, $6, $7, $8)
+        """
+        await self.pg_con.execute(sql_query,
+                                  user_id,
+                                  command_name,
+                                  channel_id,
+                                  guild_id,
+                                  slash_command,
+                                  command_args,
+                                  finished_successfully,
+                                  response_time)
 
     async def start_status_loop(self):
         await self.wait_until_ready()
@@ -78,24 +106,24 @@ class Cognita(commands.Bot):
             await self.change_presence(activity=discord.Game(next(status)))
             await asyncio.sleep(10)
 
-async def main():
 
+async def main():
     logger = logging.getLogger('discord')
     logger.setLevel(secrets.logging_level)
 
     handler = logging.handlers.RotatingFileHandler(
         filename=f'{secrets.logfile}.log',
         encoding='utf-8',
-        maxBytes=32*1024*1024,
+        maxBytes=32 * 1024 * 1024,
         backupCount=10
     )
-    dt_fmt = '%Y-%m-%d %H:%M:%S'
     formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message} :{lineno}', datefmt='%Y-%m-%d %H:%M:%S', style='{')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.info("Logging started...")
 
-    context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+    context = ssl.create_default_context()
+    context.check_hostname = False
     context.load_verify_locations(f"ssl-cert/server-ca.pem")
     context.load_cert_chain(f"ssl-cert/client-cert.pem", f"ssl-cert/client-key.pem")
 
@@ -105,12 +133,13 @@ async def main():
         intents.members = True
         intents.message_content = True
         async with Cognita(
-            commands.when_mentioned_or("!"),
-            db_pool=pool,
-            web_client=our_client,
-            initial_extensions=cogs,
-            intents=intents
+                commands.when_mentioned_or("!"),
+                db_pool=pool,
+                web_client=our_client,
+                initial_extensions=cogs,
+                intents=intents
         ) as bot:
             await bot.start(secrets.bot_token)
+
 
 asyncio.run(main())

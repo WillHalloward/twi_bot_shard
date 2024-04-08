@@ -30,27 +30,11 @@ def google_search(search_term, api_key, cse_id, **kwargs):
     return res
 
 
-def add_emblem_to_image(profile_image_path, emblem_path, user_id):
-    profile_image = Image.open(profile_image_path)
-    emblem = Image.open(emblem_path)
-
-    # resize emblem to be 1/4 of the profile image
-    width, height = profile_image.size
-    emblem = emblem.resize((width // 4, height // 4))
-
-    # calculate the position for emblem which is at the bottom right of the profile image
-    position = (width - emblem.width, height - emblem.height)
-
-    profile_image.paste(emblem, position, emblem)
-    new_image_path = f'emblems/{user_id}_new_profile_image.png'
-    profile_image.save(new_image_path)
-
-    # remove the original image
-    os.remove(profile_image_path)
-
-    return new_image_path
 
 
+
+async def is_bot_channel(interaction):
+    return interaction.channel.id == 361694671631548417
 
 def add_emblem_to_gif(profile_gif_path, emblem_path, user_id):
     # Open the gif and the emblem
@@ -61,10 +45,10 @@ def add_emblem_to_gif(profile_gif_path, emblem_path, user_id):
 
     # Resize emblem to be 1/4 of the gif
     width, height = profile_gif.size
-    emblem = emblem.resize((width // 4, height // 4))
+    emblem = emblem.resize((width // 2, height // 2))
 
     # Calculate the position for emblem (bottom right of the gif)
-    position = (width - emblem.width, height - emblem.height)
+    position = (0, height - emblem.height)  # this line was modified
 
     # Loop over each frame in the animated gif
     for frame in ImageSequence.Iterator(profile_gif):
@@ -78,59 +62,52 @@ def add_emblem_to_gif(profile_gif_path, emblem_path, user_id):
     return f'emblems/{user_id}_new_profile_gif.gif'
 
 
+def add_emblem_to_image(profile_image_path, emblem_path, user_id):
+    profile_image = Image.open(profile_image_path)
+    emblem = Image.open(emblem_path)
+    width, height = profile_image.size
+    emblem = emblem.resize((width // 2, height // 2))
+    position = (0, height - emblem.height)
+    profile_image.paste(emblem, position, emblem)
+    new_image_path = f'emblems/{user_id}_new_profile_image.png'
+    profile_image.save(new_image_path)
+    os.remove(profile_image_path)
+    return new_image_path
 
-async def is_bot_channel(interaction):
-    return interaction.channel.id == 361694671631548417
 
 class PersistentView(discord.ui.View):
     def __init__(self, bot):
         super().__init__(timeout=None)
         self.bot = bot
 
-    @discord.ui.button(label='Green', style=discord.ButtonStyle.green, custom_id='persistent_view_button:ghost', emoji="👻")
-    async def green(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self.bot.pg_con.fetch("SELECT * FROM button_action_history WHERE user_id = $1 AND view_id = 1", interaction.user.id):
-            await interaction.user.display_avatar.save(f'emblems/{interaction.user.id}_avatar.{"gif" if interaction.user.display_avatar.is_animated() else "png"}')
+    async def button_action(self, interaction, button_id, emblem_path, message):
+        button_check = await self.bot.pg_con.fetchrow("SELECT * FROM button_action_history WHERE user_id = $1 AND view_id = 1", interaction.user.id)
+        if not button_check or button_check['button_id'] == button_id:
+            await interaction.response.defer()
             if interaction.user.display_avatar.is_animated():
-                # return_path = add_emblem_to_gif(f'emblems/{interaction.user.id}_avatar.gif', 'emblems/Squre_emblem.png', interaction.user.id)
-                return_path = ""
+                interaction.followup.send("Your visage is animated. unfortunately i can't help you along you path", ephemeral=True)
+                return
             else:
-                return_path = add_emblem_to_image(f'emblems/{interaction.user.id}_avatar.png', 'emblems/Squre_emblem.png', interaction.user.id)
-            await interaction.response.send_message('This is ghost.', ephemeral=True, file=discord.File(return_path))
-            await self.bot.pg_con.execute("INSERT INTO button_action_history VALUES (default, $1, 1, $2,now())", interaction.user.id, interaction.guild.id)
+                await interaction.user.display_avatar.save(f'emblems/{interaction.user.id}_avatar.{"gif" if interaction.user.display_avatar.is_animated() else "png"}')
+                return_path = add_emblem_to_image(f'emblems/{interaction.user.id}_avatar.png', emblem_path, interaction.user.id)
+            await interaction.followup.send(message, ephemeral=True, file=discord.File(return_path))
+            if not button_check:
+                await self.bot.pg_con.execute("INSERT INTO button_action_history VALUES (default, $1, 1, $2,now(), $3)", interaction.user.id, interaction.guild.id, button_id)
             remove(return_path)
         else:
-            await interaction.send_message("You have already chosen your path")
+            await interaction.response.send_message("You have already chosen your path", ephemeral=True)
 
+    @discord.ui.button(label='', style=discord.ButtonStyle.grey, custom_id='persistent_view_button:ghost', emoji="👻")
+    async def ghost_emblem(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.button_action(interaction, 1, 'emblems/ghost.png', 'For your choice, you have received the emblem of the ghosts.')
 
-    @discord.ui.button(label='Red', style=discord.ButtonStyle.red, custom_id='persistent_view_button:!?', emoji="⁉️")
-    async def red(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self.bot.pg_con.fetch("SELECT * FROM button_action_history WHERE user_id = $1 AND view_id = 1", interaction.user.id):
-            await interaction.user.display_avatar.save(f'emblems/{interaction.user.id}_avatar.{"gif" if interaction.user.display_avatar.is_animated() else "png"}')
-            if interaction.user.display_avatar.is_animated():
-                return_path = add_emblem_to_gif(f'emblems/{interaction.user.id}_avatar.gif', 'emblems/Squre_emblem.png', interaction.user.id)
-            else:
-                return_path = add_emblem_to_image(f'emblems/{interaction.user.id}_avatar.png', 'emblems/Squre_emblem.png', interaction.user.id)
-            await interaction.response.send_message('This is !?.', ephemeral=True, file=discord.File(return_path))
-            await self.bot.pg_con.execute("INSERT INTO button_action_history VALUES (default, $1, 1, $2,now())", interaction.user.id, interaction.guild.id)
-            remove(return_path)
-        else:
-            await interaction.send_message("You have already chosen your path")
+    @discord.ui.button(label='', style=discord.ButtonStyle.grey, custom_id='persistent_view_button:!?', emoji="⁉️")
+    async def earth_emblem(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.button_action(interaction, 2, 'emblems/earth.png', 'For your choice, you have received the emblem of Earth.')
 
-
-    @discord.ui.button(label='Grey', style=discord.ButtonStyle.grey, custom_id='persistent_view_button:grave', emoji="🪦")
-    async def grey(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self.bot.pg_con.fetch("SELECT * FROM button_action_history WHERE user_id = $1 AND view_id = 1", interaction.user.id):
-            await interaction.user.display_avatar.save(f'emblems/{interaction.user.id}_avatar.{"gif" if interaction.user.display_avatar.is_animated() else "png"}')
-            if interaction.user.display_avatar.is_animated():
-                return_path = add_emblem_to_gif(f'emblems/{interaction.user.id}_avatar.gif', 'emblems/Squre_emblem.png', interaction.user.id)
-            else:
-                return_path = add_emblem_to_image(f'emblems/{interaction.user.id}_avatar.png', 'emblems/Squre_emblem.png', interaction.user.id)
-            await interaction.response.send_message('This is grave.', ephemeral=True, file=discord.File(return_path))
-            await self.bot.pg_con.execute("INSERT INTO button_action_history VALUES (default, $1, 1, $2,now())", interaction.user.id, interaction.guild.id)
-            remove(return_path)
-        else:
-            await interaction.send_message("You have already chosen your path")
+    @discord.ui.button(label='', style=discord.ButtonStyle.grey, custom_id='persistent_view_button:grave', emoji="🪦")
+    async def undead_emblem(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.button_action(interaction, 3, 'emblems/undead.png', 'For your choice, you have received the emblem of the undead.')
 
 class TwiCog(commands.Cog, name="The Wandering Inn"):
     def __init__(self, bot):
