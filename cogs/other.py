@@ -140,7 +140,7 @@ class OtherCogs(commands.Cog, name="Other"):
         embed.add_field(name="Hoisted", value=role.hoist, inline=False)
         embed.add_field(name="Id", value=role.id, inline=False)
         embed.add_field(name="Member count", value=len(role.members), inline=False)
-        await interaction.response.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(
         name="say",
