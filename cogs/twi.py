@@ -88,7 +88,7 @@ class PersistentView(discord.ui.View):
                 interaction.followup.send("Your visage is animated. unfortunately i can't help you along you path", ephemeral=True)
                 return
             else:
-                await interaction.user.display_avatar.save(f'emblems/{interaction.user.id}_avatar.{"gif" if interaction.user.display_avatar.is_animated() else "png"}')
+                await interaction.user.display_avatar.save(f'emblems/{interaction.user.id}_avatar.png')
                 return_path = add_emblem_to_image(f'emblems/{interaction.user.id}_avatar.png', emblem_path, interaction.user.id)
             await interaction.followup.send(message, ephemeral=True, file=discord.File(return_path))
             if not button_check:
