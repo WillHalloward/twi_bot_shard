@@ -8,13 +8,6 @@ from discord import app_commands
 from discord.ext import commands
 
 
-def numerical_sort(value):
-    numbers = re.compile(r'(\d+)')
-    parts = numbers.split(value)
-    parts[1::2] = map(int, parts[1::2])
-    return parts
-
-
 class LinkTags(commands.Cog, name="Links"):
     def __init__(self, bot):
         self.bot = bot
@@ -100,7 +93,7 @@ class LinkTags(commands.Cog, name="Links"):
         description="Edits a link with the given name",
     )
     async def link_edit(self, interaction: discord.Interaction, title: str, content: str):
-        check = await self.bot.pg_con.fetch("SELECT * FROM links WHERE lower(title) = lower($1) and guild_id = $2", title, interaction.guild.id)
+        check = await self.bot.pg_con.fetchrow("SELECT * FROM links WHERE lower(title) = lower($1) and guild_id = $2", title, interaction.guild.id)
         if check:
             if check['id_user_who_added'] == interaction.user.id or interaction.user.guild_permissions.administrator:
                 await self.bot.pg_con.execute("UPDATE links SET content = $1 WHERE lower(title) = lower($2)",
