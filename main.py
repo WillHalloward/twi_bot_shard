@@ -67,38 +67,54 @@ class Cognita(commands.Bot):
         logging.info(f"Logged in as {self}")
 
     async def on_app_command_completion(self, interaction: discord.Interaction, command: Union[discord.app_commands.Command, discord.app_commands.ContextMenu]):
+        end_date = datetime.datetime.now()
+        run_time = end_date - interaction.extras['start_time']
+        await self.pg_con.execute("""
+            UPDATE command_history 
+            SET 
+                run_time=$1, 
+                finished_successfully=TRUE,
+                end_date=$2 
+            WHERE serial=$3
+            """, run_time, end_date, interaction.extras['id'])
+
+
+    async def on_interaction(self, interaction: discord.Interaction):
         user_id = interaction.user.id  # get id of the user who performed the command
         guild_id = interaction.guild.id if interaction.guild else None  # get the id of the guild
-        command_name = command.name  # get the name of the command
+        command_name = interaction.command.name  # get the name of the command
         channel_id = interaction.channel.id if interaction.channel else None  # get the id of the channel
-        slash_command = isinstance(command, discord.app_commands.Command)
-        finished_successfully = True  # This should be calculated based on the success of the command
-        response_time = datetime.timedelta()
+        slash_command = isinstance(interaction.command, discord.app_commands.Command)
+        started_successfully = not interaction.command_failed
         command_args = json.dumps(interaction.data.get('options', []))  # Convert options to JSON string
+        start_date = datetime.datetime.now()
 
         sql_query = """
-        INSERT INTO command_history(
-            date, 
-            user_id, 
-            command_name, 
-            channel_id, 
-            guild_id, 
-            slash_command, 
-            args, 
-            finished_successfully, 
-            response_time
-        )
-        VALUES(NOW(), $1, $2, $3, $4, $5, $6, $7, $8)
-        """
-        await self.pg_con.execute(sql_query,
-                                  user_id,
-                                  command_name,
-                                  channel_id,
-                                  guild_id,
-                                  slash_command,
-                                  command_args,
-                                  finished_successfully,
-                                  response_time)
+            INSERT INTO command_history(
+                start_date, 
+                user_id, 
+                command_name, 
+                channel_id, 
+                guild_id, 
+                slash_command, 
+                args, 
+                started_successfully
+            )
+            VALUES($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING serial
+            """
+        serial = await self.pg_con.fetchval(sql_query,
+                                            start_date,
+                                            user_id,
+                                            command_name,
+                                            channel_id,
+                                            guild_id,
+                                            slash_command,
+                                            command_args,
+                                            started_successfully)
+
+        interaction.extras['id'] = serial
+        interaction.extras['start_time'] = start_date
 
     async def start_status_loop(self):
         await self.wait_until_ready()
