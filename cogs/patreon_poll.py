@@ -204,8 +204,9 @@ class PollCog(commands.Cog, name="Poll"):
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def getpoll(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         await get_poll(self.bot)
-        await interaction.response.send_message("Done!",ephemeral=True)
+        await interaction.followup.send("Done!",ephemeral=True)
 
     @app_commands.command(
         name="findpoll",
