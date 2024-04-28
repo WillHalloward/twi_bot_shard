@@ -11,16 +11,6 @@ from discord.ext import commands
 import secrets
 
 
-def admin_or_me_check(ctx):
-    role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
-    if ctx.message.author.id == 268608466690506753:
-        return True
-    elif role in ctx.message.author.roles:
-        return True
-    else:
-        return False
-
-
 async def fetch(session, url):
     async with session.get(url, cookies=secrets.cookies) as respons:
         return await respons.text()
@@ -200,7 +190,6 @@ class PollCog(commands.Cog, name="Poll"):
     @app_commands.command(
         name="getpoll"
     )
-    @commands.check(admin_or_me_check)
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def getpoll(self, interaction: discord.Interaction):
