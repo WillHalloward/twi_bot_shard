@@ -82,7 +82,10 @@ class Cognita(commands.Bot):
     async def on_interaction(self, interaction: discord.Interaction):
         user_id = interaction.user.id  # get id of the user who performed the command
         guild_id = interaction.guild.id if interaction.guild else None  # get the id of the guild
-        command_name = interaction.command.name  # get the name of the command
+        if interaction.command is not None:
+            command_name = interaction.command.name   # get the name of the command
+        else:
+            command_name = None
         channel_id = interaction.channel.id if interaction.channel else None  # get the id of the channel
         slash_command = isinstance(interaction.command, discord.app_commands.Command)
         started_successfully = not interaction.command_failed
