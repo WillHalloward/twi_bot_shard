@@ -68,15 +68,18 @@ class Cognita(commands.Bot):
 
     async def on_app_command_completion(self, interaction: discord.Interaction, command: Union[discord.app_commands.Command, discord.app_commands.ContextMenu]):
         end_date = datetime.datetime.now()
-        run_time = end_date - interaction.extras['start_time']
-        await self.pg_con.execute("""
-            UPDATE command_history 
-            SET 
-                run_time=$1, 
-                finished_successfully=TRUE,
-                end_date=$2 
-            WHERE serial=$3
-            """, run_time, end_date, interaction.extras['id'])
+        if 'start_time' in interaction.extras:
+            run_time = end_date - interaction.extras['start_time']
+            await self.pg_con.execute("""
+                UPDATE command_history 
+                SET 
+                    run_time=$1, 
+                    finished_successfully=TRUE,
+                    end_date=$2 
+                WHERE serial=$3
+                """, run_time, end_date, interaction.extras['id'])
+        else:
+            logging.error(f"No start time in extra dict {interaction=}")
 
 
     async def on_interaction(self, interaction: discord.Interaction):
