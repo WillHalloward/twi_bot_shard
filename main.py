@@ -89,7 +89,11 @@ class Cognita(commands.Bot):
             command_name = interaction.command.name   # get the name of the command
         else:
             command_name = None
-        channel_id = interaction.channel.id if interaction.channel else None  # get the id of the channel
+        #check if channel is a thread or channel:
+        if interaction.channel.type == discord.ChannelType.text:
+            channel_id = interaction.channel.id # get the id of the channel
+        else:
+            channel_id = None
         slash_command = isinstance(interaction.command, discord.app_commands.Command)
         started_successfully = not interaction.command_failed
         command_args = json.dumps(interaction.data.get('options', []))  # Convert options to JSON string
