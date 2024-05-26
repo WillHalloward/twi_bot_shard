@@ -192,6 +192,29 @@ class StatsCogs(commands.Cog, name="stats"):
         await ctx.send("Done")
 
     @commands.command(
+        name="save_emotes",
+        hidden=True
+    )
+    @commands.is_owner()
+    async def save_emotes(self, ctx):
+        for guild in self.bot.guilds:
+            for emotes in guild.emojis:
+                emote = self.bot.get_emoji(emotes.id)
+                await self.bot.pg_con.execute(''' 
+                    INSERT INTO emotes(guild_id, emote_id, name, animated, managed) 
+                    VALUES ($1,$2,$3,$4,$5)
+                    ON CONFLICT (emote_id) 
+                    DO UPDATE SET name = $3, animated = $4, managed = $5 WHERE emotes.name != $3 OR emotes.animated != $4 OR emotes.managed != $5
+                    ''', guild.id, emote.id, emote.name, emote.animated, emote.managed)
+        owner = self.bot.get_user(self.bot.owner_id)
+        if owner is not None:
+            await owner.send('The save command is now complete')
+        else:
+            logging.error(f"I couldn't find the owner")
+
+
+
+    @commands.command(
         name="save_categories",
         hidden=True
     )
@@ -722,6 +745,31 @@ class StatsCogs(commands.Cog, name="stats"):
                 'INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)',
                 "servers", "UPDATE_SERVER_NAME", before.name, after.name, datetime.now().replace(tzinfo=None),
                 str(after.id))
+
+    @Cog.listener("on_guild_emojis_update")
+    async def guild_emoji_update(self, guild, before, after):
+        print(f"change detected {guild}, {before}, {after}")
+
+        before_dict = {emoji.id: emoji for emoji in before}
+        after_dict = {emoji.id: emoji for emoji in after}
+
+        for id, emoji in before_dict.items():
+            after_emoji = after_dict.get(id)
+            if after_emoji is None:
+                print(f"Emote removed: {emoji}")
+                await self.bot.pg_con.execute("DELETE FROM emotes where emote_id = $1", id)
+                return
+            elif emoji.name != after_emoji.name or emoji.animated != after_emoji.animated:
+                print(f"Emote updated: {after_emoji}")
+                await self.bot.pg_con.execute("UPDATE emotes set name = $1, animated = $2, managed = $3  where emote_id = $4", after_emoji.name, after_emoji.animated, after_emoji.managed, id)
+                return
+
+        for id, emoji in after_dict.items():
+            if id not in before_dict:
+                print(f"Emote added: {emoji}")
+                await self.bot.pg_con.execute("INSERT INTO emotes(guild_id, emote_id, name, animated, managed) VALUES ($1,$2,$3,$4,$5)",
+                                          guild.id, emoji.id,emoji.name, emoji.animated, emoji.managed)
+                return
 
     @Cog.listener("on_guild_role_create")
     async def guild_role_create(self, role):
