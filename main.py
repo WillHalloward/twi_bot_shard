@@ -154,7 +154,7 @@ async def main():
     context.load_cert_chain(f"ssl-cert/client-cert.pem", f"ssl-cert/client-key.pem")
 
     async with ClientSession() as our_client, asyncpg.create_pool(database=secrets.database, user=secrets.DB_user, password=secrets.DB_password, host=secrets.host, ssl=context, command_timeout=300) as pool:
-        cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report']
+        cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report', 'cogs.innktober']
         intents = discord.Intents.default()
         intents.members = True
         intents.message_content = True

@@ -6,8 +6,8 @@ import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
-
-cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links']
+from typing import Literal, Optional
+cogs = ['cogs.innktober','cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report']
 
 
 class OwnerCog(commands.Cog, name="Owner"):
