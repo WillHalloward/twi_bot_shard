@@ -41,22 +41,6 @@ class InnktoberModal(discord.ui.Modal, title="Repost"):
         await interaction.response.defer()
         self.stop()
 
-class InnktoberCog(commands.Cog, name="Innktober"):
-    def __init__(self, bot):
-        self.bot = bot
-        self.repost = app_commands.ContextMenu(
-            name="Submit to Innktober",
-            callback=self.repost,
-        )
-        self.bot.tree.add_command(self.repost)
-        self.repost_cache = None
-
-    async def cog_unload(self) -> None:
-        self.bot.tree.remove_command(self.repost.name, type=self.repost.type)
-
-    async def cog_load(self) -> None:
-        self.repost_cache = await self.bot.pg_con.fetch("SELECT * FROM gallery_mementos")
-
 class InnktoberView(discord.ui.View):
     def __init__(self, invoker) -> None:
         super().__init__()
@@ -92,6 +76,50 @@ class InnktoberView(discord.ui.View):
             self.stop()
             self.interaction = interaction
 
+class SubmitView(discord.ui.View):
+    def __init__(self, mention: str, jump_url: str, title: str, quest_cache,description_item=None) -> None:
+        super().__init__()
+
+        self.message = None
+        self.title_item = None
+        self.description_item = description_item
+        self.mention = mention
+        self.jump_url = jump_url
+        self.title = title
+        self.quest_cache = quest_cache
+
+        self.submit_button = discord.ui.Button(label="Submit", style=discord.ButtonStyle.primary, emoji="✅", disabled=True)
+        self.submit_button.callback = self.submit_button_callback
+        self.add_item(self.submit_button)
+
+        self.set_title_button = discord.ui.Button(label="Edit Title", style=discord.ButtonStyle.primary, emoji="📝", disabled=True)
+        self.set_title_button.callback = self.set_title_button_callback
+        self.add_item(self.set_title_button)
+
+        self.quest_select = discord.ui.Select(placeholder="Edit Quests", disabled=True, max_values=min(len(quest_cache), 25), min_values=1)
+        self.quest_select.callback = self.quest_select_callback
+        self.add_item(self.quest_select)
+
+    async def quest_select_callback(self, interaction: discord.Interaction) -> None:
+        self.set_title_button.disabled = False
+        user_choices_labels = [get_quest_name_from_cache(value, self.quest_cache) for value in
+                               interaction.data['values']]
+        user_choices_display = ", ".join(user_choices_labels)
+        self.quest_select.placeholder = user_choices_display
+        await interaction.response.edit_message(view=self)
+
+    async def set_title_button_callback(self, interaction: discord.Interaction) -> None:
+        modal = InnktoberModal(jump_url=self.jump_url, mention=self.mention, title=self.title, extra_description=self.description_item)
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        self.title_item = modal.title_item.value
+        self.submit_button.disabled = False
+        await self.message.edit(view=self)
+
+    async def submit_button_callback(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer()
+        self.stop()
+
 class Innktobermenu(discord.ui.View):
     def __init__(self, mention: str, jump_url: str, title: str, quest_cache,description_item=None) -> None:
         super().__init__()
@@ -111,17 +139,11 @@ class Innktobermenu(discord.ui.View):
         self.set_title_button.callback = self.set_title_button_callback
         self.add_item(self.set_title_button)
 
-        self.social_media_consent = discord.ui.Select(placeholder="Do you consent do your art being shared on TWI social medias?")
+        self.social_media_consent = discord.ui.Select(placeholder="Consent to share your art on TWI social media?")
         self.social_media_consent.callback = self.social_media_consent_callback
         self.social_media_consent.add_option(label=f"Yes", value="Yes")
         self.social_media_consent.add_option(label=f"No", value="No")
         self.add_item(self.social_media_consent)
-
-        self.wiki_booru_consent = discord.ui.Select(placeholder="Do you consent to your art being added to the TWI wiki & TWI Booru?", disabled=True)
-        self.wiki_booru_consent.callback = self.wiki_booru_consent_callback
-        self.wiki_booru_consent.add_option(label=f"Yes", value="Yes")
-        self.wiki_booru_consent.add_option(label=f"No", value="No")
-        self.add_item(self.wiki_booru_consent)
 
         self.quest_select = discord.ui.Select(placeholder="Select which quest to submit this artwork for", disabled=True, max_values=min(len(quest_cache), 25), min_values=1)
         self.quest_select.callback = self.quest_select_callback
@@ -132,13 +154,8 @@ class Innktobermenu(discord.ui.View):
 
 
     async def social_media_consent_callback(self, interaction: discord.Interaction) -> None:
-        self.wiki_booru_consent.disabled = False
-        self.social_media_consent.placeholder = interaction.data['values'][0]
-        await interaction.response.edit_message(view=self)
-
-    async def wiki_booru_consent_callback(self, interaction: discord.Interaction) -> None:
         self.quest_select.disabled = False
-        self.wiki_booru_consent.placeholder = interaction.data['values'][0]
+        self.social_media_consent.placeholder = interaction.data['values'][0]
         await interaction.response.edit_message(view=self)
 
     async def quest_select_callback(self, interaction: discord.Interaction) -> None:
@@ -160,29 +177,47 @@ class Innktobermenu(discord.ui.View):
         await interaction.response.defer()
         self.stop()
 
-class GalleryCog(commands.Cog, name="Innktober"):
+class InnktoberCog(commands.Cog, name="Innktober"):
     def __init__(self, bot):
         self.bot = bot
-        self.repost = app_commands.ContextMenu(
-            name="Submit to Innktober",
-            callback=self.repost,
+        self.submit = app_commands.ContextMenu(
+            name="Submit for Quests",
+            callback=self.innktober_submit,
         )
-        self.bot.tree.add_command(self.repost)
+        self.bot.tree.add_command(self.submit)
+        self.approve = app_commands.ContextMenu(
+            name="Approve for Quests",
+            callback=self.innktober_approve,
+        )
+        self.bot.tree.add_command(self.approve)
         self.repost_cache = None
         self.quest_cache = None
 
     async def cog_unload(self) -> None:
-        self.bot.tree.remove_command(self.repost.name, type=self.repost.type)
+        self.bot.tree.remove_command(self.submit.name, type=self.submit.type)
+        self.bot.tree.remove_command(self.approve.name, type=self.approve.type)
 
     async def cog_load(self) -> None:
         self.repost_cache = await self.bot.pg_con.fetch("SELECT * FROM gallery_mementos")
         self.quest_cache = await self.bot.pg_con.fetch("SELECT * FROM innktober_quests")
 
+
     @app_commands.default_permissions(ban_members=True)
-    async def repost(self, interaction: discord.Interaction, message: discord.Message) -> None:
+    async def innktober_approve(self, interaction: discord.Interaction, message: discord.Message):
+        submission = self.bot.pg_con.fetchrow("SELECT * FROM innktober_submission WHERE repost_message_id = $1 ORDER BY id DESC", message.id)
+        if not submission:
+            logging.error("Could not find a submission with the post id: " + str(message.id))
+            await interaction.response.send_message("Could not find a post with the id: " + str(message.id), ephemeral=True)
+            return
+        else:
+            submission_message = await interaction.guild.get_channel_or_thread(submission['channel_id']).fetch_message(submission['repost_message_id'])
+            interaction.response.send_message("Not yet implemented", ephemeral=True)
+
+    @app_commands.default_permissions(ban_members=True)
+    async def innktober_submit(self, interaction: discord.Interaction, message: discord.Message) -> None:
         is_moderator = any(role.id == 346842813687922689 for role in interaction.user.roles)
         if message.author.id != interaction.user.id and not is_moderator:
-            await interaction.response.send_message("You can only submit your own posts to innktober", ephemeral=True)
+            await interaction.response.send_message("You can only submit your own posts for quests", ephemeral=True)
             return
         repost_type = []
         if message.attachments:
@@ -249,42 +284,52 @@ class GalleryCog(commands.Cog, name="Innktober"):
                 embed_list = []
                 files_list = []
 
-                repost_channel = interaction.guild.get_channel_or_thread(1290379677499654165)
-                if type(repost_channel) != discord.channel.ForumChannel:
-                    for attachment in message.attachments:
-                        embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url)
-                        embed.set_thumbnail(url=message.author.display_avatar.url)
-                        if attachment.content_type.startswith("image"):
-                            embed.set_image(url=attachment.url)
-                            embed_list.append(embed)
-                            if x == 4:
-                                try:
-                                    await repost_channel.send(embeds=embed_list)
-                                except discord.Forbidden:
-                                    await interaction.response.send_message("I do not have permission to send messages to that channel", ephemeral=True)
-                                except discord.HTTPException:
-                                    await interaction.response.send_message("I could not send the embeds to that channel", ephemeral=True)
-                                except ValueError:
-                                    await interaction.response.send_message("The files or embeds list is not of the appropriate size", ephemeral=True)
-                                embed_list = []
-                                x = 1
-                            x += 1
-                        else:
-                            files_list.append(await attachment.to_file())
-                    if embed_list and files_list:
-                        await repost_channel.send(embeds=embed_list, files=files_list)
-                    elif embed_list and not files_list:
-                        await repost_channel.send(embeds=embed_list)
-                    elif files_list and not embed_list:
-                        await repost_channel.send(files=files_list, embed=embed)
+                if interaction.guild.id == 297916314239107072:
+                    repost_channel = interaction.guild.get_channel_or_thread(964519175320125490)
                 else:
-                    list_of_files = []
-                    for attachment in message.attachments:
-                        file = await attachment.to_file()
-                        list_of_files.append(file)
-                    embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url, color=0x00ff00)
+                    repost_channel = interaction.guild.get_channel_or_thread(1290379677499654165)
+                for attachment in message.attachments:
+                    embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url)
                     embed.set_thumbnail(url=message.author.display_avatar.url)
-                    await repost_channel.create_thread(name=menu.title_item, embed=embed, files=list_of_files)
+                    embed.add_field(name="Submitter", value=message.author.mention)
+                    user_choices_labels = [get_quest_name_from_cache(value, self.quest_cache) for value in
+                                           menu.quest_select.values]
+                    user_choices_display = "\n".join(user_choices_labels)
+                    embed.add_field(name="Quests", value=user_choices_display)
+                    if attachment.content_type.startswith("image"):
+                        embed.set_image(url=attachment.url)
+                        embed_list.append(embed)
+                        if x == 4:
+                            try:
+                                await repost_channel.send(embeds=embed_list)
+                            except discord.Forbidden:
+                                await interaction.response.send_message("I do not have permission to send messages to that channel", ephemeral=True)
+                            except discord.HTTPException:
+                                await interaction.response.send_message("I could not send the embeds to that channel", ephemeral=True)
+                            except ValueError:
+                                await interaction.response.send_message("The files or embeds list is not of the appropriate size", ephemeral=True)
+                            embed_list = []
+                            x = 1
+                        x += 1
+                    else:
+                        files_list.append(await attachment.to_file())
+                if embed_list and files_list:
+                    repost_message = await repost_channel.send(embeds=embed_list, files=files_list)
+                elif embed_list and not files_list:
+                    repost_message = await repost_channel.send(embeds=embed_list)
+                elif files_list and not embed_list:
+                    repost_message = await repost_channel.send(files=files_list, embed=embed)
+                list_of_quest_id = ",".join(menu.quest_select.values) if menu.quest_select.values else ""
+                await self.bot.pg_con.execute(
+                    "INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'discord_file')",
+                    message.author.id,
+                    datetime.now(),
+                    message.id,
+                    list_of_quest_id,
+                    repost_message.id,
+                    menu.social_media_consent.values[0] == "Yes",
+                    interaction.channel.id
+                    )
             else:
                 await interaction.delete_original_response()
         else:
@@ -312,24 +357,23 @@ class GalleryCog(commands.Cog, name="Innktober"):
                 repost_channel = interaction.guild.get_channel_or_thread(964519175320125490)
             else:
                 repost_channel = interaction.guild.get_channel_or_thread(1290379677499654165)
-            list_of_quest_id = ",".join(menu.quest_select.values) if menu.quest_select.values else ""
             repost_message = await repost_channel.send(embed=embed)
             if menu.social_media_consent.values[0] == "Yes" and interaction.guild.id != 297916314239107072:
                 social_media_consent_channel = interaction.guild.get_channel_or_thread(1290389187329003580)
                 await social_media_consent_channel.send(embed=embed)
-            await self.bot.pg_con.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, wiki_booru_consent, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'text')",
+            list_of_quest_id = ",".join(menu.quest_select.values) if menu.quest_select.values else ""
+            await self.bot.pg_con.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'discord_file')",
                                           message.author.id,
                                           datetime.now(),
                                           message.id,
                                           list_of_quest_id,
                                           repost_message.id,
                                           menu.social_media_consent.values[0] == "Yes",
-                                          menu.wiki_booru_consent.values[0] == "Yes",
+                                          interaction.channel.id
                                           )
     async def repost_ao3(self, interaction: discord.Interaction, message: discord.Message) -> None:
         url = re.search(ao3_pattern, message.content).group(0)
         work = AO3.Work(AO3.utils.workid_from_url(url))
-
         menu = Innktobermenu(jump_url=message.jump_url, mention=message.author.mention, title=f"{work.title} - **AO3**", quest_cache=self.quest_cache)
         for quest in self.quest_cache[:25]:
             menu.quest_select.add_option(label=quest['quest_name'], value=quest['serial'])
@@ -351,20 +395,18 @@ class GalleryCog(commands.Cog, name="Innktober"):
                 repost_channel = interaction.guild.get_channel_or_thread(1290379677499654165)
             repost_message = await repost_channel.send(embed=embed)
             list_of_quest_id = ",".join(menu.quest_select.values) if menu.quest_select.values else ""
-            await self.bot.pg_con.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, wiki_booru_consent, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'text')",
+            await self.bot.pg_con.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'discord_file')",
                                           message.author.id,
                                           datetime.now(),
                                           message.id,
                                           list_of_quest_id,
                                           repost_message.id,
                                           menu.social_media_consent.values[0] == "Yes",
-                                          menu.wiki_booru_consent.values[0] == "Yes",
+                                          interaction.channel.id
                                           )
 
     async def repost_discord_file(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        boost_level = interaction.guild.premium_tier
-
-        if boost_level >= 2:
+        if interaction.guild.premium_tier >= 2:
             max_file_size = 50 * 1024 * 1024  # 50 MB
         else:
             max_file_size = 8 * 1024 * 1024  # 8 MB
@@ -435,18 +477,18 @@ class GalleryCog(commands.Cog, name="Innktober"):
             for file in os.listdir(f"{interaction.guild_id}_temp_files"):
                 os.remove(f"{interaction.guild_id}_temp_files/{file}")
             list_of_quest_id = ",".join(menu.quest_select.values) if menu.quest_select.values else ""
-            await self.bot.pg_con.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, wiki_booru_consent, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'text')",
+            await self.bot.pg_con.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'discord_file')",
                                           message.author.id,
                                           datetime.now(),
                                           message.id,
                                           list_of_quest_id,
                                           repost_message.id,
                                           menu.social_media_consent.values[0] == "Yes",
-                                          menu.wiki_booru_consent.values[0] == "Yes",
+                                          interaction.channel.id
                                           )
         else:
             await interaction.delete_original_response()
 
 
 async def setup(bot):
-    await bot.add_cog(GalleryCog(bot))
+    await bot.add_cog(InnktoberCog(bot))
