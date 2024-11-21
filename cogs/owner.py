@@ -7,7 +7,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Literal, Optional
-cogs = ['cogs.innktober','cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report']
+cogs = ['cogs.summarization','cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report', 'cogs.innktober']
 
 
 class OwnerCog(commands.Cog, name="Owner"):

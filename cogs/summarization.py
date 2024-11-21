@@ -1,4 +1,4 @@
-import discord  # Import order adjusted
+import discord
 from discord import app_commands
 from discord.ext import commands
 import secrets
@@ -13,11 +13,11 @@ class SummarizationCog(commands.Cog):
         self.server_rules = server_rules
 
     async def summarize_messages(self, messages):
-        # Filter out messages from bots and include usernames for human messages
+        # Filter out messages from bots and reverse the list
         conversation = "\n".join(
-            [f"{msg.author.display_name}: {msg.content}" for msg in messages if not msg.author.bot]
+            [f"{msg.author.display_name}: {msg.content}" for msg in reversed(messages) if not msg.author.bot]
         )
-        response = await client.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system",
@@ -28,12 +28,12 @@ class SummarizationCog(commands.Cog):
         return response.choices[0].message.content
 
     async def moderate_conversation(self, messages):
-        # Filter out messages from bots and include usernames for human messages
+        # Filter out messages from bots and reverse the list
         conversation = "\n".join(
-            [f"{msg.author.display_name}: {msg.content}" for msg in messages if not msg.author.bot]
+            [f"{msg.author.display_name}: {msg.content}" for msg in reversed(messages) if not msg.author.bot]
         )
         rule_check = "\n".join([f"{i + 1}. {rule}" for i, rule in enumerate(self.server_rules)])
-        response = await client.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
