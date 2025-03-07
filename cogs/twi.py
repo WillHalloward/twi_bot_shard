@@ -158,32 +158,6 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         await interaction.response.send_message("Check this link https://support.patreon.com/hc/en-us/articles/212052266-How-do-I-receive-my-Discord-role")
 
     @app_commands.command(
-        name="wiki",
-        description="Searches the The Wandering Inn wiki for a matching article."
-    )
-    async def wiki(self, interaction: discord.Interaction, query: str):
-        embed = discord.Embed(title=f"Wiki results search **{query}**")
-        async with aiohttp.ClientSession() as session:
-            html = await fetch(session,
-                               f"https://thewanderinginn.fandom.com/api.php?action=query&generator=search&gsrsearch={query}&format=json&prop=info|images&inprop=url")
-        try:
-            sorted_json_data = sorted(json.loads(html)['query']['pages'].values(), key=lambda k: k['index'])
-        except KeyError:
-            await interaction.response.send_message(f"I'm sorry, I could not find a article matching **{query}**.")
-            return
-        for results in sorted_json_data:
-            embed.add_field(name="\u200b", value=f"[{results['title']}]({results['fullurl']})", inline=False)
-        try:
-            async with aiohttp.ClientSession() as session:
-                image_json = await fetch(session,
-                                         f"https://thewanderinginn.fandom.com/api.php?action=query&format=json&titles={sorted_json_data[0]['images'][0]['title']}&prop=imageinfo&iiprop=url")
-            image_urls = next(iter(json.loads(image_json)['query']['pages'].values()))
-            embed.set_thumbnail(url=image_urls['imageinfo'][0]['url'])
-        except KeyError:
-            pass
-        await interaction.response.send_message(embed=embed)
-
-    @app_commands.command(
         name="find",
         description="Does a google search on 'Wanderinginn.com' and returns the results",
     )
