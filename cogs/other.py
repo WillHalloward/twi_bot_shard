@@ -23,12 +23,21 @@ session = AO3.Session(secrets.ao3_username, secrets.ao3_password)
 
 def admin_or_me_check(interaction):
     role = discord.utils.get(interaction.guild.roles, id=346842813687922689)
-    if interaction.message.author.id == 268608466690506753:
-        return True
-    elif role in interaction.message.author.roles:
-        return True
+    if hasattr(interaction, 'message') and interaction.message is not None:
+        if interaction.message.author.id == 268608466690506753:
+            return True
+        elif role in interaction.message.author.roles:
+            return True
+        else:
+            return False
     else:
-        return False
+        # For app commands where interaction.message is None
+        if interaction.user.id == 268608466690506753:
+            return True
+        elif role in interaction.user.roles:
+            return True
+        else:
+            return False
 
 
 async def user_info_function(interaction: discord.Interaction, member: discord.Member):
@@ -378,21 +387,22 @@ class OtherCogs(commands.Cog, name="Other"):
     async def role_add(self, interaction: discord.Interaction, role: discord.role.Role, category: str = 'Uncategorized', auto_replace: bool = False, required_roles: str = None):
         try:
             if required_roles is not None:
-                list_of_roles = list()
+                list_of_roles = []
                 required_roles = required_roles.split(" ")
                 for user_role in required_roles:
-                    temp = discord.utils.get(interaction.guild.roles, id=re.search(r'\d+', user_role).group())
-                    list_of_roles.append(temp.id)
+                    matched_id = re.search(r'\d+', user_role)
+                    if matched_id:
+                        temp = discord.utils.get(interaction.guild.roles, id=matched_id.group())
+                        if temp:
+                            list_of_roles.append(temp.id)
                 await self.bot.pg_con.execute(
-                    "UPDATE roles SET self_assignable = TRUE, required_roles = $1, alias = $2, category=$5, auto_replace = $6 "
-                    "where id = $3 "
-                    "and guild_id = $4",
+                    "UPDATE roles SET self_assignable = TRUE, required_roles = $1, alias = $2, id = $3, guild_id = $4, category=$5, auto_replace = $6 "
+                    "WHERE id = $3 AND guild_id = $4",
                     list_of_roles, role.id, interaction.guild.id, category.lower(), auto_replace)
             else:
                 await self.bot.pg_con.execute(
-                    "UPDATE roles SET self_assignable = TRUE, required_roles = NULL, alias = $1, category=$4, auto_replace = $5 "
-                    "where id = $2 "
-                    "and guild_id = $3",
+                    "UPDATE roles SET self_assignable = TRUE, required_roles = NULL, alias = $1, id = $2, guild_id = $3, category=$4, auto_replace = $5 "
+                    "WHERE id = $2 AND guild_id = $3",
                     role.id, interaction.guild.id, category.lower(), auto_replace)
             await interaction.response.send_message(f"Added {role} to the self assign list")
         except Exception as e:

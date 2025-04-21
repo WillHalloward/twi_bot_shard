@@ -16,12 +16,21 @@ from cogs.patreon_poll import fetch
 
 def admin_or_me_check(interaction):
     role = discord.utils.get(interaction.guild.roles, id=346842813687922689)
-    if interaction.message.author.id == 268608466690506753:
-        return True
-    elif role in interaction.message.author.roles:
-        return True
+    if hasattr(interaction, 'message') and interaction.message is not None:
+        if interaction.message.author.id == 268608466690506753:
+            return True
+        elif role in interaction.message.author.roles:
+            return True
+        else:
+            return False
     else:
-        return False
+        # For app commands where interaction.message is None
+        if interaction.user.id == 268608466690506753:
+            return True
+        elif role in interaction.user.roles:
+            return True
+        else:
+            return False
 
 
 def google_search(search_term, api_key, cse_id, **kwargs):
