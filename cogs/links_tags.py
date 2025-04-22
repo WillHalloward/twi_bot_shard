@@ -14,7 +14,7 @@ class LinkTags(commands.Cog, name="Links"):
         self.links_cache = None
 
     async def cog_load(self) -> None:
-        self.links_cache = await self.bot.pg_con.fetch("SELECT * FROM links")
+        self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
 
     async def link_autocomplete(self, interaction: discord.Interaction, current: str, ) -> List[app_commands.Choice[str]]:
         ln = []
@@ -34,7 +34,7 @@ class LinkTags(commands.Cog, name="Links"):
     @app_commands.autocomplete(title=link_autocomplete)
     async def link_get(self, interaction: discord.Interaction, title: str):
         try:
-            query_r = await self.bot.pg_con.fetchrow("SELECT content, title, embed FROM links WHERE lower(title) = lower($1)",
+            query_r = await self.bot.db.fetchrow("SELECT content, title, embed FROM links WHERE lower(title) = lower($1)",
                                                      title)
             if query_r:
                 if query_r['embed']:
@@ -52,7 +52,7 @@ class LinkTags(commands.Cog, name="Links"):
     )
     async def link_list(self, interaction: discord.Interaction):
         try:
-            query_r = await self.bot.pg_con.fetch("SELECT title FROM links ORDER BY title")
+            query_r = await self.bot.db.fetch("SELECT title FROM links ORDER BY title")
             message = ""
             for tags in query_r:
                 message = f"{message} `{tags['title']}`"
@@ -66,12 +66,12 @@ class LinkTags(commands.Cog, name="Links"):
     )
     async def link_add(self, interaction: discord.Interaction, content: str, title: str, tag: str = None, embed: bool = True):
         try:
-            await self.bot.pg_con.execute(
+            await self.bot.db.execute(
                 "INSERT INTO links(content, tag, user_who_added, id_user_who_added, time_added, title, embed) "
                 "VALUES ($1,$2,$3,$4,now(),$5, $6)",
                 content, tag, interaction.user.display_name, interaction.user.id, title, embed)
             await interaction.response.send_message(f"Added Link: {title}\nLink: <{content}>\nTag: {tag}")
-            self.links_cache = await self.bot.pg_con.fetch("SELECT * FROM links")
+            self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
         except asyncpg.exceptions.UniqueViolationError:
             await interaction.response.send_message("That name is already in the list.")
 
@@ -81,10 +81,10 @@ class LinkTags(commands.Cog, name="Links"):
     )
     @app_commands.autocomplete(title=link_autocomplete)
     async def link_delete(self, interaction: discord.Interaction, title: str):
-        result = await self.bot.pg_con.execute("DELETE FROM links WHERE lower(title) = lower($1)", title)
+        result = await self.bot.db.execute("DELETE FROM links WHERE lower(title) = lower($1)", title)
         if result == "DELETE 1":
             await interaction.response.send_message(f"Deleted link: **{title}**")
-            self.links_cache = await self.bot.pg_con.fetch("SELECT * FROM links")
+            self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
         else:
             await interaction.response.send_message(f"I could not find a link with the title: **{title}**")
 
@@ -93,13 +93,13 @@ class LinkTags(commands.Cog, name="Links"):
         description="Edits a link with the given name",
     )
     async def link_edit(self, interaction: discord.Interaction, title: str, content: str):
-        check = await self.bot.pg_con.fetchrow("SELECT * FROM links WHERE lower(title) = lower($1) and guild_id = $2", title, interaction.guild.id)
+        check = await self.bot.db.fetchrow("SELECT * FROM links WHERE lower(title) = lower($1) and guild_id = $2", title, interaction.guild.id)
         if check:
             if check['id_user_who_added'] == interaction.user.id or interaction.user.guild_permissions.administrator:
-                await self.bot.pg_con.execute("UPDATE links SET content = $1 WHERE lower(title) = lower($2)",
+                await self.bot.db.execute("UPDATE links SET content = $1 WHERE lower(title) = lower($2)",
                                               content, title)
                 await interaction.response.send_message(f"Edited link: **{title}**")
-                self.links_cache = await self.bot.pg_con.fetch("SELECT * FROM links")
+                self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
             else:
                 await interaction.response.send_message("You can only edit links you added yourself.")
         else:
@@ -110,7 +110,7 @@ class LinkTags(commands.Cog, name="Links"):
         description="See all available tags"
     )
     async def tags(self, interaction: discord.Interaction):
-        query_r = await self.bot.pg_con.fetch("SELECT DISTINCT tag FROM links ORDER BY tag")
+        query_r = await self.bot.db.fetch("SELECT DISTINCT tag FROM links ORDER BY tag")
         message = ""
         for tags in query_r:
             message = f"{message} `{tags['tag']}`"
@@ -121,7 +121,7 @@ class LinkTags(commands.Cog, name="Links"):
         description="View all links that got a certain tag"
     )
     async def tag(self, interaction: discord.Interaction, tag: str):
-        query_r = await self.bot.pg_con.fetch(
+        query_r = await self.bot.db.fetch(
             "SELECT title FROM links WHERE lower(tag) = lower($1) ORDER BY NULLIF(regexp_replace(title, '\D', '', 'g'), '')::int", tag)
         if query_r:
             message = ""

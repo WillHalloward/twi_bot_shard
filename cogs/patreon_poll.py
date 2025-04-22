@@ -22,6 +22,7 @@ def is_bot_channel(interaction: discord.Interaction):
 
 async def get_poll(bot):
     url = "https://www.patreon.com/api/posts?include=Cpoll.choices%2Cpoll.current_user_responses.poll&filter[campaign_id]=568211"
+    poll_ids = await bot.db.fetch("SELECT id FROM poll")
     while True:
         async with aiohttp.ClientSession(cookies=secrets.cookies, headers=secrets.headers) as session:
             html = await fetch(session, url)
@@ -31,7 +32,8 @@ async def get_poll(bot):
                 logging.error(e)
         for posts in json_data['data']:
             if posts['relationships']['poll']['data'] is not None:
-                poll_id = await bot.pg_con.fetch("SELECT * FROM poll WHERE id = $1",
+
+                poll_id = await bot.db.fetch("SELECT * FROM poll WHERE id = $1",
                                                  int(posts['relationships']['poll']['data']['id']))
                 if not poll_id:
                     async with aiohttp.ClientSession() as session:
@@ -44,7 +46,7 @@ async def get_poll(bot):
                         closes_at_converted = None
                     title = json_data2['data']['attributes']['question_text']
                     if closes_at_converted is None or closes_at_converted < datetime.now(timezone.utc):
-                        await bot.pg_con.execute(
+                        await bot.db.execute(
                             "INSERT INTO poll(api_url, poll_url, id, start_date, expire_date, title, total_votes, "
                             "expired, num_options) "
                             "VALUES ($1,$2,$3,$4,$5,$6,$7, TRUE, $8)",
@@ -57,7 +59,7 @@ async def get_poll(bot):
                             int(json_data2["data"]["attributes"]["num_responses"]),
                             len(json_data2['data']['relationships']['choices']['data']))
                         for i in range(0, len(json_data2['data']['relationships']['choices']['data'])):
-                            await bot.pg_con.execute(
+                            await bot.db.execute(
                                 "INSERT INTO poll_option(option_text, poll_id, num_votes, option_id)"
                                 "VALUES ($1,$2,$3,$4)",
                                 json_data2['included'][i]['attributes']['text_content'],
@@ -65,7 +67,7 @@ async def get_poll(bot):
                                 int(json_data2['included'][i]['attributes']['num_responses']),
                                 int(json_data2['data']['relationships']['choices']['data'][i]['id']))
                     else:
-                        await bot.pg_con.execute(
+                        await bot.db.execute(
                             "INSERT INTO poll(api_url, poll_url, id, start_date, expire_date, title, expired, "
                             "num_options) "
                             "VALUES ($1,$2,$3,$4,$5,$6, FALSE, $7)",
@@ -97,7 +99,7 @@ async def p_poll(polls, interaction, bot):
                 options.append(data)
             options = sorted(options, key=itemgetter(1), reverse=True)
         else:
-            options = await bot.pg_con.fetch(
+            options = await bot.db.fetch(
                 "SELECT option_text, num_votes FROM poll_option WHERE poll_id = $1 ORDER BY num_votes DESC",
                 poll['id'])
         embed = discord.Embed(title="Poll", color=discord.Color(0x3cd63d),
@@ -121,13 +123,13 @@ async def p_poll(polls, interaction, bot):
 
 
 async def search_poll(bot, query: str):
-    test = await bot.pg_con.fetch(
+    test = await bot.db.fetch(
         "SELECT poll_id, option_text FROM poll_option WHERE tokens @@ plainto_tsquery($1)",
         query)
     embed = discord.Embed(title="Poll search results", color=discord.Color(0x3cd63d),
                           description=f"Query: **{query}**")
     for results in test:
-        polls_year = await bot.pg_con.fetchrow(
+        polls_year = await bot.db.fetchrow(
             "select title, index_serial from poll where id = $1",
             results['poll_id'])
         embed.add_field(name=polls_year['title'], value=f"{polls_year['index_serial']} - {results['option_text']}",
@@ -146,14 +148,14 @@ class PollCog(commands.Cog, name="Poll"):
     # @commands.check(is_bot_channel)
     @app_commands.checks.cooldown(1, 60.0, key=lambda i: (i.user.id, i.channel.id))
     async def poll(self, interaction: discord.Interaction, poll_id: int = None):
-        active_polls = await self.bot.pg_con.fetch("SELECT * FROM poll WHERE expire_date > now()")
+        active_polls = await self.bot.db.fetch("SELECT * FROM poll WHERE expire_date > now()")
         if active_polls and poll_id is None:
             await p_poll(active_polls, interaction, self.bot)
         else:
-            last_poll = await self.bot.pg_con.fetch("SELECT COUNT (*) FROM poll")
+            last_poll = await self.bot.db.fetch("SELECT COUNT (*) FROM poll")
             if poll_id is None:
                 poll_id = last_poll[0][0]
-            value = await self.bot.pg_con.fetch("SELECT * FROM poll ORDER BY id OFFSET $1 LIMIT 1", int(poll_id) - 1)
+            value = await self.bot.db.fetch("SELECT * FROM poll ORDER BY id OFFSET $1 LIMIT 1", int(poll_id) - 1)
             await p_poll(value, interaction, self.bot)
 
     @poll.error
@@ -170,7 +172,7 @@ class PollCog(commands.Cog, name="Poll"):
     )
     @commands.check(is_bot_channel)
     async def poll_list(self, interaction: discord.Interaction, year: int = datetime.now(timezone.utc).year):
-        polls_years = await self.bot.pg_con.fetch(
+        polls_years = await self.bot.db.fetch(
             "SELECT title, index_serial FROM poll WHERE date_part('year', start_date) = $1 ORDER BY start_date",
             year)
         if not polls_years:

@@ -76,7 +76,7 @@ class ReportCog(commands.Cog, name="report"):
         print("report")
         view = ReportView()
         await interaction.response.send_message("Report", view=view)
-        await self.bot.pg_con.execute("INSERT INTO reports (message_id, user_id, reason, anonymous, additional_info) VALUES ($1, $2, $3, $4, $5)",
+        await self.bot.db.execute("INSERT INTO reports (message_id, user_id, reason, anonymous, additional_info) VALUES ($1, $2, $3, $4, $5)",
                                       message.id, interaction.user.id, "reason", False, "additional_info")
 
     async def cog_load(self) -> None:

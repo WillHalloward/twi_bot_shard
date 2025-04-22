@@ -1,21 +1,20 @@
+import imghdr
 import logging
 import os
 
+import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
 import re
-import AO3
+import ao3
 from typing import List
 import gallery_dl
 
 ao3_pattern = r'https?://archiveofourown\.org/.*'
-# twitter_pattern = r'https?://twitter.com/[^/]+/status/\d+'
 twitter_pattern = r"((?:https?://)?(?:www\.|mobile\.)?(?:(?:[fv]x)?twitter|x)\.com/[^/]+/status/\d+)"
 instagram_pattern = r'https?://www.instagram.com/p/[^/]+'
 discord_file_pattern = r'https?://cdn\.discordapp\.com/attachments/\d+/\d+/[^?\s]+(?:\?.*?)?'
-
-# BASE_PATTERN = r"(?:https?://)?(?:www\.|mobile\.)?(?:(?:[fv]x)?twitter|x)\.com"
 
 def admin_or_me_check(ctx):
     role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
@@ -63,15 +62,15 @@ class RepostMenu(discord.ui.View):
         self.submit_button.callback = self.submit_callback
         self.add_item(self.submit_button)
 
-        self.modal_button = discord.ui.Button(label="Set Title", style=discord.ButtonStyle.primary, emoji="📝", disabled=True)
-        self.modal_button.callback = self.modal_open_callback
-        self.add_item(self.modal_button)
+        self.title_button = discord.ui.Button(label="Set Title", style=discord.ButtonStyle.primary, emoji="📝", disabled=True)
+        self.title_button.callback = self.modal_open_callback
+        self.add_item(self.title_button)
 
     async def channel_select_callback(self, interaction: discord.Interaction) -> None:
         for option in self.channel_select.options:
             if int(option.value) == int(self.channel_select.values[0]):
                 self.channel_select.placeholder = option.label
-        self.modal_button.disabled = False
+        self.title_button.disabled = False
         await interaction.response.edit_message(view=self)
 
     async def modal_open_callback(self, interaction: discord.Interaction) -> None:
@@ -152,7 +151,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         self.bot.tree.remove_command(self.repost.name, type=self.repost.type)
 
     async def cog_load(self) -> None:
-        self.repost_cache = await self.bot.pg_con.fetch("SELECT * FROM gallery_mementos")
+        self.repost_cache = await self.bot.db.fetch("SELECT * FROM gallery_mementos")
 
     @app_commands.default_permissions(ban_members=True)
     async def repost(self, interaction: discord.Interaction, message: discord.Message) -> None:
@@ -174,8 +173,6 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         if repost_type:
             view = ButtonView(invoker=interaction.user)
 
-            # if len(repost_type) > 1:
-            #     view.right_navigation.disabled = False
             embed = discord.Embed(title="Repost", description="I found the following repostable content in that message", color=discord.Color.green())
             if 1 in repost_type:
                 embed.add_field(name="Attachment", value=f"I found {len(message.attachments)} attachments", inline=False)
@@ -238,7 +235,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                 files_list = []
 
                 repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
-                query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+                query_r = await self.bot.db.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
                 if type(repost_channel) != discord.channel.ForumChannel:
                     logging.info(type(repost_channel))
                     for attachment in message.attachments:
@@ -277,7 +274,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                         file = await attachment.to_file()
                         list_of_files.append(file)
                     embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url, color=0x00ff00)
-                    embed.set_thumbnail(url=message.author.display_avatar.url)
+                    # embed.set_thumbnail(url=message.author.display_avatar.url)
                     if query_r:
                         for x in query_r:
                             if interaction.channel.is_nsfw() or not x['nsfw']:
@@ -290,7 +287,9 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             await interaction.response.send_message(f"I could not find a supported attachment in that message. Attachment types: {', '.join([attachment.content_type for attachment in message.attachments])}", ephemeral=True)
 
     async def repost_ao3(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        logging.error(message.content)
         url = re.search(ao3_pattern, message.content).group(0)
+        logging.error(url)
         work = AO3.Work(AO3.utils.workid_from_url(url))
         menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=f"{work.title} - **AO3**")
         for channel in self.repost_cache:
@@ -309,7 +308,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             embed.add_field(name="Words", value=f"{int(work.words):,}", inline=True)
             embed.add_field(name="Status", value=work.status, inline=True)
             repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
-            query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+            query_r = await self.bot.db.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
             if query_r:
                 for x in query_r:
                     if repost_channel.is_nsfw() or not x['nsfw']:
@@ -342,7 +341,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
                 files_list = []
                 await interaction.delete_original_response()
                 repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
-                query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+                query_r = await self.bot.db.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
                 for image in sorted(os.listdir(f"temp_files")):
                     if image.startswith(str(tweet_id)) and not image.endswith(".mp4"):
                         file = discord.File(f"temp_files/{image}")
@@ -392,7 +391,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         if not await menu.wait() and menu.channel_select.values:
             await interaction.delete_original_response()
             repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
-            query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+            query_r = await self.bot.db.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
             embed = discord.Embed(title=menu.title_item, description=menu.description_item, url=message.jump_url)
             if query_r:
                 for x in query_r:
@@ -403,7 +402,6 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
 
     async def repost_discord_file(self, interaction: discord.Interaction, message: discord.Message) -> None:
         boost_level = interaction.guild.premium_tier
-
         if boost_level >= 2:
             max_file_size = 50 * 1024 * 1024  # 50 MB
         else:
@@ -413,7 +411,6 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             if channel['guild_id'] == interaction.guild_id:
                 menu.channel_select.add_option(label=f"#{channel['channel_name']}", value=channel['channel_id'])
         await interaction.response.send_message("I found a discord file, please select where to repost it", ephemeral=True, view=menu)
-        counter = 1
         os.makedirs(f"{interaction.guild_id}_temp_files", exist_ok=True)
         urls = re.findall(discord_file_pattern, message.content)
         async with aiohttp.ClientSession() as session:
@@ -435,7 +432,7 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             files_list = []
             current_size = 0
             repost_channel = interaction.guild.get_channel(int(menu.channel_select.values[0]))
-            query_r = await self.bot.pg_con.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
+            query_r = await self.bot.db.fetch("SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC", message.author.id)
             for image in sorted(os.listdir(f"{interaction.guild_id}_temp_files")):
                 file = discord.File(f"{interaction.guild_id}_temp_files/{image}")
                 embed = discord.Embed(title=menu.title_item, description=f"{menu.description_item}", url=url)
@@ -485,12 +482,12 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     @commands.check(admin_or_me_check)
     async def set_repost(self, interaction: discord.Interaction, channel: discord.TextChannel):
         if channel.id in [x['channel_id'] for x in self.repost_cache]:
-            await self.bot.pg_con.execute("DELETE FROM gallery_mementos WHERE channel_id = $1", channel.id)
-            self.repost_cache = await self.bot.pg_con.fetch("SELECT * FROM gallery_mementos")
+            await self.bot.db.execute("DELETE FROM gallery_mementos WHERE channel_id = $1", channel.id)
+            self.repost_cache = await self.bot.db.fetch("SELECT * FROM gallery_mementos")
             await interaction.response.send_message(f"Removed {channel.mention} from repost channels", ephemeral=True)
         else:
-            await self.bot.pg_con.execute("INSERT INTO gallery_mementos VALUES ($1, $2, $3)", channel.name, channel.id, channel.guild.id)
-            self.repost_cache = await self.bot.pg_con.fetch("SELECT * FROM gallery_mementos")
+            await self.bot.db.execute("INSERT INTO gallery_mementos VALUES ($1, $2, $3)", channel.name, channel.id, channel.guild.id)
+            self.repost_cache = await self.bot.db.fetch("SELECT * FROM gallery_mementos")
             await interaction.response.send_message(f"Added {channel.mention} to repost channels", ephemeral=True)
 
 

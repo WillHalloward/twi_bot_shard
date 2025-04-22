@@ -4,8 +4,7 @@ import logging
 import logging.handlers
 import ssl
 from itertools import cycle
-from pprint import pprint
-from typing import List, Optional, Union
+from typing import List, Union
 import datetime
 import asyncpg
 import discord
@@ -14,6 +13,7 @@ from discord.ext import commands
 
 import secrets
 from cogs.twi import PersistentView
+from utils.db import Database
 
 status = cycle(["Killing the mages of Wistram",
                 "Cleaning up a mess",
@@ -39,7 +39,8 @@ class Cognita(commands.Bot):
     ):
         super().__init__(*args, **kwargs)
         self.initial_extensions = initial_extensions
-        self.pg_con = db_pool
+        self.pg_con = db_pool  # Keep for backward compatibility
+        self.db = Database(db_pool)  # New database utility
         self.web_client = web_client
 
     async def setup_hook(self) -> None:
@@ -70,14 +71,17 @@ class Cognita(commands.Bot):
         end_date = datetime.datetime.now()
         if 'start_time' in interaction.extras:
             run_time = end_date - interaction.extras['start_time']
-            await self.pg_con.execute("""
-                UPDATE command_history 
-                SET 
-                    run_time=$1, 
-                    finished_successfully=TRUE,
-                    end_date=$2 
-                WHERE serial=$3
-                """, run_time, end_date, interaction.extras['id'])
+            try:
+                await self.db.execute("""
+                    UPDATE command_history 
+                    SET 
+                        run_time=$1, 
+                        finished_successfully=TRUE,
+                        end_date=$2 
+                    WHERE serial=$3
+                    """, run_time, end_date, interaction.extras['id'])
+            except Exception as e:
+                logging.error(f"Error updating command history: {e}")
         else:
             logging.error(f"No start time in extra dict {interaction=}")
 
@@ -89,7 +93,7 @@ class Cognita(commands.Bot):
             command_name = interaction.command.name   # get the name of the command
         else:
             command_name = None
-        #check if channel is a thread or channel:
+        #check if the channel is a thread or channel:
         if interaction.channel.type == discord.ChannelType.text:
             channel_id = interaction.channel.id # get the id of the channel
         else:
@@ -113,7 +117,8 @@ class Cognita(commands.Bot):
             VALUES($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING serial
             """
-        serial = await self.pg_con.fetchval(sql_query,
+        try:
+            serial = await self.db.fetchval(sql_query,
                                             start_date,
                                             user_id,
                                             command_name,
@@ -123,8 +128,12 @@ class Cognita(commands.Bot):
                                             command_args,
                                             started_successfully)
 
-        interaction.extras['id'] = serial
-        interaction.extras['start_time'] = start_date
+            interaction.extras['id'] = serial
+            interaction.extras['start_time'] = start_date
+        except Exception as e:
+            logging.error(f"Error recording command history: {e}")
+            # Still set start_time so we don't get errors in on_app_command_completion
+            interaction.extras['start_time'] = start_date
 
     async def start_status_loop(self):
         await self.wait_until_ready()
@@ -153,7 +162,18 @@ async def main():
     context.load_verify_locations(f"ssl-cert/server-ca.pem")
     context.load_cert_chain(f"ssl-cert/client-cert.pem", f"ssl-cert/client-key.pem")
 
-    async with ClientSession() as our_client, asyncpg.create_pool(database=secrets.database, user=secrets.DB_user, password=secrets.DB_password, host=secrets.host, ssl=context, command_timeout=300) as pool:
+    async with ClientSession() as our_client, asyncpg.create_pool(
+            database=secrets.database,
+            user=secrets.DB_user,
+            password=secrets.DB_password,
+            host=secrets.host,
+            ssl=context,
+            command_timeout=300,
+            min_size=5,           # Minimum number of connections
+            max_size=20,          # Maximum number of connections
+            max_inactive_connection_lifetime=300.0,  # Close inactive connections after 5 minutes
+            timeout=10.0          # Connection timeout
+        ) as pool:
         cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report', 'cogs.innktober', 'cogs.summarization']
         intents = discord.Intents.default()
         intents.members = True

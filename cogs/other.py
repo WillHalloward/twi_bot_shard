@@ -78,9 +78,9 @@ class OtherCogs(commands.Cog, name="Other"):
         self.bot.tree.add_command(self.info_user_context)
 
     async def cog_load(self) -> None:
-        self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
-        self.category_cache = await self.bot.pg_con.fetch("SELECT DISTINCT (category) FROM roles WHERE category IS NOT NULL")
-        self.pin_cache = await self.bot.pg_con.fetch("SELECT id FROM channels where allow_pins = TRUE")
+        self.quote_cache = await self.bot.db.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
+        self.category_cache = await self.bot.db.fetch("SELECT DISTINCT (category) FROM roles WHERE category IS NOT NULL")
+        self.pin_cache = await self.bot.db.fetch("SELECT id FROM channels where allow_pins = TRUE")
 
     @app_commands.command(
         name="ping",
@@ -213,12 +213,12 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Adds a quote to the list of quotes"
     )
     async def quote_add(self, interaction: discord.Interaction, quote: str):
-        await self.bot.pg_con.execute(
+        await self.bot.db.execute(
             "INSERT INTO quotes(quote, author, author_id, time, tokens) VALUES ($1,$2,$3,now(),to_tsvector($4))",
             quote, interaction.user.display_name, interaction.user.id, quote)
-        row_number = await self.bot.pg_con.fetchrow("SELECT COUNT(*) FROM quotes")
+        row_number = await self.bot.db.fetchrow("SELECT COUNT(*) FROM quotes")
         await interaction.response.send_message(f"Added quote `{quote}` at index {row_number['count']}")
-        self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
+        self.quote_cache = await self.bot.db.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
 
     @quote.command(
         name="find",
@@ -226,7 +226,7 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     async def quote_find(self, interaction: discord.Interaction, search: str):
         formatted_search = search.replace(' ', ' & ')
-        results = await self.bot.pg_con.fetch(
+        results = await self.bot.db.fetch(
             "SELECT quote, x.row_number FROM (SELECT tokens, quote, ROW_NUMBER() OVER () as row_number FROM quotes) x WHERE x.tokens @@ to_tsquery($1);",
             formatted_search)
 
@@ -252,15 +252,15 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Delete a quote"
     )
     async def quote_delete(self, interaction: discord.Interaction, delete: int):
-        u_quote = await self.bot.pg_con.fetchrow(
+        u_quote = await self.bot.db.fetchrow(
             "SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x WHERE ROW_NUMBER = $1",
             delete)
         if u_quote:
-            await self.bot.pg_con.execute(
+            await self.bot.db.execute(
                 "DELETE FROM quotes WHERE serial_id in (SELECT serial_id FROM QUOTES ORDER BY TIME LIMIT 1 OFFSET $1)",
                 delete - 1)
             await interaction.response.send_message(f"Deleted quote `{u_quote['quote']}` from position {u_quote['row_number']}")
-            self.quote_cache = await self.bot.pg_con.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
+            self.quote_cache = await self.bot.db.fetch("SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x")
         else:
             await interaction.response.send_message("Im sorry. I could not find a quote on that index")
 
@@ -280,10 +280,10 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     async def quote_get(self, interaction, index: int = None):
         if index is None:
-            u_quote = await self.bot.pg_con.fetchrow(
+            u_quote = await self.bot.db.fetchrow(
                 "SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x  ORDER BY random() LIMIT 1")
         else:
-            u_quote = await self.bot.pg_con.fetchrow(
+            u_quote = await self.bot.db.fetchrow(
                 "SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x WHERE ROW_NUMBER = $1",
                 index)
         if u_quote:
@@ -306,7 +306,7 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Posts who added a quote"
     )
     async def quote_who(self, interaction, index: int):
-        u_quote = await self.bot.pg_con.fetchrow(
+        u_quote = await self.bot.db.fetchrow(
             "SELECT author, author_id, time, row_number FROM (SELECT author, author_id, time, ROW_NUMBER () OVER () FROM quotes) x WHERE ROW_NUMBER = $1",
             index)
         if u_quote:
@@ -331,7 +331,7 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     async def role_list(self, interaction: discord.Interaction):
         user_roles = [role.id for role in interaction.user.roles]
-        roles = await self.bot.pg_con.fetch(
+        roles = await self.bot.db.fetch(
             "SELECT id, name, required_roles, weight, category "
             "FROM roles "
             "WHERE (required_roles && $2::bigint[] OR required_roles is NULL)"
@@ -375,7 +375,7 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     @commands.check(admin_or_me_check)
     async def update_role_weight(self, interaction: discord.Interaction, role: discord.role.Role, new_weight: int):
-        await self.bot.pg_con.execute("UPDATE roles set weight = $1 WHERE id = $2 AND guild_id = $3",
+        await self.bot.db.execute("UPDATE roles set weight = $1 WHERE id = $2 AND guild_id = $3",
                                       new_weight, role.id, interaction.guild.id)
         await interaction.response.send_message(f"Changed the weight of {role} to {new_weight}")
 
@@ -395,12 +395,12 @@ class OtherCogs(commands.Cog, name="Other"):
                         temp = discord.utils.get(interaction.guild.roles, id=matched_id.group())
                         if temp:
                             list_of_roles.append(temp.id)
-                await self.bot.pg_con.execute(
+                await self.bot.db.execute(
                     "UPDATE roles SET self_assignable = TRUE, required_roles = $1, alias = $2, id = $3, guild_id = $4, category=$5, auto_replace = $6 "
                     "WHERE id = $3 AND guild_id = $4",
                     list_of_roles, role.id, interaction.guild.id, category.lower(), auto_replace)
             else:
-                await self.bot.pg_con.execute(
+                await self.bot.db.execute(
                     "UPDATE roles SET self_assignable = TRUE, required_roles = NULL, alias = $1, id = $2, guild_id = $3, category=$4, auto_replace = $5 "
                     "WHERE id = $2 AND guild_id = $3",
                     role.id, interaction.guild.id, category.lower(), auto_replace)
@@ -422,7 +422,7 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     @commands.check(admin_or_me_check)
     async def role_remove(self, interaction: discord.Interaction, role: discord.Role):
-        await self.bot.pg_con.execute(
+        await self.bot.db.execute(
             "UPDATE roles SET self_assignable = FALSE, weight = 0, alias = NULL, category = NULL, required_role = NULL, auto_replace = FALSE "
             "where id = $1 "
             "AND guild_id = $2",
@@ -434,7 +434,7 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Adds or removes a role from yourself"
     )
     async def role(self, interaction: discord.Interaction, role: discord.Role):
-        s_role = await self.bot.pg_con.fetchrow("SELECT * FROM roles WHERE id = $1", role.id)
+        s_role = await self.bot.db.fetchrow("SELECT * FROM roles WHERE id = $1", role.id)
         if s_role['self_assignable']:
             b_role = list()
             for a_role in interaction.user.roles:
@@ -444,11 +444,11 @@ class OtherCogs(commands.Cog, name="Other"):
                     await interaction.user.remove_roles(role)
                     await interaction.response.send_message(f"I removed {role}")
                 else:
-                    if await self.bot.pg_con.fetchval("SELECT auto_replace FROM roles WHERE id = $1", role.id):
+                    if await self.bot.db.fetchval("SELECT auto_replace FROM roles WHERE id = $1", role.id):
                         list_r = list()
                         for r in interaction.user.roles:
                             list_r.append(r.id)
-                        r_loop = self.bot.pg_con.fetch("SELECT id FROM roles WHERE id = ANY($1::bigint[]) "
+                        r_loop = self.bot.db.fetch("SELECT id FROM roles WHERE id = ANY($1::bigint[]) "
                                                        "AND category = "
                                                        "(SELECT category FROM roles where id = $2)",
                                                        list_r, role.id)
@@ -586,13 +586,13 @@ class OtherCogs(commands.Cog, name="Other"):
     @app_commands.command(name="set_pin_channels", description="Set which channels the pin command should work in")
     async def set_pin_channels(self, interaction: discord.Interaction, channel: discord.TextChannel) -> None:
         if channel.id in [x['id'] for x in self.pin_cache]:
-            await self.bot.pg_con.execute("UPDATE channels SET allow_pins = FALSE WHERE id = $1", channel.id)
+            await self.bot.db.execute("UPDATE channels SET allow_pins = FALSE WHERE id = $1", channel.id)
             await interaction.response.send_message(f"Removed {channel.name} to allowed pin channels", ephemeral=True)
-            self.pin_cache = await self.bot.pg_con.fetch("SELECT id FROM channels where allow_pins = TRUE")
+            self.pin_cache = await self.bot.db.fetch("SELECT id FROM channels where allow_pins = TRUE")
         else:
-            await self.bot.pg_con.execute("UPDATE channels SET allow_pins = TRUE WHERE id = $1", channel.id)
+            await self.bot.db.execute("UPDATE channels SET allow_pins = TRUE WHERE id = $1", channel.id)
             await interaction.response.send_message(f"Added {channel.name} to allowed pin channels", ephemeral=True)
-            self.pin_cache = await self.bot.pg_con.fetch("SELECT id FROM channels where allow_pins = TRUE")
+            self.pin_cache = await self.bot.db.fetch("SELECT id FROM channels where allow_pins = TRUE")
 
 
 async def setup(bot: commands.Bot) -> None:

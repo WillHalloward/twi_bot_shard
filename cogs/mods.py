@@ -12,16 +12,6 @@ from discord.ext.commands import Cog
 import secrets
 
 
-def admin_or_me_check(ctx):
-    role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
-    if ctx.message.author.id == 268608466690506753:
-        return True
-    elif role in ctx.message.author.roles:
-        return True
-    else:
-        return False
-
-
 class ModCogs(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -30,30 +20,24 @@ class ModCogs(commands.Cog):
         name="reset",
         description="resets the cooldown of a command"
     )
-    @commands.check(admin_or_me_check)
-    @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def reset(self, interaction: discord.Interaction, command: str):
-        self.bot.get_command(command).cooldown.reset()
+        self.bot.get_command(command).reset_cooldown(interaction)
         await interaction.response.send_message(f"Reset the cooldown of {command}")
 
     @app_commands.command(
         name="state",
         description="Makes Cognita post a mod message"
     )
-    @app_commands.check(admin_or_me_check)
-    @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def state(self, interaction: discord.Interaction, message: str):
-        embed = discord.Embed(title="**MOD MESSAGE**", color=0xff0000)
-        embed.add_field(name="\u200b", value=message, inline=False)
+        embed = discord.Embed(title="**MOD MESSAGE**", color=0xff0000, description=message)
         embed.set_footer(text=interaction.user.name, icon_url=interaction.user.display_avatar.url)
         await interaction.response.send_message(embed=embed)
 
     @Cog.listener("on_message")
     async def log_attachment(self, message):
-        if message.attachments and message.author.bot is False and not isinstance(message.channel, discord.channel.DMChannel):
-            logging.debug(message.attachments)
+        if message.attachments and not message.author.bot and not isinstance(message.channel, discord.channel.DMChannel):
             async with aiohttp.ClientSession() as session:
                 webhook = Webhook.from_url(secrets.webhook, session=session)
                 for attachment in message.attachments:
@@ -101,16 +85,13 @@ class ModCogs(commands.Cog):
 
     @Cog.listener("on_message")
     async def find_links(self, message: discord.Message):
-        # if message not in dm channel and in guild
-        if not isinstance(message.channel, discord.channel.DMChannel) and message.author.bot is False and message.guild.id == 346842016480755724:
-            if re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content) \
-                    and message.author.bot is False:
+        if not isinstance(message.channel, discord.channel.DMChannel) and not message.author.bot and message.guild.id == 346842016480755724:
+            if re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content):
                 async with aiohttp.ClientSession() as session:
                     webhook = discord.Webhook.from_url(secrets.webhook, session=session)
-                    await webhook.send(f"Link detected: {message.content[0:1800]}\n"  # Send the content cutting it at 1800 characters
+                    await webhook.send(f"Link detected: {message.content[0:1600]}\n"
                                        f"User: {message.author.name} {message.author.id}\n"
                                        f"Channel: {message.channel.mention}\n"
-                                       f"Date: {message.created_at}\n"
                                        f"Jump Url: {message.jump_url}",
                                        allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
 

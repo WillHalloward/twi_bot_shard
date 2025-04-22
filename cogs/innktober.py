@@ -198,13 +198,13 @@ class InnktoberCog(commands.Cog, name="Innktober"):
         self.bot.tree.remove_command(self.approve.name, type=self.approve.type)
 
     async def cog_load(self) -> None:
-        self.repost_cache = await self.bot.pg_con.fetch("SELECT * FROM gallery_mementos")
-        self.quest_cache = await self.bot.pg_con.fetch("SELECT * FROM innktober_quests")
+        self.repost_cache = await self.bot.db.fetch("SELECT * FROM gallery_mementos")
+        self.quest_cache = await self.bot.db.fetch("SELECT * FROM innktober_quests")
 
 
     @app_commands.default_permissions(ban_members=True)
     async def innktober_approve(self, interaction: discord.Interaction, message: discord.Message):
-        submission = self.bot.pg_con.fetchrow("SELECT * FROM innktober_submission WHERE repost_message_id = $1 ORDER BY id DESC", message.id)
+        submission = self.bot.db.fetchrow("SELECT * FROM innktober_submission WHERE repost_message_id = $1 ORDER BY id DESC", message.id)
         if not submission:
             logging.error("Could not find a submission with the post id: " + str(message.id))
             await interaction.response.send_message("Could not find a post with the id: " + str(message.id), ephemeral=True)
@@ -320,7 +320,7 @@ class InnktoberCog(commands.Cog, name="Innktober"):
                 elif files_list and not embed_list:
                     repost_message = await repost_channel.send(files=files_list, embed=embed)
                 list_of_quest_id = ",".join(menu.quest_select.values) if menu.quest_select.values else ""
-                await self.bot.pg_con.execute(
+                await self.bot.db.execute(
                     "INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'attachment')",
                     message.author.id,
                     datetime.now(),
@@ -359,7 +359,7 @@ class InnktoberCog(commands.Cog, name="Innktober"):
                 repost_channel = interaction.guild.get_channel_or_thread(1290379677499654165)
             repost_message = await repost_channel.send(embed=embed)
             list_of_quest_id = ",".join(menu.quest_select.values) if menu.quest_select.values else ""
-            await self.bot.pg_con.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'text')",
+            await self.bot.db.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'text')",
                                           message.author.id,
                                           datetime.now(),
                                           message.id,
@@ -392,7 +392,7 @@ class InnktoberCog(commands.Cog, name="Innktober"):
                 repost_channel = interaction.guild.get_channel_or_thread(1290379677499654165)
             repost_message = await repost_channel.send(embed=embed)
             list_of_quest_id = ",".join(menu.quest_select.values) if menu.quest_select.values else ""
-            await self.bot.pg_con.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'ao3')",
+            await self.bot.db.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'ao3')",
                                           message.author.id,
                                           datetime.now(),
                                           message.id,
@@ -474,7 +474,7 @@ class InnktoberCog(commands.Cog, name="Innktober"):
             for file in os.listdir(f"{interaction.guild_id}_temp_files"):
                 os.remove(f"{interaction.guild_id}_temp_files/{file}")
             list_of_quest_id = ",".join(menu.quest_select.values) if menu.quest_select.values else ""
-            await self.bot.pg_con.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'discord_file')",
+            await self.bot.db.execute("INSERT INTO innktober_submission (user_id, date, message_id, quest_id, repost_message_id, social_media_consent, channel_id, submission_type) VALUES ($1,$2,$3,$4,$5,$6,$7,'discord_file')",
                                           message.author.id,
                                           datetime.now(),
                                           message.id,

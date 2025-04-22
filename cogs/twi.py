@@ -52,16 +52,16 @@ def add_emblem_to_gif(profile_gif_path, emblem_path, user_id):
 
     frames = []
 
-    # Resize emblem to be 1/4 of the gif
+    # Resize the emblem to be 1/4 of the GIF
     width, height = profile_gif.size
     emblem = emblem.resize((width // 2, height // 2))
 
-    # Calculate the position for emblem (bottom right of the gif)
+    # Calculate the position for the emblem (bottom right of the GIF)
     position = (0, height - emblem.height)  # this line was modified
 
-    # Loop over each frame in the animated gif
+    # Loop over each frame in the animated GIF
     for frame in ImageSequence.Iterator(profile_gif):
-        # Paste the emblem into the frame and append it to our frames list
+        # Paste the emblem into the frame and append it to our frame list
         frame.paste(emblem, position, emblem)
         frames.append(frame)
 
@@ -90,7 +90,7 @@ class PersistentView(discord.ui.View):
         self.bot = bot
 
     async def button_action(self, interaction, button_id, emblem_path, message):
-        button_check = await self.bot.pg_con.fetchrow("SELECT * FROM button_action_history WHERE user_id = $1 AND view_id = 1", interaction.user.id)
+        button_check = await self.bot.db.fetchrow("SELECT * FROM button_action_history WHERE user_id = $1 AND view_id = 1", interaction.user.id)
         if not button_check or button_check['button_id'] == button_id:
             await interaction.response.defer()
             if interaction.user.display_avatar.is_animated():
@@ -101,7 +101,7 @@ class PersistentView(discord.ui.View):
                 return_path = add_emblem_to_image(f'emblems/{interaction.user.id}_avatar.png', emblem_path, interaction.user.id)
             await interaction.followup.send(message, ephemeral=True, file=discord.File(return_path))
             if not button_check:
-                await self.bot.pg_con.execute("INSERT INTO button_action_history VALUES (default, $1, 1, $2,now(), $3)", interaction.user.id, interaction.guild.id, button_id)
+                await self.bot.db.execute("INSERT INTO button_action_history VALUES (default, $1, 1, $2,now(), $3)", interaction.user.id, interaction.guild.id, button_id)
             remove(return_path)
         else:
             await interaction.response.send_message("You have already chosen your path", ephemeral=True)
@@ -125,7 +125,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         self.last_run = datetime.datetime.now() - datetime.timedelta(minutes=10)
 
     async def cog_load(self) -> None:
-        self.invis_text_cache = await self.bot.pg_con.fetch("SELECT DISTINCT title FROM invisible_text_twi")
+        self.invis_text_cache = await self.bot.db.fetch("SELECT DISTINCT title FROM invisible_text_twi")
 
     # button class for linking people to the chapter
     class Button(discord.ui.Button):
@@ -140,7 +140,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         allowed_channel_ids = [620021401516113940, 346842161704075265, 521403093892726785, 362248294849576960,
                                359864559361851392, 668721870488469514, 964519175320125490]
         if interaction.channel.id in allowed_channel_ids:
-            password = await self.bot.pg_con.fetchrow("SELECT password, link "
+            password = await self.bot.db.fetchrow("SELECT password, link "
                                                       "FROM password_link "
                                                       "WHERE password IS NOT NULL "
                                                       "ORDER BY serial_id DESC "
@@ -219,7 +219,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     )
     async def invis_text(self, interaction: discord.Interaction, chapter: str = None):
         if chapter is None:
-            invis_text_chapters = await self.bot.pg_con.fetch(
+            invis_text_chapters = await self.bot.db.fetch(
                 "SELECT title, COUNT(*) FROM invisible_text_twi GROUP BY title, date ORDER BY date"
             )
             embed = discord.Embed(title="Chapters with invisible text")
@@ -227,7 +227,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                 embed.add_field(name=f"Chapter: {posts['title']}", value=f"{posts['count']}", inline=False)
             await interaction.response.send_message(embed=embed)
         else:
-            texts = await self.bot.pg_con.fetch(
+            texts = await self.bot.db.fetch(
                 "SELECT title, content FROM invisible_text_twi WHERE lower(title) similar to lower($1)",
                 chapter)
             if texts:
@@ -337,7 +337,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def update_password(self, interaction: discord.Interaction, password: str, link: str):
-        await self.bot.pg_con.execute(
+        await self.bot.db.execute(
             "INSERT INTO password_link(password, link, user_id, date) VALUES ($1, $2, $3, now())",
             password, link, interaction.user.id)
         await interaction.response.send_message("Updated password and link", ephemeral=True)
@@ -357,7 +357,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     #         for subexception in exception.items:
     #             logging.error(subexception)
     #     try:
-    #         await self.bot.pg_con.execute(
+    #         await self.bot.db.execute(
     #             """INSERT INTO twi_reddit(
     #             time_added, discord_username, discord_id, reddit_username, currant_patreon, subreddit
     #             )
@@ -366,7 +366,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     #         )
     #     except asyncpg.UniqueViolationError as e:
     #         logging.exception(f'{e}')
-    #         dup_user = await self.bot.pg_con.fetchrow("SELECT reddit_username FROM twi_reddit WHERE discord_id = $1",
+    #         dup_user = await self.bot.db.fetchrow("SELECT reddit_username FROM twi_reddit WHERE discord_id = $1",
     #                                                   interaction.author.id)
     #         await interaction.response.send_message(f"You are already in the list with username {dup_user['reddit_username']}")
 
