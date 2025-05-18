@@ -1,0 +1,33 @@
+[project]
+name = "twi-bot-shard"
+version = "0.1.0"
+description = "A Discord bot designed for 'The Wandering Inn' server"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.10.7",
+    "discord>=2.3.2",
+    "pillow>=10.4.0",
+    "google-api-python-client>=2.147.0",
+    "lxml>=5.3.0",
+    "ao3>=0.2.0",
+    "openpyxl>=3.1.5",
+    "asyncpg>=0.29.0",
+    "openai>=1.54.3",
+    "setuptools>=68.2.0",
+    "gallery_dl>=1.29.4",
+    "sqlalchemy>=2.0.41",
+    "alembic>=1.12.0",
+    "structlog>=24.1.0",
+    "async-timeout>=4.0.3",
+]
+
+[build-system]
+requires = ["setuptools>=68.2.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["cogs", "utils"]
+
+[tool.uv]
+# uv-specific configuration

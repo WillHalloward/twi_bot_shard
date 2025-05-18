@@ -1,0 +1,15 @@
+{
+    "venv": {
+        "path": ".venv",
+        "prompt": "twi-bot-shard"
+    },
+    "pip": {
+        "index-url": "https://pypi.org/simple",
+        "extra-index-url": [],
+        "no-binary": [],
+        "only-binary": []
+    },
+    "cache": {
+        "dir": ".uv"
+    }
+}
