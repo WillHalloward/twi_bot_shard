@@ -113,16 +113,17 @@ wheels = [
 ]
 
 [[package]]
-name = "ao3"
-version = "0.2.0"
+name = "ao3-api"
+version = "2.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
+    { name = "lxml" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/42/37551bfba671ad15de601b3eb67f576fd5e8e8d355a6236181012eca6088/ao3-0.2.0.tar.gz", hash = "sha256:348c582a608b8bf463a30e2288e66b82d8bb94731e05dfcfda3f0e80e6d98b7c", size = 9062 }
+sdist = { url = "https://files.pythonhosted.org/packages/ea/ee/fac4294a45e59adeaa5a10713e9aeaca8462ac1489354b0539f8dcd69966/ao3_api-2.3.1.tar.gz", hash = "sha256:0fa80a905fdd698202369daf09b43c50459c1f473d46bdaf71da5ae46e5dcd76", size = 35009 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/31/9dd4cd1ed4d3ded9b58d3d2d0cfda2ef56282ac4a379e2873819ab9f2afc/ao3-0.2.0-py3-none-any.whl", hash = "sha256:67dc5265e7b5e9856a028adfc21a740b897e3576c4026c8a6eb4239d3a3e1ae9", size = 11988 },
+    { url = "https://files.pythonhosted.org/packages/a6/05/ca929be16698e355f6fb237fcc1dbc560f0b0dc447e13760c1bc4466f368/ao3_api-2.3.1-py3-none-any.whl", hash = "sha256:bab5a621cdeee387bf7a245fdc263f700d382eb1db2a3ec6c290ec1e61225089", size = 41621 },
 ]
 
 [[package]]
@@ -305,6 +306,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7f/dd/5817c7af5e614e45cdf38cbf6c3f4597590c442822a648121a34dee7fa0f/discord_py-2.5.2.tar.gz", hash = "sha256:01cd362023bfea1a4a1d43f5280b5ef00cad2c7eba80098909f98bf28e578524", size = 1054879 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/57/a8/dc908a0fe4cd7e3950c9fa6906f7bf2e5d92d36b432f84897185e1b77138/discord_py-2.5.2-py3-none-any.whl", hash = "sha256:81f23a17c50509ffebe0668441cb80c139e74da5115305f70e27ce821361295a", size = 1155105 },
+]
+
+[[package]]
+name = "discord-typings"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/a0/862d1e1457fe891a61d83da327f8a8b27334fbc0c4fe1b0edc3b4a47fb8a/discord_typings-0.9.0.tar.gz", hash = "sha256:fc39321dd04b3299e2b680da34454be8f29540acff4303752d514444daeb4e6d", size = 27724 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/5f/d3298bbd3fbb30fd137ac130013244930744633169c0d07e42fc8a5501f9/discord_typings-0.9.0-py3-none-any.whl", hash = "sha256:3d8776e16aa1f908fae947225d9cfd99701bcf0c7e28ca56bc10d892d1cfcffa", size = 34636 },
 ]
 
 [[package]]
@@ -990,6 +1003,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-dotenv"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/2c/7bb1416c5620485aa793f2de31d3df393d3686aa8a8506d11e10e13c5baf/python_dotenv-1.1.0.tar.gz", hash = "sha256:41f90bc6f5f177fb41f53e87666db362025010eb28f60a01c9143bfa33a2b2d5", size = 39920 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1e/18/98a99ad95133c6a6e2005fe89faedf294a748bd5dc803008059409ac9b1e/python_dotenv-1.1.0-py3-none-any.whl", hash = "sha256:d7c01d9e2293916c18baf562d95698754b0dbbb5e74d457c45d4f6561fb9d55d", size = 20256 },
+]
+
+[[package]]
 name = "requests"
 version = "2.32.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1100,16 +1122,18 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "alembic" },
-    { name = "ao3" },
+    { name = "ao3-api" },
     { name = "async-timeout" },
     { name = "asyncpg" },
     { name = "discord" },
+    { name = "discord-typings" },
     { name = "gallery-dl" },
     { name = "google-api-python-client" },
     { name = "lxml" },
     { name = "openai" },
     { name = "openpyxl" },
     { name = "pillow" },
+    { name = "python-dotenv" },
     { name = "setuptools" },
     { name = "sqlalchemy" },
     { name = "structlog" },
@@ -1119,16 +1143,18 @@ dependencies = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.10.7" },
     { name = "alembic", specifier = ">=1.12.0" },
-    { name = "ao3", specifier = ">=0.2.0" },
+    { name = "ao3-api", specifier = ">=2.3.1" },
     { name = "async-timeout", specifier = ">=4.0.3" },
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "discord", specifier = ">=2.3.2" },
+    { name = "discord-typings", specifier = ">=0.9.0" },
     { name = "gallery-dl", specifier = ">=1.29.4" },
     { name = "google-api-python-client", specifier = ">=2.147.0" },
     { name = "lxml", specifier = ">=5.3.0" },
     { name = "openai", specifier = ">=1.54.3" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pillow", specifier = ">=10.4.0" },
+    { name = "python-dotenv", specifier = ">=1.1.0" },
     { name = "setuptools", specifier = ">=68.2.0" },
     { name = "sqlalchemy", specifier = ">=2.0.41" },
     { name = "structlog", specifier = ">=24.1.0" },

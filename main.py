@@ -3,17 +3,26 @@ import json
 import logging
 import logging.handlers
 import ssl
+import traceback
 from itertools import cycle
-from typing import List, Union
+from collections.abc import Sequence
+from typing import TypeAlias
 import datetime
 import asyncpg
 import discord
 from aiohttp import ClientSession
 from discord.ext import commands
 
-import secrets
-from cogs.twi import PersistentView
+import config as secrets
+from utils.error_handling import handle_global_command_error
+import sys
+
+# Define type aliases for complex types
+DiscordID: TypeAlias = int
+CommandName: TypeAlias = str
 from utils.db import Database
+from utils.sqlalchemy_db import async_session_maker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 status = cycle(["Killing the mages of Wistram",
                 "Cleaning up a mess",
@@ -32,7 +41,7 @@ class Cognita(commands.Bot):
     def __init__(
             self,
             *args,
-            initial_extensions: List[str],
+            initial_extensions: Sequence[str],
             db_pool: asyncpg.Pool,
             web_client: ClientSession,
             **kwargs
@@ -42,12 +51,38 @@ class Cognita(commands.Bot):
         self.pg_con = db_pool  # Keep for backward compatibility
         self.db = Database(db_pool)  # New database utility
         self.web_client = web_client
+        self.session_maker = async_session_maker  # SQLAlchemy session maker
+
+    async def get_db_session(self) -> AsyncSession:
+        """Get a new database session."""
+        return self.session_maker()
 
     async def setup_hook(self) -> None:
         self.bg_task = self.loop.create_task(self.start_status_loop())
-        self.add_view(PersistentView(self))
         await self.load_extensions()
         self.unsubscribe_stats_listeners()
+
+        # Register global error handler
+        self.tree.error(self.on_app_command_error)
+        self.add_listener(self.on_command_error, "on_command_error")
+
+        # Initialize database optimizations
+        try:
+            # Use a longer timeout (10 minutes) for database optimizations
+            await self.db.execute_script("utils/db_optimizations.sql", timeout=600.0)
+            logging.info("Database optimizations applied successfully")
+        except Exception as e:
+            error_details = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+            logging.error(f"Failed to apply database optimizations: {e}\n{error_details}")
+
+        # Initialize error telemetry table
+        try:
+            # Use a longer timeout (5 minutes) for error telemetry table initialization
+            await self.db.execute_script("utils/error_telemetry.sql", timeout=300.0)
+            logging.info("Error telemetry table initialized successfully")
+        except Exception as e:
+            error_details = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+            logging.error(f"Failed to initialize error telemetry table: {e}\n{error_details}")
 
     async def load_extensions(self):
         for extension in self.initial_extensions:
@@ -67,23 +102,82 @@ class Cognita(commands.Bot):
     async def on_ready(self):
         logging.info(f"Logged in as {self}")
 
-    async def on_app_command_completion(self, interaction: discord.Interaction, command: Union[discord.app_commands.Command, discord.app_commands.ContextMenu]):
+    async def on_command_error(self, ctx: commands.Context, error: Exception):
+        """Global error handler for command errors."""
+        await handle_global_command_error(ctx, error)
+
+    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        """Global error handler for application command errors."""
+        # Extract the original exception if it's wrapped
+        if hasattr(error, 'original'):
+            error = error.original
+
+        # Get command name
+        command_name = "unknown"
+        if interaction.command:
+            command_name = interaction.command.name
+
+        # Log the error
+        error_details = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
+        logging.error(f"Application command error in {command_name}: {error}\n{error_details}")
+
+        # Send error message to user
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send("An error occurred while processing your command.", ephemeral=True)
+            else:
+                await interaction.response.send_message("An error occurred while processing your command.", ephemeral=True)
+        except Exception as e:
+            error_details = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+            logging.error(f"Failed to send error message to user: {e}\n{error_details}")
+
+        # Record error telemetry
+        try:
+            await self.db.execute(
+                """
+                INSERT INTO error_telemetry(
+                    error_type, command_name, user_id, error_message, 
+                    guild_id, channel_id, timestamp
+                )
+                VALUES($1, $2, $3, $4, $5, $6, $7)
+                """,
+                type(error).__name__,
+                command_name,
+                interaction.user.id,
+                str(error),
+                interaction.guild.id if interaction.guild else None,
+                interaction.channel.id if interaction.channel else None,
+                datetime.datetime.now()
+            )
+        except Exception as e:
+            error_details = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+            logging.error(f"Failed to record error telemetry: {e}\n{error_details}")
+
+    async def on_app_command_completion(self, interaction: discord.Interaction, command: discord.app_commands.Command | discord.app_commands.ContextMenu):
         end_date = datetime.datetime.now()
         if 'start_time' in interaction.extras:
             run_time = end_date - interaction.extras['start_time']
-            try:
-                await self.db.execute("""
-                    UPDATE command_history 
-                    SET 
-                        run_time=$1, 
-                        finished_successfully=TRUE,
-                        end_date=$2 
-                    WHERE serial=$3
-                    """, run_time, end_date, interaction.extras['id'])
-            except Exception as e:
-                logging.error(f"Error updating command history: {e}")
+            if 'id' in interaction.extras:
+                try:
+                    await self.db.execute("""
+                        UPDATE command_history 
+                        SET 
+                            run_time=$1, 
+                            finished_successfully=TRUE,
+                            end_date=$2 
+                        WHERE serial=$3
+                        """, run_time, end_date, interaction.extras['id'])
+                except Exception as e:
+                    error_details = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                    logging.error(f"Error updating command history: {e}\n{error_details}")
+            else:
+                # Log detailed information about the interaction
+                interaction_details = f"Command: {command.name if command else 'Unknown'}, User: {interaction.user.id}, Guild: {interaction.guild.id if interaction.guild else 'None'}"
+                logging.error(f"No command history ID in extra dict. Interaction details: {interaction_details}")
         else:
-            logging.error(f"No start time in extra dict {interaction=}")
+            # Log detailed information about the interaction
+            interaction_details = f"Command: {command.name if command else 'Unknown'}, User: {interaction.user.id}, Guild: {interaction.guild.id if interaction.guild else 'None'}"
+            logging.error(f"No start time in extra dict. Interaction details: {interaction_details}")
 
 
     async def on_interaction(self, interaction: discord.Interaction):
@@ -131,9 +225,11 @@ class Cognita(commands.Bot):
             interaction.extras['id'] = serial
             interaction.extras['start_time'] = start_date
         except Exception as e:
-            logging.error(f"Error recording command history: {e}")
-            # Still set start_time so we don't get errors in on_app_command_completion
+            error_details = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+            logging.error(f"Error recording command history: {e}\n{error_details}")
+            # Still set start_time and id (as None) so we don't get errors in on_app_command_completion
             interaction.extras['start_time'] = start_date
+            interaction.extras['id'] = None
 
     async def start_status_loop(self):
         await self.wait_until_ready()
@@ -143,19 +239,42 @@ class Cognita(commands.Bot):
 
 
 async def main():
-    logger = logging.getLogger('discord')
-    logger.setLevel(secrets.logging_level)
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(secrets.logging_level)
 
+    # Configure discord logger
+    discord_logger = logging.getLogger('discord')
+    discord_logger.setLevel(secrets.logging_level)
+
+    # Create handler for file logging
     handler = logging.handlers.RotatingFileHandler(
         filename=f'{secrets.logfile}.log',
         encoding='utf-8',
         maxBytes=32 * 1024 * 1024,
         backupCount=10
     )
+
+    # Create console handler for stdout
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(secrets.logging_level)
+
+    # Create formatter that includes detailed information
     formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message} :{lineno}', datefmt='%Y-%m-%d %H:%M:%S', style='{')
     handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.info("Logging started...")
+    console_handler.setFormatter(formatter)
+
+    # Add handlers to loggers
+    root_logger.addHandler(handler)
+    root_logger.addHandler(console_handler)
+    discord_logger.addHandler(handler)
+    discord_logger.addHandler(console_handler)
+
+    root_logger.info("Logging started...")
+
+    # Log the KILL_AFTER setting
+    if secrets.kill_after > 0:
+        root_logger.info(f"Bot will automatically exit after {secrets.kill_after} seconds")
 
     context = ssl.create_default_context()
     context.check_hostname = False
@@ -174,7 +293,7 @@ async def main():
             max_inactive_connection_lifetime=300.0,  # Close inactive connections after 5 minutes
             timeout=10.0          # Connection timeout
         ) as pool:
-        cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report', 'cogs.innktober', 'cogs.summarization']
+        cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report', 'cogs.summarization', 'cogs.settings']
         intents = discord.Intents.default()
         intents.members = True
         intents.message_content = True
@@ -185,6 +304,16 @@ async def main():
                 initial_extensions=cogs,
                 intents=intents
         ) as bot:
+            # Set up auto-kill task if enabled
+            if secrets.kill_after > 0:
+                async def kill_bot_after_delay():
+                    await asyncio.sleep(secrets.kill_after)
+                    root_logger.info(f"Auto-kill triggered after {secrets.kill_after} seconds")
+                    await bot.close()
+                    exit(1)
+
+                # Schedule the kill task
+                bot.loop.create_task(kill_bot_after_delay())
             await bot.start(secrets.bot_token)
 
 
