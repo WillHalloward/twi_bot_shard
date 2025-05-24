@@ -10,10 +10,10 @@ ALTER TABLE quotes ADD CONSTRAINT quotes_pk PRIMARY KEY (serial_id);
 ALTER TABLE banned_words ADD CONSTRAINT banned_words_pk PRIMARY KEY (serial_id);
 
 -- 2. Add Foreign Key Constraints
-ALTER TABLE attachments ADD CONSTRAINT attachments_messages_fk 
+ALTER TABLE attachments ADD CONSTRAINT attachments_messages_fk
 FOREIGN KEY (message_id) REFERENCES messages(message_id);
 
-ALTER TABLE mentions ADD CONSTRAINT mentions_messages_fk 
+ALTER TABLE mentions ADD CONSTRAINT mentions_messages_fk
 FOREIGN KEY (message_id) REFERENCES messages(message_id);
 
 -- 3. Add Composite Indexes for Common Query Patterns
@@ -39,11 +39,11 @@ CREATE INDEX idx_creator_links_user_id ON creator_links(user_id);
 
 -- 5. Add Partial Indexes for Specific Queries
 -- Index for non-deleted messages only
-CREATE INDEX idx_messages_active ON messages(channel_id, created_at) 
+CREATE INDEX idx_messages_active ON messages(channel_id, created_at)
 WHERE deleted = FALSE;
 
 -- Index for active threads
-CREATE INDEX idx_threads_active ON threads(guild_id, parent_id) 
+CREATE INDEX idx_threads_active ON threads(guild_id, parent_id)
 WHERE deleted = FALSE;
 
 -- 6. Add Full-Text Search Indexes
@@ -56,7 +56,7 @@ CREATE INDEX idx_poll_option_text_search ON poll_option USING gin(tokens);
 -- 7. Create Materialized Views for Complex Statistics
 -- User activity materialized view
 CREATE MATERIALIZED VIEW user_activity_stats AS
-SELECT 
+SELECT
     user_id,
     COUNT(*) AS message_count,
     MIN(created_at) AS first_message,
@@ -69,7 +69,7 @@ GROUP BY user_id;
 
 -- Channel activity by hour
 CREATE MATERIALIZED VIEW channel_hourly_stats AS
-SELECT 
+SELECT
     channel_id,
     EXTRACT(HOUR FROM created_at) AS hour,
     COUNT(*) AS message_count
@@ -96,5 +96,58 @@ BEGIN
     REINDEX TABLE messages;
     REINDEX TABLE reactions;
     -- Add more tables as needed
+
+-- Indexes for frequently queried columns in messages table
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_server_id ON messages(server_id);
+CREATE INDEX IF NOT EXISTS idx_messages_channel_id ON messages(channel_id);
+CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_is_bot ON messages(is_bot);
+
+-- Composite indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_messages_server_created ON messages(server_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_channel_created ON messages(channel_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_user_created ON messages(user_id, created_at);
+
+-- Indexes for join_leave table
+CREATE INDEX IF NOT EXISTS idx_join_leave_date ON join_leave(date);
+CREATE INDEX IF NOT EXISTS idx_join_leave_server_id ON join_leave(server_id);
+CREATE INDEX IF NOT EXISTS idx_join_leave_join_or_leave ON join_leave(join_or_leave);
+
+-- Indexes for reactions table
+CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id);
+CREATE INDEX IF NOT EXISTS idx_reactions_user_id ON reactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_reactions_date ON reactions(date);
+
+-- Materialized view for daily message statistics
+CREATE MATERIALIZED VIEW IF NOT EXISTS daily_message_stats AS
+SELECT
+    COUNT(*) AS total,
+    channel_id,
+    channel_name,
+    server_id
+FROM messages
+WHERE created_at >= NOW() - INTERVAL '1 DAY'
+AND server_id = 346842016480755724
+AND is_bot = FALSE
+GROUP BY channel_id, channel_name, server_id
+ORDER BY total DESC;
+
+-- Materialized view for user join/leave statistics
+CREATE MATERIALIZED VIEW IF NOT EXISTS daily_member_stats AS
+SELECT
+    COUNT(*) FILTER (WHERE join_or_leave = 'JOIN') AS joins,
+    COUNT(*) FILTER (WHERE join_or_leave = 'LEAVE') AS leaves,
+    server_id
+FROM join_leave
+WHERE date >= NOW() - INTERVAL '1 DAY'
+GROUP BY server_id;
+
+-- Function to refresh materialized views
+CREATE OR REPLACE FUNCTION refresh_materialized_views()
+RETURNS void AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW daily_message_stats;
+    REFRESH MATERIALIZED VIEW daily_member_stats;
 END;
 $$ LANGUAGE plpgsql;

@@ -524,7 +524,7 @@ The database optimizations are automatically applied when the bot starts up:
 async def setup_hook(self) -> None:
     # ...
     try:
-        await self.db.execute_script("utils/db_optimizations.sql")
+        await self.db.execute_script("database/db_optimizations.sql")
         logging.info("Database optimizations applied successfully")
     except Exception as e:
         logging.error(f"Failed to apply database optimizations: {e}")

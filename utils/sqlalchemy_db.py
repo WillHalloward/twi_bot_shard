@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
-import secrets
+import config
 from models.base import Base
 
 # Create SSL context
@@ -20,7 +20,7 @@ def create_ssl_context():
     return context
 
 # Connection URL
-DATABASE_URL = f"postgresql+asyncpg://{secrets.DB_user}:{secrets.DB_password}@{secrets.host}/{secrets.database}"
+DATABASE_URL = f"postgresql+asyncpg://{config.DB_user}:{config.DB_password}@{config.host}/{config.database}"
 
 # Create engine with SSL
 engine = create_async_engine(

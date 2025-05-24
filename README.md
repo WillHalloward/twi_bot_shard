@@ -49,7 +49,7 @@ python test_dependencies.py
 
 5. Set up PostgreSQL database
 
-6. Configure the `secrets.py` file with your credentials (see [Setup Guide](SETUP.md) for details)
+6. Configure the `secrets.py` file with your credentials (see [Setup Guide](docs/SETUP.md) for details)
 
 7. Run the bot:
 ```bash
@@ -61,7 +61,7 @@ python main.py
 - Python 3.12+
 - PostgreSQL database
 - Discord Bot Token
-- Various API keys (see [Setup Guide](SETUP.md))
+- Various API keys (see [Setup Guide](docs/SETUP.md))
 - uv package manager
 
 ## Environment Variables
@@ -123,7 +123,7 @@ The bot uses environment variables for configuration. These can be set in a `.en
 - `requirements.txt`: Legacy project dependencies (for reference)
 - `setup.py`: Installation script
 
-For more detailed information about the project structure, see [Project Structure](PROJECT_STRUCTURE.md).
+For more detailed information about the project structure, see [Project Structure](docs/PROJECT_STRUCTURE.md).
 
 ## Contributing
 
@@ -227,11 +227,11 @@ The codebase has been modernized with several improvements to enhance maintainab
 
 ## Documentation
 
-- [Setup Guide](SETUP.md): Detailed instructions for setting up the bot
-- [Features](FEATURES.md): Comprehensive list of bot features and commands
-- [Project Structure](PROJECT_STRUCTURE.md): Detailed explanation of the codebase
+- [Setup Guide](docs/SETUP.md): Detailed instructions for setting up the bot
+- [Features](docs/FEATURES.md): Comprehensive list of bot features and commands
+- [Project Structure](docs/PROJECT_STRUCTURE.md): Detailed explanation of the codebase
 - [Database Documentation](utils/DATABASE.md): Comprehensive documentation of database functionality, including the Database Utility Module, SQLAlchemy integration, and database optimizations
-- [Error Handling Guidelines](ERROR_HANDLING.md): Standardized error handling patterns and best practices
+- [Error Handling Guidelines](docs/ERROR_HANDLING.md): Standardized error handling patterns and best practices
 
 ## License
 

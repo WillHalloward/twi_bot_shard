@@ -6,6 +6,7 @@ This document contains a comprehensive list of actionable improvement tasks for 
 
 1. [ ] Standardize database access patterns
    - [ ] Choose between raw SQL (asyncpg) and SQLAlchemy ORM as the primary database access method
+     - SQLAlchemy has been choosen
    - [ ] Create migration plan for transitioning existing code to the chosen method
    - [ ] Document best practices for database access in the project
 
@@ -32,7 +33,7 @@ This document contains a comprehensive list of actionable improvement tasks for 
 ## Code Quality Improvements
 
 6. [ ] Implement consistent code style
-   - [ ] Add linting with flake8 or ruff
+   - [ ] Add linting with ruff
    - [ ] Configure black for code formatting
    - [ ] Add pre-commit hooks for style enforcement
 

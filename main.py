@@ -69,7 +69,7 @@ class Cognita(commands.Bot):
         # Initialize database optimizations
         try:
             # Use a longer timeout (10 minutes) for database optimizations
-            await self.db.execute_script("utils/db_optimizations.sql", timeout=600.0)
+            await self.db.execute_script("database/db_optimizations.sql", timeout=600.0)
             logging.info("Database optimizations applied successfully")
         except Exception as e:
             error_details = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
@@ -291,7 +291,7 @@ async def main():
             min_size=5,           # Minimum number of connections
             max_size=20,          # Maximum number of connections
             max_inactive_connection_lifetime=300.0,  # Close inactive connections after 5 minutes
-            timeout=10.0          # Connection timeout
+            timeout=30.0          # Connection timeout
         ) as pool:
         cogs = ['cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report', 'cogs.summarization', 'cogs.settings']
         intents = discord.Intents.default()
