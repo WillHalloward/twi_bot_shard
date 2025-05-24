@@ -143,20 +143,16 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         self.bot.tree.add_command(self.repost)
         self.repost_cache = None
 
-        # Create database services
-        self.gallery_service = DatabaseService(GalleryMementos)
-        self.creator_links_service = DatabaseService(CreatorLink)
+        # Get repositories from the repository factory
+        self.gallery_repo = bot.repo_factory.get_repository(GalleryMementos)
+        self.creator_links_repo = bot.repo_factory.get_repository(CreatorLink)
 
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(self.repost.name, type=self.repost.type)
 
     async def cog_load(self) -> None:
-        # Use SQLAlchemy to load gallery mementos
-        async with await self.bot.get_db_session() as session:
-            # Query gallery mementos
-            stmt = select(GalleryMementos)
-            result = await session.execute(stmt)
-            self.repost_cache = result.scalars().all()
+        # Use repository to load gallery mementos
+        self.repost_cache = await self.gallery_repo.get_all()
 
         # Keep the old method as a fallback
         if not self.repost_cache:
@@ -490,32 +486,24 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     )
     @app_commands.check(app_admin_or_me_check)
     async def set_repost(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        async with self.bot.get_db_session() as session:
-            # Check if channel exists in database
-            stmt = select(GalleryMementos).where(GalleryMementos.channel_id == channel.id)
-            result = await session.execute(stmt)
-            existing = result.scalars().first()
+        # Check if channel exists in database
+        existing = await self.gallery_repo.get_by_field("channel_id", channel.id)
 
-            if existing:
-                # Delete existing channel
-                await session.delete(existing)
-                await session.commit()
-                await interaction.response.send_message(f"Removed {channel.mention} from repost channels", ephemeral=True)
-            else:
-                # Add new channel
-                new_channel = GalleryMementos(
-                    channel_name=channel.name,
-                    channel_id=channel.id,
-                    guild_id=channel.guild.id
-                )
-                session.add(new_channel)
-                await session.commit()
-                await interaction.response.send_message(f"Added {channel.mention} to repost channels", ephemeral=True)
+        if existing:
+            # Delete existing channel
+            await self.gallery_repo.delete(existing[0].channel_name)
+            await interaction.response.send_message(f"Removed {channel.mention} from repost channels", ephemeral=True)
+        else:
+            # Add new channel
+            await self.gallery_repo.create(
+                channel_name=channel.name,
+                channel_id=channel.id,
+                guild_id=channel.guild.id
+            )
+            await interaction.response.send_message(f"Added {channel.mention} to repost channels", ephemeral=True)
 
-            # Refresh cache
-            stmt = select(GalleryMementos)
-            result = await session.execute(stmt)
-            self.repost_cache = result.scalars().all()
+        # Refresh cache
+        self.repost_cache = await self.gallery_repo.get_all()
 
         # Keep the old method as a fallback
         if not self.repost_cache:

@@ -10,7 +10,7 @@ from discord import app_commands
 from discord.ext import commands
 from googleapiclient.discovery import build
 from os import remove
-import config as secrets
+import config
 from cogs.patreon_poll import fetch
 from utils.permissions import admin_or_me_check, admin_or_me_check_wrapper, app_admin_or_me_check
 
@@ -106,7 +106,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     )
     @commands.check(is_bot_channel)
     async def find(self, interaction: discord.Interaction, query: str):
-        results = google_search(query, secrets.google_api_key, secrets.google_cse_id)
+        results = google_search(query, config.google_api_key, config.google_cse_id)
         if results['searchInformation']['totalResults'] == "0":
             await interaction.response.send_message("I could not find anything that matches your search.")
         else:

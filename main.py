@@ -6,7 +6,7 @@ import ssl
 import traceback
 from itertools import cycle
 from collections.abc import Sequence
-from typing import TypeAlias
+from typing import TypeAlias, Dict, Type
 import datetime
 import asyncpg
 import discord
@@ -23,6 +23,10 @@ CommandName: TypeAlias = str
 from utils.db import Database
 from utils.sqlalchemy_db import async_session_maker
 from sqlalchemy.ext.asyncio import AsyncSession
+from utils.service_container import ServiceContainer
+from utils.repository_factory import RepositoryFactory
+from models.tables.gallery import GalleryMementos
+from models.tables.creator_links import CreatorLink
 
 status = cycle(["Killing the mages of Wistram",
                 "Cleaning up a mess",
@@ -53,12 +57,28 @@ class Cognita(commands.Bot):
         self.web_client = web_client
         self.session_maker = async_session_maker  # SQLAlchemy session maker
 
+        # Initialize service container
+        self.container = ServiceContainer()
+
+        # Register common services
+        self.container.register("bot", self)
+        self.container.register("db", self.db)
+        self.container.register("web_client", web_client)
+        self.container.register_factory("db_session", self.get_db_session)
+
+        # Initialize repository factory
+        self.repo_factory = RepositoryFactory(self.container, self.get_db_session)
+
     async def get_db_session(self) -> AsyncSession:
         """Get a new database session."""
         return self.session_maker()
 
     async def setup_hook(self) -> None:
         self.bg_task = self.loop.create_task(self.start_status_loop())
+
+        # Register repositories
+        self.register_repositories()
+
         await self.load_extensions()
         self.unsubscribe_stats_listeners()
 
@@ -83,6 +103,15 @@ class Cognita(commands.Bot):
         except Exception as e:
             error_details = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
             logging.error(f"Failed to initialize error telemetry table: {e}\n{error_details}")
+
+    def register_repositories(self):
+        """Register repositories for all models."""
+        # Register repositories for models
+        # For now, we'll use the generic repository for all models
+        self.repo_factory.get_repository(GalleryMementos)
+        self.repo_factory.get_repository(CreatorLink)
+
+        # More repositories can be registered here as needed
 
     async def load_extensions(self):
         for extension in self.initial_extensions:

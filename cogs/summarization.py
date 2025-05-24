@@ -1,10 +1,10 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import config as secrets
+import config
 from openai import OpenAI
 
-client = OpenAI(api_key=secrets.openai_api_key)
+client = OpenAI(api_key=config.openai_api_key)
 
 
 class SummarizationCog(commands.Cog):

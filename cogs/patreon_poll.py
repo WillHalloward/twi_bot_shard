@@ -8,11 +8,11 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-import config as secrets
+import config
 
 
 async def fetch(session, url):
-    async with session.get(url, cookies=secrets.cookies) as respons:
+    async with session.get(url, cookies=config.cookies) as respons:
         return await respons.text()
 
 
@@ -24,7 +24,7 @@ async def get_poll(bot):
     url = "https://www.patreon.com/api/posts?include=Cpoll.choices%2Cpoll.current_user_responses.poll&filter[campaign_id]=568211"
     poll_ids = await bot.db.fetch("SELECT id FROM poll")
     while True:
-        async with aiohttp.ClientSession(cookies=secrets.cookies, headers=secrets.headers) as session:
+        async with aiohttp.ClientSession(cookies=config.cookies, headers=config.headers) as session:
             html = await fetch(session, url)
             try:
                 json_data = json.loads(html)
@@ -89,7 +89,7 @@ async def get_poll(bot):
 async def p_poll(polls, interaction, bot):
     for poll in polls:
         if not poll['expired']:
-            async with aiohttp.ClientSession(cookies=secrets.cookies) as session:
+            async with aiohttp.ClientSession(cookies=config.cookies) as session:
                 html = await fetch(session, poll["api_url"])
                 json_data = json.loads(html)
             options = []

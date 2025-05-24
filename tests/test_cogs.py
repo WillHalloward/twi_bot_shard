@@ -1,0 +1,239 @@
+"""
+Test script for loading all cogs.
+
+This script attempts to load all cogs and reports any errors that occur.
+It's useful for testing after making updates to ensure all changes work.
+"""
+import asyncio
+import os
+import sys
+import logging
+from typing import Dict, List, Tuple
+
+# Add the project root to the Python path
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+
+# Import discord components
+import discord
+from discord.ext import commands
+
+# Import config (but don't use the token)
+import config as secrets
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger('test_cogs')
+
+# Define mock classes for testing
+class MockScalars:
+    """Mock for SQLAlchemy's Result.scalars() method."""
+    def __init__(self, items=None):
+        self.items = items or []
+
+    def all(self):
+        """Return all items."""
+        return self.items
+
+    def first(self):
+        """Return the first item or None."""
+        return self.items[0] if self.items else None
+
+class MockResult:
+    """Mock for SQLAlchemy's Result object."""
+    def __init__(self, items=None):
+        self.items = items or []
+
+    def scalars(self):
+        """Return a MockScalars object."""
+        return MockScalars(self.items)
+
+    def all(self):
+        """Return all items."""
+        return self.items
+
+    def first(self):
+        """Return the first item or None."""
+        return self.items[0] if self.items else None
+
+class MockDatabase:
+    """Mock Database class for testing."""
+    def __init__(self):
+        self.logger = logging.getLogger('mock_database')
+        self.pool = None
+
+    async def execute(self, query, *args, **kwargs):
+        """Mock execute method."""
+        return None
+
+    async def fetch(self, query, *args, **kwargs):
+        """Mock fetch method."""
+        return []
+
+    async def fetchrow(self, query, *args, **kwargs):
+        """Mock fetchrow method."""
+        return None
+
+    async def fetchval(self, query, *args, **kwargs):
+        """Mock fetchval method."""
+        return None
+
+    async def execute_script(self, script_path, **kwargs):
+        """Mock execute_script method."""
+        return None
+
+class MockAsyncSession:
+    """Mock AsyncSession class for testing."""
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    async def commit(self):
+        """Mock commit method."""
+        pass
+
+    async def rollback(self):
+        """Mock rollback method."""
+        pass
+
+    async def close(self):
+        """Mock close method."""
+        pass
+
+    async def execute(self, query, *args, **kwargs):
+        """Mock execute method that returns a MockResult."""
+        return MockResult([])
+
+    async def fetch(self, query, *args, **kwargs):
+        """Mock fetch method."""
+        return []
+
+    async def fetchrow(self, query, *args, **kwargs):
+        """Mock fetchrow method."""
+        return None
+
+    async def fetchval(self, query, *args, **kwargs):
+        """Mock fetchval method."""
+        return None
+
+# Define a test bot class that doesn't connect to Discord
+class TestBot(commands.Bot):
+    def __init__(self):
+        # Initialize with minimal settings
+        intents = discord.Intents.default()
+        super().__init__(
+            command_prefix="!",
+            intents=intents,
+        )
+
+        # Add mock database
+        self.db = MockDatabase()
+        self.pg_con = None  # Mock connection pool
+
+        # Create a session factory that returns a MockAsyncSession directly
+        def session_factory():
+            return MockAsyncSession()
+
+        # Add mock session maker
+        self.session_maker = session_factory
+
+        # Initialize service container
+        from utils.service_container import ServiceContainer
+        self.container = ServiceContainer()
+
+        # Register common services
+        self.container.register("bot", self)
+        self.container.register("db", self.db)
+        self.container.register("web_client", None)  # Mock web client
+        self.container.register_factory("db_session", self.session_maker)
+
+        # Initialize repository factory
+        from utils.repository_factory import RepositoryFactory
+        self.repo_factory = RepositoryFactory(self.container, self.session_maker)
+
+    async def setup_hook(self) -> None:
+        # Override to do nothing
+        pass
+
+    async def on_ready(self):
+        # Override to do nothing
+        pass
+
+async def test_load_cogs() -> Tuple[List[str], Dict[str, Exception]]:
+    """
+    Test loading all cogs.
+
+    Returns:
+        Tuple containing:
+        - List of successfully loaded cogs
+        - Dict mapping failed cogs to their exceptions
+    """
+    # Get list of cogs from both main.py and owner.py
+    # This ensures we test all cogs that might be used
+    cogs_from_main = [
+        'cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll',
+        'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods',
+        'cogs.stats', 'cogs.creator_links', 'cogs.report',
+        'cogs.summarization', 'cogs.settings'
+    ]
+
+    cogs_from_owner = [
+        'cogs.summarization', 'cogs.gallery', 'cogs.links_tags',
+        'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other',
+        'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report'
+    ]
+
+    # Combine and deduplicate
+    all_cogs = list(set(cogs_from_main + cogs_from_owner))
+
+    # Create a test bot instance
+    bot = TestBot()
+
+    # Track results
+    successful_cogs = []
+    failed_cogs = {}
+
+    # Try to load each cog
+    for cog in all_cogs:
+        try:
+            logger.info(f"Attempting to load {cog}...")
+            await bot.load_extension(cog)
+            logger.info(f"✅ Successfully loaded {cog}")
+            successful_cogs.append(cog)
+        except Exception as e:
+            logger.error(f"❌ Failed to load {cog}: {type(e).__name__} - {e}")
+            failed_cogs[cog] = e
+
+    # Clean up
+    await bot.close()
+
+    return successful_cogs, failed_cogs
+
+async def main():
+    """Run the test."""
+    logger.info("Testing cog loading...")
+
+    successful_cogs, failed_cogs = await test_load_cogs()
+
+    # Print summary
+    total_cogs = len(successful_cogs) + len(failed_cogs)
+    logger.info(f"\nSummary: {len(successful_cogs)}/{total_cogs} cogs loaded successfully")
+
+    if failed_cogs:
+        logger.error("\nFailed cogs:")
+        for cog, error in failed_cogs.items():
+            logger.error(f"  {cog}: {type(error).__name__} - {error}")
+        logger.error("\nTest failed: Some cogs could not be loaded.")
+        return False
+    else:
+        logger.info("\nTest passed: All cogs loaded successfully!")
+        return True
+
+if __name__ == "__main__":
+    success = asyncio.run(main())
+    sys.exit(0 if success else 1)  # Exit with status code based on success

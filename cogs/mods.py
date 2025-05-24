@@ -9,7 +9,7 @@ from discord import app_commands, Webhook
 from discord.ext import commands
 from discord.ext.commands import Cog
 
-import config as secrets
+import config
 
 
 class ModCogs(commands.Cog):
@@ -39,7 +39,7 @@ class ModCogs(commands.Cog):
     async def log_attachment(self, message):
         if message.attachments and not message.author.bot and not isinstance(message.channel, discord.channel.DMChannel):
             async with aiohttp.ClientSession() as session:
-                webhook = Webhook.from_url(secrets.webhook, session=session)
+                webhook = Webhook.from_url(config.webhook, session=session)
                 for attachment in message.attachments:
                     try:
                         embed = discord.Embed(title="New attachment", url=message.jump_url,
@@ -58,7 +58,7 @@ class ModCogs(commands.Cog):
     async def dm_watch(self, message):
         if isinstance(message.channel, discord.channel.DMChannel) and not message.author.bot:
             async with aiohttp.ClientSession() as session:
-                webhook = discord.Webhook.from_url(secrets.webhook_testing_log, session=session)
+                webhook = discord.Webhook.from_url(config.webhook_testing_log, session=session)
                 if message.attachments:
                     for attachment in message.attachments:
                         try:
@@ -88,7 +88,7 @@ class ModCogs(commands.Cog):
         if not isinstance(message.channel, discord.channel.DMChannel) and not message.author.bot and message.guild.id == 346842016480755724:
             if re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content):
                 async with aiohttp.ClientSession() as session:
-                    webhook = discord.Webhook.from_url(secrets.webhook, session=session)
+                    webhook = discord.Webhook.from_url(config.webhook, session=session)
                     await webhook.send(f"Link detected: {message.content[0:1600]}\n"
                                        f"User: {message.author.name} {message.author.id}\n"
                                        f"Channel: {message.channel.mention}\n"

@@ -12,7 +12,10 @@ class SettingsCog(commands.Cog, name="Settings"):
 
     def __init__(self, bot):
         self.bot = bot
-        self._init_db_task = self.bot.loop.create_task(self._init_db())
+
+    async def cog_load(self):
+        """Called when the cog is loaded."""
+        await self._init_db()
 
     async def _init_db(self):
         """Initialize the database table for server settings"""
@@ -119,46 +122,46 @@ class SettingsCog(commands.Cog, name="Settings"):
     async def is_admin(bot, guild_id: int, user_id: int, user_roles=None) -> bool:
         """
         Check if a user has the admin role or is the bot owner
-        
+
         Args:
             bot: The bot instance
             guild_id: The guild ID
             user_id: The user ID
             user_roles: Optional list of user role IDs (to avoid additional API calls)
-            
+
         Returns:
             bool: True if the user is an admin or the bot owner, False otherwise
         """
         # Check if user is the bot owner (268608466690506753)
         if user_id == 268608466690506753:
             return True
-            
+
         try:
             # Get the admin role ID for this guild
             admin_role_id = await bot.db.fetchval(
                 "SELECT admin_role_id FROM server_settings WHERE guild_id = $1",
                 guild_id
             )
-            
+
             # If no admin role is set, fall back to the hardcoded role ID
             if not admin_role_id:
                 admin_role_id = 346842813687922689
-                
+
             # If user_roles is provided, check if admin_role_id is in the list
             if user_roles:
                 return admin_role_id in user_roles
-                
+
             # Otherwise, we need to get the guild and check the user's roles
             guild = bot.get_guild(guild_id)
             if not guild:
                 return False
-                
+
             member = guild.get_member(user_id)
             if not member:
                 return False
-                
+
             return any(role.id == admin_role_id for role in member.roles)
-                
+
         except Exception as e:
             logging.error(f"Error checking admin status: {e}")
             # Fall back to the hardcoded check in case of error

@@ -9,7 +9,7 @@ from discord.ext import commands
 from discord.ext import tasks
 from discord.ext.commands import Cog
 
-import config as secrets
+import config
 from utils.permissions import admin_or_me_check, admin_or_me_check_wrapper, app_admin_or_me_check
 
 
@@ -198,7 +198,7 @@ class StatsCogs(commands.Cog, name="stats"):
 
     def __init__(self, bot):
         self.bot = bot
-        if secrets.logfile != "test":
+        if config.logfile != "test":
             self.stats_loop.start()
 
     @commands.command(

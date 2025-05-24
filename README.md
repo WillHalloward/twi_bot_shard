@@ -183,7 +183,34 @@ When making changes:
 
 ## Testing
 
-There is no formal testing framework in place. When implementing changes:
+The project includes several test scripts to verify different aspects of the system:
+
+### Available Tests
+
+1. **Dependency Test**: Verify that all dependencies are installed correctly
+   ```bash
+   python tests\test_dependencies.py
+   ```
+
+2. **Database Connection Test**: Test the database connection
+   ```bash
+   python tests\test_db_connection.py
+   ```
+
+3. **SQLAlchemy Models Test**: Test the SQLAlchemy models
+   ```bash
+   python tests\test_sqlalchemy_models.py
+   ```
+
+4. **Cog Loading Test**: Test loading all cogs to ensure they can be loaded without errors
+   ```bash
+   python tests\test_cogs.py
+   ```
+   This is particularly useful after making updates to verify that all changes work correctly.
+
+For more details about the test scripts, see the [Tests README](tests/README.md).
+
+When implementing changes, also:
 - Manually test new features and commands
 - Ensure database interactions work correctly
 - Verify that commands respond appropriately to invalid inputs

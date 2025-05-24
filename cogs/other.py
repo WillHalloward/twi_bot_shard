@@ -1,27 +1,37 @@
+# Import standard library modules first
 import logging
 import os
 import re
+import time
+import random
 from datetime import datetime
 from itertools import groupby
 from os.path import exists
 from typing import List
-import random
 
+# Import third-party modules in a specific order
+# Discord-related imports
 import discord
 from discord import app_commands
 from discord.ext import commands
+
+# Other third-party imports
 from openpyxl import load_workbook, Workbook
 
+# Import AO3 last to avoid potential import deadlocks
+# Adding a small delay before AO3 import to prevent deadlocks
+import time
+time.sleep(0.1)  # 100ms delay to avoid potential race conditions
 import AO3
 
-import config as secrets
+import config
 from utils.permissions import admin_or_me_check, admin_or_me_check_wrapper, app_admin_or_me_check
 LOGIN_AO3_SUCCESSFUL = False
 try:
-    session = AO3.Session(str(secrets.ao3_username), str(secrets.ao3_password))
+    session = AO3.Session(str(config.ao3_username), str(config.ao3_password))
     LOGIN_AO3_SUCCESSFUL = True
 except Exception as e:
-    print(e)
+    logging.error(f"AO3 login error: {e}")
 
 
 async def user_info_function(interaction: discord.Interaction, member: discord.Member):
@@ -50,11 +60,13 @@ class OtherCogs(commands.Cog, name="Other"):
         self.quote_cache = None
         self.category_cache = None
         self.pin_cache = None
+
         self.pin = app_commands.ContextMenu(
             name="Pin",
             callback=self.pin,
         )
         self.bot.tree.add_command(self.pin)
+
         self.info_user_context = app_commands.ContextMenu(
             name="User info",
             callback=self.info_user_context,
