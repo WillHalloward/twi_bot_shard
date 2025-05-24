@@ -100,7 +100,7 @@ class Cognita(commands.Bot):
         self.remove_listener(stats_cog.reaction_remove, "on_raw_reaction_remove")
 
     async def on_ready(self):
-        logging.info(f"Logged in as {self}")
+        logging.info(f"Logged in as {self.user.name} (ID: {self.user.id})")
 
     async def on_command_error(self, ctx: commands.Context, error: Exception):
         """Global error handler for command errors."""
@@ -252,8 +252,11 @@ async def main():
     discord_logger.handlers.clear()
 
     # Create handler for file logging
+    import os
+    # Ensure logs directory exists
+    os.makedirs("logs", exist_ok=True)
     handler = logging.handlers.RotatingFileHandler(
-        filename=f'{secrets.logfile}.log',
+        filename=os.path.join("logs", f'{secrets.logfile}.log'),
         encoding='utf-8',
         maxBytes=32 * 1024 * 1024,
         backupCount=10

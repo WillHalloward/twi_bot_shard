@@ -26,8 +26,11 @@ def configure_stdlib_logging(log_level: int = logging.INFO, log_file: Optional[s
     handlers = [logging.StreamHandler(sys.stdout)]
 
     if log_file:
+        import os
+        # Ensure logs directory exists
+        os.makedirs("logs", exist_ok=True)
         file_handler = logging.handlers.RotatingFileHandler(
-            filename=f"{log_file}.log",
+            filename=os.path.join("logs", f"{log_file}.log"),
             encoding="utf-8",
             maxBytes=32 * 1024 * 1024,  # 32 MB
             backupCount=10
