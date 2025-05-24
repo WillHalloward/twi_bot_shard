@@ -111,15 +111,7 @@ Commands for reporting issues.
 | `!report` | Reports a message or user | `!report @user reason` or `!report [message link] reason` | Everyone |
 | `!setreportchannel` | Sets the channel where reports are sent | `!setreportchannel #channel` | Admin |
 
-## Innktober
-
-Commands for the Innktober event.
-
-| Command | Description | Usage | Permissions |
-|---------|-------------|-------|------------|
-| `!innktober` | Shows information about the Innktober event | `!innktober` | Everyone |
-| `!innktoberprompt` | Shows the prompt for a specific day | `!innktoberprompt [day]` | Everyone |
-| `!setinnktoberchannel` | Sets the channel for Innktober submissions | `!setinnktoberchannel #channel` | Admin |
+<!-- Innktober section removed as this feature is no longer available -->
 
 ## Summarization
 

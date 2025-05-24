@@ -8,7 +8,7 @@ This document provides comprehensive documentation for all cogs in the Cognita D
 - [Cog Documentation](#cog-documentation)
   - [Creator Links](#creator-links)
   - [Gallery](#gallery)
-  - [Innktober](#innktober)
+  <!-- Innktober section removed -->
   - [Links Tags](#links-tags)
   - [Mods](#mods)
   - [Other](#other)
@@ -123,51 +123,7 @@ This cog uses the `gallery_mementos` table in the database to store channels whe
 - `channel_id`: The Discord channel ID
 - `guild_id`: The Discord guild (server) ID
 
-### Innktober
-
-The Innktober cog provides functionality for managing submissions to Innktober quests, a special event for "The Wandering Inn" community.
-
-#### Commands
-
-##### Submit for Quests (Context Menu)
-**Description:** Context menu command that allows users to submit their content for Innktober quests.
-**Usage:** Right-click on a message > Apps > Submit for Quests
-**Permissions Required:** Ban Members permission (for setup), but users can submit their own content
-**Supported Content Types:**
-- Attachments (images, videos, audio, text files)
-- Discord files
-- AO3 links
-- Text content
-
-**Process:**
-1. Right-click on a message containing content you want to submit
-2. Select "Apps" > "Submit for Quests" from the context menu
-3. Select the type of content to submit (if multiple types are detected)
-4. Select the quest you're submitting for from the dropdown menu
-5. Provide consent for social media sharing (if applicable)
-6. Optionally add a title
-7. Submit your entry
-
-##### Approve for Quests (Context Menu)
-**Description:** Context menu command that allows moderators to approve submissions for Innktober quests.
-**Usage:** Right-click on a submission message > Apps > Approve for Quests
-**Permissions Required:** Ban Members permission
-**Note:** This feature appears to be partially implemented.
-
-#### Dependencies
-This cog requires several external libraries:
-- ao3: For fetching AO3 work information
-- aiohttp: For downloading files
-
-#### Database
-This cog uses the following database tables:
-- `innktober_quests`: Stores information about available quests
-  - `serial`: Unique identifier for the quest
-  - `quest_name`: Name of the quest
-- `innktober_submission`: Tracks user submissions
-  - `id`: Submission ID
-  - `repost_message_id`: ID of the reposted message
-  - `channel_id`: Channel where the submission was posted
+<!-- Innktober section removed as this feature is no longer available -->
 
 ### Links Tags
 
@@ -273,9 +229,9 @@ Monitors messages for links in a specific server and logs them to a webhook for 
 Automatically adds a verified role to users who have Discord accounts older than 72 hours when they join the server.
 
 #### Configuration
-This cog requires webhook URLs to be configured in the secrets.py file:
-- `webhook`: For logging attachments and links
-- `webhook_testing_log`: For logging direct messages
+This cog requires webhook URLs to be configured in the `.env` file:
+- `WEBHOOK`: For logging attachments and links
+- `WEBHOOK_TESTING_LOG`: For logging direct messages
 
 #### Dependencies
 - aiohttp: For sending webhook requests
@@ -518,7 +474,7 @@ The Owner cog provides commands for bot management that are restricted to the bo
 #### Configuration
 This cog has a predefined list of cogs that can be loaded, unloaded, or reloaded:
 ```python
-cogs = ['cogs.summarization','cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report', 'cogs.innktober']
+cogs = ['cogs.summarization','cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report', 'cogs.settings']
 ```
 
 ### Patreon Poll
@@ -574,7 +530,7 @@ This cog uses the following database tables:
   - `tokens`: Text search vector for searching
 
 #### Configuration
-This cog requires Patreon cookies to be configured in the secrets.py file for fetching poll data directly from Patreon's API.
+This cog requires Patreon cookies to be configured in the `.env` file as a JSON string for fetching poll data directly from Patreon's API.
 
 #### Dependencies
 - aiohttp: For making HTTP requests to Patreon's API
@@ -711,9 +667,9 @@ server_rules = [
 - openai: For accessing OpenAI's API
 
 #### API Keys
-This cog requires an OpenAI API key to be configured in the secrets.py file:
-```python
-openai_api_key = "your_api_key_here"
+This cog requires an OpenAI API key to be configured in the `.env` file:
+```
+OPENAI_API_KEY=your_api_key_here
 ```
 
 <!-- Each cog will be documented in this section -->

@@ -10,24 +10,32 @@ twi_bot_shard/
 │   ├── creator_links.py   # Creator link management
 │   ├── example_cog.py     # Example cog with best practices
 │   ├── gallery.py         # Image gallery management
-│   ├── innktober.py       # Innktober event features
 │   ├── links_tags.py      # Link management system
 │   ├── mods.py            # Moderation tools
 │   ├── other.py           # Miscellaneous utility commands
 │   ├── owner.py           # Bot owner commands
 │   ├── patreon_poll.py    # Patreon poll integration
 │   ├── report.py          # Reporting functionality
+│   ├── settings.py        # Bot settings management
 │   ├── stats.py           # Statistics tracking
 │   ├── summarization.py   # Text summarization features
 │   └── twi.py             # The Wandering Inn specific features
+├── database/              # Database scripts and schema
+│   ├── cognita_db_tables.sql  # Database schema
+│   └── db_optimizations.sql   # Database optimizations
+├── docs/                  # Documentation files
 ├── emblems/               # Image assets for the bot
+├── logs/                  # Log files
+├── models/                # SQLAlchemy models
 ├── ssl-cert/              # SSL certificates for database connection
+├── tests/                 # Test scripts
 ├── utils/                 # Utility modules
-│   └── db.py              # Database utility class
+│   ├── db.py              # Database utility class
+│   └── sqlalchemy_db.py   # SQLAlchemy database connection
 ├── main.py                # Entry point and bot initialization
-├── requirements.txt       # Project dependencies
-├── secrets.py             # Configuration and sensitive information
-└── setup.py               # Installation script
+├── config.py              # Configuration and sensitive information
+├── pyproject.toml         # Project configuration and dependencies
+└── requirements.txt       # Project dependencies
 ```
 
 ## Core Components
@@ -61,9 +69,9 @@ from discord.ext import commands
 class MyCog(commands.Cog, name="Display Name"):
     def __init__(self, bot):
         self.bot = bot
-        
+
     # Commands and listeners
-    
+
 async def setup(bot):
     await bot.add_cog(MyCog(bot))
 ```
@@ -153,7 +161,7 @@ Error handling is implemented at multiple levels:
 
 ## Configuration
 
-Configuration is stored in `secrets.py` and includes:
+Configuration is stored in `config.py` and loaded from environment variables in a `.env` file. It includes:
 - Discord bot token
 - Database credentials
 - API keys for various services

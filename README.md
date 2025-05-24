@@ -49,7 +49,7 @@ python test_dependencies.py
 
 5. Set up PostgreSQL database
 
-6. Configure the `secrets.py` file with your credentials (see [Setup Guide](docs/SETUP.md) for details)
+6. Configure the `.env` file with your credentials (see [Setup Guide](docs/SETUP.md) for details)
 
 7. Run the bot:
 ```bash
@@ -117,11 +117,11 @@ The bot uses environment variables for configuration. These can be set in a `.en
 - `cogs/`: Directory containing modular components of the bot
 - `emblems/`: Directory containing image assets
 - `ssl-cert/`: SSL certificates for database connection
-- `secrets.py`: Configuration file with sensitive information
+- `config.py`: Configuration file that loads settings from environment variables
 - `pyproject.toml`: Project configuration and dependencies for uv
 - `.uvrc`: uv-specific configuration file
-- `requirements.txt`: Legacy project dependencies (for reference)
-- `setup.py`: Installation script
+- `.env`: Environment variables with sensitive information (not tracked in git)
+- `requirements.txt`: Project dependencies
 
 For more detailed information about the project structure, see [Project Structure](docs/PROJECT_STRUCTURE.md).
 
@@ -157,12 +157,12 @@ To apply the database schema changes:
 
 2. Run the optimization script:
    ```sql
-   \i db_optimizations.sql
+   \i database/db_optimizations.sql
    ```
 
 For detailed information about the optimizations, see:
 - `utils/DATABASE.md`: Comprehensive documentation of database functionality, including optimizations
-- `db_optimizations.sql`: SQL script containing the schema changes
+- `database/db_optimizations.sql`: SQL script containing the schema changes
 
 ## Code Style Guidelines
 

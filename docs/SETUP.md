@@ -99,68 +99,60 @@ CREATE TABLE links (
 
 ## Step 6: Configuration
 
-1. Create a `secrets.py` file in the root directory with the following template:
+1. Create a `.env` file in the root directory with the following template:
 
-```python
-import logging
-
+```
 # Discord Bot Token
-bot_token = "YOUR_BOT_TOKEN"
+BOT_TOKEN=your_discord_bot_token
 
 # Database Configuration
-host = 'YOUR_DATABASE_HOST'
-DB_user = 'YOUR_DATABASE_USER'
-DB_password = 'YOUR_DATABASE_PASSWORD'
-database = 'cognita_db'
-port = 5432
+HOST=your_database_host
+DB_USER=your_database_user
+DB_PASSWORD=your_database_password
+DATABASE=cognita_db
+PORT=5432
 
 # API Keys
-google_api_key = "YOUR_GOOGLE_API_KEY"
-google_cse_id = "YOUR_GOOGLE_CSE_ID"
-openai_api_key = "YOUR_OPENAI_API_KEY"
-
-# Patreon Configuration (if using Patreon features)
-cookies = {
-    'patreon_device_id': 'YOUR_DEVICE_ID',
-    # Add other cookies as needed
-}
-
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0',
-    # Add other headers as needed
-}
+GOOGLE_API_KEY=your_google_api_key
+GOOGLE_CSE_ID=your_google_cse_id
+OPENAI_API_KEY=your_openai_api_key
 
 # Reddit Configuration (if using Reddit features)
-client_id = "YOUR_REDDIT_CLIENT_ID"
-client_secret = "YOUR_REDDIT_CLIENT_SECRET"
-user_agent = "python:twi_bot_shard:v1.0 by /u/your_username"
-username = "YOUR_REDDIT_USERNAME"
-password = "YOUR_REDDIT_PASSWORD"
+CLIENT_ID=your_reddit_client_id
+CLIENT_SECRET=your_reddit_client_secret
+USER_AGENT=python:twi_bot_shard:v1.0 by /u/your_username
+USERNAME=your_reddit_username
+PASSWORD=your_reddit_password
 
 # Twitter Configuration (if using Twitter features)
-twitter_api_key = "YOUR_TWITTER_API_KEY"
-twitter_api_key_secret = "YOUR_TWITTER_API_KEY_SECRET"
-twitter_bearer_token = "YOUR_TWITTER_BEARER_TOKEN"
-twitter_access_token = "YOUR_TWITTER_ACCESS_TOKEN"
-twitter_access_token_secret = "YOUR_TWITTER_ACCESS_TOKEN_SECRET"
+TWITTER_API_KEY=your_twitter_api_key
+TWITTER_API_KEY_SECRET=your_twitter_api_key_secret
+TWITTER_BEARER_TOKEN=your_twitter_bearer_token
+TWITTER_ACCESS_TOKEN=your_twitter_access_token
+TWITTER_ACCESS_TOKEN_SECRET=your_twitter_access_token_secret
 
 # AO3 Configuration (if using AO3 features)
-ao3_username = "YOUR_AO3_USERNAME"
-ao3_password = "YOUR_AO3_PASSWORD"
+AO3_USERNAME=your_ao3_username
+AO3_PASSWORD=your_ao3_password
 
 # Logging Configuration
-logging_level = logging.INFO
-logfile = 'bot_log'
+LOGFILE=test
 
 # Webhook URLs for logging
-webhook_testing_log = "YOUR_TESTING_WEBHOOK_URL"
-webhook = "YOUR_PRODUCTION_WEBHOOK_URL"
+WEBHOOK_TESTING_LOG=your_testing_webhook_url
+WEBHOOK=your_production_webhook_url
 
 # Auto-exit Configuration
-kill_after = 0  # Time in seconds after which the bot will automatically exit (0 to disable)
+KILL_AFTER=0  # Time in seconds after which the bot will automatically exit (0 to disable)
+
+# Complex structures as JSON (for Patreon cookies and headers)
+COOKIES={"patreon_device_id":"your_device_id"}
+HEADERS={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"}
 ```
 
 2. Replace all placeholder values with your actual credentials
+
+The configuration is loaded in `config.py` using the `python-dotenv` package, which reads these environment variables from the `.env` file.
 
 ## Step 7: Running the Bot
 
@@ -223,7 +215,7 @@ sudo systemctl start cognita.service
 ### Common Issues
 
 1. **Database Connection Errors**:
-   - Verify your database credentials in `secrets.py`
+   - Verify your database credentials in the `.env` file
    - Check that PostgreSQL is running
    - Ensure SSL certificates are correctly configured
 
@@ -242,7 +234,7 @@ sudo systemctl start cognita.service
 
 ### Logs
 
-Check the log file specified in your `secrets.py` configuration for detailed error information.
+Check the log file in the `logs` directory (specified by the `LOGFILE` environment variable in your `.env` file) for detailed error information.
 
 ## Updating the Bot
 
