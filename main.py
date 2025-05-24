@@ -78,7 +78,7 @@ class Cognita(commands.Bot):
         # Initialize error telemetry table
         try:
             # Use a longer timeout (5 minutes) for error telemetry table initialization
-            await self.db.execute_script("utils/error_telemetry.sql", timeout=300.0)
+            await self.db.execute_script("database/error_telemetry.sql", timeout=300.0)
             logging.info("Error telemetry table initialized successfully")
         except Exception as e:
             error_details = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
