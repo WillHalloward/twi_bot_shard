@@ -233,8 +233,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         if supported:
             menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title="")
             for channel in self.repost_cache:
-                if channel['guild_id'] == interaction.guild_id:
-                    menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+                if channel.guild_id == interaction.guild_id:
+                    menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel.channel_name}", value=channel.channel_id))
             await interaction.response.send_message("I found an attachment, please select where to repost it", ephemeral=True, view=menu)
             menu.message = await interaction.original_response()
             if not await menu.wait() and menu.channel_select.values:
@@ -302,8 +302,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         work = AO3.Work(AO3.utils.workid_from_url(url))
         menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=f"{work.title} - **AO3**")
         for channel in self.repost_cache:
-            if channel['guild_id'] == interaction.guild_id:
-                menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+            if channel.guild_id == interaction.guild_id:
+                menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel.channel_name}", value=channel.channel_id))
         await interaction.response.send_message("I found an AO3 link, please select where to repost it", ephemeral=True, view=menu)
         menu.message = await interaction.original_response()
         if not await menu.wait() and menu.channel_select.values:
@@ -340,8 +340,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             author = tweet_content['author']
             menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=f"{author['name']} - **Twitter**")
             for channel in self.repost_cache:
-                if channel['guild_id'] == interaction.guild_id:
-                    menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+                if channel.guild_id == interaction.guild_id:
+                    menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel.channel_name}", value=channel.channel_id))
             await interaction.response.send_message("I found an Tweet, please select where to repost it", ephemeral=True, view=menu)
             menu.message = await interaction.original_response()
             tweet.run()
@@ -393,8 +393,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     async def repost_text(self, interaction: discord.Interaction, message: discord.Message) -> None:
         menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=f"", description_item=message.content)
         for channel in self.repost_cache:
-            if channel['guild_id'] == interaction.guild_id:
-                menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel['channel_name']}", value=channel['channel_id']))
+            if channel.guild_id == interaction.guild_id:
+                menu.channel_select.append_option(option=discord.SelectOption(label=f"#{channel.channel_name}", value=channel.channel_id))
         await interaction.response.send_message("I found a text message, please select where to repost it", ephemeral=True, view=menu)
         menu.message = await interaction.original_response()
         if not await menu.wait() and menu.channel_select.values:
@@ -417,8 +417,8 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
             max_file_size = 8 * 1024 * 1024  # 8 MB
         menu = RepostMenu(jump_url=message.jump_url, mention=message.author.mention, title=f"Discord File")
         for channel in self.repost_cache:
-            if channel['guild_id'] == interaction.guild_id:
-                menu.channel_select.add_option(label=f"#{channel['channel_name']}", value=channel['channel_id'])
+            if channel.guild_id == interaction.guild_id:
+                menu.channel_select.add_option(label=f"#{channel.channel_name}", value=channel.channel_id)
         await interaction.response.send_message("I found a discord file, please select where to repost it", ephemeral=True, view=menu)
         os.makedirs(f"{interaction.guild_id}_temp_files", exist_ok=True)
         urls = re.findall(discord_file_pattern, message.content)
