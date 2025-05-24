@@ -247,6 +247,10 @@ async def main():
     discord_logger = logging.getLogger('discord')
     discord_logger.setLevel(secrets.logging_level)
 
+    # Clear any existing handlers to prevent duplicate logging
+    root_logger.handlers.clear()
+    discord_logger.handlers.clear()
+
     # Create handler for file logging
     handler = logging.handlers.RotatingFileHandler(
         filename=f'{secrets.logfile}.log',
@@ -264,11 +268,10 @@ async def main():
     handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
 
-    # Add handlers to loggers
+    # Add handlers to root logger only
+    # Child loggers (like discord_logger) will inherit handlers from root
     root_logger.addHandler(handler)
     root_logger.addHandler(console_handler)
-    discord_logger.addHandler(handler)
-    discord_logger.addHandler(console_handler)
 
     root_logger.info("Logging started...")
 
