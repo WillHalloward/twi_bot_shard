@@ -3,7 +3,7 @@ name = "twi-bot-shard"
 version = "0.1.0"
 description = "A Discord bot designed for 'The Wandering Inn' server"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = "==3.12.9"
 dependencies = [
     "aiohttp>=3.10.7",
     "discord>=2.3.2",
