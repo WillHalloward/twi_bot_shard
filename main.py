@@ -13,7 +13,7 @@ import discord
 from aiohttp import ClientSession
 from discord.ext import commands
 
-import config as secrets
+import config
 from utils.error_handling import handle_global_command_error
 import sys
 
@@ -270,11 +270,11 @@ class Cognita(commands.Bot):
 async def main():
     # Configure root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(secrets.logging_level)
+    root_logger.setLevel(config.logging_level)
 
     # Configure discord logger
     discord_logger = logging.getLogger('discord')
-    discord_logger.setLevel(secrets.logging_level)
+    discord_logger.setLevel(config.logging_level)
 
     # Clear any existing handlers to prevent duplicate logging
     root_logger.handlers.clear()
@@ -285,7 +285,7 @@ async def main():
     # Ensure logs directory exists
     os.makedirs("logs", exist_ok=True)
     handler = logging.handlers.RotatingFileHandler(
-        filename=os.path.join("logs", f'{secrets.logfile}.log'),
+        filename=os.path.join("logs", f'{config.logfile}.log'),
         encoding='utf-8',
         maxBytes=32 * 1024 * 1024,
         backupCount=10
@@ -293,7 +293,7 @@ async def main():
 
     # Create console handler for stdout
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(secrets.logging_level)
+    console_handler.setLevel(config.logging_level)
 
     # Create formatter that includes detailed information
     formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message} :{lineno}', datefmt='%Y-%m-%d %H:%M:%S', style='{')
@@ -308,8 +308,8 @@ async def main():
     root_logger.info("Logging started...")
 
     # Log the KILL_AFTER setting
-    if secrets.kill_after > 0:
-        root_logger.info(f"Bot will automatically exit after {secrets.kill_after} seconds")
+    if config.kill_after > 0:
+        root_logger.info(f"Bot will automatically exit after {config.kill_after} seconds")
 
     context = ssl.create_default_context()
     context.check_hostname = False
@@ -317,10 +317,10 @@ async def main():
     context.load_cert_chain(f"ssl-cert/client-cert.pem", f"ssl-cert/client-key.pem")
 
     async with ClientSession() as our_client, asyncpg.create_pool(
-            database=secrets.database,
-            user=secrets.DB_user,
-            password=secrets.DB_password,
-            host=secrets.host,
+            database=config.database,
+            user=config.DB_user,
+            password=config.DB_password,
+            host=config.host,
             ssl=context,
             command_timeout=300,
             min_size=5,           # Minimum number of connections
@@ -340,16 +340,16 @@ async def main():
                 intents=intents
         ) as bot:
             # Set up auto-kill task if enabled
-            if secrets.kill_after > 0:
+            if config.kill_after > 0:
                 async def kill_bot_after_delay():
-                    await asyncio.sleep(secrets.kill_after)
-                    root_logger.info(f"Auto-kill triggered after {secrets.kill_after} seconds")
+                    await asyncio.sleep(config.kill_after)
+                    root_logger.info(f"Auto-kill triggered after {config.kill_after} seconds")
                     await bot.close()
                     exit(1)
 
                 # Schedule the kill task
                 bot.loop.create_task(kill_bot_after_delay())
-            await bot.start(secrets.bot_token)
+            await bot.start(config.bot_token)
 
 
 asyncio.run(main())

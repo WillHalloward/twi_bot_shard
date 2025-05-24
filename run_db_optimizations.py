@@ -5,7 +5,7 @@ import traceback
 import sys
 
 import asyncpg
-import config as secrets
+import config
 from utils.db import Database
 
 async def run_optimizations():
@@ -31,10 +31,10 @@ async def run_optimizations():
     try:
         logger.info("Connecting to database...")
         pool = await asyncpg.create_pool(
-            database=secrets.database,
-            user=secrets.DB_user,
-            password=secrets.DB_password,
-            host=secrets.host,
+            database=config.database,
+            user=config.DB_user,
+            password=config.DB_password,
+            host=config.host,
             ssl=context,
             command_timeout=600,  # 10 minutes timeout
             min_size=1,

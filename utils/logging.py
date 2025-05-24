@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 import structlog
 from structlog.stdlib import LoggerFactory
 
-import config as secrets
+import config
 
 # Configure standard logging
 def configure_stdlib_logging(log_level: int = logging.INFO, log_file: Optional[str] = None) -> None:
@@ -75,14 +75,14 @@ def init_logging(log_level: int = None, log_file: Optional[str] = None) -> struc
     """Initialize logging with both stdlib and structlog.
 
     Args:
-        log_level: The logging level to use. Defaults to the level in secrets.
-        log_file: Optional path to a log file. Defaults to the file in secrets.
+        log_level: The logging level to use. Defaults to the level in config.
+        log_file: Optional path to a log file. Defaults to the file in config.
 
     Returns:
         A structlog logger instance.
     """
-    level = log_level or getattr(secrets, "logging_level", logging.INFO)
-    file = log_file or getattr(secrets, "logfile", None)
+    level = log_level or getattr(config, "logging_level", logging.INFO)
+    file = log_file or getattr(config, "logfile", None)
 
     configure_stdlib_logging(level, file)
     configure_structlog()
