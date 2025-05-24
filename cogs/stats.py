@@ -9,63 +9,90 @@ from discord.ext import commands
 from discord.ext import tasks
 from discord.ext.commands import Cog
 
-import secrets
-
-
-def admin_or_me_check(ctx):
-    role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
-    if ctx.message.author.id == 268608466690506753:
-        return True
-    elif role in ctx.message.author.roles:
-        return True
-    else:
-        return False
+import config as secrets
+from utils.permissions import admin_or_me_check, admin_or_me_check_wrapper, app_admin_or_me_check
 
 
 async def save_reaction(self, reaction: discord.Reaction):
     try:
-        if reaction.is_custom_emoji():
-            for user in [user async for user in reaction.users()]:
-                await self.bot.db.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
-                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE",
-                                              None, reaction.message.id, user.id,
-                                              reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id,
-                                              f"https://cdn.discordapp.com/emojis/{reaction.emoji.id}.{'gif' if reaction.emoji.animated else 'png'}",
-                                              datetime.now().replace(tzinfo=None), reaction.is_custom_emoji())
-        elif isinstance(reaction.emoji, str):
-            for user in [user async for user in reaction.users()]:
-                await self.bot.db.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
-                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE",
-                                              reaction.emoji, reaction.message.id, user.id,
-                                              None, False, None, None, datetime.now().replace(tzinfo=None), False)
-        else:
-            for user in [user async for user in reaction.users()]:
-                await self.bot.db.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
-                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE",
-                                              reaction.emoji.name, reaction.message.id, user.id,
-                                              reaction.emoji.name, None, None,
-                                              None, datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
+        # Get all users who reacted
+        users = [user async for user in reaction.users()]
+
+        if not users:
+            return
+
+        current_time = datetime.now().replace(tzinfo=None)
+
+        # Prepare batch data based on emoji type using pattern matching
+        match reaction.emoji:
+            case str() as emoji_str:
+                # String emoji (Unicode emoji)
+                reaction_data = [
+                    (emoji_str, reaction.message.id, user.id, None, False, None, None, current_time, False)
+                    for user in users
+                ]
+
+                # Execute batch insert
+                await self.bot.db.execute_many(
+                    """
+                    INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
+                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                    ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
+                    """,
+                    reaction_data
+                )
+
+            case _ if reaction.is_custom_emoji():
+                # Custom emoji
+                reaction_data = [
+                    (None, reaction.message.id, user.id, reaction.emoji.name, reaction.emoji.animated, 
+                     reaction.emoji.id, f"https://cdn.discordapp.com/emojis/{reaction.emoji.id}.{'gif' if reaction.emoji.animated else 'png'}", 
+                     current_time, reaction.is_custom_emoji())
+                    for user in users
+                ]
+
+                # Execute batch insert
+                await self.bot.db.execute_many(
+                    """
+                    INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
+                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                    ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
+                    """,
+                    reaction_data
+                )
+
+            case _:
+                # Fallback for other emoji types
+                reaction_data = [
+                    (reaction.emoji.name, reaction.message.id, user.id, reaction.emoji.name, None, None, None, current_time, reaction.emoji.is_custom_emoji())
+                    for user in users
+                ]
+
+                # Execute batch insert
+                await self.bot.db.execute_many(
+                    """
+                    INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
+                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                    ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE
+                    """,
+                    reaction_data
+                )
+
     except Exception as e:
-        logging.error(f"Failed to insert reaction into db. {e}")
+        logging.error(f"Failed to batch insert reactions into db: {e}")
 
 
 async def save_message(self, message):
+    # Prepare data for batch operations
+    mentions = []
     for mention in message.mentions:
-        await self.bot.db.execute("INSERT INTO mentions(message_id, user_mention) VALUES ($1,$2)",
-                                      message.id, mention.id)
+        mentions.append((message.id, mention.id))
 
+    role_mentions = []
     for role_mention in message.role_mentions:
-        await self.bot.db.execute("INSERT INTO mentions(message_id, role_mention) VALUES ($1,$2)",
-                                      message.id, role_mention.id)
+        role_mentions.append((message.id, role_mention.id))
 
-    # if message.attachments:
-    #     for attachment in message.attachments:
-    #         await self.bot.db.execute("INSERT INTO attachments "
-    #                                       "VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
-    #                                       attachment.id, attachment.filename, attachment.url,
-    #                                       attachment.size, attachment.height, attachment.width,
-    #                                       attachment.is_spoiler(), message.id)
-
+    # Process reactions if any
     if message.reactions:
         for reaction in message.reactions:
             await save_reaction(self, reaction)
@@ -80,34 +107,91 @@ async def save_message(self, message):
     except AttributeError:
         reference = None
 
-    try:
-        await self.bot.db.execute(
+    # Prepare statements if not already prepared
+    if not hasattr(self, 'save_message_stmt'):
+        self.save_message_stmt = await self.bot.db.prepare_statement(
+            "save_message",
             "INSERT INTO messages(message_id, created_at, content, user_name, server_name, server_id, channel_id, "
             "channel_name, user_id, user_nick, jump_url, is_bot, deleted, reference) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
-            message.id, message.created_at.replace(tzinfo=None), message.content, message.author.name,
-            message.guild.name,
-            message.guild.id, message.channel.id, message.channel.name,
-            message.author.id, nick,
-            message.jump_url, message.author.bot, False, reference)
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)"
+        )
+
+    if not hasattr(self, 'save_user_stmt'):
+        self.save_user_stmt = await self.bot.db.prepare_statement(
+            "save_user",
+            "INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4)"
+        )
+
+    if not hasattr(self, 'save_user_mention_stmt'):
+        self.save_user_mention_stmt = await self.bot.db.prepare_statement(
+            "save_user_mention",
+            "INSERT INTO mentions(message_id, user_mention) VALUES ($1,$2)"
+        )
+
+    if not hasattr(self, 'save_role_mention_stmt'):
+        self.save_role_mention_stmt = await self.bot.db.prepare_statement(
+            "save_role_mention",
+            "INSERT INTO mentions(message_id, role_mention) VALUES ($1,$2)"
+        )
+
+    # Use transaction for related operations
+    try:
+        async with self.bot.db.transaction():
+            # Insert message using prepared statement
+            await self.save_message_stmt.execute(
+                message.id, message.created_at.replace(tzinfo=None), message.content, message.author.name,
+                message.guild.name, message.guild.id, message.channel.id, message.channel.name,
+                message.author.id, nick, message.jump_url, message.author.bot, False, reference
+            )
+
+            # Batch insert mentions if any
+            if mentions:
+                await self.bot.db.execute_many(
+                    "INSERT INTO mentions(message_id, user_mention) VALUES ($1,$2)",
+                    mentions
+                )
+
+            # Batch insert role mentions if any
+            if role_mentions:
+                await self.bot.db.execute_many(
+                    "INSERT INTO mentions(message_id, role_mention) VALUES ($1,$2)",
+                    role_mentions
+                )
     except asyncpg.exceptions.UniqueViolationError:
         logging.error(f"{message.id} already in DB")
     except asyncpg.exceptions.ForeignKeyViolationError as e:
         logging.error(f"{e}")
-        await self.bot.db.execute(
-            "INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4)",
-            message.author.id, message.author.created_at.replace(tzinfo=None), message.author.bot,
-            message.author.name
-        )
-        await self.bot.db.execute(
-            "INSERT INTO messages(message_id, created_at, content, user_name, server_name, server_id, channel_id, "
-            "channel_name, user_id, user_nick, jump_url, is_bot, deleted, reference) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
-            message.id, message.created_at.replace(tzinfo=None), message.content, message.author.name,
-            message.guild.name,
-            message.guild.id, message.channel.id, message.channel.name,
-            message.author.id, nick,
-            message.jump_url, message.author.bot, False, reference)
+        # If user doesn't exist, create it and then insert the message
+        try:
+            async with self.bot.db.transaction():
+                # Insert user using prepared statement
+                await self.save_user_stmt.execute(
+                    message.author.id, message.author.created_at.replace(tzinfo=None), 
+                    message.author.bot, message.author.name
+                )
+
+                # Insert message using prepared statement
+                await self.save_message_stmt.execute(
+                    message.id, message.created_at.replace(tzinfo=None), message.content, message.author.name,
+                    message.guild.name, message.guild.id, message.channel.id, message.channel.name,
+                    message.author.id, nick, message.jump_url, message.author.bot, False, reference
+                )
+
+                # Batch insert mentions if any
+                if mentions:
+                    await self.bot.db.execute_many(
+                        "INSERT INTO mentions(message_id, user_mention) VALUES ($1,$2)",
+                        mentions
+                    )
+
+                # Batch insert role mentions if any
+                if role_mentions:
+                    await self.bot.db.execute_many(
+                        "INSERT INTO mentions(message_id, role_mention) VALUES ($1,$2)",
+                        role_mentions
+                    )
+        except Exception as e:
+            logging.error(f"Error saving message after user creation: {e}")
 
 
 class StatsCogs(commands.Cog, name="stats"):
@@ -128,30 +212,53 @@ class StatsCogs(commands.Cog, name="stats"):
             for guild in self.bot.guilds:
                 logging.info(f"Fetching members list")
                 members_list = guild.members
-                user_ids = await self.bot.db.fetch("SELECT user_id FROM users")
-                flat_user_ids = [item for sublist in user_ids for item in sublist]
-                user_memberships = await self.bot.db.fetch("SELECT user_id FROM server_membership")
-                flat_user_memberships = [item for sublist in user_memberships for item in sublist]
+
+                # Get all member IDs for this batch
+                member_ids = [member.id for member in members_list]
+
+                # Query only the relevant user IDs in a single query
+                existing_user_ids = await self.bot.db.fetch(
+                    "SELECT user_id FROM users WHERE user_id = ANY($1)",
+                    member_ids
+                )
+                existing_user_ids_set = {row['user_id'] for row in existing_user_ids}
+
+                # Query only the relevant membership IDs in a single query
+                existing_memberships = await self.bot.db.fetch(
+                    "SELECT user_id FROM server_membership WHERE user_id = ANY($1) AND server_id = $2",
+                    member_ids, guild.id
+                )
+                existing_memberships_set = {row['user_id'] for row in existing_memberships}
+
+                # Prepare batch operations
+                users_to_add = []
+                memberships_to_add = []
+
                 for member in members_list:
-                    if member.id not in flat_user_ids:
-                        await self.bot.db.execute("INSERT INTO "
-                                                      "users(user_id, created_at, bot, username) "
-                                                      "VALUES($1,$2,$3,$4)",
-                                                      member.id, member.created_at.replace(tzinfo=None), member.bot,
-                                                      member.name)
-                        await self.bot.db.execute(
-                            "INSERT INTO server_membership(user_id, server_id) VALUES ($1,$2)",
-                            member.id, member.guild.id)
+                    if member.id not in existing_user_ids_set:
+                        users_to_add.append((
+                            member.id, 
+                            member.created_at.replace(tzinfo=None), 
+                            member.bot,
+                            member.name
+                        ))
+                        memberships_to_add.append((member.id, member.guild.id))
                         logging.info(f"Added {member.name} - {member.id}")
-                    elif member.id not in flat_user_memberships:
-                        try:
-                            await self.bot.db.execute(
-                                "INSERT INTO server_membership(user_id, server_id) VALUES ($1,$2)",
-                                member.id, member.guild.id)
-                        except asyncpg.UniqueViolationError:
-                            pass
-                    else:
-                        pass
+                    elif member.id not in existing_memberships_set:
+                        memberships_to_add.append((member.id, member.guild.id))
+
+                # Execute batch operations
+                if users_to_add:
+                    await self.bot.db.execute_many(
+                        "INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4)",
+                        users_to_add
+                    )
+
+                if memberships_to_add:
+                    await self.bot.db.execute_many(
+                        "INSERT INTO server_membership(user_id, server_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",
+                        memberships_to_add
+                    )
         except Exception as e:
             logging.exception(f'{type(e).__name__} - {e}')
         await ctx.send("Done!")
@@ -352,55 +459,90 @@ class StatsCogs(commands.Cog, name="stats"):
         logging.info(f"starting save")
         for guild in self.bot.guilds:
             logging.debug(f"{guild=}")
-            for channel in guild.text_channels:
+
+            # Get all text channels with read permissions
+            accessible_channels = [
+                channel for channel in guild.text_channels 
+                if channel.permissions_for(channel.guild.me).read_message_history
+            ]
+
+            if not accessible_channels:
+                logging.info(f"No accessible channels found in guild {guild.name}")
+                continue
+
+            # Get channel IDs
+            channel_ids = [channel.id for channel in accessible_channels]
+
+            # Batch query for last messages in all channels
+            last_messages = await self.bot.db.fetch(
+                'SELECT channel_id, MAX(created_at) AS created_at FROM messages WHERE channel_id = ANY($1) GROUP BY channel_id',
+                channel_ids
+            )
+
+            # Create a dictionary for quick lookup
+            last_message_dict = {row['channel_id']: row['created_at'] for row in last_messages}
+
+            # Default date for channels with no messages
+            default_date = datetime.strptime('2015-01-01', '%Y-%m-%d')
+
+            # Process each channel with the pre-fetched data
+            for channel in accessible_channels:
                 logging.debug(f"{channel=}")
                 logging.info(f"Starting with {channel.name}")
-                if channel.permissions_for(channel.guild.me).read_message_history:
-                    last_message = await self.bot.db.fetchrow(
-                        'SELECT created_at FROM messages WHERE channel_id = $1 ORDER BY message_id DESC LIMIT 1',
-                        channel.id)
-                    logging.debug(f"Fetching done. found {last_message}")
-                    if last_message is None:
-                        logging.debug("No last row found")
-                        first = datetime.strptime('2015-01-01', '%Y-%m-%d')
-                    else:
-                        logging.debug("Last row found")
-                        first = last_message['created_at']
-                    logging.info(f"Last message at {first}")
-                    count = 0
-                    async for message in channel.history(limit=None, after=first, oldest_first=True):
-                        logging.debug(f"Saving {message.id} to database")
-                        count += 1
-                        await save_message(self, message)
-                        await asyncio.sleep(0.05)
-                    logging.info(f"{channel.name} Done. saved {count} messages")
-                else:
-                    logging.info(f"I was not allowed access to {channel.name}")
+
+                # Get the last message date or use default
+                first = last_message_dict.get(channel.id, default_date)
+                logging.info(f"Last message at {first}")
+
+                count = 0
+                async for message in channel.history(limit=None, after=first, oldest_first=True):
+                    logging.debug(f"Saving {message.id} to database")
+                    count += 1
+                    await save_message(self, message)
+                logging.info(f"{channel.name} Done. saved {count} messages")
             logging.info("\n\nStarting with threads\n")
-            for thread in guild.threads:
+
+            # Get all threads with read permissions
+            accessible_threads = [
+                thread for thread in guild.threads 
+                if thread.permissions_for(thread.guild.me).read_message_history
+            ]
+
+            if not accessible_threads:
+                logging.info(f"No accessible threads found in guild {guild.name}")
+                continue
+
+            # Get thread IDs
+            thread_ids = [thread.id for thread in accessible_threads]
+
+            # Batch query for last messages in all threads
+            last_thread_messages = await self.bot.db.fetch(
+                'SELECT channel_id, MAX(created_at) AS created_at FROM messages WHERE channel_id = ANY($1) GROUP BY channel_id',
+                thread_ids
+            )
+
+            # Create a dictionary for quick lookup
+            last_thread_message_dict = {row['channel_id']: row['created_at'] for row in last_thread_messages}
+
+            # Default date for threads with no messages
+            default_date = datetime.strptime('2015-01-01', '%Y-%m-%d')
+
+            # Process each thread with the pre-fetched data
+            for thread in accessible_threads:
                 logging.debug(f"{thread=}")
                 logging.info(f"Starting with {thread.name}")
-                if thread.permissions_for(thread.guild.me).read_message_history:
-                    last_message = await self.bot.db.fetchrow(
-                        'SELECT created_at FROM messages WHERE channel_id = $1 ORDER BY message_id DESC LIMIT 1',
-                        thread.id)
-                    logging.debug(f"Fetching done. found {last_message}")
-                    if last_message is None:
-                        logging.debug("No last row found")
-                        first = datetime.strptime('2015-01-01', '%Y-%m-%d')
-                    else:
-                        logging.debug("Last row found")
-                        first = last_message['created_at']
-                    logging.info(f"Last message at {first}")
-                    count = 0
-                    async for message in thread.history(limit=None, after=first, oldest_first=True):
-                        logging.debug(f"Saving {message.id} to database")
-                        count += 1
-                        await save_message(self, message)
-                        await asyncio.sleep(0.05)
-                    logging.info(f"{thread.name} Done. saved {count} messages")
-                else:
-                    logging.info(f"I was not allowed access to {thread.name}")
+
+                # Get the last message date or use default
+                first = last_thread_message_dict.get(thread.id, default_date)
+                logging.info(f"Last message at {first}")
+
+                count = 0
+                async for message in thread.history(limit=None, after=first, oldest_first=True):
+                    logging.debug(f"Saving {message.id} to database")
+                    count += 1
+                    await save_message(self, message)
+                    await asyncio.sleep(0.05)
+                logging.info(f"{thread.name} Done. saved {count} messages")
         logging.info("!save completed")
         owner = self.bot.get_user(self.bot.owner_id)
         if owner is not None:
@@ -455,40 +597,82 @@ class StatsCogs(commands.Cog, name="stats"):
     @Cog.listener("on_raw_reaction_add")
     async def reaction_add(self, reaction):
         try:
-            if reaction.emoji.is_custom_emoji():
-                await self.bot.db.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
-                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE",
-                                              None, reaction.message_id, reaction.user_id,
-                                              reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id,
-                                              f"https://cdn.discordapp.com/emojis/{reaction.emoji.id}.{'gif' if reaction.emoji.animated else 'png'}",
-                                              datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
-            elif isinstance(reaction.emoji, str):
-                await self.bot.db.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
-                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE",
-                                              reaction.emoji, reaction.message_id, reaction.user_id,
-                                              None, False, None, None, datetime.now().replace(tzinfo=None), False)
-            else:
-                await self.bot.db.execute("INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) "
-                                              "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE",
-                                              reaction.emoji.name, reaction.message_id, reaction.user_id,
-                                              reaction.emoji.name, None, None,
-                                              None, datetime.now().replace(tzinfo=None), reaction.emoji.is_custom_emoji())
+            current_time = datetime.now().replace(tzinfo=None)
+
+            # Use transaction for consistency
+            async with self.bot.db.transaction():
+                if reaction.emoji.is_custom_emoji():
+                    await self.bot.db.execute(
+                        """
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                        ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
+                        """,
+                        None, reaction.message_id, reaction.user_id,
+                        reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id,
+                        f"https://cdn.discordapp.com/emojis/{reaction.emoji.id}.{'gif' if reaction.emoji.animated else 'png'}",
+                        current_time, reaction.emoji.is_custom_emoji()
+                    )
+                elif isinstance(reaction.emoji, str):
+                    await self.bot.db.execute(
+                        """
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                        ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
+                        """,
+                        reaction.emoji, reaction.message_id, reaction.user_id,
+                        None, False, None, None, current_time, False
+                    )
+                else:
+                    await self.bot.db.execute(
+                        """
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                        ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE
+                        """,
+                        reaction.emoji.name, reaction.message_id, reaction.user_id,
+                        reaction.emoji.name, None, None,
+                        None, current_time, reaction.emoji.is_custom_emoji()
+                    )
         except Exception as e:
             logging.exception(f"Error: {e} on reaction add")
 
     @Cog.listener("on_raw_reaction_remove")
     async def reaction_remove(self, reaction):
         try:
-            if reaction.emoji.is_custom_emoji():
-                await self.bot.db.execute("UPDATE reactions "
-                                              "SET removed = TRUE "
-                                              "WHERE message_id = $1 AND user_id = $2 AND emoji_id = $3",
-                                              reaction.message_id, reaction.user_id, reaction.emoji.id)
-            else:
-                await self.bot.db.execute("UPDATE reactions "
-                                              "SET removed = TRUE "
-                                              "WHERE message_id = $1 AND user_id = $2 AND unicode_emoji = $3",
-                                              reaction.message_id, reaction.user_id, reaction.emoji.name)
+            # Use transaction for consistency
+            async with self.bot.db.transaction():
+                if reaction.emoji.is_custom_emoji():
+                    await self.bot.db.execute(
+                        """
+                        UPDATE reactions
+                        SET removed = TRUE 
+                        WHERE message_id = $1 AND user_id = $2 AND emoji_id = $3
+                        """,
+                        reaction.message_id, reaction.user_id, reaction.emoji.id
+                    )
+                else:
+                    await self.bot.db.execute(
+                        """
+                        UPDATE reactions
+                        SET removed = TRUE 
+                        WHERE message_id = $1 AND user_id = $2 AND unicode_emoji = $3
+                        """,
+                        reaction.message_id, reaction.user_id, reaction.emoji.name
+                    )
+
+                # Log the removal for analytics
+                await self.bot.db.execute(
+                    """
+                    INSERT INTO updates(updated_table, action, before, after, date, primary_key) 
+                    VALUES($1, $2, $3, $4, $5, $6)
+                    """,
+                    "reactions", "REACTION_REMOVED", 
+                    f"message_id:{reaction.message_id},user_id:{reaction.user_id}", 
+                    "removed=TRUE", 
+                    datetime.now().replace(tzinfo=None),
+                    f"{reaction.message_id}:{reaction.user_id}"
+                )
         except Exception as e:
             logging.error(f"Error: {e} on reaction remove")
 
@@ -852,16 +1036,23 @@ class StatsCogs(commands.Cog, name="stats"):
     async def stats_loop(self):
         logging.info("Starting daily server activity stats gathering")
         message = ""
+
+        # Refresh materialized views before querying them
+        try:
+            await self.bot.db.refresh_materialized_views()
+            logging.info("Refreshed materialized views")
+        except Exception as e:
+            logging.error(f"Failed to refresh materialized views: {e}")
+
+        # Query the materialized view instead of the raw tables
         messages_result = await self.bot.db.fetch(
             """         
-            SELECT COUNT(*) total, string_agg(distinct channel_name::text, ','::text) AS Channel
-            FROM messages 
-            WHERE created_at >= NOW() - INTERVAL '1 DAY' 
-            AND server_id = 346842016480755724 
-            AND is_bot = FALSE
-            GROUP BY channel_id
+            SELECT total, channel_name as "Channel"
+            FROM daily_message_stats
+            WHERE server_id = 346842016480755724
             ORDER BY total DESC
             """)
+
         if not messages_result:
             length = 6
             logging.error(f"No messages found in guild 346842016480755724 during the last {datetime.now() - timedelta(hours=24)} - {datetime.now()}")
@@ -878,17 +1069,17 @@ class StatsCogs(commands.Cog, name="stats"):
             logging.debug(f"Build message {message}")
             for result in messages_result:
                 try:
-                    message += f"{result['total']:<{length}}:: {result['channel']}\n"
+                    message += f"{result['total']:<{length}}:: {result['Channel']}\n"
                 except Exception as e:
                     logging.error(f'{type(e).__name__} - {e}')
             logging.debug("requesting leave/join stats")
+
+        # Query the materialized view for join/leave stats
         user_join_leave_results = await self.bot.db.fetchrow(
             """         
-            SELECT
-            COUNT(*) filter (where join_or_leave = 'JOIN') as "JOIN",
-            COUNT(*) filter (where join_or_leave = 'LEAVE') as "LEAVE"
-            FROM join_leave WHERE date >= NOW() - INTERVAL '1 DAY'
-            AND server_id = 346842016480755724 
+            SELECT joins as "JOIN", leaves as "LEAVE"
+            FROM daily_member_stats
+            WHERE server_id = 346842016480755724
             """)
         logging.debug(f"Found stats {user_join_leave_results}")
         message += f"==== Memeber stats ====\n" \

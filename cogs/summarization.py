@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import secrets
+import config as secrets
 from openai import OpenAI
 
 client = OpenAI(api_key=secrets.openai_api_key)

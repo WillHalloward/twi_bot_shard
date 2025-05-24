@@ -9,7 +9,7 @@ from discord import app_commands, Webhook
 from discord.ext import commands
 from discord.ext.commands import Cog
 
-import secrets
+import config as secrets
 
 
 class ModCogs(commands.Cog):

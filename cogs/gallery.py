@@ -7,23 +7,19 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import re
-import ao3
-from typing import List
 import gallery_dl
+from sqlalchemy import select
+import AO3
+
+from models.tables.gallery import GalleryMementos
+from models.tables.creator_links import CreatorLink
+from utils.db_service import DatabaseService
+from utils.permissions import admin_or_me_check, admin_or_me_check_wrapper, app_admin_or_me_check
 
 ao3_pattern = r'https?://archiveofourown\.org/.*'
 twitter_pattern = r"((?:https?://)?(?:www\.|mobile\.)?(?:(?:[fv]x)?twitter|x)\.com/[^/]+/status/\d+)"
 instagram_pattern = r'https?://www.instagram.com/p/[^/]+'
 discord_file_pattern = r'https?://cdn\.discordapp\.com/attachments/\d+/\d+/[^?\s]+(?:\?.*?)?'
-
-def admin_or_me_check(ctx):
-    role = discord.utils.get(ctx.guild.roles, id=346842813687922689)
-    if ctx.message.author.id == 268608466690506753:
-        return True
-    elif role in ctx.message.author.roles:
-        return True
-    else:
-        return False
 
 
 class RepostModal(discord.ui.Modal, title="Repost"):
@@ -147,11 +143,24 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
         self.bot.tree.add_command(self.repost)
         self.repost_cache = None
 
+        # Create database services
+        self.gallery_service = DatabaseService(GalleryMementos)
+        self.creator_links_service = DatabaseService(CreatorLink)
+
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(self.repost.name, type=self.repost.type)
 
     async def cog_load(self) -> None:
-        self.repost_cache = await self.bot.db.fetch("SELECT * FROM gallery_mementos")
+        # Use SQLAlchemy to load gallery mementos
+        async with await self.bot.get_db_session() as session:
+            # Query gallery mementos
+            stmt = select(GalleryMementos)
+            result = await session.execute(stmt)
+            self.repost_cache = result.scalars().all()
+
+        # Keep the old method as a fallback
+        if not self.repost_cache:
+            self.repost_cache = await self.bot.db.fetch("SELECT * FROM gallery_mementos")
 
     @app_commands.default_permissions(ban_members=True)
     async def repost(self, interaction: discord.Interaction, message: discord.Message) -> None:
@@ -479,16 +488,38 @@ class GalleryCog(commands.Cog, name="Gallery & Mementos"):
     @app_commands.command(
         name="set_repost"
     )
-    @commands.check(admin_or_me_check)
+    @app_commands.check(app_admin_or_me_check)
     async def set_repost(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        if channel.id in [x['channel_id'] for x in self.repost_cache]:
-            await self.bot.db.execute("DELETE FROM gallery_mementos WHERE channel_id = $1", channel.id)
+        async with self.bot.get_db_session() as session:
+            # Check if channel exists in database
+            stmt = select(GalleryMementos).where(GalleryMementos.channel_id == channel.id)
+            result = await session.execute(stmt)
+            existing = result.scalars().first()
+
+            if existing:
+                # Delete existing channel
+                await session.delete(existing)
+                await session.commit()
+                await interaction.response.send_message(f"Removed {channel.mention} from repost channels", ephemeral=True)
+            else:
+                # Add new channel
+                new_channel = GalleryMementos(
+                    channel_name=channel.name,
+                    channel_id=channel.id,
+                    guild_id=channel.guild.id
+                )
+                session.add(new_channel)
+                await session.commit()
+                await interaction.response.send_message(f"Added {channel.mention} to repost channels", ephemeral=True)
+
+            # Refresh cache
+            stmt = select(GalleryMementos)
+            result = await session.execute(stmt)
+            self.repost_cache = result.scalars().all()
+
+        # Keep the old method as a fallback
+        if not self.repost_cache:
             self.repost_cache = await self.bot.db.fetch("SELECT * FROM gallery_mementos")
-            await interaction.response.send_message(f"Removed {channel.mention} from repost channels", ephemeral=True)
-        else:
-            await self.bot.db.execute("INSERT INTO gallery_mementos VALUES ($1, $2, $3)", channel.name, channel.id, channel.guild.id)
-            self.repost_cache = await self.bot.db.fetch("SELECT * FROM gallery_mementos")
-            await interaction.response.send_message(f"Added {channel.mention} to repost channels", ephemeral=True)
 
 
 async def setup(bot):

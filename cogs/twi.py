@@ -10,28 +10,9 @@ from discord import app_commands
 from discord.ext import commands
 from googleapiclient.discovery import build
 from os import remove
-import secrets
+import config as secrets
 from cogs.patreon_poll import fetch
-
-
-def admin_or_me_check(interaction):
-    role = discord.utils.get(interaction.guild.roles, id=346842813687922689)
-    if hasattr(interaction, 'message') and interaction.message is not None:
-        if interaction.message.author.id == 268608466690506753:
-            return True
-        elif role in interaction.message.author.roles:
-            return True
-        else:
-            return False
-    else:
-        # For app commands where interaction.message is None
-        if interaction.user.id == 268608466690506753:
-            return True
-        elif role in interaction.user.roles:
-            return True
-        else:
-            return False
-
+from utils.permissions import admin_or_me_check, admin_or_me_check_wrapper, app_admin_or_me_check
 
 def google_search(search_term, api_key, cse_id, **kwargs):
     service = build("customsearch", "v1", developerKey=api_key)
@@ -44,79 +25,6 @@ def google_search(search_term, api_key, cse_id, **kwargs):
 
 async def is_bot_channel(interaction):
     return interaction.channel.id == 361694671631548417
-
-def add_emblem_to_gif(profile_gif_path, emblem_path, user_id):
-    # Open the gif and the emblem
-    profile_gif = Image.open(profile_gif_path)
-    emblem = Image.open(emblem_path)
-
-    frames = []
-
-    # Resize the emblem to be 1/4 of the GIF
-    width, height = profile_gif.size
-    emblem = emblem.resize((width // 2, height // 2))
-
-    # Calculate the position for the emblem (bottom right of the GIF)
-    position = (0, height - emblem.height)  # this line was modified
-
-    # Loop over each frame in the animated GIF
-    for frame in ImageSequence.Iterator(profile_gif):
-        # Paste the emblem into the frame and append it to our frame list
-        frame.paste(emblem, position, emblem)
-        frames.append(frame)
-
-    # Save frames as new gif
-    frames[0].save(f'emblems/{user_id}_new_profile_gif.gif', save_all=True, append_images=frames[1:], optimize=True, loop=0)
-    os.remove(profile_gif_path)
-    return f'emblems/{user_id}_new_profile_gif.gif'
-
-
-def add_emblem_to_image(profile_image_path, emblem_path, user_id):
-    profile_image = Image.open(profile_image_path)
-    emblem = Image.open(emblem_path)
-    width, height = profile_image.size
-    emblem = emblem.resize((width // 2, height // 2))
-    position = (0, height - emblem.height)
-    profile_image.paste(emblem, position, emblem)
-    new_image_path = f'emblems/{user_id}_new_profile_image.png'
-    profile_image.save(new_image_path)
-    os.remove(profile_image_path)
-    return new_image_path
-
-
-class PersistentView(discord.ui.View):
-    def __init__(self, bot):
-        super().__init__(timeout=None)
-        self.bot = bot
-
-    async def button_action(self, interaction, button_id, emblem_path, message):
-        button_check = await self.bot.db.fetchrow("SELECT * FROM button_action_history WHERE user_id = $1 AND view_id = 1", interaction.user.id)
-        if not button_check or button_check['button_id'] == button_id:
-            await interaction.response.defer()
-            if interaction.user.display_avatar.is_animated():
-                interaction.followup.send("Your visage is animated. unfortunately i can't help you along you path", ephemeral=True)
-                return
-            else:
-                await interaction.user.display_avatar.save(f'emblems/{interaction.user.id}_avatar.png')
-                return_path = add_emblem_to_image(f'emblems/{interaction.user.id}_avatar.png', emblem_path, interaction.user.id)
-            await interaction.followup.send(message, ephemeral=True, file=discord.File(return_path))
-            if not button_check:
-                await self.bot.db.execute("INSERT INTO button_action_history VALUES (default, $1, 1, $2,now(), $3)", interaction.user.id, interaction.guild.id, button_id)
-            remove(return_path)
-        else:
-            await interaction.response.send_message("You have already chosen your path", ephemeral=True)
-
-    @discord.ui.button(label='', style=discord.ButtonStyle.grey, custom_id='persistent_view_button:ghost', emoji="👻")
-    async def ghost_emblem(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.button_action(interaction, 1, 'emblems/ghost.png', 'For your choice, you have received the emblem of the ghosts.')
-
-    @discord.ui.button(label='', style=discord.ButtonStyle.grey, custom_id='persistent_view_button:!?', emoji="⁉️")
-    async def earth_emblem(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.button_action(interaction, 2, 'emblems/earth.png', 'For your choice, you have received the emblem of Earth.')
-
-    @discord.ui.button(label='', style=discord.ButtonStyle.grey, custom_id='persistent_view_button:grave', emoji="🪦")
-    async def undead_emblem(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.button_action(interaction, 3, 'emblems/undead.png', 'For your choice, you have received the emblem of the undead.')
 
 class TwiCog(commands.Cog, name="The Wandering Inn"):
     def __init__(self, bot):
@@ -333,7 +241,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         name="update_password",
         description="Updates the password and link from /password",
     )
-    @commands.check(admin_or_me_check)
+    @app_commands.check(app_admin_or_me_check)
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
     async def update_password(self, interaction: discord.Interaction, password: str, link: str):
@@ -369,12 +277,6 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     #         dup_user = await self.bot.db.fetchrow("SELECT reddit_username FROM twi_reddit WHERE discord_id = $1",
     #                                                   interaction.author.id)
     #         await interaction.response.send_message(f"You are already in the list with username {dup_user['reddit_username']}")
-
-    @app_commands.command(name="create_persistent_button")
-    @commands.is_owner()
-    async def prepare(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Because…I don’t want it. I don’t want people to have that kind of power. To make an army of the ___. For one person to change everything?", view=PersistentView(self.bot))
-
 
 
 async def setup(bot):

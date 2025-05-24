@@ -10,34 +10,18 @@ import random
 import discord
 from discord import app_commands
 from discord.ext import commands
-import lxml
-from openpyxl.utils import get_column_letter
 from openpyxl import load_workbook, Workbook
 
 import AO3
 
-import secrets
-
-session = AO3.Session(secrets.ao3_username, secrets.ao3_password)
-
-
-def admin_or_me_check(interaction):
-    role = discord.utils.get(interaction.guild.roles, id=346842813687922689)
-    if hasattr(interaction, 'message') and interaction.message is not None:
-        if interaction.message.author.id == 268608466690506753:
-            return True
-        elif role in interaction.message.author.roles:
-            return True
-        else:
-            return False
-    else:
-        # For app commands where interaction.message is None
-        if interaction.user.id == 268608466690506753:
-            return True
-        elif role in interaction.user.roles:
-            return True
-        else:
-            return False
+import config as secrets
+from utils.permissions import admin_or_me_check, admin_or_me_check_wrapper, app_admin_or_me_check
+LOGIN_AO3_SUCCESSFUL = False
+try:
+    session = AO3.Session(str(secrets.ao3_username), str(secrets.ao3_password))
+    LOGIN_AO3_SUCCESSFUL = True
+except Exception as e:
+    print(e)
 
 
 async def user_info_function(interaction: discord.Interaction, member: discord.Member):
@@ -373,7 +357,7 @@ class OtherCogs(commands.Cog, name="Other"):
         name="weight",
         description="Changes the weight of a role"
     )
-    @commands.check(admin_or_me_check)
+    @app_commands.check(app_admin_or_me_check)
     async def update_role_weight(self, interaction: discord.Interaction, role: discord.role.Role, new_weight: int):
         await self.bot.db.execute("UPDATE roles set weight = $1 WHERE id = $2 AND guild_id = $3",
                                       new_weight, role.id, interaction.guild.id)
@@ -383,7 +367,7 @@ class OtherCogs(commands.Cog, name="Other"):
         name="add",
         description="Adds a role to the self assign list"
     )
-    @commands.check(admin_or_me_check)
+    @app_commands.check(app_admin_or_me_check)
     async def role_add(self, interaction: discord.Interaction, role: discord.role.Role, category: str = 'Uncategorized', auto_replace: bool = False, required_roles: str = None):
         try:
             if required_roles is not None:
@@ -420,7 +404,7 @@ class OtherCogs(commands.Cog, name="Other"):
         name="remove",
         description="removes a role from the self assign list"
     )
-    @commands.check(admin_or_me_check)
+    @app_commands.check(app_admin_or_me_check)
     async def role_remove(self, interaction: discord.Interaction, role: discord.Role):
         await self.bot.db.execute(
             "UPDATE roles SET self_assignable = FALSE, weight = 0, alias = NULL, category = NULL, required_role = NULL, auto_replace = FALSE "
