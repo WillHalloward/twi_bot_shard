@@ -136,7 +136,7 @@ async def save_message(self, message):
 
     # Use transaction for related operations
     try:
-        async with self.bot.db.transaction():
+        async with await self.bot.db.transaction():
             # Insert message using prepared statement
             await self.save_message_stmt.execute(
                 message.id, message.created_at.replace(tzinfo=None), message.content, message.author.name,
@@ -163,7 +163,7 @@ async def save_message(self, message):
         logging.error(f"{e}")
         # If user doesn't exist, create it and then insert the message
         try:
-            async with self.bot.db.transaction():
+            async with await self.bot.db.transaction():
                 # Insert user using prepared statement
                 await self.save_user_stmt.execute(
                     message.author.id, message.author.created_at.replace(tzinfo=None), 
@@ -600,7 +600,7 @@ class StatsCogs(commands.Cog, name="stats"):
             current_time = datetime.now().replace(tzinfo=None)
 
             # Use transaction for consistency
-            async with self.bot.db.transaction():
+            async with await self.bot.db.transaction():
                 if reaction.emoji.is_custom_emoji():
                     await self.bot.db.execute(
                         """
@@ -641,7 +641,7 @@ class StatsCogs(commands.Cog, name="stats"):
     async def reaction_remove(self, reaction):
         try:
             # Use transaction for consistency
-            async with self.bot.db.transaction():
+            async with await self.bot.db.transaction():
                 if reaction.emoji.is_custom_emoji():
                     await self.bot.db.execute(
                         """

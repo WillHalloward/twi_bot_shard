@@ -4,16 +4,16 @@ This document contains a comprehensive list of actionable improvement tasks for 
 
 ## Architecture Improvements
 
-1. [ ] Standardize database access patterns
-   - [ ] Choose between raw SQL (asyncpg) and SQLAlchemy ORM as the primary database access method
+1. [x] Standardize database access patterns
+   - [x] Choose between raw SQL (asyncpg) and SQLAlchemy ORM as the primary database access method
      - SQLAlchemy has been choosen
-   - [ ] Create migration plan for transitioning existing code to the chosen method
-   - [ ] Document best practices for database access in the project
+   - [x] Create migration plan for transitioning existing code to the chosen method
+   - [x] Document best practices for database access in the project
 
-2. [ ] Implement dependency injection pattern
-   - [ ] Create a service container for managing dependencies
-   - [ ] Refactor cogs to use dependency injection instead of direct instantiation
-   - [ ] Document dependency injection pattern for future development
+2. [x] Implement dependency injection pattern
+   - [x] Create a service container for managing dependencies
+   - [x] Refactor cogs to use dependency injection instead of direct instantiation
+   - [x] Document dependency injection pattern for future development
 
 3. [ ] Modularize configuration management
    - [ ] Create a dedicated configuration module with validation

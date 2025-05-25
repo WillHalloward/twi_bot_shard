@@ -18,7 +18,7 @@ import discord
 from discord.ext import commands
 
 # Import config (but don't use the token)
-import config as secrets
+import config
 
 # Set up logging
 logging.basicConfig(

@@ -64,10 +64,9 @@ queries = [
 await bot.db.execute_in_transaction(queries)
 
 # Or use a transaction context manager
-async with bot.db.pool.acquire() as conn:
-    async with conn.transaction():
-        await conn.execute("INSERT INTO example_table(name, value) VALUES($1, $2)", "example2", 200)
-        await conn.execute("UPDATE example_stats SET count = count + 1")
+async with await bot.db.transaction():
+    await bot.db.execute("INSERT INTO example_table(name, value) VALUES($1, $2)", "example2", 200)
+    await bot.db.execute("UPDATE example_stats SET count = count + 1")
 ```
 
 #### Error Handling
@@ -111,10 +110,10 @@ The database connection pool is configured in `main.py` with the following setti
 
 ```python
 asyncpg.create_pool(
-    database=secrets.database,
-    user=secrets.DB_user,
-    password=secrets.DB_password,
-    host=secrets.host,
+    database=config.database,
+    user=config.DB_user,
+    password=config.DB_password,
+    host=config.host,
     ssl=context,
     command_timeout=300,
     min_size=5,           # Minimum number of connections
@@ -180,7 +179,7 @@ from models.base import Base
 
 class GalleryMementos(Base):
     __tablename__ = "gallery_mementos"
-    
+
     channel_name: Mapped[str] = mapped_column(String(100), primary_key=True)
     channel_id: Mapped[int] = mapped_column(Integer, unique=True)
     guild_id: Mapped[int] = mapped_column(Integer)
@@ -220,16 +219,16 @@ A generic service class that provides CRUD operations for any model:
 class DatabaseService(Generic[T]):
     def __init__(self, model: Type[T]):
         self.model = model
-    
+
     async def create(self, session: AsyncSession, **kwargs) -> T:
         # Create a new record
-        
+
     async def get_by_id(self, session: AsyncSession, id_value: Any) -> Optional[T]:
         # Get a record by primary key
-        
+
     async def get_all(self, session: AsyncSession) -> List[T]:
         # Get all records
-        
+
     # ... other methods
 ```
 
@@ -266,7 +265,7 @@ async def set_repost(self, interaction: discord.Interaction, channel: discord.Te
         stmt = select(GalleryMementos).where(GalleryMementos.channel_id == channel.id)
         result = await session.execute(stmt)
         existing = result.scalars().first()
-        
+
         if existing:
             # Delete existing channel
             await session.delete(existing)
@@ -466,7 +465,7 @@ Added a database maintenance function:
 ##### Transaction Management
 - Improved transaction usage for related operations:
   ```python
-  async with self.bot.db.transaction():
+  async with await self.bot.db.transaction():
       # Multiple database operations that should be atomic
       await self.bot.db.execute("...")
       await self.bot.db.execute("...")
@@ -492,8 +491,11 @@ Added a database maintenance function:
 # Prepare a statement once
 stmt = await db.prepare_statement("get_user", "SELECT * FROM users WHERE user_id = $1")
 
-# Use it multiple times
-user = await stmt.fetchrow(user_id)
+# Use it multiple times with different methods
+user = await stmt.fetchrow(user_id)  # Get a single row
+value = await stmt.fetchval(user_id)  # Get a single value
+all_users = await stmt.fetch(user_id)  # Get all rows
+await stmt.execute(user_id)  # Execute without returning results
 ```
 
 ##### Batch Operations

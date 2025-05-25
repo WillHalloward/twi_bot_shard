@@ -63,7 +63,7 @@ class DatabaseTransaction:
         Returns:
             The transaction context manager instance.
         """
-        self.transaction = self.db.transaction()
+        self.transaction = await self.db.transaction()
         await self.transaction.__aenter__()
         return self
 
@@ -129,12 +129,38 @@ class Database:
             query: The SQL query to prepare.
 
         Returns:
-            The prepared statement.
+            A wrapper around the prepared statement that provides execute, fetchval, fetchrow, and fetch methods.
         """
+        class PreparedStatementWrapper:
+            def __init__(self, db, stmt, query):
+                self.db = db
+                self.stmt = stmt
+                self.query = query
+
+            async def execute(self, *args, **kwargs):
+                """Execute the prepared statement with the given arguments."""
+                async with self.db.pool.acquire() as conn:
+                    return await conn.execute(self.query, *args, **kwargs)
+
+            async def fetchval(self, *args, column=0, **kwargs):
+                """Execute the prepared statement and return a single value."""
+                async with self.db.pool.acquire() as conn:
+                    return await conn.fetchval(self.query, *args, column=column, **kwargs)
+
+            async def fetchrow(self, *args, **kwargs):
+                """Execute the prepared statement and return a single row."""
+                async with self.db.pool.acquire() as conn:
+                    return await conn.fetchrow(self.query, *args, **kwargs)
+
+            async def fetch(self, *args, **kwargs):
+                """Execute the prepared statement and return all rows."""
+                async with self.db.pool.acquire() as conn:
+                    return await conn.fetch(self.query, *args, **kwargs)
+
         if name not in self.prepared_statements:
             async with self.pool.acquire() as conn:
                 stmt = await conn.prepare(query)
-                self.prepared_statements[name] = stmt
+                self.prepared_statements[name] = PreparedStatementWrapper(self, stmt, query)
         return self.prepared_statements[name]
 
     async def execute(
@@ -344,13 +370,34 @@ class Database:
                 self.logger.error(f"Database error: {e}")
                 raise DatabaseError(f"Failed to execute query: {e}") from e
 
-    async def transaction(self) -> asyncpg.transaction.Transaction:
+    async def transaction(self):
         """Start a new transaction.
 
         Returns:
             A transaction object that can be used as a context manager.
+
+        Note:
+            This method returns a custom transaction wrapper that ensures
+            the connection is released when the transaction is done.
         """
-        return self.pool.transaction()
+        class TransactionWrapper:
+            def __init__(self, conn, transaction):
+                self.conn = conn
+                self.transaction = transaction
+
+            async def __aenter__(self):
+                await self.transaction.__aenter__()
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                try:
+                    await self.transaction.__aexit__(exc_type, exc_val, exc_tb)
+                finally:
+                    await self.conn.close()
+
+        conn = await self.pool.acquire()
+        transaction = conn.transaction()
+        return TransactionWrapper(conn, transaction)
 
     async def execute_in_transaction(
         self, 
