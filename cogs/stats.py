@@ -474,8 +474,18 @@ class StatsCogs(commands.Cog, name="stats"):
             channel_ids = [channel.id for channel in accessible_channels]
 
             # Batch query for last messages in all channels
+            # Using a more efficient query with JOIN instead of ANY operator
             last_messages = await self.bot.db.fetch(
-                'SELECT channel_id, MAX(created_at) AS created_at FROM messages WHERE channel_id = ANY($1) GROUP BY channel_id',
+                '''
+                SELECT m.channel_id, m.created_at
+                FROM messages m
+                INNER JOIN (
+                    SELECT channel_id, MAX(created_at) AS max_created_at
+                    FROM messages
+                    WHERE channel_id = ANY($1)
+                    GROUP BY channel_id
+                ) sub ON m.channel_id = sub.channel_id AND m.created_at = sub.max_created_at
+                ''',
                 channel_ids
             )
 
@@ -516,8 +526,18 @@ class StatsCogs(commands.Cog, name="stats"):
             thread_ids = [thread.id for thread in accessible_threads]
 
             # Batch query for last messages in all threads
+            # Using a more efficient query with JOIN instead of ANY operator
             last_thread_messages = await self.bot.db.fetch(
-                'SELECT channel_id, MAX(created_at) AS created_at FROM messages WHERE channel_id = ANY($1) GROUP BY channel_id',
+                '''
+                SELECT m.channel_id, m.created_at
+                FROM messages m
+                INNER JOIN (
+                    SELECT channel_id, MAX(created_at) AS max_created_at
+                    FROM messages
+                    WHERE channel_id = ANY($1)
+                    GROUP BY channel_id
+                ) sub ON m.channel_id = sub.channel_id AND m.created_at = sub.max_created_at
+                ''',
                 thread_ids
             )
 
