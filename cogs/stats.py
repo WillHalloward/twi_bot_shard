@@ -500,7 +500,7 @@ class StatsCogs(commands.Cog, name="stats"):
                     count += 1
                     await save_message(self, message)
                 logging.info(f"{channel.name} Done. saved {count} messages")
-            logging.info("\n\nStarting with threads\n")
+            logging.info("starting with threads\n")
 
             # Get all threads with read permissions
             accessible_threads = [
