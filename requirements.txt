@@ -129,7 +129,7 @@ pyparsing==3.2.3
     # via httplib2
 python-dotenv==1.1.0
     # via twi-bot-shard (pyproject.toml)
-requests==2.32.3
+requests==2.32.4
     # via
     #   ao3-api
     #   gallery-dl
