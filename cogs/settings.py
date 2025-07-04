@@ -20,35 +20,40 @@ class SettingsCog(commands.Cog, name="Settings"):
     async def _init_db(self):
         """Initialize the database table for server settings"""
         try:
-            await self.bot.db.execute("""
+            await self.bot.db.execute(
+                """
                 CREATE TABLE IF NOT EXISTS server_settings (
                     guild_id BIGINT PRIMARY KEY,
                     admin_role_id BIGINT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             logging.info("Server settings table initialized successfully")
         except Exception as e:
             logging.error(f"Failed to initialize server settings table: {e}")
 
     @app_commands.command(
-        name="set_admin_role",
-        description="Set the admin role for this server"
+        name="set_admin_role", description="Set the admin role for this server"
     )
     @app_commands.default_permissions(administrator=True)
     @handle_interaction_errors
-    async def set_admin_role(self, interaction: discord.Interaction, role: discord.Role):
+    async def set_admin_role(
+        self, interaction: discord.Interaction, role: discord.Role
+    ):
         """Set the admin role for the server"""
         if not interaction.guild:
-            await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+            await interaction.response.send_message(
+                "This command can only be used in a server.", ephemeral=True
+            )
             return
 
         try:
             # Check if a record exists for this guild
             existing = await self.bot.db.fetchval(
                 "SELECT admin_role_id FROM server_settings WHERE guild_id = $1",
-                interaction.guild.id
+                interaction.guild.id,
             )
 
             if existing:
@@ -59,7 +64,8 @@ class SettingsCog(commands.Cog, name="Settings"):
                     SET admin_role_id = $1, updated_at = CURRENT_TIMESTAMP
                     WHERE guild_id = $2
                     """,
-                    role.id, interaction.guild.id
+                    role.id,
+                    interaction.guild.id,
                 )
             else:
                 # Insert new record
@@ -68,7 +74,8 @@ class SettingsCog(commands.Cog, name="Settings"):
                     INSERT INTO server_settings (guild_id, admin_role_id)
                     VALUES ($1, $2)
                     """,
-                    interaction.guild.id, role.id
+                    interaction.guild.id,
+                    role.id,
                 )
 
             await interaction.response.send_message(
@@ -81,32 +88,34 @@ class SettingsCog(commands.Cog, name="Settings"):
             )
 
     @app_commands.command(
-        name="get_admin_role",
-        description="Get the current admin role for this server"
+        name="get_admin_role", description="Get the current admin role for this server"
     )
     @handle_interaction_errors
     async def get_admin_role(self, interaction: discord.Interaction):
         """Get the current admin role for the server"""
         if not interaction.guild:
-            await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+            await interaction.response.send_message(
+                "This command can only be used in a server.", ephemeral=True
+            )
             return
 
         try:
             admin_role_id = await self.bot.db.fetchval(
                 "SELECT admin_role_id FROM server_settings WHERE guild_id = $1",
-                interaction.guild.id
+                interaction.guild.id,
             )
 
             if admin_role_id:
                 role = interaction.guild.get_role(admin_role_id)
                 if role:
                     await interaction.response.send_message(
-                        f"The admin role for this server is {role.mention}.", ephemeral=True
+                        f"The admin role for this server is {role.mention}.",
+                        ephemeral=True,
                     )
                 else:
                     await interaction.response.send_message(
-                        f"The admin role (ID: {admin_role_id}) could not be found. It may have been deleted.", 
-                        ephemeral=True
+                        f"The admin role (ID: {admin_role_id}) could not be found. It may have been deleted.",
+                        ephemeral=True,
                     )
             else:
                 await interaction.response.send_message(
@@ -132,20 +141,20 @@ class SettingsCog(commands.Cog, name="Settings"):
         Returns:
             bool: True if the user is an admin or the bot owner, False otherwise
         """
-        # Check if user is the bot owner (268608466690506753)
-        if user_id == 268608466690506753:
+        # Check if user is the bot owner
+        if user_id == config.bot_owner_id:
             return True
 
         try:
             # Get the admin role ID for this guild
             admin_role_id = await bot.db.fetchval(
                 "SELECT admin_role_id FROM server_settings WHERE guild_id = $1",
-                guild_id
+                guild_id,
             )
 
-            # If no admin role is set, fall back to the hardcoded role ID
+            # If no admin role is set, fall back to the configured fallback admin role ID
             if not admin_role_id:
-                admin_role_id = 346842813687922689
+                admin_role_id = config.fallback_admin_role_id
 
             # If user_roles is provided, check if admin_role_id is in the list
             if user_roles:
