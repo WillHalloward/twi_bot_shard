@@ -3,6 +3,7 @@ Test script for database connection.
 
 This script tests if the database connection can be established.
 """
+
 import asyncio
 import os
 import sys
@@ -22,6 +23,7 @@ from models.base import Base
 # Use PostgreSQL for testing - this is just for demonstration
 # In a real test, you would use a test database or mock
 TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost/postgres"
+
 
 async def test_db_connection():
     """Test database connection."""
@@ -48,6 +50,7 @@ async def test_db_connection():
         if engine:
             await engine.dispose()
 
+
 async def main():
     """Run the test."""
     result = await test_db_connection()
@@ -56,6 +59,7 @@ async def main():
         print("\nTest passed!")
     else:
         print("\nTest failed.")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

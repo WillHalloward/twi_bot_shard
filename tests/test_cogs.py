@@ -4,6 +4,7 @@ Test script for loading all cogs.
 This script attempts to load all cogs and reports any errors that occur.
 It's useful for testing after making updates to ensure all changes work.
 """
+
 import asyncio
 import os
 import sys
@@ -23,14 +24,16 @@ import config
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
-    format='[%(asctime)s] [%(levelname)s] %(name)s: %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = logging.getLogger('test_cogs')
+logger = logging.getLogger("test_cogs")
+
 
 # Define mock classes for testing
 class MockScalars:
     """Mock for SQLAlchemy's Result.scalars() method."""
+
     def __init__(self, items=None):
         self.items = items or []
 
@@ -42,8 +45,10 @@ class MockScalars:
         """Return the first item or None."""
         return self.items[0] if self.items else None
 
+
 class MockResult:
     """Mock for SQLAlchemy's Result object."""
+
     def __init__(self, items=None):
         self.items = items or []
 
@@ -59,10 +64,12 @@ class MockResult:
         """Return the first item or None."""
         return self.items[0] if self.items else None
 
+
 class MockDatabase:
     """Mock Database class for testing."""
+
     def __init__(self):
-        self.logger = logging.getLogger('mock_database')
+        self.logger = logging.getLogger("mock_database")
         self.pool = None
 
     async def execute(self, query, *args, **kwargs):
@@ -85,8 +92,33 @@ class MockDatabase:
         """Mock execute_script method."""
         return None
 
+    async def execute_many(self, query, data, **kwargs):
+        """Mock execute_many method."""
+        return None
+
+    async def prepare_statement(self, name, query):
+        """Mock prepare_statement method."""
+        from unittest.mock import AsyncMock
+        mock_stmt = AsyncMock()
+        mock_stmt.execute = AsyncMock()
+        return mock_stmt
+
+    async def transaction(self):
+        """Mock transaction method."""
+        from unittest.mock import AsyncMock
+        mock_transaction = AsyncMock()
+        mock_transaction.__aenter__ = AsyncMock()
+        mock_transaction.__aexit__ = AsyncMock()
+        return mock_transaction
+
+    async def refresh_materialized_views(self):
+        """Mock refresh_materialized_views method."""
+        return None
+
+
 class MockAsyncSession:
     """Mock AsyncSession class for testing."""
+
     async def __aenter__(self):
         return self
 
@@ -121,22 +153,26 @@ class MockAsyncSession:
         """Mock fetchval method."""
         return None
 
+
 # Define a test bot class that doesn't connect to Discord
 class TestBot(commands.Bot):
+    __test__ = False  # Tell pytest this is not a test class
+
     def __init__(self):
         # Initialize with minimal settings
         intents = discord.Intents.default()
         super().__init__(
             command_prefix="!",
             intents=intents,
+            help_command=None,  # Disable default help command to avoid conflicts
         )
 
         # Add mock database
         self.db = MockDatabase()
         self.pg_con = None  # Mock connection pool
 
-        # Create a session factory that returns a MockAsyncSession directly
-        def session_factory():
+        # Create a session factory that returns a coroutine that returns a MockAsyncSession
+        async def session_factory():
             return MockAsyncSession()
 
         # Add mock session maker
@@ -144,6 +180,7 @@ class TestBot(commands.Bot):
 
         # Initialize service container
         from utils.service_container import ServiceContainer
+
         self.container = ServiceContainer()
 
         # Register common services
@@ -154,7 +191,36 @@ class TestBot(commands.Bot):
 
         # Initialize repository factory
         from utils.repository_factory import RepositoryFactory
+
         self.repo_factory = RepositoryFactory(self.container, self.session_maker)
+
+        # Add mock http_client
+        from unittest.mock import AsyncMock, MagicMock
+        self.http_client = MagicMock()
+        # Create a proper mock session that can be used with the fetch function
+        mock_session = MagicMock()
+        self.http_client.get_session = AsyncMock(return_value=mock_session)
+
+        # Mock the latency property to return a valid float instead of NaN
+        self._latency = 0.05  # 50ms latency
+
+        # Mock guilds list for testing
+        self._guilds = []
+
+    @property
+    def latency(self) -> float:
+        """Override latency property to return a valid float instead of NaN."""
+        return self._latency
+
+    @property
+    def guilds(self):
+        """Mock guilds property."""
+        return self._guilds
+
+    @guilds.setter
+    def guilds(self, value):
+        """Setter for guilds property."""
+        self._guilds = value
 
     async def setup_hook(self) -> None:
         # Override to do nothing
@@ -163,6 +229,7 @@ class TestBot(commands.Bot):
     async def on_ready(self):
         # Override to do nothing
         pass
+
 
 async def test_load_cogs() -> Tuple[List[str], Dict[str, Exception]]:
     """
@@ -176,16 +243,32 @@ async def test_load_cogs() -> Tuple[List[str], Dict[str, Exception]]:
     # Get list of cogs from both main.py and owner.py
     # This ensures we test all cogs that might be used
     cogs_from_main = [
-        'cogs.gallery', 'cogs.links_tags', 'cogs.patreon_poll',
-        'cogs.twi', 'cogs.owner', 'cogs.other', 'cogs.mods',
-        'cogs.stats', 'cogs.creator_links', 'cogs.report',
-        'cogs.summarization', 'cogs.settings'
+        "cogs.gallery",
+        "cogs.links_tags",
+        "cogs.patreon_poll",
+        "cogs.twi",
+        "cogs.owner",
+        "cogs.other",
+        "cogs.mods",
+        "cogs.stats",
+        "cogs.creator_links",
+        "cogs.report",
+        "cogs.summarization",
+        "cogs.settings",
     ]
 
     cogs_from_owner = [
-        'cogs.summarization', 'cogs.gallery', 'cogs.links_tags',
-        'cogs.patreon_poll', 'cogs.twi', 'cogs.owner', 'cogs.other',
-        'cogs.mods', 'cogs.stats', 'cogs.creator_links', 'cogs.report'
+        "cogs.summarization",
+        "cogs.gallery",
+        "cogs.links_tags",
+        "cogs.patreon_poll",
+        "cogs.twi",
+        "cogs.owner",
+        "cogs.other",
+        "cogs.mods",
+        "cogs.stats",
+        "cogs.creator_links",
+        "cogs.report",
     ]
 
     # Combine and deduplicate
@@ -214,6 +297,7 @@ async def test_load_cogs() -> Tuple[List[str], Dict[str, Exception]]:
 
     return successful_cogs, failed_cogs
 
+
 async def main():
     """Run the test."""
     logger.info("Testing cog loading...")
@@ -222,7 +306,9 @@ async def main():
 
     # Print summary
     total_cogs = len(successful_cogs) + len(failed_cogs)
-    logger.info(f"\nSummary: {len(successful_cogs)}/{total_cogs} cogs loaded successfully")
+    logger.info(
+        f"\nSummary: {len(successful_cogs)}/{total_cogs} cogs loaded successfully"
+    )
 
     if failed_cogs:
         logger.error("\nFailed cogs:")
@@ -233,6 +319,7 @@ async def main():
     else:
         logger.info("\nTest passed: All cogs loaded successfully!")
         return True
+
 
 if __name__ == "__main__":
     success = asyncio.run(main())
