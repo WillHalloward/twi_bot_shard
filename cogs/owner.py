@@ -454,4 +454,4 @@ class OwnerCog(commands.Cog, name="Owner"):
 
 
 async def setup(bot):
-    await bot.add_cog(OwnerCog(bot), guilds=[discord.Object(id=297916314239107072)])
+    await bot.add_cog(OwnerCog(bot))
