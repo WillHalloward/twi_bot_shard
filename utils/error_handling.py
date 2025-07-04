@@ -73,6 +73,29 @@ CommandT = TypeVar("CommandT", bound=Callable[..., Coroutine[Any, Any, Any]])
 
 logger = logging.getLogger("error_handling")
 
+
+def _extract_command_params(interaction: discord.Interaction, command) -> dict:
+    """
+    Extract command parameters from interaction data.
+
+    Args:
+        interaction: The Discord interaction
+        command: The app command object
+
+    Returns:
+        dict: Dictionary of parameter names to values
+    """
+    params = {}
+
+    # Get the options from the interaction data
+    options = interaction.data.get("options", [])
+
+    # Convert options list to a dictionary
+    for option in options:
+        params[option["name"]] = option["value"]
+
+    return params
+
 # Patterns for sensitive information that should be redacted
 SENSITIVE_PATTERNS: List[Pattern] = [
     # API keys and tokens
@@ -798,12 +821,147 @@ async def handle_global_app_command_error(
     """Global error handler for application command errors.
 
     This function handles errors that occur during application command invocation and
-    provides appropriate user feedback based on the exception type.
+    provides appropriate user feedback based on the exception type. It also implements
+    lazy loading for commands that are not found.
 
     Args:
         interaction: The interaction context
         error: The error that occurred
     """
+    # Check if this is a CommandNotFound error and attempt lazy loading
+    if isinstance(error, discord.app_commands.errors.CommandNotFound):
+        # Extract command name from the error message
+        command_name = None
+        error_str = str(error)
+        if "Application command '" in error_str and "' not found" in error_str:
+            start = error_str.find("Application command '") + len("Application command '")
+            end = error_str.find("' not found")
+            command_name = error_str[start:end]
+
+        if command_name and hasattr(interaction, "client"):
+            # Define command to extension mapping
+            command_to_extension = {
+                "poll": "cogs.patreon_poll",
+                "poll_list": "cogs.patreon_poll", 
+                "getpoll": "cogs.patreon_poll",
+                "findpoll": "cogs.patreon_poll",
+                "gallery": "cogs.gallery",
+                "gallery_search": "cogs.gallery",
+                "gallery_random": "cogs.gallery",
+                "gallery_stats": "cogs.gallery",
+                "links": "cogs.links_tags",
+                "tags": "cogs.links_tags",
+                "twi": "cogs.twi",
+                "other": "cogs.other",
+                "creator_links": "cogs.creator_links",
+                "report": "cogs.report",
+                "summarization": "cogs.summarization",
+            }
+
+            extension_name = command_to_extension.get(command_name)
+            if extension_name and hasattr(interaction.client, 'load_extension_if_needed'):
+                logger.info(f"Attempting to lazy load extension {extension_name} for command {command_name}")
+
+                try:
+                    # Attempt to load the extension
+                    success = await interaction.client.load_extension_if_needed(extension_name)
+
+                    if success:
+                        logger.info(f"Successfully loaded extension {extension_name}")
+
+                        # Sync the command tree to register the new commands
+                        try:
+                            await interaction.client.tree.sync()
+                            logger.info("Command tree synced after lazy loading")
+
+                            # Try to find and execute the newly loaded command
+                            command = None
+                            for cmd in interaction.client.tree.get_commands():
+                                if cmd.name == command_name:
+                                    command = cmd
+                                    break
+
+                            if command:
+                                logger.info(f"Found command {command_name}, attempting to execute it automatically")
+                                try:
+                                    # Try to invoke the command using the proper Discord.py method
+                                    # First, try using the command's _invoke method if it exists
+                                    try:
+                                        if hasattr(command, '_invoke'):
+                                            await command._invoke(interaction)
+                                        else:
+                                            raise AttributeError("No _invoke method")
+                                    except (AttributeError, TypeError):
+                                        # Fall back to calling the callback directly
+                                        if hasattr(command, 'callback'):
+                                            # Try to get the cog from the command's binding or other attributes
+                                            cog = None
+                                            if hasattr(command, 'binding'):
+                                                cog = command.binding
+                                            elif hasattr(command, 'cog'):
+                                                cog = command.cog
+                                            elif hasattr(command, '_cog'):
+                                                cog = command._cog
+
+                                            if cog is not None:
+                                                # Call the callback with the cog instance
+                                                await command.callback(cog, interaction, **_extract_command_params(interaction, command))
+                                            else:
+                                                # Try calling without cog (might work for some commands)
+                                                await command.callback(interaction, **_extract_command_params(interaction, command))
+                                        else:
+                                            logger.warning(f"Command {command_name} has no known invocation method")
+                                            raise Exception("No known invocation method")
+
+                                    logger.info(f"Successfully executed command {command_name} after lazy loading")
+
+                                    # Don't continue with normal error handling since we've handled this case
+                                    return
+
+                                except Exception as e:
+                                    logger.error(f"Failed to automatically execute command {command_name}: {e}")
+                                    # Fall back to telling the user to try again
+                                    try:
+                                        if interaction.response.is_done():
+                                            await interaction.followup.send(
+                                                f"The `/{command_name}` command has been loaded, but there was an issue executing it automatically. Please try your command again.",
+                                                ephemeral=True
+                                            )
+                                        else:
+                                            await interaction.response.send_message(
+                                                f"The `/{command_name}` command has been loaded, but there was an issue executing it automatically. Please try your command again.",
+                                                ephemeral=True
+                                            )
+                                    except Exception as msg_error:
+                                        logger.error(f"Failed to send fallback message: {msg_error}")
+                            else:
+                                logger.warning(f"Command {command_name} not found after loading and syncing")
+                                # Fall back to telling the user to try again
+                                try:
+                                    if interaction.response.is_done():
+                                        await interaction.followup.send(
+                                            f"The `/{command_name}` command has been loaded. Please try your command again.",
+                                            ephemeral=True
+                                        )
+                                    else:
+                                        await interaction.response.send_message(
+                                            f"The `/{command_name}` command has been loaded. Please try your command again.",
+                                            ephemeral=True
+                                        )
+                                except Exception as msg_error:
+                                    logger.error(f"Failed to send command not found message: {msg_error}")
+
+                            # Don't continue with normal error handling since we've handled this case
+                            return
+
+                        except Exception as e:
+                            logger.error(f"Failed to sync command tree after lazy loading: {e}")
+                    else:
+                        logger.warning(f"Failed to load extension {extension_name} for command {command_name}")
+
+                except Exception as e:
+                    logger.error(f"Error during lazy loading of {extension_name}: {e}")
+
     # Get the appropriate error response
     response = get_error_response(error)
 
