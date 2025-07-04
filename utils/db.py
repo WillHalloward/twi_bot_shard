@@ -2,7 +2,8 @@
 Database utility module for Cognita bot.
 
 This module provides utility functions and classes for database operations,
-including transaction management, error handling, and connection management.
+including transaction management, error handling, connection management,
+and query caching.
 """
 
 import asyncio
@@ -20,19 +21,26 @@ except ImportError:
 
 import asyncpg
 
+from utils.query_cache import QueryCache, cached_query
+
 # Define type aliases for complex types
 QueryResult: TypeAlias = dict[str, Any]
 Record: TypeAlias = asyncpg.Record
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class DatabaseError(Exception):
     """Base exception for database errors."""
+
     pass
+
 
 class RetryableError(DatabaseError):
     """Exception for errors that can be retried."""
+
     pass
+
 
 class DatabaseTransaction:
     """Async context manager for database transactions.
@@ -80,6 +88,7 @@ class DatabaseTransaction:
         """
         await self.transaction.__aexit__(exc_type, exc_val, exc_tb)
 
+
 class Database:
     """Database utility class for managing database operations."""
 
@@ -90,9 +99,16 @@ class Database:
             pool: The asyncpg connection pool to use for database operations.
         """
         self.pool = pool
-        self.logger = logging.getLogger('database')
+        self.logger = logging.getLogger("database")
         self.prepared_statements = {}
         self.slow_query_threshold = 0.5  # Log queries taking more than 500ms
+
+        # Initialize query cache
+        self.cache = QueryCache(
+            max_size=2000,  # Store up to 2000 query results
+            default_ttl=300,  # Default TTL of 5 minutes
+            logger=self.logger,
+        )
 
     async def check_connection_health(self) -> bool:
         """Check if the database connection is healthy.
@@ -131,6 +147,7 @@ class Database:
         Returns:
             A wrapper around the prepared statement that provides execute, fetchval, fetchrow, and fetch methods.
         """
+
         class PreparedStatementWrapper:
             def __init__(self, db, stmt, query):
                 self.db = db
@@ -145,7 +162,9 @@ class Database:
             async def fetchval(self, *args, column=0, **kwargs):
                 """Execute the prepared statement and return a single value."""
                 async with self.db.pool.acquire() as conn:
-                    return await conn.fetchval(self.query, *args, column=column, **kwargs)
+                    return await conn.fetchval(
+                        self.query, *args, column=column, **kwargs
+                    )
 
             async def fetchrow(self, *args, **kwargs):
                 """Execute the prepared statement and return a single row."""
@@ -160,17 +179,20 @@ class Database:
         if name not in self.prepared_statements:
             async with self.pool.acquire() as conn:
                 stmt = await conn.prepare(query)
-                self.prepared_statements[name] = PreparedStatementWrapper(self, stmt, query)
+                self.prepared_statements[name] = PreparedStatementWrapper(
+                    self, stmt, query
+                )
         return self.prepared_statements[name]
 
     async def execute(
-        self, 
-        query: str, 
-        *args, 
+        self,
+        query: str,
+        *args,
         timeout: Optional[float] = None,
         retries: int = 3,
         retry_delay: float = 0.5,
-        monitor: bool = True
+        monitor: bool = True,
+        invalidate_cache: bool = True,  # Whether to invalidate cache for this query
     ) -> str | None:
         """Execute a query that doesn't return rows.
 
@@ -181,6 +203,7 @@ class Database:
             retries: Number of retries for transient errors.
             retry_delay: Delay between retries in seconds.
             monitor: Whether to monitor query execution time.
+            invalidate_cache: Whether to invalidate cache for affected tables.
 
         Returns:
             The command tag for the query.
@@ -189,6 +212,10 @@ class Database:
             DatabaseError: If the query fails after all retries.
         """
         start_time = time.time() if monitor else None
+
+        # Extract table name from query for cache invalidation
+        if invalidate_cache:
+            self._invalidate_cache_for_query(query)
 
         for attempt in range(retries):
             try:
@@ -201,11 +228,17 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(e, asyncpg.ConnectionDoesNotExistError):
+                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
+                    e, asyncpg.ConnectionDoesNotExistError
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
-                        self.logger.warning(f"Retryable error on attempt {attempt + 1}/{retries}: {e}")
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        self.logger.warning(
+                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                        )
+                        await asyncio.sleep(
+                            retry_delay * (2**attempt)
+                        )  # Exponential backoff
                         continue
                 elif isinstance(e, asyncpg.UniqueViolationError):
                     self.logger.warning(f"Unique violation error: {e}")
@@ -215,14 +248,53 @@ class Database:
                 raise DatabaseError(f"Failed to execute query: {e}") from e
         return None
 
+    def _invalidate_cache_for_query(self, query: str) -> None:
+        """Invalidate cache entries for tables affected by a query.
+
+        Args:
+            query: The SQL query that modifies data.
+        """
+        # Simple parsing to extract table names from modification queries
+        query_lower = query.lower().strip()
+
+        # Skip SELECT queries as they don't modify data
+        if query_lower.startswith("select"):
+            return
+
+        # Extract table name based on query type
+        table_name = None
+
+        if query_lower.startswith("insert into"):
+            # INSERT INTO table_name ...
+            parts = query_lower.split(" ")
+            if len(parts) > 2:
+                table_name = parts[2].strip("()")
+        elif query_lower.startswith("update"):
+            # UPDATE table_name ...
+            parts = query_lower.split(" ")
+            if len(parts) > 1:
+                table_name = parts[1].strip()
+        elif query_lower.startswith("delete from"):
+            # DELETE FROM table_name ...
+            parts = query_lower.split(" ")
+            if len(parts) > 2:
+                table_name = parts[2].strip()
+
+        # Invalidate cache for the affected table
+        if table_name:
+            self.cache.invalidate_by_table(table_name)
+            self.logger.debug(f"Invalidated cache for table: {table_name}")
+
+    @cached_query(ttl=300)  # Cache results for 5 minutes by default
     async def fetch(
-        self, 
-        query: str, 
-        *args, 
+        self,
+        query: str,
+        *args,
         timeout: Optional[float] = None,
         retries: int = 3,
         retry_delay: float = 0.5,
-        monitor: bool = True
+        monitor: bool = True,
+        use_cache: bool = True,  # Whether to use cache for this query
     ) -> Sequence[Record]:
         """Execute a query and return all results.
 
@@ -233,6 +305,7 @@ class Database:
             retries: Number of retries for transient errors.
             retry_delay: Delay between retries in seconds.
             monitor: Whether to monitor query execution time.
+            use_cache: Whether to use cache for this query.
 
         Returns:
             A list of records from the query.
@@ -253,11 +326,17 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(e, asyncpg.ConnectionDoesNotExistError):
+                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
+                    e, asyncpg.ConnectionDoesNotExistError
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
-                        self.logger.warning(f"Retryable error on attempt {attempt + 1}/{retries}: {e}")
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        self.logger.warning(
+                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                        )
+                        await asyncio.sleep(
+                            retry_delay * (2**attempt)
+                        )  # Exponential backoff
                         continue
                 elif isinstance(e, asyncpg.UniqueViolationError):
                     self.logger.warning(f"Unique violation error: {e}")
@@ -266,14 +345,16 @@ class Database:
                 self.logger.error(f"Database error: {e}")
                 raise DatabaseError(f"Failed to execute query: {e}") from e
 
+    @cached_query(ttl=300)  # Cache results for 5 minutes by default
     async def fetchrow(
-        self, 
-        query: str, 
-        *args, 
+        self,
+        query: str,
+        *args,
         timeout: Optional[float] = None,
         retries: int = 3,
         retry_delay: float = 0.5,
-        monitor: bool = True
+        monitor: bool = True,
+        use_cache: bool = True,  # Whether to use cache for this query
     ) -> Optional[Record]:
         """Execute a query and return the first row.
 
@@ -284,6 +365,7 @@ class Database:
             retries: Number of retries for transient errors.
             retry_delay: Delay between retries in seconds.
             monitor: Whether to monitor query execution time.
+            use_cache: Whether to use cache for this query.
 
         Returns:
             The first record from the query, or None if no records.
@@ -304,11 +386,17 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(e, asyncpg.ConnectionDoesNotExistError):
+                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
+                    e, asyncpg.ConnectionDoesNotExistError
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
-                        self.logger.warning(f"Retryable error on attempt {attempt + 1}/{retries}: {e}")
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        self.logger.warning(
+                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                        )
+                        await asyncio.sleep(
+                            retry_delay * (2**attempt)
+                        )  # Exponential backoff
                         continue
                 elif isinstance(e, asyncpg.UniqueViolationError):
                     self.logger.warning(f"Unique violation error: {e}")
@@ -317,15 +405,17 @@ class Database:
                 self.logger.error(f"Database error: {e}")
                 raise DatabaseError(f"Failed to execute query: {e}") from e
 
+    @cached_query(ttl=300)  # Cache results for 5 minutes by default
     async def fetchval(
-        self, 
-        query: str, 
-        *args, 
+        self,
+        query: str,
+        *args,
         column: int = 0,
         timeout: Optional[float] = None,
         retries: int = 3,
         retry_delay: float = 0.5,
-        monitor: bool = True
+        monitor: bool = True,
+        use_cache: bool = True,  # Whether to use cache for this query
     ) -> Any:
         """Execute a query and return a single value.
 
@@ -337,6 +427,7 @@ class Database:
             retries: Number of retries for transient errors.
             retry_delay: Delay between retries in seconds.
             monitor: Whether to monitor query execution time.
+            use_cache: Whether to use cache for this query.
 
         Returns:
             The value from the specified column of the first row.
@@ -348,7 +439,9 @@ class Database:
 
         for attempt in range(retries):
             try:
-                result = await self.pool.fetchval(query, *args, column=column, timeout=timeout)
+                result = await self.pool.fetchval(
+                    query, *args, column=column, timeout=timeout
+                )
 
                 if monitor:
                     duration = time.time() - start_time
@@ -357,11 +450,17 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(e, asyncpg.ConnectionDoesNotExistError):
+                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
+                    e, asyncpg.ConnectionDoesNotExistError
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
-                        self.logger.warning(f"Retryable error on attempt {attempt + 1}/{retries}: {e}")
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        self.logger.warning(
+                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                        )
+                        await asyncio.sleep(
+                            retry_delay * (2**attempt)
+                        )  # Exponential backoff
                         continue
                 elif isinstance(e, asyncpg.UniqueViolationError):
                     self.logger.warning(f"Unique violation error: {e}")
@@ -380,6 +479,7 @@ class Database:
             This method returns a custom transaction wrapper that ensures
             the connection is released when the transaction is done.
         """
+
         class TransactionWrapper:
             def __init__(self, conn, transaction):
                 self.conn = conn
@@ -400,10 +500,10 @@ class Database:
         return TransactionWrapper(conn, transaction)
 
     async def execute_in_transaction(
-        self, 
+        self,
         queries: Sequence[tuple[str, tuple]],
         retries: int = 3,
-        retry_delay: float = 0.5
+        retry_delay: float = 0.5,
     ) -> None:
         """Execute multiple queries in a single transaction.
 
@@ -423,11 +523,17 @@ class Database:
                             await conn.execute(query, *args)
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(e, asyncpg.ConnectionDoesNotExistError):
+                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
+                    e, asyncpg.ConnectionDoesNotExistError
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
-                        self.logger.warning(f"Retryable error on attempt {attempt + 1}/{retries}: {e}")
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        self.logger.warning(
+                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                        )
+                        await asyncio.sleep(
+                            retry_delay * (2**attempt)
+                        )  # Exponential backoff
                         continue
                 self.logger.error(f"Transaction error: {e}")
                 raise DatabaseError(f"Failed to execute transaction: {e}") from e
@@ -439,7 +545,7 @@ class Database:
         timeout: Optional[float] = None,
         retries: int = 3,
         retry_delay: float = 0.5,
-        monitor: bool = True
+        monitor: bool = True,
     ) -> None:
         """Execute a query with multiple sets of parameters.
 
@@ -464,20 +570,32 @@ class Database:
                 if monitor:
                     duration = time.time() - start_time
                     if duration > self.slow_query_threshold:
-                        self.logger.warning(f"Slow batch query ({duration:.2f}s): {query} with {len(args_list)} records")
+                        self.logger.warning(
+                            f"Slow batch query ({duration:.2f}s): {query} with {len(args_list)} records"
+                        )
 
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(e, asyncpg.ConnectionDoesNotExistError):
+                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
+                    e, asyncpg.ConnectionDoesNotExistError
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
-                        self.logger.warning(f"Retryable error on attempt {attempt + 1}/{retries}: {e}")
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        self.logger.warning(
+                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                        )
+                        await asyncio.sleep(
+                            retry_delay * (2**attempt)
+                        )  # Exponential backoff
                         continue
                 elif isinstance(e, asyncpg.UniqueViolationError):
-                    self.logger.warning(f"Unique violation error in batch operation: {e}")
+                    self.logger.warning(
+                        f"Unique violation error in batch operation: {e}"
+                    )
                 elif isinstance(e, asyncpg.ForeignKeyViolationError):
-                    self.logger.warning(f"Foreign key violation error in batch operation: {e}")
+                    self.logger.warning(
+                        f"Foreign key violation error in batch operation: {e}"
+                    )
                 self.logger.error(f"Database error in batch operation: {e}")
                 raise DatabaseError(f"Failed to execute batch query: {e}") from e
 
@@ -488,7 +606,7 @@ class Database:
         columns: Optional[Sequence[str]] = None,
         retries: int = 3,
         retry_delay: float = 0.5,
-        monitor: bool = True
+        monitor: bool = True,
     ) -> None:
         """Copy records to a table efficiently using COPY.
 
@@ -511,32 +629,35 @@ class Database:
             try:
                 async with self.pool.acquire() as conn:
                     await conn.copy_records_to_table(
-                        table_name, 
-                        records=records,
-                        columns=columns
+                        table_name, records=records, columns=columns
                     )
 
                 if monitor:
                     duration = time.time() - start_time
                     if duration > self.slow_query_threshold:
-                        self.logger.warning(f"Slow COPY operation ({duration:.2f}s): COPY {len(records)} records to {table_name}{column_str}")
+                        self.logger.warning(
+                            f"Slow COPY operation ({duration:.2f}s): COPY {len(records)} records to {table_name}{column_str}"
+                        )
 
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(e, asyncpg.ConnectionDoesNotExistError):
+                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
+                    e, asyncpg.ConnectionDoesNotExistError
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
-                        self.logger.warning(f"Retryable error on attempt {attempt + 1}/{retries}: {e}")
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        self.logger.warning(
+                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                        )
+                        await asyncio.sleep(
+                            retry_delay * (2**attempt)
+                        )  # Exponential backoff
                         continue
                 self.logger.error(f"Database error in COPY operation: {e}")
                 raise DatabaseError(f"Failed to copy records to table: {e}") from e
 
     async def execute_with_callback(
-        self, 
-        callback: Callable[..., T], 
-        *args, 
-        **kwargs
+        self, callback: Callable[..., T], *args, **kwargs
     ) -> T:
         """Execute a callback function with a database connection.
 
@@ -559,12 +680,12 @@ class Database:
             raise DatabaseError(f"Failed to execute callback: {e}") from e
 
     async def execute_script(
-        self, 
-        script_path: str, 
+        self,
+        script_path: str,
         timeout: Optional[float] = 300.0,  # Default 5 minutes timeout
         retries: int = 3,
         retry_delay: float = 1.0,
-        monitor: bool = True
+        monitor: bool = True,
     ) -> None:
         """Execute a SQL script file.
 
@@ -581,7 +702,7 @@ class Database:
             asyncio.TimeoutError: If the script execution times out.
         """
         try:
-            with open(script_path, 'r') as f:
+            with open(script_path, "r") as f:
                 script = f.read()
 
             start_time = time.time() if monitor else None
@@ -594,23 +715,37 @@ class Database:
                     if monitor:
                         duration = time.time() - start_time
                         if duration > self.slow_query_threshold:
-                            self.logger.warning(f"Slow script execution ({duration:.2f}s): {script_path}")
+                            self.logger.warning(
+                                f"Slow script execution ({duration:.2f}s): {script_path}"
+                            )
 
                     self.logger.info(f"Successfully executed script: {script_path}")
                     return
                 except asyncio.TimeoutError:
                     if attempt < retries - 1:
-                        self.logger.warning(f"Script execution timed out after {timeout}s on attempt {attempt + 1}/{retries}, retrying...")
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        self.logger.warning(
+                            f"Script execution timed out after {timeout}s on attempt {attempt + 1}/{retries}, retrying..."
+                        )
+                        await asyncio.sleep(
+                            retry_delay * (2**attempt)
+                        )  # Exponential backoff
                         continue
-                    self.logger.error(f"Script execution timed out after {timeout}s: {script_path}")
+                    self.logger.error(
+                        f"Script execution timed out after {timeout}s: {script_path}"
+                    )
                     raise
                 except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                    if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(e, asyncpg.ConnectionDoesNotExistError):
+                    if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
+                        e, asyncpg.ConnectionDoesNotExistError
+                    ):
                         # These errors are retryable
                         if attempt < retries - 1:
-                            self.logger.warning(f"Retryable error on attempt {attempt + 1}/{retries}: {e}")
-                            await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                            self.logger.warning(
+                                f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                            )
+                            await asyncio.sleep(
+                                retry_delay * (2**attempt)
+                            )  # Exponential backoff
                             continue
                     elif isinstance(e, asyncpg.UniqueViolationError):
                         self.logger.warning(f"Unique violation error: {e}")
@@ -623,13 +758,13 @@ class Database:
             raise
 
     async def fetch_with_timeout(
-        self, 
-        query: str, 
-        *args, 
+        self,
+        query: str,
+        *args,
         timeout_seconds: float = 5.0,
         retries: int = 3,
         retry_delay: float = 0.5,
-        monitor: bool = True
+        monitor: bool = True,
     ) -> Sequence[Record]:
         """Execute a query with a timeout and return all results.
 
@@ -667,11 +802,17 @@ class Database:
                 self.logger.error(f"Query timed out after {timeout_seconds}s: {query}")
                 raise
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(e, asyncpg.ConnectionDoesNotExistError):
+                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
+                    e, asyncpg.ConnectionDoesNotExistError
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
-                        self.logger.warning(f"Retryable error on attempt {attempt + 1}/{retries}: {e}")
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        self.logger.warning(
+                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                        )
+                        await asyncio.sleep(
+                            retry_delay * (2**attempt)
+                        )  # Exponential backoff
                         continue
                 elif isinstance(e, asyncpg.UniqueViolationError):
                     self.logger.warning(f"Unique violation error: {e}")
@@ -681,13 +822,13 @@ class Database:
                 raise DatabaseError(f"Failed to execute query: {e}") from e
 
     async def fetchrow_with_timeout(
-        self, 
-        query: str, 
-        *args, 
+        self,
+        query: str,
+        *args,
         timeout_seconds: float = 5.0,
         retries: int = 3,
         retry_delay: float = 0.5,
-        monitor: bool = True
+        monitor: bool = True,
     ) -> Optional[Record]:
         """Execute a query with a timeout and return the first row.
 
@@ -725,11 +866,17 @@ class Database:
                 self.logger.error(f"Query timed out after {timeout_seconds}s: {query}")
                 raise
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(e, asyncpg.ConnectionDoesNotExistError):
+                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
+                    e, asyncpg.ConnectionDoesNotExistError
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
-                        self.logger.warning(f"Retryable error on attempt {attempt + 1}/{retries}: {e}")
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        self.logger.warning(
+                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                        )
+                        await asyncio.sleep(
+                            retry_delay * (2**attempt)
+                        )  # Exponential backoff
                         continue
                 elif isinstance(e, asyncpg.UniqueViolationError):
                     self.logger.warning(f"Unique violation error: {e}")
@@ -739,11 +886,7 @@ class Database:
                 raise DatabaseError(f"Failed to execute query: {e}") from e
 
     async def paginate(
-        self, 
-        query: str, 
-        *args, 
-        page_size: int = 100,
-        timeout_seconds: float = 30.0
+        self, query: str, *args, page_size: int = 100, timeout_seconds: float = 30.0
     ) -> AsyncGenerator[Sequence[Record], None]:
         """Execute a query and yield results in pages.
 
@@ -800,3 +943,43 @@ class Database:
         except DatabaseError as e:
             self.logger.error(f"Error refreshing materialized views: {e}")
             raise
+
+    async def apply_additional_optimizations(self) -> None:
+        """Apply additional database optimizations.
+
+        This method executes the SQL script in database/additional_optimizations.sql
+        to apply additional indexes, materialized views, and other optimizations.
+
+        Raises:
+            DatabaseError: If the optimization script fails.
+            FileNotFoundError: If the optimization script is not found.
+        """
+        try:
+            script_path = "database/additional_optimizations.sql"
+            self.logger.info(
+                f"Applying additional database optimizations from {script_path}"
+            )
+            await self.execute_script(script_path)
+            self.logger.info("Successfully applied additional database optimizations")
+
+            # Refresh materialized views to ensure they're populated
+            await self.refresh_materialized_views()
+        except (DatabaseError, FileNotFoundError) as e:
+            self.logger.error(f"Error applying additional database optimizations: {e}")
+            raise
+
+    async def get_cache_stats(self) -> dict:
+        """Get statistics about the query cache.
+
+        Returns:
+            A dictionary with cache statistics.
+        """
+        stats = self.cache.get_stats()
+        return {
+            "hits": stats.hits,
+            "misses": stats.misses,
+            "hit_rate": stats.hit_rate,
+            "evictions": stats.evictions,
+            "invalidations": stats.invalidations,
+            "total_requests": stats.total_requests,
+        }

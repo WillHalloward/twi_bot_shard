@@ -1,6 +1,7 @@
 """
 SQLAlchemy database connection and session management.
 """
+
 import ssl
 from collections.abc import AsyncGenerator
 
@@ -10,6 +11,7 @@ from sqlalchemy.pool import NullPool
 import config
 from models.base import Base
 
+
 # Create SSL context
 def create_ssl_context():
     """Create SSL context for database connection."""
@@ -18,6 +20,7 @@ def create_ssl_context():
     context.load_verify_locations("ssl-cert/server-ca.pem")
     context.load_cert_chain("ssl-cert/client-cert.pem", "ssl-cert/client-key.pem")
     return context
+
 
 # Connection URL
 DATABASE_URL = f"postgresql+asyncpg://{config.DB_user}:{config.DB_password}@{config.host}/{config.database}"
@@ -37,10 +40,9 @@ engine = create_async_engine(
 
 # Session factory
 async_session_maker = async_sessionmaker(
-    engine, 
-    expire_on_commit=False,
-    class_=AsyncSession
+    engine, expire_on_commit=False, class_=AsyncSession
 )
+
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for getting async session."""

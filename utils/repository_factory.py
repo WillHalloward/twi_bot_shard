@@ -5,6 +5,7 @@ This module provides a factory for creating repository instances for database ac
 It uses the service container to manage repository dependencies and ensures that
 repositories are created with the correct session factory.
 """
+
 from typing import Any, Callable, Dict, Type, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +14,8 @@ from models.base import Base
 from utils.db_service import DatabaseService
 from utils.service_container import ServiceContainer
 
-T = TypeVar('T', bound=Base)
+T = TypeVar("T", bound=Base)
+
 
 class RepositoryFactory:
     """
@@ -23,7 +25,9 @@ class RepositoryFactory:
     It ensures that repositories are created with the correct session factory.
     """
 
-    def __init__(self, container: ServiceContainer, session_factory: Callable[[], AsyncSession]):
+    def __init__(
+        self, container: ServiceContainer, session_factory: Callable[[], AsyncSession]
+    ):
         """
         Initialize the repository factory.
 
@@ -35,7 +39,9 @@ class RepositoryFactory:
         self.session_factory = session_factory
         self._repository_classes: Dict[str, Type[Any]] = {}
 
-    def register_repository(self, model_class: Type[T], repository_class: Type[Any]) -> None:
+    def register_repository(
+        self, model_class: Type[T], repository_class: Type[Any]
+    ) -> None:
         """
         Register a repository class for a model.
 
@@ -51,7 +57,7 @@ class RepositoryFactory:
         self.container.register_factory(
             repository_id,
             lambda: repository_class(self.session_factory),
-            singleton=True
+            singleton=True,
         )
 
     def get_repository(self, model_class: Type[T]) -> Any:
@@ -75,7 +81,7 @@ class RepositoryFactory:
             self.container.register_factory(
                 repository_id,
                 lambda: GenericRepository(model_class, self.session_factory),
-                singleton=True
+                singleton=True,
             )
 
         return self.container.get(repository_id)
@@ -89,7 +95,9 @@ class GenericRepository:
     It can be used as a fallback when no specific repository is registered.
     """
 
-    def __init__(self, model_class: Type[T], session_factory: Callable[[], AsyncSession]):
+    def __init__(
+        self, model_class: Type[T], session_factory: Callable[[], AsyncSession]
+    ):
         """
         Initialize the generic repository.
 
@@ -104,35 +112,29 @@ class GenericRepository:
     async def get_all(self):
         """Get all records of the model."""
         session = await self.session_factory()
-        async with session as session:
-            return await self.service.get_all(session)
+        return await self.service.get_all(session)
 
     async def get_by_id(self, id_value: Any):
         """Get a record by its ID."""
         session = await self.session_factory()
-        async with session as session:
-            return await self.service.get_by_id(session, id_value)
+        return await self.service.get_by_id(session, id_value)
 
     async def get_by_field(self, field_name: str, field_value: Any):
         """Get records by a field value."""
         session = await self.session_factory()
-        async with session as session:
-            return await self.service.get_by_field(session, field_name, field_value)
+        return await self.service.get_by_field(session, field_name, field_value)
 
     async def create(self, **kwargs):
         """Create a new record."""
         session = await self.session_factory()
-        async with session as session:
-            return await self.service.create(session, **kwargs)
+        return await self.service.create(session, **kwargs)
 
     async def update(self, id_value: Any, **kwargs):
         """Update a record."""
         session = await self.session_factory()
-        async with session as session:
-            return await self.service.update(session, id_value, **kwargs)
+        return await self.service.update(session, id_value, **kwargs)
 
     async def delete(self, id_value: Any):
         """Delete a record."""
         session = await self.session_factory()
-        async with session as session:
-            return await self.service.delete(session, id_value)
+        return await self.service.delete(session, id_value)
