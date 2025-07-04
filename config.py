@@ -1,39 +1,51 @@
-import os
-import json
-import logging
-from dotenv import load_dotenv
+"""
+Configuration module for Twi Bot Shard.
 
-# Load environment variables from .env file
-load_dotenv()
+This module is a backward-compatible wrapper around the new configuration system.
+It imports all configuration variables from the new module to maintain compatibility
+with existing code that imports from this module.
+"""
 
-# Simple variables
-bot_token = os.getenv("BOT_TOKEN")
-google_api_key = os.getenv("GOOGLE_API_KEY")
-google_cse_id = os.getenv("GOOGLE_CSE_ID")
-host = os.getenv("HOST")
-DB_user = os.getenv("DB_USER")
-DB_password = os.getenv("DB_PASSWORD")
-database = os.getenv("DATABASE")
-port = int(os.getenv("PORT", "5432"))
-kill_after = int(os.getenv("KILL_AFTER", "0"))  # Time in seconds to run before exiting, 0 disables
-client_id = os.getenv("CLIENT_ID")
-client_secret = os.getenv("CLIENT_SECRET")
-user_agent = os.getenv("USER_AGENT")
-username = os.getenv("USERNAME")
-password = os.getenv("PASSWORD")
-logging_level = logging.INFO
-logfile = os.getenv("LOGFILE", "test")
-webhook_testing_log = os.getenv("WEBHOOK_TESTING_LOG")
-webhook = os.getenv("WEBHOOK")
-twitter_api_key = os.getenv("TWITTER_API_KEY")
-twitter_api_key_secret = os.getenv("TWITTER_API_KEY_SECRET")
-twitter_bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
-twitter_access_token = os.getenv("TWITTER_ACCESS_TOKEN")
-twitter_access_token_secret = os.getenv("TWITTER_ACCESS_TOKEN_SECRET")
-ao3_username = os.getenv("AO3_USERNAME")
-ao3_password = os.getenv("AO3_PASSWORD")
-openai_api_key = os.getenv("OPENAI_API_KEY")
-
-# Complex structures - Option A (JSON)
-cookies = json.loads(os.getenv("COOKIES", "{}"))
-headers = json.loads(os.getenv("HEADERS", "{}"))
+# Import all configuration variables from the new module
+from config.__init__ import (
+    bot_token,
+    google_api_key,
+    google_cse_id,
+    host,
+    DB_user,
+    DB_password,
+    database,
+    port,
+    kill_after,
+    client_id,
+    client_secret,
+    user_agent,
+    username,
+    password,
+    logging_level,
+    logfile,
+    log_format,
+    webhook_testing_log,
+    webhook,
+    twitter_api_key,
+    twitter_api_key_secret,
+    twitter_bearer_token,
+    twitter_access_token,
+    twitter_access_token_secret,
+    ao3_username,
+    ao3_password,
+    openai_api_key,
+    secret_encryption_key,
+    cookies,
+    headers,
+    channel_ids,
+    role_ids,
+    bot_channel_id,
+    inn_general_channel_id,
+    password_allowed_channel_ids,
+    config,
+    Environment,
+    BotConfig,
+    load_from_env,
+    ENVIRONMENT,
+)
