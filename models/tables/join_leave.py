@@ -1,6 +1,7 @@
 """
 SQLAlchemy model for join_leave table.
 """
+
 from datetime import datetime
 from sqlalchemy import String, Integer, DateTime, BigInteger, Enum
 from sqlalchemy.orm import Mapped, mapped_column
@@ -8,12 +9,14 @@ from typing import Optional
 
 from models.base import Base
 
+
 class JoinLeave(Base):
     """
     Model for join_leave table.
 
     This table stores information about users joining or leaving Discord servers.
     """
+
     __tablename__ = "join_leave"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -25,6 +28,4 @@ class JoinLeave(Base):
     created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     # Define __table_args__ to create composite indexes
-    __table_args__ = (
-        {'schema': 'public'},
-    )
+    __table_args__ = ()

@@ -5,3 +5,4 @@ from models.tables.messages import Message
 from models.tables.reactions import Reaction
 from models.tables.join_leave import JoinLeave
 from models.tables.creator_links import CreatorLink
+from models.tables.servers import Server

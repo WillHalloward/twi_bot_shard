@@ -663,4 +663,18 @@ create table innktober_submission
     channel_id                    bigint
 );
 
+create table bot_metrics
+(
+    id          serial
+        constraint bot_metrics_pk
+            primary key,
+    timestamp   timestamp not null default now(),
+    metric_type varchar not null,
+    metric_data json
+);
 
+create index bot_metrics_timestamp_index
+    on bot_metrics (timestamp);
+
+create index bot_metrics_metric_type_index
+    on bot_metrics (metric_type);

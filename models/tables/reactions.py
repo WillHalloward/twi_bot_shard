@@ -1,12 +1,22 @@
 """
 SQLAlchemy model for reactions table.
 """
+
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Integer, DateTime, BigInteger, ForeignKey, Boolean, UniqueConstraint
+from sqlalchemy import (
+    String,
+    Integer,
+    DateTime,
+    BigInteger,
+    ForeignKey,
+    Boolean,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
+
 
 class Reaction(Base):
     """
@@ -14,6 +24,7 @@ class Reaction(Base):
 
     This table stores information about reactions to Discord messages.
     """
+
     __tablename__ = "reactions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -30,7 +41,16 @@ class Reaction(Base):
 
     # Define __table_args__ to create composite indexes and unique constraints
     __table_args__ = (
-        UniqueConstraint('message_id', 'user_id', 'emoji_id', name='reactions_message_id_user_id_emoji_id_uindex'),
-        UniqueConstraint('message_id', 'user_id', 'unicode_emoji', name='reactions_message_id_user_id_unicode_emoji_uindex'),
-        {'schema': 'public'},
+        UniqueConstraint(
+            "message_id",
+            "user_id",
+            "emoji_id",
+            name="reactions_message_id_user_id_emoji_id_uindex",
+        ),
+        UniqueConstraint(
+            "message_id",
+            "user_id",
+            "unicode_emoji",
+            name="reactions_message_id_user_id_unicode_emoji_uindex",
+        ),
     )
