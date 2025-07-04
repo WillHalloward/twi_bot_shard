@@ -22,6 +22,16 @@ dependencies = [
     "ao3-api>=2.3.1",
     "python-dotenv>=1.1.0",
     "discord-typings>=0.9.0",
+    "ruff>=0.3.0",
+    "black>=24.3.0",
+    "pre-commit>=3.6.0",
+    "mypy>=1.8.0",
+    "psutil>=5.9.0",
+    "pytest>=8.3.0",
+    "pytest-mock>=3.12.0",
+    "pytest-timeout>=2.2.0",
+    "faker>=24.4.0",
+    "faiss-cpu>=1.11.0",
 ]
 
 [build-system]
@@ -33,3 +43,89 @@ packages = ["cogs", "utils"]
 
 [tool.uv]
 # uv-specific configuration
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+# Enable flake8-bugbear (`B`) rules.
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "B",  # flake8-bugbear
+    "I",  # isort
+    "N",  # pep8-naming
+    "UP", # pyupgrade
+    "ANN", # flake8-annotations
+    "D",  # pydocstyle
+    "C",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".git",
+    ".ruff_cache",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+# Same as Black.
+line-length = 88
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Assume Python 3.12
+target-version = "py312"
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.ruff.isort]
+known-third-party = ["discord", "aiohttp", "asyncpg", "sqlalchemy", "structlog"]
+
+[tool.ruff.per-file-ignores]
+# Ignore imported but unused in __init__.py files
+"__init__.py" = ["F401"]
+# Ignore missing docstrings in tests
+"tests/*" = ["D"]
+
+[tool.mypy]
+# Use the mypy.ini file for configuration
+config_file = "mypy.ini"
+
+[tool.pytest.ini_options]
+# Configure pytest
+timeout = 0  # Disable timeout functionality
+timeout_method = "thread"  # Use thread-based timeout instead of signal-based
+asyncio_mode = "auto"  # Automatically detect and run async test functions
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+# Set default fixture loop scope to avoid warning
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
+# Automatically mark async test functions
+markers = [
+    "asyncio: mark test as async"
+]
