@@ -27,6 +27,7 @@ class Environment(str, Enum):
 class LogFormat(str, Enum):
     JSON = "json"
     CONSOLE = "console"
+    FILE = "file"  # Console format without colors, suitable for file output
 
 
 # Load environment

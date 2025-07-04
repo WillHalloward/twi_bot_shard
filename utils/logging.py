@@ -6,6 +6,7 @@ providing more searchable and analyzable logs.
 """
 
 import logging
+import logging.handlers
 import sys
 import time
 import uuid
@@ -85,11 +86,12 @@ def configure_stdlib_logging(
 
 
 # Configure structlog
-def configure_structlog(log_format: str = "console") -> None:
+def configure_structlog(log_format: str = "console", enable_colors: bool = True) -> None:
     """Configure structlog with processors for formatting and output.
 
     Args:
         log_format: The format to use for log output. Either "json" or "console".
+        enable_colors: Whether to enable colors in console output.
     """
     # Common processors for all formats
     processors = [
@@ -115,9 +117,12 @@ def configure_structlog(log_format: str = "console") -> None:
     if log_format == "json":
         # Format as JSON for machine readability
         processors.append(structlog.processors.JSONRenderer())
+    elif log_format == "file":
+        # Format for file output without colors (multitail-friendly)
+        processors.extend([structlog.dev.ConsoleRenderer(colors=False)])
     else:
-        # Format for console readability
-        processors.extend([structlog.dev.ConsoleRenderer(colors=True)])
+        # Format for console readability - colors controlled by enable_colors parameter
+        processors.extend([structlog.dev.ConsoleRenderer(colors=enable_colors)])
 
     structlog.configure(
         processors=processors,
@@ -138,8 +143,8 @@ def init_logging(
     Args:
         log_level: The logging level to use. Defaults to the level in config.
         log_file: Optional path to a log file. Defaults to the file in config.
-        log_format: The format to use for log output. Either "json" or "console".
-            Defaults to the format in config.
+        log_format: The format to use for log output. Either "json", "console", or "file".
+            Defaults to the format in config, or "file" if logging to a file.
 
     Returns:
         A structlog logger instance.
@@ -149,11 +154,13 @@ def init_logging(
     format_value = log_format
 
     if format_value is None:
-        # Get the log format from config, defaulting to "console"
+        # Get the log format from config, defaulting based on whether we're logging to a file
         if hasattr(config, "log_format"):
             format_value = config.log_format.value
         else:
-            format_value = "console"
+            # If logging to a file, use "file" format (no colors) for multitail compatibility
+            # Otherwise use "console" format (with colors)
+            format_value = "file" if file else "console"
 
     configure_stdlib_logging(level, file)
     configure_structlog(format_value)
