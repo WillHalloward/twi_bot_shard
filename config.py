@@ -40,6 +40,7 @@ from config.__init__ import (
     headers,
     channel_ids,
     role_ids,
+    special_role_ids,
     bot_channel_id,
     inn_general_channel_id,
     password_allowed_channel_ids,
@@ -48,4 +49,5 @@ from config.__init__ import (
     BotConfig,
     load_from_env,
     ENVIRONMENT,
+
 )

@@ -508,6 +508,7 @@ cookies = config.cookies
 headers = config.headers
 channel_ids = config.channel_ids
 role_ids = config.role_ids
+special_role_ids = config.special_role_ids
 bot_channel_id = config.bot_channel_id
 inn_general_channel_id = config.inn_general_channel_id
 password_allowed_channel_ids = config.password_allowed_channel_ids
