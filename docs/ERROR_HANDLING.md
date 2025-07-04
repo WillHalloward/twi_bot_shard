@@ -7,27 +7,46 @@ This document outlines the standardized error handling patterns implemented in t
 1. [Exception Hierarchy](#exception-hierarchy)
 2. [Error Handling Decorators](#error-handling-decorators)
 3. [Global Error Handlers](#global-error-handlers)
-4. [Error Telemetry](#error-telemetry)
-5. [Best Practices](#best-practices)
+4. [Error Response Configuration](#error-response-configuration)
+5. [Error Telemetry](#error-telemetry)
+6. [Best Practices](#best-practices)
 
 ## Exception Hierarchy
 
-The bot uses a custom exception hierarchy defined in `utils/exceptions.py`:
+The bot uses a comprehensive custom exception hierarchy defined in `utils/exceptions.py`:
 
 ```python
-CognitaError                  # Base exception for all bot errors
-├── UserInputError            # Errors caused by invalid user input
-├── ExternalServiceError      # Errors from external services (Twitter, AO3, etc.)
-├── PermissionError           # Errors related to permissions
-├── ResourceNotFoundError     # Errors when a requested resource is not found
-├── ConfigurationError        # Errors related to bot configuration
-├── RateLimitError            # Errors related to rate limiting
-└── DatabaseError             # Errors related to database operations
+CognitaError                                # Base exception for all bot errors
+├── UserInputError                          # Errors caused by invalid user input
+│   ├── ValidationError                     # Input validation failures
+│   └── FormatError                         # Incorrectly formatted input
+├── ExternalServiceError                    # Errors from external services
+│   ├── APIError                            # Errors from API calls
+│   └── ServiceUnavailableError             # Service unavailable errors
+├── PermissionError                         # Errors related to permissions
+│   ├── RolePermissionError                 # Role-based permission errors
+│   └── OwnerOnlyError                      # Owner-only command errors
+├── ResourceNotFoundError                   # Resource not found errors
+├── ResourceAlreadyExistsError              # Resource already exists errors
+├── ResourceInUseError                      # Resource in use errors
+├── ConfigurationError                      # Bot configuration errors
+│   ├── MissingConfigurationError           # Missing configuration values
+│   └── InvalidConfigurationError           # Invalid configuration values
+├── RateLimitError                          # Rate limiting errors
+│   └── CommandCooldownError                # Command cooldown errors
+├── DatabaseError                           # Database operation errors
+│   ├── QueryError                          # Database query errors
+│   ├── ConnectionError                     # Database connection errors
+│   └── TransactionError                    # Database transaction errors
+└── DiscordError                            # Discord API errors
+    ├── MessageError                        # Message operation errors
+    ├── ChannelError                        # Channel operation errors
+    └── GuildError                          # Guild operation errors
 ```
 
 ### Using Custom Exceptions
 
-When raising exceptions in your code, use the appropriate exception type from the hierarchy:
+When raising exceptions in your code, use the most specific exception type from the hierarchy:
 
 ```python
 # Instead of:
@@ -36,7 +55,7 @@ if not valid_input:
 
 # Use:
 if not valid_input:
-    raise UserInputError("Please provide a valid image URL")
+    raise ValidationError(field="image_url", message="Please provide a valid image URL")
 ```
 
 ## Error Handling Decorators
@@ -71,15 +90,44 @@ class MyCog(commands.Cog):
 
 ## Global Error Handlers
 
-The bot has global error handlers for both regular commands and application commands:
+The bot has a centralized error handling system that automatically sets up global error handlers:
 
-- `on_command_error` - Handles errors from regular commands
-- `on_app_command_error` - Handles errors from application commands
+```python
+from utils.error_handling import setup_global_exception_handler
+
+# In your bot's setup_hook method:
+setup_global_exception_handler(bot)
+```
+
+This sets up:
+1. Global command error handler (`on_command_error`)
+2. Global application command error handler (`on_app_command_error`)
+3. Global uncaught exception handler
 
 These handlers:
 1. Log the error with appropriate context
-2. Provide user feedback
+2. Provide user feedback based on the error type
 3. Record error telemetry
+
+## Error Response Configuration
+
+The error handling system uses a configuration dictionary to determine how to respond to different types of errors:
+
+```python
+ERROR_RESPONSES = {
+    UserInputError: {
+        "message": "Invalid input: {error.message}",
+        "log_level": logging.WARNING,
+        "ephemeral": True
+    },
+    # ... other error types ...
+}
+```
+
+For each error type, you can configure:
+- The user-facing message template
+- The logging level
+- Whether the response should be ephemeral (for interactions)
 
 ## Error Telemetry
 
@@ -129,10 +177,10 @@ except Exception as e:
 # Use:
 try:
     # Some operation
-except ExternalServiceError as e:
-    logging.error(f"Service error: {e}")
-except UserInputError as e:
-    logging.error(f"Input error: {e}")
+except APIError as e:
+    logging.error(f"API error: {e}")
+except ValidationError as e:
+    logging.error(f"Validation error: {e}")
 ```
 
 ### 2. Provide Helpful Error Messages
@@ -144,7 +192,10 @@ Error messages should be clear and actionable:
 raise UserInputError("Invalid input")
 
 # Use:
-raise UserInputError("Please provide a valid image URL (must start with http:// or https://)")
+raise ValidationError(
+    field="image_url",
+    message="Please provide a valid image URL (must start with http:// or https://)"
+)
 ```
 
 ### 3. Use Decorators for Command Handlers
@@ -158,12 +209,23 @@ async def my_command(self, ctx):
     # Your code here
 ```
 
-### 4. Log Appropriate Context
+### 4. Use the Standardized Logging Function
 
-When logging errors manually, include relevant context:
+Use the `log_error` function for consistent error logging:
 
 ```python
-logging.error(f"{error_type} in {command_name}: {error_message} | User: {user_id}")
+from utils.error_handling import log_error
+
+try:
+    # Some operation
+except ValidationError as e:
+    log_error(
+        error=e,
+        command_name="my_command",
+        user_id=user_id,
+        log_level=logging.WARNING,
+        additional_context="During image processing"
+    )
 ```
 
 ### 5. Implement Graceful Degradation
