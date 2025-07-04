@@ -130,7 +130,6 @@ class OwnerCog(commands.Cog, name="Owner"):
 
     @app_commands.command(name="sync")
     @commands.is_owner()
-    @app_commands.guilds(297916314239107072)
     async def sync(self, interaction: discord.Interaction, all_guilds: bool):
         # Defer the response since loading extensions might take time
         await interaction.response.defer()
@@ -186,7 +185,6 @@ class OwnerCog(commands.Cog, name="Owner"):
 
     @app_commands.command(name="resources")
     @commands.is_owner()
-    @app_commands.guilds(297916314239107072)
     async def resources(
         self,
         interaction: discord.Interaction,
@@ -295,7 +293,6 @@ class OwnerCog(commands.Cog, name="Owner"):
 
     @app_commands.command(name="sql")
     @commands.is_owner()
-    @app_commands.guilds(297916314239107072)
     async def sql_query(self, interaction: discord.Interaction, query: str):
         """
         Execute a SQL query and return the results as a readable table.
@@ -366,7 +363,6 @@ class OwnerCog(commands.Cog, name="Owner"):
 
     @app_commands.command(name="ask_db")
     @commands.is_owner()
-    @app_commands.guilds(297916314239107072)
     async def ask_database(self, interaction: discord.Interaction, question: str):
         """
         Ask a natural language question about the database and get SQL results.
