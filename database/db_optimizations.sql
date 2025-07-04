@@ -202,8 +202,8 @@ ORDER BY total DESC;
 -- Materialized view for user join/leave statistics
 CREATE MATERIALIZED VIEW IF NOT EXISTS daily_member_stats AS
 SELECT
-    COUNT(*) FILTER (WHERE join_or_leave = 'JOIN') AS joins,
-    COUNT(*) FILTER (WHERE join_or_leave = 'LEAVE') AS leaves,
+    COUNT(*) FILTER (WHERE join_or_leave = 'join') AS joins,
+    COUNT(*) FILTER (WHERE join_or_leave = 'leave') AS leaves,
     server_id
 FROM join_leave
 WHERE date >= NOW() - INTERVAL '1 DAY'

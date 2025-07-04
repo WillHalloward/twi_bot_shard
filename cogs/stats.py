@@ -1546,8 +1546,8 @@ class StatsCogs(commands.Cog, name="stats"):
         if user_join_leave_results is not None:
             message += (
                 f"==== Memeber stats ====\n"
-                f"{user_join_leave_results['JOIN']:<{length}}:: Joined\n"
-                f"{user_join_leave_results['LEAVE']:<{length}}:: Left"
+                f"{user_join_leave_results['join']:<{length}}:: Joined\n"
+                f"{user_join_leave_results['leave']:<{length}}:: Left"
             )
         else:
             logging.warning("No join/leave stats found")
