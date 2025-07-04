@@ -389,6 +389,12 @@ class OwnerCog(commands.Cog, name="Owner"):
             # Step 4: Extract clean SQL from response
             sql_query = extract_sql_from_response(raw_sql_response)
 
+            # Step 4.5: Check for soft error (AI couldn't generate a query)
+            if sql_query == "COGNITA_NO_QUERY_POSSIBLE":
+                response = f"**Question:** {question}\n\n**Status:** ❌ Unable to generate SQL query\n\n**Explanation:** The AI couldn't determine how to create a database query for your question. This might happen if:\n• The question is too vague or ambiguous\n• The requested data isn't available in the database schema\n• The question requires complex logic that can't be expressed in a single SQL query\n\n**Suggestion:** Try rephrasing your question to be more specific about what Discord data you're looking for (e.g., messages, users, servers, reactions, etc.)."
+                await interaction.edit_original_response(content=response)
+                return
+
             # Step 5: Execute the generated SQL
             await interaction.edit_original_response(content="⚡ Executing generated SQL...")
             results = await self.bot.db.fetch(sql_query)
