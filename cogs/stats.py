@@ -832,7 +832,7 @@ class StatsCogs(commands.Cog, name="stats"):
             "INSERT INTO join_leave VALUES($1,$2,$3,$4,$5,$6)",
             member.id,
             datetime.now(),
-            "JOIN",
+            "join",
             member.guild.name,
             member.guild.id,
             member.created_at.replace(tzinfo=None),
@@ -874,7 +874,7 @@ class StatsCogs(commands.Cog, name="stats"):
             "INSERT INTO join_leave VALUES($1,$2,$3,$4,$5,$6)",
             member.id,
             datetime.now(),
-            "LEAVE",
+            "leave",
             member.guild.name,
             member.guild.id,
             member.created_at.replace(tzinfo=None),
@@ -1536,7 +1536,7 @@ class StatsCogs(commands.Cog, name="stats"):
         # Query the materialized view for join/leave stats
         user_join_leave_results = await self.bot.db.fetchrow(
             """         
-            SELECT joins as "JOIN", leaves as "LEAVE"
+            SELECT joins as "join", leaves as "leave"
             FROM daily_member_stats
             WHERE server_id = 346842016480755724
             """
