@@ -63,18 +63,23 @@ This document provides essential information for developers working on the Twi B
 
 1. **Dependency Test**: Verify that all dependencies are installed correctly:
    ```bash
-   python test_dependencies.py
+   uv run test_dependencies.py
    ```
 
 2. **SQLAlchemy Models Test**: Test the SQLAlchemy models:
    ```bash
-   python test_sqlalchemy_models.py
+   uv run test_sqlalchemy_models.py
    ```
 
 3. **Database Connection Test**: Test the database connection:
    ```bash
-   python test_db_connection.py
+   uv run test_db_connection.py
    ```
+4. **Cog loading Test**: Test that all cogs can be loaded without error:
+   ```bash
+   uv run test_cogs.py
+   ```
+
 
 ### Creating New Tests
 
