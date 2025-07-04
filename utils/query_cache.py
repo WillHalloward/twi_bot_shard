@@ -131,7 +131,21 @@ class QueryCache:
         Returns:
             A tuple that can be used as a cache key.
         """
-        return (query, args)
+        def make_hashable(obj):
+            """Convert unhashable types to hashable equivalents."""
+            if isinstance(obj, list):
+                return tuple(make_hashable(item) for item in obj)
+            elif isinstance(obj, dict):
+                return tuple(sorted((k, make_hashable(v)) for k, v in obj.items()))
+            elif isinstance(obj, set):
+                return tuple(sorted(make_hashable(item) for item in obj))
+            elif isinstance(obj, tuple):
+                return tuple(make_hashable(item) for item in obj)
+            else:
+                return obj
+
+        hashable_args = tuple(make_hashable(arg) for arg in args)
+        return (query, hashable_args)
 
     def get(self, query: str, args: Tuple[Any, ...]) -> Optional[Any]:
         """
