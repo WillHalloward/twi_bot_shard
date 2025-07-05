@@ -117,14 +117,19 @@ class LinkTags(commands.Cog, name="Links"):
             return
 
         # Build the message with proper formatting
-        link_titles = [f"`{link['title']}`" for link in query_r]
-        message = " ".join(link_titles)
-
         # Ensure message doesn't exceed Discord's limit
-        if len(message) > 1990:
-            message = message[:1990] + "..."
+        message = "**Available Links:**: "
+        print(query_r)
+        for link in query_r:
+            print(link["title"])
+            print(len(message))
+            if len(message) + len(link["title"]) + 2 < 1990:
+                message += f"`{link['title']}` "
+            else:
+                message += "..."
+                break
 
-        await interaction.response.send_message(f"**Available Links:** {message}")
+        await interaction.response.send_message(f"{message}")
 
     @link.command(
         name="add",
