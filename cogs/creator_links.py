@@ -1,12 +1,13 @@
-import logging
 from typing import List, Optional
 
 import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
+import structlog
 
 from utils.error_handling import handle_interaction_errors
+from utils.logging import RequestContext, TimingContext
 from utils.validation import validate_url
 from utils.exceptions import (
     DatabaseError,
@@ -21,6 +22,7 @@ class CreatorLinks(commands.Cog, name="Creator"):
     def __init__(self, bot):
         self.links_cache = None
         self.bot = bot
+        self.logger = structlog.get_logger("cogs.creator_links")
 
     async def cog_load(self) -> None:
         self.links_cache = await self.bot.db.fetch(

@@ -182,6 +182,127 @@ class CommonPatterns:
         logger.info(log_message, extra=extra)
 
     @staticmethod
+    def log_operation_start(
+        operation_name: str,
+        logger: logging.Logger,
+        user_id: Optional[int] = None,
+        **context_fields,
+    ) -> None:
+        """
+        Log the start of an operation with consistent format.
+
+        Args:
+            operation_name: Name of the operation being started
+            logger: Logger instance
+            user_id: Optional user ID associated with the operation
+            **context_fields: Additional context fields for structured logging
+        """
+        log_message = f"{operation_name.upper()}: Operation started"
+
+        extra = {
+            "operation": operation_name.lower(),
+            "status": "started",
+            **context_fields,
+        }
+
+        if user_id:
+            extra["user_id"] = user_id
+
+        logger.info(log_message, extra=extra)
+
+    @staticmethod
+    def log_operation_success(
+        operation_name: str,
+        logger: logging.Logger,
+        user_id: Optional[int] = None,
+        result_info: Optional[str] = None,
+        **context_fields,
+    ) -> None:
+        """
+        Log successful completion of an operation with consistent format.
+
+        Args:
+            operation_name: Name of the operation that completed
+            logger: Logger instance
+            user_id: Optional user ID associated with the operation
+            result_info: Optional information about the result
+            **context_fields: Additional context fields for structured logging
+        """
+        log_message = f"{operation_name.upper()}: Operation completed successfully"
+        if result_info:
+            log_message += f" - {result_info}"
+
+        extra = {
+            "operation": operation_name.lower(),
+            "status": "success",
+            **context_fields,
+        }
+
+        if user_id:
+            extra["user_id"] = user_id
+
+        logger.info(log_message, extra=extra)
+
+    @staticmethod
+    def log_operation_warning(
+        operation_name: str,
+        warning_message: str,
+        logger: logging.Logger,
+        user_id: Optional[int] = None,
+        **context_fields,
+    ) -> None:
+        """
+        Log a warning during an operation with consistent format.
+
+        Args:
+            operation_name: Name of the operation
+            warning_message: The warning message
+            logger: Logger instance
+            user_id: Optional user ID associated with the operation
+            **context_fields: Additional context fields for structured logging
+        """
+        log_message = f"{operation_name.upper()} WARNING: {warning_message}"
+
+        extra = {
+            "operation": operation_name.lower(),
+            "status": "warning",
+            "warning_message": warning_message,
+            **context_fields,
+        }
+
+        if user_id:
+            extra["user_id"] = user_id
+
+        logger.warning(log_message, extra=extra)
+
+    @staticmethod
+    def get_standardized_logger(name: str) -> logging.Logger:
+        """
+        Get a standardized logger instance with consistent naming.
+
+        Args:
+            name: The logger name (should be the cog or module name)
+
+        Returns:
+            Configured logger instance
+        """
+        # Ensure consistent naming convention: cogs.{name}
+        if not name.startswith("cogs.") and not name.startswith("utils."):
+            if "cog" in name.lower() or name in [
+                "twi",
+                "stats",
+                "other",
+                "gallery",
+                "report",
+                "summarization",
+            ]:
+                name = f"cogs.{name}"
+            else:
+                name = f"utils.{name}"
+
+        return logging.getLogger(name)
+
+    @staticmethod
     def log_command_error(
         command_name: str,
         user_id: int,

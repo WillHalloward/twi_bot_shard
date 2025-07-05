@@ -1,10 +1,12 @@
-import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Optional
+import structlog
 
+import config
 from utils.error_handling import handle_interaction_errors
+from utils.logging import RequestContext, TimingContext
 
 
 class SettingsCog(commands.Cog, name="Settings"):
@@ -12,6 +14,7 @@ class SettingsCog(commands.Cog, name="Settings"):
 
     def __init__(self, bot):
         self.bot = bot
+        self.logger = structlog.get_logger("cogs.settings")
 
     async def cog_load(self):
         """Called when the cog is loaded."""
@@ -30,9 +33,13 @@ class SettingsCog(commands.Cog, name="Settings"):
                 )
             """
             )
-            logging.info("Server settings table initialized successfully")
+            self.logger.info("server_settings_table_initialized")
         except Exception as e:
-            logging.error(f"Failed to initialize server settings table: {e}")
+            self.logger.error(
+                "server_settings_table_init_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
 
     @app_commands.command(
         name="set_admin_role", description="Set the admin role for this server"
@@ -82,7 +89,13 @@ class SettingsCog(commands.Cog, name="Settings"):
                 f"Admin role set to {role.mention} for this server.", ephemeral=True
             )
         except Exception as e:
-            logging.error(f"Error setting admin role: {e}")
+            self.logger.error(
+                "admin_role_set_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+                guild_id=interaction.guild.id,
+                role_id=role.id,
+            )
             await interaction.response.send_message(
                 "An error occurred while setting the admin role.", ephemeral=True
             )
@@ -122,7 +135,12 @@ class SettingsCog(commands.Cog, name="Settings"):
                     "No admin role has been set for this server.", ephemeral=True
                 )
         except Exception as e:
-            logging.error(f"Error getting admin role: {e}")
+            self.logger.error(
+                "admin_role_get_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+                guild_id=interaction.guild.id,
+            )
             await interaction.response.send_message(
                 "An error occurred while getting the admin role.", ephemeral=True
             )
@@ -172,7 +190,14 @@ class SettingsCog(commands.Cog, name="Settings"):
             return any(role.id == admin_role_id for role in member.roles)
 
         except Exception as e:
-            logging.error(f"Error checking admin status: {e}")
+            logger = structlog.get_logger("cogs.settings")
+            logger.error(
+                "admin_status_check_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+                guild_id=guild_id,
+                user_id=user_id,
+            )
             # Fall back to the hardcoded check in case of error
             return False
 

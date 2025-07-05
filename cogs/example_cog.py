@@ -5,12 +5,14 @@ This cog shows how to use the Database utility class for various database operat
 including error handling, transactions, and query optimization.
 """
 
-import logging
 from typing import List, Optional
 
 import discord
 from discord import app_commands
 from discord.ext import commands
+import structlog
+
+from utils.logging import RequestContext, TimingContext
 
 
 class ExampleCog(commands.Cog, name="Example"):
@@ -19,7 +21,7 @@ class ExampleCog(commands.Cog, name="Example"):
     def __init__(self, bot):
         """Initialize the cog with a reference to the bot."""
         self.bot = bot
-        self.logger = logging.getLogger("example_cog")
+        self.logger = structlog.get_logger("cogs.example_cog")
 
     @commands.command(name="example_transaction")
     @commands.is_owner()
@@ -46,7 +48,9 @@ class ExampleCog(commands.Cog, name="Example"):
             await self.bot.db.execute_in_transaction(queries)
             await ctx.send("Transaction completed successfully!")
         except Exception as e:
-            self.logger.error(f"Transaction failed: {e}")
+            self.logger.error(
+                "transaction_failed", error=str(e), error_type=type(e).__name__
+            )
             await ctx.send(f"Transaction failed: {e}")
 
     @app_commands.command(name="example_fetch")
@@ -69,7 +73,12 @@ class ExampleCog(commands.Cog, name="Example"):
 
             await interaction.response.send_message(response)
         except Exception as e:
-            self.logger.error(f"Error fetching data: {e}")
+            self.logger.error(
+                "data_fetch_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+                limit=limit,
+            )
             await interaction.response.send_message(
                 f"An error occurred while fetching data. Please try again later.",
                 ephemeral=True,
@@ -101,7 +110,13 @@ class ExampleCog(commands.Cog, name="Example"):
                     f"Created new record {name} with value {value}."
                 )
         except Exception as e:
-            self.logger.error(f"Error updating data: {e}")
+            self.logger.error(
+                "data_update_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+                name=name,
+                value=value,
+            )
             await interaction.response.send_message(
                 f"An error occurred while updating data. Please try again later.",
                 ephemeral=True,
@@ -146,7 +161,13 @@ class ExampleCog(commands.Cog, name="Example"):
                             )
             except Exception as e:
                 # Log the error but don't disrupt the bot's operation
-                self.logger.error(f"Error processing message in example_listener: {e}")
+                self.logger.error(
+                    "message_processing_failed",
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    message_id=message.id,
+                    author_id=message.author.id,
+                )
 
 
 async def setup(bot):
