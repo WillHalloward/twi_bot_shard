@@ -131,3 +131,12 @@ dmypy.json
 
 # PyCharm project settings
 /ssl-cert/
+
+# Ruff cache
+.ruff_cache/
+
+# Junie cache
+.junie/
+
+# Temporary output files
+*.output.txt
