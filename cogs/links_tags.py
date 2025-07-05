@@ -43,6 +43,36 @@ class LinkTags(commands.Cog, name="Links"):
             if current.lower() in link["title"].lower() or current == ""
         ][0:25]
 
+    async def category_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> List[app_commands.Choice[str]]:
+        """
+        Provide autocomplete choices for link categories/tags.
+
+        Args:
+            interaction: The Discord interaction object
+            current: The current input from the user
+
+        Returns:
+            List of app_commands.Choice objects for categories
+        """
+        categories = set()
+        if self.links_cache:
+            for link in self.links_cache:
+                tag = link.get("tag")
+                if tag:
+                    categories.add(tag)
+                else:
+                    categories.add("Uncategorized")
+
+        return [
+            app_commands.Choice(name=category, value=category)
+            for category in sorted(categories)
+            if current.lower() in category.lower() or current == ""
+        ][0:25]
+
     link = app_commands.Group(name="link", description="Link commands")
 
     @link.command(name="get", description="Gets a link with the given name")
@@ -93,43 +123,106 @@ class LinkTags(commands.Cog, name="Links"):
                 message=f"I could not find a link with the title **{title}**. Use `/link list` to see all available links.",
             )
 
-    @link.command(name="list", description="View all links.")
+    @link.command(name="list", description="View all link categories and counts, or links in a specific category.")
+    @app_commands.autocomplete(category=category_autocomplete)
     @handle_interaction_errors
-    async def link_list(self, interaction: discord.Interaction):
+    async def link_list(self, interaction: discord.Interaction, category: str = None):
         """
-        Display a list of all available links.
+        Display a list of all link categories with the number of links in each category,
+        or show all links within a specific category if one is provided.
+        This is optimized for handling large amounts of links within Discord's character limit.
 
         Args:
             interaction: The Discord interaction object
+            category: Optional category name to show links from that category
 
         Raises:
+            ValidationError: If the category parameter is invalid
+            ResourceNotFoundError: If no links exist in the specified category
             DatabaseError: If database query fails
         """
-        try:
-            query_r = await self.bot.db.fetch("SELECT title FROM links ORDER BY title")
-        except asyncpg.PostgresError as e:
-            raise DatabaseError("Failed to retrieve links list") from e
-        except Exception as e:
-            raise QueryError("Unexpected error during links list query") from e
+        if category:
+            # Show links within the specified category
+            # Validate category
+            if len(category.strip()) == 0:
+                raise ValidationError(field="category", message="Category cannot be empty")
 
-        if not query_r:
-            await interaction.response.send_message("No links are currently available.")
-            return
+            category = category.strip()
 
-        # Build the message with proper formatting
-        # Ensure message doesn't exceed Discord's limit
-        message = "**Available Links:**: "
-        print(query_r)
-        for link in query_r:
-            print(link["title"])
-            print(len(message))
-            if len(message) + len(link["title"]) + 2 < 1990:
-                message += f"`{link['title']}` "
-            else:
-                message += "..."
-                break
+            try:
+                # Handle "Uncategorized" as a special case
+                if category.lower() == "uncategorized":
+                    query_r = await self.bot.db.fetch(
+                        "SELECT title FROM links WHERE tag IS NULL ORDER BY NULLIF(regexp_replace(title, '\\D', '', 'g'), '')::int, title"
+                    )
+                else:
+                    query_r = await self.bot.db.fetch(
+                        "SELECT title FROM links WHERE lower(tag) = lower($1) ORDER BY NULLIF(regexp_replace(title, '\\D', '', 'g'), '')::int, title",
+                        category,
+                    )
+            except asyncpg.PostgresError as e:
+                raise DatabaseError(f"Failed to retrieve links for category '{category}'") from e
+            except Exception as e:
+                raise QueryError(f"Unexpected error during category links query") from e
 
-        await interaction.response.send_message(f"{message}")
+            if not query_r:
+                raise ResourceNotFoundError(
+                    resource_type="links in category",
+                    resource_id=category,
+                    message=f"I could not find any links in the category **{category}**. Use `/link list` to see all available categories.",
+                )
+
+            # Build the message with proper formatting
+            link_titles = [f"`{link['title']}`" for link in query_r]
+            message = "\n".join(link_titles)
+
+            # Ensure message doesn't exceed Discord's limit
+            if len(message) > 1990:
+                message = message[:1990] + "..."
+
+            await interaction.response.send_message(
+                f"**Links in category '{category}':**\n{message}"
+            )
+        else:
+            # Show all categories with counts (original behavior)
+            try:
+                # Query to get categories with link counts
+                query_r = await self.bot.db.fetch("""
+                    SELECT 
+                        COALESCE(tag, 'Uncategorized') as category,
+                        COUNT(*) as link_count
+                    FROM links 
+                    GROUP BY tag 
+                    ORDER BY 
+                        CASE WHEN tag IS NULL THEN 1 ELSE 0 END,
+                        tag
+                """)
+            except asyncpg.PostgresError as e:
+                raise DatabaseError("Failed to retrieve links categories") from e
+            except Exception as e:
+                raise QueryError("Unexpected error during links categories query") from e
+
+            if not query_r:
+                await interaction.response.send_message("No links are currently available.")
+                return
+
+            # Build the message with proper formatting
+            # Ensure message doesn't exceed Discord's limit
+            message = "**Link Categories:**\n"
+
+            for category_info in query_r:
+                category_name = category_info["category"]
+                count = category_info["link_count"]
+                line = f"• **{category_name}**: {count} link{'s' if count != 1 else ''}\n"
+
+                # Check if adding this line would exceed Discord's limit
+                if len(message) + len(line) < 1990:
+                    message += line
+                else:
+                    message += "..."
+                    break
+
+            await interaction.response.send_message(message)
 
     @link.command(
         name="add",
@@ -383,45 +476,6 @@ class LinkTags(commands.Cog, name="Links"):
         except Exception as e:
             raise DatabaseError(f"Unexpected error while editing link") from e
 
-    @app_commands.command(name="tags", description="See all available tags")
-    @handle_interaction_errors
-    async def tags(self, interaction: discord.Interaction):
-        """
-        Display a list of all available tags.
-
-        Args:
-            interaction: The Discord interaction object
-
-        Raises:
-            DatabaseError: If database query fails
-        """
-        try:
-            query_r = await self.bot.db.fetch(
-                "SELECT DISTINCT tag FROM links WHERE tag IS NOT NULL ORDER BY tag"
-            )
-        except asyncpg.PostgresError as e:
-            raise DatabaseError("Failed to retrieve tags list") from e
-        except Exception as e:
-            raise QueryError("Unexpected error during tags query") from e
-
-        if not query_r:
-            await interaction.response.send_message("No tags are currently available.")
-            return
-
-        # Build the message with proper formatting
-        tag_list = [f"`{tag['tag']}`" for tag in query_r if tag["tag"]]
-
-        if not tag_list:
-            await interaction.response.send_message("No tags are currently available.")
-            return
-
-        message = " ".join(tag_list)
-
-        # Ensure message doesn't exceed Discord's limit
-        if len(message) > 1990:
-            message = message[:1990] + "..."
-
-        await interaction.response.send_message(f"**Available Tags:** {message}")
 
     @app_commands.command(
         name="tag", description="View all links that got a certain tag"
@@ -460,7 +514,7 @@ class LinkTags(commands.Cog, name="Links"):
             raise ResourceNotFoundError(
                 resource_type="links with tag",
                 resource_id=tag,
-                message=f"I could not find any links with the tag **{tag}**. Use `/tags` to see all available tags or `/link list` to see all links.",
+                message=f"I could not find any links with the tag **{tag}**. Use `/link list` to see all available categories.",
             )
 
         # Build the message with proper formatting
