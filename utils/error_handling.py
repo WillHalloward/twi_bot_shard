@@ -266,8 +266,8 @@ def get_detailed_error_context(
         "traceback": None,
     }
 
-    # Add traceback for non-CognitaError exceptions
-    if not isinstance(error, CognitaError):
+    # Add traceback for non-CognitaError exceptions, but exclude CommandOnCooldown
+    if not isinstance(error, CognitaError) and not isinstance(error, (commands.CommandOnCooldown, discord.app_commands.errors.CommandOnCooldown)):
         context["traceback"] = "".join(
             traceback.format_exception(type(error), error, error.__traceback__)
         )
@@ -618,12 +618,12 @@ def log_error(
         except Exception as e:
             logger.error(f"Failed to serialize error context: {e}")
 
-    # For unexpected errors, log the full traceback
-    if isinstance(error, Exception) and not isinstance(error, CognitaError):
+    # For unexpected errors, log the full traceback (but exclude CommandOnCooldown)
+    if isinstance(error, Exception) and not isinstance(error, CognitaError) and not isinstance(error, (commands.CommandOnCooldown, discord.app_commands.errors.CommandOnCooldown)):
         error_details = "".join(
             traceback.format_exception(type(error), error, error.__traceback__)
         )
-        logger.error(f"Traceback for {error_type} in {command_name}:\n{error_details}")
+        logger.log(log_level, f"Traceback for {error_type} in {command_name}:\n{error_details}")
 
 
 def handle_command_errors(func: CommandT) -> CommandT:
@@ -966,6 +966,30 @@ async def handle_global_app_command_error(
 
                 except Exception as e:
                     logger.error(f"Error during lazy loading of {extension_name}: {e}")
+
+    # Skip CommandOnCooldown errors as they should be handled by command-specific error handlers
+    if isinstance(error, discord.app_commands.errors.CommandOnCooldown):
+        # Only log the error for telemetry, don't send a message to avoid duplicates
+        command_name = interaction.command.name if interaction.command else "unknown"
+        log_error(
+            error=error,
+            command_name=command_name,
+            user_id=interaction.user.id,
+            log_level=logging.WARNING,
+        )
+
+        # Record error telemetry
+        if hasattr(interaction, "client"):
+            await track_error(
+                interaction.client,
+                type(error).__name__,
+                command_name,
+                interaction.user.id,
+                getattr(error, "message", str(error)),
+                interaction.guild.id if interaction.guild else None,
+                interaction.channel.id if interaction.channel else None,
+            )
+        return
 
     # Get the appropriate error response
     response = get_error_response(error)
