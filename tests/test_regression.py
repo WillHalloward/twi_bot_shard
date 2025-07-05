@@ -343,11 +343,11 @@ async def test_password_command():
 
         # Check content or embed for the password
         response_text = content
-        if embed and hasattr(embed, 'description') and embed.description:
+        if embed and hasattr(embed, "description") and embed.description:
             response_text += " " + embed.description
-        if embed and hasattr(embed, 'fields'):
+        if embed and hasattr(embed, "fields"):
             for field in embed.fields:
-                if hasattr(field, 'value'):
+                if hasattr(field, "value"):
                     response_text += " " + str(field.value)
 
         assert "test_password" in response_text or kwargs.get("view") is not None
@@ -373,14 +373,16 @@ async def test_password_command():
 
         # Check content or embed for the message
         response_text = content
-        if embed and hasattr(embed, 'description') and embed.description:
+        if embed and hasattr(embed, "description") and embed.description:
             response_text += " " + embed.description
-        if embed and hasattr(embed, 'fields'):
+        if embed and hasattr(embed, "fields"):
             for field in embed.fields:
-                if hasattr(field, 'value'):
+                if hasattr(field, "value"):
                     response_text += " " + str(field.value)
 
-        assert "Here are the ways to access the latest chapter password" in response_text
+        assert (
+            "Here are the ways to access the latest chapter password" in response_text
+        )
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")

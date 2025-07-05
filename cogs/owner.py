@@ -1301,7 +1301,9 @@ class OwnerCog(commands.Cog, name="Owner"):
                 channel_id = interaction.channel.id if interaction.channel else None
                 user_id = interaction.user.id
 
-                prompt = build_prompt(question, relevant_schema, server_id, channel_id, user_id)
+                prompt = build_prompt(
+                    question, relevant_schema, server_id, channel_id, user_id
+                )
                 if not prompt:
                     raise ExternalServiceError(message="❌ Failed to build AI prompt")
                 logging.info(

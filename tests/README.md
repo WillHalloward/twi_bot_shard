@@ -225,12 +225,63 @@ Summary: 13/13 cogs loaded successfully
 Test passed: All cogs loaded successfully!
 ```
 
+### 17. `test_chaos_engineering.py`
+
+Tests the bot's resilience under various failure conditions using chaos engineering principles.
+
+**Usage:**
+```bash
+python tests\test_chaos_engineering.py
+```
+
+**What it does:**
+- Tests database connection failures and timeouts
+- Tests network failures and API unavailability
+- Tests memory pressure and resource exhaustion
+- Tests external service failures
+- Tests concurrent failure scenarios
+- Tests recovery and graceful degradation
+- Tests intermittent failures and slow responses
+- Provides a resilience score (0-100) based on test results
+- Records detailed metrics including recovery times and degradation events
+
+**Chaos Engineering Scenarios:**
+- **Database Failure**: Simulates database connection failures to test graceful degradation
+- **External API Failure**: Tests resilience when external APIs (Google, Twitter, etc.) are unavailable
+- **Memory Pressure**: Tests bot performance under high memory usage conditions
+- **Concurrent Failures**: Tests multiple failure scenarios happening simultaneously
+- **Intermittent Failures**: Tests handling of sporadic, unpredictable failures
+- **Slow Responses**: Tests timeout handling and performance under slow response conditions
+
+**Example output:**
+```
+🔥 Starting Chaos Engineering Tests for Twi Bot Shard
+============================================================
+📊 CHAOS ENGINEERING TEST RESULTS
+============================================================
+Overall Success: ✅ PASS
+Resilience Score: 83.3/100
+Scenarios Tested: 6
+Total Failures Injected: 6
+Average Recovery Time: 0.12s
+Max Recovery Time: 0.15s
+Degradation Events: 2
+
+🧪 Individual Test Results:
+  database_failure: ✅ PASS
+  external_api_failure: ✅ PASS
+  memory_pressure: ✅ PASS
+  concurrent_failures: ✅ PASS
+  intermittent_failures: ✅ PASS
+  slow_responses: ✅ PASS
+```
+
 ## Running All Tests
 
 To run all tests in sequence, you can use the following command:
 
 ```bash
-python -m tests.test_dependencies && python -m tests.test_db_connection && python -m tests.test_sqlalchemy_models && python -m tests.test_cogs && python -m tests.test_decorators && python -m tests.test_permissions && python -m tests.test_db_operations && python -m tests.test_end_to_end && python -m tests.test_integration && python -m tests.test_stats_cog && python -m tests.test_other_cog && python -m tests.test_interactive_help && python -m tests.test_property_based && python -m tests.test_validation_property_based && python -m tests.test_mock_example && python -m tests.test_timeout_example
+python -m tests.test_dependencies && python -m tests.test_db_connection && python -m tests.test_sqlalchemy_models && python -m tests.test_cogs && python -m tests.test_decorators && python -m tests.test_permissions && python -m tests.test_db_operations && python -m tests.test_end_to_end && python -m tests.test_integration && python -m tests.test_stats_cog && python -m tests.test_other_cog && python -m tests.test_interactive_help && python -m tests.test_property_based && python -m tests.test_validation_property_based && python -m tests.test_mock_example && python -m tests.test_timeout_example && python -m tests.test_chaos_engineering
 ```
 
 This will run each test in sequence and stop if any test fails.

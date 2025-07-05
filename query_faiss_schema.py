@@ -32,7 +32,13 @@ def query_faiss(
     return [lookup[str(i)] for i in indices[0]]
 
 
-def build_prompt(question: str, schema_chunks: list[str], server_id: int = None, channel_id: int = None, user_id: int = None) -> str:
+def build_prompt(
+    question: str,
+    schema_chunks: list[str],
+    server_id: int = None,
+    channel_id: int = None,
+    user_id: int = None,
+) -> str:
     context_info = ""
     if server_id or channel_id or user_id:
         context_info = "\nCurrent Context:\n"

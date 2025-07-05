@@ -49,6 +49,7 @@ async def test_user_info_function():
 
     # Set up timezone-aware datetime objects to avoid offset issues
     import discord
+
     now = discord.utils.utcnow()
     member.created_at = now
     member.joined_at = now
@@ -257,8 +258,8 @@ async def test_roll_command():
     content = kwargs.get("content", "")
     embed = kwargs.get("embed")
     if embed:
-        embed_desc = getattr(embed, 'description', None) or ""
-        embed_title = getattr(embed, 'title', None) or ""
+        embed_desc = getattr(embed, "description", None) or ""
+        embed_title = getattr(embed, "title", None) or ""
         assert "Roll" in embed_desc or "Roll" in embed_title
     else:
         assert "Rolled" in content
@@ -275,14 +276,14 @@ async def test_roll_command():
     content = kwargs.get("content", "")
     embed = kwargs.get("embed")
     if embed:
-        embed_desc = getattr(embed, 'description', None) or ""
-        embed_title = getattr(embed, 'title', None) or ""
+        embed_desc = getattr(embed, "description", None) or ""
+        embed_title = getattr(embed, "title", None) or ""
         response_text = embed_desc + " " + embed_title
 
         # Also check embed fields for roll details
-        if hasattr(embed, 'fields') and embed.fields:
+        if hasattr(embed, "fields") and embed.fields:
             for field in embed.fields:
-                if hasattr(field, 'value'):
+                if hasattr(field, "value"):
                     response_text += " " + str(field.value)
     else:
         response_text = content
