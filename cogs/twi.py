@@ -33,6 +33,8 @@ from utils.exceptions import (
     ValidationError,
     ResourceNotFoundError,
     ExternalServiceError,
+    DatabaseError,
+    PermissionError,
 )
 
 
@@ -123,35 +125,146 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
 
         Args:
             interaction: The interaction that triggered the command
+
+        Raises:
+            DatabaseError: If database operations fail
+            ValidationError: If password data is invalid
         """
-        if interaction.channel.id in config.password_allowed_channel_ids:
-            password = await self.bot.db.fetchrow(
-                "SELECT password, link "
-                "FROM password_link "
-                "WHERE password IS NOT NULL "
-                "ORDER BY serial_id DESC "
-                "LIMIT 1"
+        try:
+            logging.info(
+                f"TWI PASSWORD: User {interaction.user.id} ({interaction.user.display_name}) requesting password in channel {interaction.channel.id}"
             )
-            if self.last_run < datetime.datetime.now() - datetime.timedelta(minutes=10):
-                await interaction.response.send_message(
-                    f"{password['password']}",
-                    view=discord.ui.View().add_item(self.Button(password["link"])),
+
+            if interaction.channel.id in config.password_allowed_channel_ids:
+                # Fetch password from database with error handling
+                try:
+                    password = await self.bot.db.fetchrow(
+                        "SELECT password, link "
+                        "FROM password_link "
+                        "WHERE password IS NOT NULL "
+                        "ORDER BY serial_id DESC "
+                        "LIMIT 1"
+                    )
+                except Exception as e:
+                    logging.error(
+                        f"TWI PASSWORD ERROR: Database query failed for user {interaction.user.id}: {e}"
+                    )
+                    raise DatabaseError(
+                        message="❌ **Database Error**\nFailed to retrieve password from database"
+                    ) from e
+
+                # Validate password data
+                if not password:
+                    logging.warning(
+                        f"TWI PASSWORD WARNING: No password found in database for user {interaction.user.id}"
+                    )
+                    raise ValidationError(
+                        message="❌ **No Password Available**\nNo password is currently available. Please contact an admin."
+                    )
+
+                if not password["password"] or not password["link"]:
+                    logging.warning(
+                        f"TWI PASSWORD WARNING: Invalid password data for user {interaction.user.id}"
+                    )
+                    raise ValidationError(
+                        message="❌ **Invalid Password Data**\nPassword data is incomplete. Please contact an admin."
+                    )
+
+                # Check rate limiting
+                is_public = (
+                    self.last_run
+                    < datetime.datetime.now() - datetime.timedelta(minutes=10)
                 )
-                self.last_run = datetime.datetime.now()
+
+                # Create enhanced embed response
+                embed = discord.Embed(
+                    title="🔐 Patreon Password",
+                    description=f"**Password:** `{password['password']}`",
+                    color=discord.Color.green(),
+                    timestamp=datetime.datetime.now(),
+                )
+
+                embed.add_field(
+                    name="📖 Chapter Link",
+                    value=f"[Click here to read]({password['link']})",
+                    inline=False,
+                )
+
+                if is_public:
+                    embed.add_field(
+                        name="ℹ️ Note",
+                        value="This password is posted publicly. Future requests in the next 10 minutes will be private.",
+                        inline=False,
+                    )
+                else:
+                    embed.add_field(
+                        name="🔒 Private Response",
+                        value="This is a private response to avoid spam.",
+                        inline=False,
+                    )
+
+                embed.set_footer(text="Password provided for Patreon supporters")
+
+                view = discord.ui.View().add_item(self.Button(password["link"]))
+
+                if is_public:
+                    await interaction.response.send_message(embed=embed, view=view)
+                    self.last_run = datetime.datetime.now()
+                    logging.info(
+                        f"TWI PASSWORD: Public password provided to user {interaction.user.id}"
+                    )
+                else:
+                    await interaction.response.send_message(
+                        embed=embed, view=view, ephemeral=True
+                    )
+                    logging.info(
+                        f"TWI PASSWORD: Private password provided to user {interaction.user.id}"
+                    )
+
             else:
-                await interaction.response.send_message(
-                    f"{password['password']}",
-                    ephemeral=True,
-                    view=discord.ui.View().add_item(self.Button(password["link"])),
+                # Create enhanced instructions embed
+                embed = discord.Embed(
+                    title="🔐 How to Get the Patreon Password",
+                    description="Here are the ways to access the latest chapter password:",
+                    color=discord.Color.blue(),
+                    timestamp=datetime.datetime.now(),
                 )
-        else:
-            await interaction.response.send_message(
-                "There are 3 ways to get the patreon password.\n"
-                f"1. Link discord to patreon and go to <#{config.inn_general_channel_id}> and check pins or use /password inside it.\n"
-                "If you don't know how to connect discord to patreon use the command /connectdiscord\n"
-                "2. You will get an email with the password every time pirate posts it.\n"
-                "3. go to <https://www.patreon.com/pirateaba> and check the latest posts. It has the password.\n"
+
+                embed.add_field(
+                    name="1️⃣ Discord + Patreon Integration",
+                    value=f"Link your Discord to Patreon, then go to <#{config.inn_general_channel_id}> and check pins or use `/password`.\n"
+                    "Use `/connectdiscord` if you need help linking accounts.",
+                    inline=False,
+                )
+
+                embed.add_field(
+                    name="2️⃣ Email Notifications",
+                    value="You'll receive an email with the password every time pirateaba posts it.",
+                    inline=False,
+                )
+
+                embed.add_field(
+                    name="3️⃣ Direct Patreon Access",
+                    value="Visit [pirateaba's Patreon](https://www.patreon.com/pirateaba) and check the latest posts for the password.",
+                    inline=False,
+                )
+
+                embed.set_footer(text="Support The Wandering Inn on Patreon!")
+
+                await interaction.response.send_message(embed=embed)
+                logging.info(
+                    f"TWI PASSWORD: Instructions provided to user {interaction.user.id} in non-allowed channel {interaction.channel.id}"
+                )
+
+        except (DatabaseError, ValidationError):
+            # Re-raise our custom exceptions to be handled by the decorator
+            raise
+        except Exception as e:
+            error_msg = f"❌ **Password Request Failed**\nUnexpected error while retrieving password: {str(e)}"
+            logging.error(
+                f"TWI PASSWORD ERROR: Unexpected error for user {interaction.user.id}: {e}"
             )
+            raise ExternalServiceError(message=error_msg) from e
 
     @app_commands.command(
         name="connectdiscord",
@@ -188,40 +301,179 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         Args:
             interaction: The interaction that triggered the command
             query: The search term to look for on the wiki
+
+        Raises:
+            ValidationError: If query is invalid or too short
+            ExternalServiceError: If wiki API requests fail
         """
-        embed = discord.Embed(title=f"Wiki results search **{query}**")
-        # Use the bot's shared HTTP client session for connection pooling
-        session = await self.bot.http_client.get_session()
-        html = await fetch(
-            session,
-            f"https://thewanderinginn.fandom.com/api.php?action=query&generator=search&gsrsearch={query}&format=json&prop=info|images&inprop=url",
-        )
         try:
-            sorted_json_data = sorted(
-                json.loads(html)["query"]["pages"].values(), key=lambda k: k["index"]
+            # Input validation
+            if not query or len(query.strip()) < 2:
+                raise ValidationError(
+                    message="❌ **Invalid Search Query**\nPlease provide a search query with at least 2 characters."
+                )
+
+            query = query.strip()
+            if len(query) > 100:
+                raise ValidationError(
+                    message="❌ **Query Too Long**\nSearch query must be 100 characters or less."
+                )
+
+            logging.info(
+                f"TWI WIKI: User {interaction.user.id} ({interaction.user.display_name}) searching for: '{query[:50]}{'...' if len(query) > 50 else ''}'"
             )
-        except KeyError:
-            await interaction.response.send_message(
-                f"I'm sorry, I could not find a article matching **{query}**."
+
+            # Defer response since API calls might take time
+            await interaction.response.defer()
+
+            # Use the bot's shared HTTP client session for connection pooling
+            try:
+                session = await self.bot.http_client.get_session()
+            except Exception as e:
+                logging.error(
+                    f"TWI WIKI ERROR: Failed to get HTTP session for user {interaction.user.id}: {e}"
+                )
+                raise ExternalServiceError(
+                    message="❌ **Connection Error**\nFailed to establish connection to wiki"
+                ) from e
+
+            # Search for articles
+            try:
+                search_url = f"https://thewanderinginn.fandom.com/api.php?action=query&generator=search&gsrsearch={query}&format=json&prop=info|images&inprop=url"
+                html = await fetch(session, search_url)
+
+                if not html:
+                    raise ExternalServiceError(
+                        message="❌ **Wiki API Error**\nReceived empty response from wiki API"
+                    )
+
+            except Exception as e:
+                logging.error(
+                    f"TWI WIKI ERROR: Wiki API request failed for user {interaction.user.id}: {e}"
+                )
+                raise ExternalServiceError(
+                    message="❌ **Wiki Search Failed**\nFailed to search the wiki. Please try again later."
+                ) from e
+
+            # Parse search results
+            try:
+                wiki_data = json.loads(html)
+
+                if "query" not in wiki_data or "pages" not in wiki_data["query"]:
+                    # No results found
+                    embed = discord.Embed(
+                        title="🔍 Wiki Search Results",
+                        description=f"No articles found matching **{query}**",
+                        color=discord.Color.orange(),
+                        timestamp=datetime.datetime.now(),
+                    )
+
+                    embed.add_field(
+                        name="💡 Search Tips",
+                        value="• Try different keywords\n• Check spelling\n• Use broader search terms\n• Try character or location names",
+                        inline=False,
+                    )
+
+                    embed.set_footer(text="Search powered by The Wandering Inn Wiki")
+
+                    await interaction.followup.send(embed=embed)
+                    logging.info(
+                        f"TWI WIKI: No results found for user {interaction.user.id} query: '{query}'"
+                    )
+                    return
+
+                sorted_json_data = sorted(
+                    wiki_data["query"]["pages"].values(), key=lambda k: k["index"]
+                )
+
+            except (json.JSONDecodeError, KeyError) as e:
+                logging.error(
+                    f"TWI WIKI ERROR: Failed to parse wiki response for user {interaction.user.id}: {e}"
+                )
+                raise ExternalServiceError(
+                    message="❌ **Wiki Response Error**\nFailed to parse wiki search results"
+                ) from e
+
+            # Create results embed
+            embed = discord.Embed(
+                title="🔍 Wiki Search Results",
+                description=f"Found **{len(sorted_json_data)}** article{'s' if len(sorted_json_data) != 1 else ''} for **{query}**",
+                color=discord.Color.green(),
+                timestamp=datetime.datetime.now(),
             )
-            return
-        for results in sorted_json_data:
-            embed.add_field(
-                name="\u200b",
-                value=f"[{results['title']}]({results['fullurl']})",
-                inline=False,
+
+            # Add search results (limit to prevent embed size issues)
+            max_results = 10
+            results_to_show = sorted_json_data[:max_results]
+
+            for i, result in enumerate(results_to_show, 1):
+                try:
+                    title = result.get("title", "Unknown Title")
+                    url = result.get("fullurl", "#")
+
+                    embed.add_field(
+                        name=f"{i}. {title[:50]}{'...' if len(title) > 50 else ''}",
+                        value=f"[Read Article]({url})",
+                        inline=False,
+                    )
+                except Exception as e:
+                    logging.warning(
+                        f"TWI WIKI WARNING: Failed to process result {i} for user {interaction.user.id}: {e}"
+                    )
+                    continue
+
+            # Try to get thumbnail from first result
+            try:
+                if (
+                    sorted_json_data
+                    and "images" in sorted_json_data[0]
+                    and sorted_json_data[0]["images"]
+                ):
+                    image_title = sorted_json_data[0]["images"][0]["title"]
+                    image_url = f"https://thewanderinginn.fandom.com/api.php?action=query&format=json&titles={image_title}&prop=imageinfo&iiprop=url"
+
+                    image_json = await fetch(session, image_url)
+                    if image_json:
+                        image_data = json.loads(image_json)
+                        image_pages = image_data.get("query", {}).get("pages", {})
+
+                        if image_pages:
+                            image_info = next(iter(image_pages.values()))
+                            if "imageinfo" in image_info and image_info["imageinfo"]:
+                                thumbnail_url = image_info["imageinfo"][0].get("url")
+                                if thumbnail_url:
+                                    embed.set_thumbnail(url=thumbnail_url)
+
+            except Exception as e:
+                logging.warning(
+                    f"TWI WIKI WARNING: Failed to get thumbnail for user {interaction.user.id}: {e}"
+                )
+                # Continue without thumbnail
+
+            # Add note if there are more results
+            if len(sorted_json_data) > max_results:
+                embed.add_field(
+                    name="ℹ️ Note",
+                    value=f"Showing first {max_results} of {len(sorted_json_data)} results. Try a more specific search for fewer results.",
+                    inline=False,
+                )
+
+            embed.set_footer(text="Search powered by The Wandering Inn Wiki")
+
+            await interaction.followup.send(embed=embed)
+            logging.info(
+                f"TWI WIKI: Successfully returned {len(results_to_show)} results for user {interaction.user.id}"
             )
-        try:
-            # Use the same session for the second request
-            image_json = await fetch(
-                session,
-                f"https://thewanderinginn.fandom.com/api.php?action=query&format=json&titles={sorted_json_data[0]['images'][0]['title']}&prop=imageinfo&iiprop=url",
+
+        except (ValidationError, ExternalServiceError):
+            # Re-raise our custom exceptions to be handled by the decorator
+            raise
+        except Exception as e:
+            error_msg = f"❌ **Wiki Search Failed**\nUnexpected error while searching wiki: {str(e)}"
+            logging.error(
+                f"TWI WIKI ERROR: Unexpected error for user {interaction.user.id}: {e}"
             )
-            image_urls = next(iter(json.loads(image_json)["query"]["pages"].values()))
-            embed.set_thumbnail(url=image_urls["imageinfo"][0]["url"])
-        except KeyError:
-            pass
-        await interaction.response.send_message(embed=embed)
+            raise ExternalServiceError(message=error_msg) from e
 
     @app_commands.command(
         name="find",
@@ -240,19 +492,148 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         Args:
             interaction: The interaction that triggered the command
             query: The search term to look for on wanderinginn.com
+
+        Raises:
+            ValidationError: If query is invalid or too short
+            ExternalServiceError: If Google API requests fail
         """
-        results = google_search(query, config.google_api_key, config.google_cse_id)
-        if results["searchInformation"]["totalResults"] == "0":
-            await interaction.response.send_message(
-                "I could not find anything that matches your search."
-            )
-        else:
-            embed = discord.Embed(title="Search", description=f"**{query}**")
-            for result in results["items"]:
-                embed.add_field(
-                    name=result["title"], value=f"{result['snippet']}\n{result['link']}"
+        try:
+            # Input validation
+            if not query or len(query.strip()) < 2:
+                raise ValidationError(
+                    message="❌ **Invalid Search Query**\nPlease provide a search query with at least 2 characters."
                 )
-            await interaction.response.send_message(embed=embed)
+
+            query = query.strip()
+            if len(query) > 200:
+                raise ValidationError(
+                    message="❌ **Query Too Long**\nSearch query must be 200 characters or less."
+                )
+
+            logging.info(
+                f"TWI FIND: User {interaction.user.id} ({interaction.user.display_name}) searching wanderinginn.com for: '{query[:50]}{'...' if len(query) > 50 else ''}'"
+            )
+
+            # Defer response since Google API calls might take time
+            await interaction.response.defer()
+
+            # Perform Google search with error handling
+            try:
+                results = google_search(
+                    query, config.google_api_key, config.google_cse_id
+                )
+
+                if not results:
+                    raise ExternalServiceError(
+                        message="❌ **Search API Error**\nReceived empty response from Google Search API"
+                    )
+
+            except Exception as e:
+                logging.error(
+                    f"TWI FIND ERROR: Google search failed for user {interaction.user.id}: {e}"
+                )
+                raise ExternalServiceError(
+                    message="❌ **Search Failed**\nFailed to search wanderinginn.com. Please try again later."
+                ) from e
+
+            # Check for results
+            try:
+                total_results = results.get("searchInformation", {}).get(
+                    "totalResults", "0"
+                )
+                search_items = results.get("items", [])
+
+                if total_results == "0" or not search_items:
+                    # No results found
+                    embed = discord.Embed(
+                        title="🔍 Search Results",
+                        description=f"No results found on wanderinginn.com for **{query}**",
+                        color=discord.Color.orange(),
+                        timestamp=datetime.datetime.now(),
+                    )
+
+                    embed.add_field(
+                        name="💡 Search Tips",
+                        value="• Try different keywords\n• Check spelling\n• Use broader search terms\n• Try character names or chapter numbers",
+                        inline=False,
+                    )
+
+                    embed.set_footer(text="Search powered by Google Custom Search")
+
+                    await interaction.followup.send(embed=embed)
+                    logging.info(
+                        f"TWI FIND: No results found for user {interaction.user.id} query: '{query}'"
+                    )
+                    return
+
+            except Exception as e:
+                logging.error(
+                    f"TWI FIND ERROR: Failed to parse search results for user {interaction.user.id}: {e}"
+                )
+                raise ExternalServiceError(
+                    message="❌ **Search Response Error**\nFailed to parse search results"
+                ) from e
+
+            # Create results embed
+            embed = discord.Embed(
+                title="🔍 Search Results",
+                description=f"Found **{total_results}** result{'s' if total_results != '1' else ''} on wanderinginn.com for **{query}**",
+                color=discord.Color.green(),
+                timestamp=datetime.datetime.now(),
+            )
+
+            # Add search results (limit to prevent embed size issues)
+            max_results = 8
+            results_to_show = search_items[:max_results]
+
+            for i, result in enumerate(results_to_show, 1):
+                try:
+                    title = result.get("title", "Unknown Title")
+                    snippet = result.get("snippet", "No description available")
+                    link = result.get("link", "#")
+
+                    # Truncate long titles and snippets
+                    if len(title) > 60:
+                        title = title[:60] + "..."
+                    if len(snippet) > 150:
+                        snippet = snippet[:150] + "..."
+
+                    embed.add_field(
+                        name=f"{i}. {title}",
+                        value=f"{snippet}\n[Read More]({link})",
+                        inline=False,
+                    )
+
+                except Exception as e:
+                    logging.warning(
+                        f"TWI FIND WARNING: Failed to process result {i} for user {interaction.user.id}: {e}"
+                    )
+                    continue
+
+            # Add note if there are more results
+            if len(search_items) > max_results:
+                embed.add_field(
+                    name="ℹ️ Note",
+                    value=f"Showing first {max_results} of {total_results} results. Try a more specific search for fewer results.",
+                    inline=False,
+                )
+
+            embed.set_footer(text="Search powered by Google Custom Search")
+
+            await interaction.followup.send(embed=embed)
+            logging.info(
+                f"TWI FIND: Successfully returned {len(results_to_show)} results for user {interaction.user.id}"
+            )
+
+        except (ValidationError, ExternalServiceError):
+            # Re-raise our custom exceptions to be handled by the decorator
+            raise
+        except Exception as e:
+            error_msg = f"❌ **Search Failed**\nUnexpected error while searching wanderinginn.com: {str(e)}"
+            logging.error(
+                f"TWI FIND ERROR: Unexpected error for user {interaction.user.id}: {e}"
+            )
+            raise ExternalServiceError(message=error_msg) from e
 
     @app_commands.command(
         name="invistext", description="Gives a list of all the invisible text in TWI."
@@ -270,36 +651,208 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         Args:
             interaction: The interaction that triggered the command
             chapter: Optional chapter name to get specific invisible text
+
+        Raises:
+            ValidationError: If chapter parameter is invalid
+            DatabaseError: If database operations fail
         """
-        if chapter is None:
-            invis_text_chapters = await self.bot.db.fetch(
-                "SELECT title, COUNT(*) FROM invisible_text_twi GROUP BY title, date ORDER BY date"
+        try:
+            logging.info(
+                f"TWI INVISTEXT: User {interaction.user.id} ({interaction.user.display_name}) requesting invisible text{f' for chapter: {chapter[:50]}' if chapter else ' list'}"
             )
-            embed = discord.Embed(title="Chapters with invisible text")
-            for posts in invis_text_chapters:
+
+            if chapter is None:
+                # List all chapters with invisible text
+                try:
+                    invis_text_chapters = await self.bot.db.fetch(
+                        "SELECT title, COUNT(*) FROM invisible_text_twi GROUP BY title, date ORDER BY date"
+                    )
+                except Exception as e:
+                    logging.error(
+                        f"TWI INVISTEXT ERROR: Database query failed for user {interaction.user.id}: {e}"
+                    )
+                    raise DatabaseError(
+                        message="❌ **Database Error**\nFailed to retrieve invisible text chapters from database"
+                    ) from e
+
+                if not invis_text_chapters:
+                    embed = discord.Embed(
+                        title="👻 Invisible Text",
+                        description="No chapters with invisible text found in the database.",
+                        color=discord.Color.orange(),
+                        timestamp=datetime.datetime.now(),
+                    )
+
+                    embed.add_field(
+                        name="ℹ️ Information",
+                        value="Invisible text is special content hidden in chapters by making the text color match the background.",
+                        inline=False,
+                    )
+
+                    await interaction.response.send_message(embed=embed)
+                    logging.info(
+                        f"TWI INVISTEXT: No chapters found for user {interaction.user.id}"
+                    )
+                    return
+
+                # Create chapters list embed
+                embed = discord.Embed(
+                    title="👻 Chapters with Invisible Text",
+                    description=f"Found **{len(invis_text_chapters)}** chapter{'s' if len(invis_text_chapters) != 1 else ''} containing invisible text",
+                    color=discord.Color.purple(),
+                    timestamp=datetime.datetime.now(),
+                )
+
+                # Add chapters (limit to prevent embed size issues)
+                max_chapters = 20
+                chapters_to_show = invis_text_chapters[:max_chapters]
+
+                for chapter_data in chapters_to_show:
+                    try:
+                        title = chapter_data.get("title", "Unknown Chapter")
+                        count = chapter_data.get("count", 0)
+
+                        # Truncate long titles
+                        display_title = title[:60] + "..." if len(title) > 60 else title
+
+                        embed.add_field(
+                            name=f"📖 {display_title}",
+                            value=f"**{count}** invisible text{'s' if count != 1 else ''}",
+                            inline=False,
+                        )
+                    except Exception as e:
+                        logging.warning(
+                            f"TWI INVISTEXT WARNING: Failed to process chapter for user {interaction.user.id}: {e}"
+                        )
+                        continue
+
+                # Add note if there are more chapters
+                if len(invis_text_chapters) > max_chapters:
+                    embed.add_field(
+                        name="ℹ️ Note",
+                        value=f"Showing first {max_chapters} of {len(invis_text_chapters)} chapters. Use the chapter parameter to search for specific chapters.",
+                        inline=False,
+                    )
+
                 embed.add_field(
-                    name=f"Chapter: {posts['title']}",
-                    value=f"{posts['count']}",
+                    name="💡 Tip",
+                    value="Use `/invistext chapter:<chapter_name>` to see invisible text from a specific chapter.",
                     inline=False,
                 )
-            await interaction.response.send_message(embed=embed)
-        else:
-            texts = await self.bot.db.fetch(
-                "SELECT title, content FROM invisible_text_twi WHERE lower(title) similar to lower($1)",
-                chapter,
-            )
-            if texts:
-                embed = discord.Embed(title=f"Search for: **{chapter}** invisible text")
-                for text in texts:
-                    embed.add_field(
-                        name=f"{text['title']}", value=text["content"], inline=False
-                    )
+
+                embed.set_footer(text="Invisible text data from The Wandering Inn")
+
                 await interaction.response.send_message(embed=embed)
-            else:
-                await interaction.response.send_message(
-                    "Sorry i could not find any invisible text on that chapter.\n"
-                    "Please give me the chapters exact title."
+                logging.info(
+                    f"TWI INVISTEXT: Successfully listed {len(chapters_to_show)} chapters for user {interaction.user.id}"
                 )
+
+            else:
+                # Search for specific chapter
+                # Input validation
+                chapter = chapter.strip()
+                if len(chapter) < 2:
+                    raise ValidationError(
+                        message="❌ **Invalid Chapter Name**\nChapter name must be at least 2 characters long."
+                    )
+
+                if len(chapter) > 100:
+                    raise ValidationError(
+                        message="❌ **Chapter Name Too Long**\nChapter name must be 100 characters or less."
+                    )
+
+                try:
+                    texts = await self.bot.db.fetch(
+                        "SELECT title, content FROM invisible_text_twi WHERE lower(title) similar to lower($1)",
+                        chapter,
+                    )
+                except Exception as e:
+                    logging.error(
+                        f"TWI INVISTEXT ERROR: Database search failed for user {interaction.user.id}: {e}"
+                    )
+                    raise DatabaseError(
+                        message="❌ **Database Error**\nFailed to search for invisible text in database"
+                    ) from e
+
+                if texts:
+                    # Create results embed
+                    embed = discord.Embed(
+                        title="👻 Invisible Text Found",
+                        description=f"Found **{len(texts)}** invisible text{'s' if len(texts) != 1 else ''} matching **{chapter}**",
+                        color=discord.Color.purple(),
+                        timestamp=datetime.datetime.now(),
+                    )
+
+                    # Add invisible texts (limit to prevent embed size issues)
+                    max_texts = 10
+                    texts_to_show = texts[:max_texts]
+
+                    for i, text in enumerate(texts_to_show, 1):
+                        try:
+                            title = text.get("title", "Unknown Chapter")
+                            content = text.get("content", "No content available")
+
+                            # Truncate long content
+                            if len(content) > 500:
+                                content = content[:500] + "..."
+
+                            embed.add_field(
+                                name=f"{i}. {title}",
+                                value=f"```{content}```",
+                                inline=False,
+                            )
+                        except Exception as e:
+                            logging.warning(
+                                f"TWI INVISTEXT WARNING: Failed to process text {i} for user {interaction.user.id}: {e}"
+                            )
+                            continue
+
+                    # Add note if there are more texts
+                    if len(texts) > max_texts:
+                        embed.add_field(
+                            name="ℹ️ Note",
+                            value=f"Showing first {max_texts} of {len(texts)} invisible texts. Try a more specific chapter name for fewer results.",
+                            inline=False,
+                        )
+
+                    embed.set_footer(text="Invisible text data from The Wandering Inn")
+
+                    await interaction.response.send_message(embed=embed)
+                    logging.info(
+                        f"TWI INVISTEXT: Successfully found {len(texts_to_show)} invisible texts for user {interaction.user.id}"
+                    )
+
+                else:
+                    # No results found
+                    embed = discord.Embed(
+                        title="👻 No Invisible Text Found",
+                        description=f"No invisible text found matching **{chapter}**",
+                        color=discord.Color.orange(),
+                        timestamp=datetime.datetime.now(),
+                    )
+
+                    embed.add_field(
+                        name="💡 Search Tips",
+                        value="• Try the exact chapter title\n• Use partial chapter names\n• Check spelling\n• Use `/invistext` without parameters to see all available chapters",
+                        inline=False,
+                    )
+
+                    embed.set_footer(text="Invisible text data from The Wandering Inn")
+
+                    await interaction.response.send_message(embed=embed)
+                    logging.info(
+                        f"TWI INVISTEXT: No invisible text found for user {interaction.user.id} query: '{chapter}'"
+                    )
+
+        except (ValidationError, DatabaseError):
+            # Re-raise our custom exceptions to be handled by the decorator
+            raise
+        except Exception as e:
+            error_msg = f"❌ **Invisible Text Request Failed**\nUnexpected error while retrieving invisible text: {str(e)}"
+            logging.error(
+                f"TWI INVISTEXT ERROR: Unexpected error for user {interaction.user.id}: {e}"
+            )
+            raise DatabaseError(message=error_msg) from e
 
     @invis_text.autocomplete("chapter")
     async def invis_text_autocomplete(
@@ -479,16 +1032,126 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
             interaction: The interaction that triggered the command
             password: The new Patreon password to store
             link: The URL to the chapter that requires the password
+
+        Raises:
+            ValidationError: If password or link parameters are invalid
+            DatabaseError: If database operations fail
+            PermissionError: If user lacks admin permissions
         """
-        await self.bot.db.execute(
-            "INSERT INTO password_link(password, link, user_id, date) VALUES ($1, $2, $3, now())",
-            password,
-            link,
-            interaction.user.id,
-        )
-        await interaction.response.send_message(
-            "Updated password and link", ephemeral=True
-        )
+        try:
+            # Input validation
+            if not password or len(password.strip()) == 0:
+                raise ValidationError(
+                    message="❌ **Invalid Password**\nPassword cannot be empty"
+                )
+
+            if not link or len(link.strip()) == 0:
+                raise ValidationError(
+                    message="❌ **Invalid Link**\nLink cannot be empty"
+                )
+
+            password = password.strip()
+            link = link.strip()
+
+            # Validate password length and content
+            if len(password) < 3:
+                raise ValidationError(
+                    message="❌ **Password Too Short**\nPassword must be at least 3 characters long"
+                )
+
+            if len(password) > 100:
+                raise ValidationError(
+                    message="❌ **Password Too Long**\nPassword must be 100 characters or less"
+                )
+
+            # Basic URL validation
+            if not (link.startswith("http://") or link.startswith("https://")):
+                raise ValidationError(
+                    message="❌ **Invalid URL**\nLink must be a valid URL starting with http:// or https://"
+                )
+
+            if len(link) > 500:
+                raise ValidationError(
+                    message="❌ **URL Too Long**\nLink must be 500 characters or less"
+                )
+
+            # Additional security check - ensure it's a wanderinginn.com link
+            if (
+                "wanderinginn.com" not in link.lower()
+                and "patreon.com" not in link.lower()
+            ):
+                logging.warning(
+                    f"TWI UPDATE_PASSWORD WARNING: Non-standard URL provided by admin {interaction.user.id}: {link}"
+                )
+
+            logging.info(
+                f"TWI UPDATE_PASSWORD: Admin {interaction.user.id} ({interaction.user.display_name}) updating password and link"
+            )
+
+            # Insert into database with error handling
+            try:
+                await self.bot.db.execute(
+                    "INSERT INTO password_link(password, link, user_id, date) VALUES ($1, $2, $3, now())",
+                    password,
+                    link,
+                    interaction.user.id,
+                )
+            except Exception as e:
+                logging.error(
+                    f"TWI UPDATE_PASSWORD ERROR: Database insert failed for admin {interaction.user.id}: {e}"
+                )
+                raise DatabaseError(
+                    message="❌ **Database Error**\nFailed to update password in database"
+                ) from e
+
+            # Create success embed
+            embed = discord.Embed(
+                title="✅ Password Updated Successfully",
+                description="The Patreon password and chapter link have been updated",
+                color=discord.Color.green(),
+                timestamp=datetime.datetime.now(),
+            )
+
+            embed.add_field(name="🔐 New Password", value=f"`{password}`", inline=False)
+
+            embed.add_field(
+                name="📖 Chapter Link", value=f"[View Chapter]({link})", inline=False
+            )
+
+            embed.add_field(
+                name="👤 Updated By",
+                value=f"{interaction.user.mention}\n**ID:** {interaction.user.id}",
+                inline=True,
+            )
+
+            embed.add_field(
+                name="⏰ Updated At",
+                value=f"<t:{int(datetime.datetime.now().timestamp())}:F>",
+                inline=True,
+            )
+
+            embed.add_field(
+                name="ℹ️ Note",
+                value="This password is now available via the `/password` command in allowed channels.",
+                inline=False,
+            )
+
+            embed.set_footer(text="Password update logged for security")
+
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            logging.info(
+                f"TWI UPDATE_PASSWORD: Successfully updated password for admin {interaction.user.id}"
+            )
+
+        except (ValidationError, PermissionError, DatabaseError):
+            # Re-raise our custom exceptions to be handled by the decorator
+            raise
+        except Exception as e:
+            error_msg = f"❌ **Password Update Failed**\nUnexpected error while updating password: {str(e)}"
+            logging.error(
+                f"TWI UPDATE_PASSWORD ERROR: Unexpected error for admin {interaction.user.id}: {e}"
+            )
+            raise DatabaseError(message=error_msg) from e
 
     # Reddit verification functionality has been removed or disabled
     # This feature previously allowed users to link their Discord and Reddit accounts

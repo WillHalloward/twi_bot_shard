@@ -15,6 +15,12 @@ from utils.permissions import (
     admin_or_me_check_wrapper,
     app_admin_or_me_check,
 )
+from utils.error_handling import handle_command_errors, handle_interaction_errors
+from utils.exceptions import (
+    DatabaseError,
+    QueryError,
+    ValidationError,
+)
 
 
 async def save_reaction(self, reaction: discord.Reaction):
@@ -254,37 +260,69 @@ class StatsCogs(commands.Cog, name="stats"):
 
     def __init__(self, bot):
         self.bot = bot
-        self.logger = logging.getLogger('cogs.stats')
+        self.logger = logging.getLogger("cogs.stats")
         if config.logfile != "test":
             self.stats_loop.start()
 
     @commands.command(name="save_users", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def save_users(self, ctx):
-        await ctx.message.delete()
+        """
+        Save all guild members to the database.
+
+        This command processes all members from all guilds the bot is in,
+        adding new users to the users table and updating server memberships.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        total_users_added = 0
+        total_memberships_added = 0
+        guilds_processed = 0
+
         try:
             for guild in self.bot.guilds:
-                logging.info(f"Fetching members list")
+                self.logger.info(f"Processing guild: {guild.name} ({guild.id})")
                 members_list = guild.members
+
+                if not members_list:
+                    self.logger.warning(f"No members found in guild {guild.name}")
+                    continue
 
                 # Get all member IDs for this batch
                 member_ids = [member.id for member in members_list]
 
-                # Query only the relevant user IDs in a single query
-                existing_user_ids = await self.bot.db.fetch(
-                    "SELECT user_id FROM users WHERE user_id = ANY($1)", member_ids
-                )
-                existing_user_ids_set = {row["user_id"] for row in existing_user_ids}
+                try:
+                    # Query only the relevant user IDs in a single query
+                    existing_user_ids = await self.bot.db.fetch(
+                        "SELECT user_id FROM users WHERE user_id = ANY($1)", member_ids
+                    )
+                    existing_user_ids_set = {
+                        row["user_id"] for row in existing_user_ids
+                    }
 
-                # Query only the relevant membership IDs in a single query
-                existing_memberships = await self.bot.db.fetch(
-                    "SELECT user_id FROM server_membership WHERE user_id = ANY($1) AND server_id = $2",
-                    member_ids,
-                    guild.id,
-                )
-                existing_memberships_set = {
-                    row["user_id"] for row in existing_memberships
-                }
+                    # Query only the relevant membership IDs in a single query
+                    existing_memberships = await self.bot.db.fetch(
+                        "SELECT user_id FROM server_membership WHERE user_id = ANY($1) AND server_id = $2",
+                        member_ids,
+                        guild.id,
+                    )
+                    existing_memberships_set = {
+                        row["user_id"] for row in existing_memberships
+                    }
+                except asyncpg.PostgresError as e:
+                    raise DatabaseError(
+                        f"Failed to query existing users/memberships for guild {guild.name}"
+                    ) from e
 
                 # Prepare batch operations
                 users_to_add = []
@@ -301,376 +339,1298 @@ class StatsCogs(commands.Cog, name="stats"):
                             )
                         )
                         memberships_to_add.append((member.id, member.guild.id))
-                        logging.info(f"Added {member.name} - {member.id}")
+                        self.logger.debug(
+                            f"Queued new user: {member.name} ({member.id})"
+                        )
                     elif member.id not in existing_memberships_set:
                         memberships_to_add.append((member.id, member.guild.id))
+                        self.logger.debug(
+                            f"Queued membership for existing user: {member.name} ({member.id})"
+                        )
 
                 # Execute batch operations
-                if users_to_add:
-                    await self.bot.db.execute_many(
-                        "INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4)",
-                        users_to_add,
-                    )
+                try:
+                    if users_to_add:
+                        await self.bot.db.execute_many(
+                            "INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4)",
+                            users_to_add,
+                        )
+                        total_users_added += len(users_to_add)
+                        self.logger.info(
+                            f"Added {len(users_to_add)} new users from guild {guild.name}"
+                        )
 
-                if memberships_to_add:
-                    await self.bot.db.execute_many(
-                        "INSERT INTO server_membership(user_id, server_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",
-                        memberships_to_add,
-                    )
+                    if memberships_to_add:
+                        await self.bot.db.execute_many(
+                            "INSERT INTO server_membership(user_id, server_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",
+                            memberships_to_add,
+                        )
+                        total_memberships_added += len(memberships_to_add)
+                        self.logger.info(
+                            f"Added {len(memberships_to_add)} memberships from guild {guild.name}"
+                        )
+
+                except asyncpg.PostgresError as e:
+                    raise DatabaseError(
+                        f"Failed to insert users/memberships for guild {guild.name}"
+                    ) from e
+
+                guilds_processed += 1
+
+        except DatabaseError:
+            # Re-raise database errors as-is
+            raise
         except Exception as e:
-            logging.exception(f"{type(e).__name__} - {e}")
-        await ctx.send("Done!")
+            raise QueryError(f"Unexpected error during user saving process") from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **User saving completed successfully!**\n"
+            f"**Guilds processed:** {guilds_processed}\n"
+            f"**New users added:** {total_users_added}\n"
+            f"**Memberships added:** {total_memberships_added}"
+        )
 
     @commands.command(name="save_servers", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def save_servers(self, ctx):
-        for guild in self.bot.guilds:
-            await self.bot.db.execute(
-                "INSERT INTO servers(server_id, server_name, creation_date) VALUES ($1,$2,$3)"
-                " ON CONFLICT (server_id) DO NOTHING ",
-                guild.id,
-                guild.name,
-                guild.created_at.replace(tzinfo=None),
-            )
-        await ctx.send("Done")
+        """
+        Save all guild information to the database.
+
+        This command processes all guilds the bot is in,
+        adding new servers to the servers table.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        servers_processed = 0
+        servers_added = 0
+
+        try:
+            for guild in self.bot.guilds:
+                self.logger.info(f"Processing server: {guild.name} ({guild.id})")
+
+                try:
+                    result = await self.bot.db.execute(
+                        "INSERT INTO servers(server_id, server_name, creation_date) VALUES ($1,$2,$3)"
+                        " ON CONFLICT (server_id) DO UPDATE SET server_name = $2",
+                        guild.id,
+                        guild.name,
+                        guild.created_at.replace(tzinfo=None),
+                    )
+
+                    # Check if a new row was inserted
+                    if "INSERT" in result:
+                        servers_added += 1
+                        self.logger.info(f"Added new server: {guild.name}")
+                    else:
+                        self.logger.debug(f"Updated existing server: {guild.name}")
+
+                except asyncpg.PostgresError as e:
+                    raise DatabaseError(
+                        f"Failed to save server '{guild.name}' ({guild.id})"
+                    ) from e
+
+                servers_processed += 1
+
+        except DatabaseError:
+            # Re-raise database errors as-is
+            raise
+        except Exception as e:
+            raise QueryError(f"Unexpected error during server saving process") from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **Server saving completed successfully!**\n"
+            f"**Servers processed:** {servers_processed}\n"
+            f"**New servers added:** {servers_added}\n"
+            f"**Existing servers updated:** {servers_processed - servers_added}"
+        )
 
     @commands.command(name="save_channels", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def save_channels(self, ctx):
-        for guild in self.bot.guilds:
-            for channel in guild.text_channels:
-                try:
-                    await self.bot.db.execute(
-                        "INSERT INTO "
-                        "channels(id, name, category_id, created_at, guild_id, position, topic, is_nsfw) "
-                        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-                        channel.id,
-                        channel.name,
-                        channel.category_id,
-                        channel.created_at.replace(tzinfo=None),
-                        channel.guild.id,
-                        channel.position,
-                        channel.topic,
-                        channel.is_nsfw(),
-                    )
-                except Exception as e:
-                    logging.error(f"{type(e).__name__} - {e}")
-                except asyncpg.UniqueViolationError:
-                    logging.debug("Already in DB")
-        await ctx.send("Done")
+        """
+        Save all text channels to the database.
+
+        This command processes all text channels from all guilds the bot is in,
+        adding new channels to the channels table.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        guilds_processed = 0
+        channels_processed = 0
+        channels_added = 0
+        channels_updated = 0
+
+        try:
+            for guild in self.bot.guilds:
+                self.logger.info(
+                    f"Processing channels for guild: {guild.name} ({guild.id})"
+                )
+                guild_channels_processed = 0
+
+                for channel in guild.text_channels:
+                    try:
+                        result = await self.bot.db.execute(
+                            "INSERT INTO "
+                            "channels(id, name, category_id, created_at, guild_id, position, topic, is_nsfw) "
+                            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8) "
+                            "ON CONFLICT (id) DO UPDATE SET "
+                            "name = $2, category_id = $3, position = $6, topic = $7, is_nsfw = $8",
+                            channel.id,
+                            channel.name,
+                            channel.category_id,
+                            channel.created_at.replace(tzinfo=None),
+                            channel.guild.id,
+                            channel.position,
+                            channel.topic,
+                            channel.is_nsfw(),
+                        )
+
+                        if "INSERT" in result:
+                            channels_added += 1
+                            self.logger.debug(
+                                f"Added new channel: {channel.name} ({channel.id})"
+                            )
+                        else:
+                            channels_updated += 1
+                            self.logger.debug(
+                                f"Updated existing channel: {channel.name} ({channel.id})"
+                            )
+
+                    except asyncpg.PostgresError as e:
+                        self.logger.error(
+                            f"Failed to save channel '{channel.name}' ({channel.id}) in guild {guild.name}: {e}"
+                        )
+                        # Continue processing other channels instead of failing completely
+                        continue
+
+                    guild_channels_processed += 1
+                    channels_processed += 1
+
+                self.logger.info(
+                    f"Processed {guild_channels_processed} channels from guild {guild.name}"
+                )
+                guilds_processed += 1
+
+        except Exception as e:
+            raise QueryError(f"Unexpected error during channel saving process") from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **Channel saving completed successfully!**\n"
+            f"**Guilds processed:** {guilds_processed}\n"
+            f"**Channels processed:** {channels_processed}\n"
+            f"**New channels added:** {channels_added}\n"
+            f"**Existing channels updated:** {channels_updated}"
+        )
 
     @commands.command(name="save_emotes", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def save_emotes(self, ctx):
-        for guild in self.bot.guilds:
-            for emotes in guild.emojis:
-                emote = self.bot.get_emoji(emotes.id)
-                await self.bot.db.execute(
-                    """ 
-                    INSERT INTO emotes(guild_id, emote_id, name, animated, managed) 
-                    VALUES ($1,$2,$3,$4,$5)
-                    ON CONFLICT (emote_id) 
-                    DO UPDATE SET name = $3, animated = $4, managed = $5 WHERE emotes.name != $3 OR emotes.animated != $4 OR emotes.managed != $5
-                    """,
-                    guild.id,
-                    emote.id,
-                    emote.name,
-                    emote.animated,
-                    emote.managed,
+        """
+        Save all custom emotes to the database.
+
+        This command processes all custom emotes from all guilds the bot is in,
+        adding new emotes to the emotes table.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        guilds_processed = 0
+        emotes_processed = 0
+        emotes_added = 0
+        emotes_updated = 0
+
+        try:
+            for guild in self.bot.guilds:
+                self.logger.info(
+                    f"Processing emotes for guild: {guild.name} ({guild.id})"
                 )
-        owner = self.bot.get_user(self.bot.owner_id)
-        if owner is not None:
-            await owner.send("The save command is now complete")
-        else:
-            logging.error(f"I couldn't find the owner")
+                guild_emotes_processed = 0
+
+                for emotes in guild.emojis:
+                    try:
+                        emote = self.bot.get_emoji(emotes.id)
+                        if emote is None:
+                            self.logger.warning(
+                                f"Could not retrieve emote {emotes.id} from guild {guild.name}"
+                            )
+                            continue
+
+                        result = await self.bot.db.execute(
+                            """ 
+                            INSERT INTO emotes(guild_id, emote_id, name, animated, managed) 
+                            VALUES ($1,$2,$3,$4,$5)
+                            ON CONFLICT (emote_id) 
+                            DO UPDATE SET name = $3, animated = $4, managed = $5 
+                            WHERE emotes.name != $3 OR emotes.animated != $4 OR emotes.managed != $5
+                            """,
+                            guild.id,
+                            emote.id,
+                            emote.name,
+                            emote.animated,
+                            emote.managed,
+                        )
+
+                        if "INSERT" in result:
+                            emotes_added += 1
+                            self.logger.debug(
+                                f"Added new emote: {emote.name} ({emote.id})"
+                            )
+                        else:
+                            emotes_updated += 1
+                            self.logger.debug(
+                                f"Updated existing emote: {emote.name} ({emote.id})"
+                            )
+
+                    except asyncpg.PostgresError as e:
+                        self.logger.error(
+                            f"Failed to save emote {emotes.id} in guild {guild.name}: {e}"
+                        )
+                        # Continue processing other emotes instead of failing completely
+                        continue
+
+                    guild_emotes_processed += 1
+                    emotes_processed += 1
+
+                self.logger.info(
+                    f"Processed {guild_emotes_processed} emotes from guild {guild.name}"
+                )
+                guilds_processed += 1
+
+        except Exception as e:
+            raise QueryError(f"Unexpected error during emote saving process") from e
+
+        # Send comprehensive completion message
+        completion_message = (
+            f"✅ **Emote saving completed successfully!**\n"
+            f"**Guilds processed:** {guilds_processed}\n"
+            f"**Emotes processed:** {emotes_processed}\n"
+            f"**New emotes added:** {emotes_added}\n"
+            f"**Existing emotes updated:** {emotes_updated}"
+        )
+
+        await ctx.send(completion_message)
+
+        # Also notify the owner if this is part of a larger save operation
+        try:
+            owner = self.bot.get_user(self.bot.owner_id)
+            if owner is not None:
+                await owner.send(
+                    f"Emote saving completed: {emotes_processed} emotes processed from {guilds_processed} guilds"
+                )
+            else:
+                self.logger.warning(
+                    "Could not find bot owner to send completion notification"
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to send completion notification to owner: {e}")
 
     @commands.command(name="save_categories", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def save_categories(self, ctx):
-        for guild in self.bot.guilds:
-            for category in guild.categories:
-                try:
-                    await self.bot.db.execute(
-                        "INSERT INTO "
-                        "categories(id, name, created_at, guild_id, position, is_nsfw) "
-                        "VALUES ($1,$2,$3,$4,$5,$6)",
-                        category.id,
-                        category.name,
-                        category.created_at.replace(tzinfo=None),
-                        category.guild.id,
-                        category.position,
-                        category.is_nsfw(),
-                    )
-                except Exception as e:
-                    logging.error(f"{type(e).__name__} - {e}")
-                except asyncpg.UniqueViolationError:
-                    logging.debug("Already in DB")
-        await ctx.send("Done")
+        """
+        Save all channel categories to the database.
+
+        This command processes all channel categories from all guilds the bot is in,
+        adding new categories to the categories table.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        guilds_processed = 0
+        categories_processed = 0
+        categories_added = 0
+        categories_updated = 0
+
+        try:
+            for guild in self.bot.guilds:
+                self.logger.info(
+                    f"Processing categories for guild: {guild.name} ({guild.id})"
+                )
+                guild_categories_processed = 0
+
+                for category in guild.categories:
+                    try:
+                        result = await self.bot.db.execute(
+                            "INSERT INTO "
+                            "categories(id, name, created_at, guild_id, position, is_nsfw) "
+                            "VALUES ($1,$2,$3,$4,$5,$6) "
+                            "ON CONFLICT (id) DO UPDATE SET "
+                            "name = $2, position = $5, is_nsfw = $6",
+                            category.id,
+                            category.name,
+                            category.created_at.replace(tzinfo=None),
+                            category.guild.id,
+                            category.position,
+                            category.is_nsfw(),
+                        )
+
+                        if "INSERT" in result:
+                            categories_added += 1
+                            self.logger.debug(
+                                f"Added new category: {category.name} ({category.id})"
+                            )
+                        else:
+                            categories_updated += 1
+                            self.logger.debug(
+                                f"Updated existing category: {category.name} ({category.id})"
+                            )
+
+                    except asyncpg.PostgresError as e:
+                        self.logger.error(
+                            f"Failed to save category '{category.name}' ({category.id}) in guild {guild.name}: {e}"
+                        )
+                        # Continue processing other categories instead of failing completely
+                        continue
+
+                    guild_categories_processed += 1
+                    categories_processed += 1
+
+                self.logger.info(
+                    f"Processed {guild_categories_processed} categories from guild {guild.name}"
+                )
+                guilds_processed += 1
+
+        except Exception as e:
+            raise QueryError(f"Unexpected error during category saving process") from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **Category saving completed successfully!**\n"
+            f"**Guilds processed:** {guilds_processed}\n"
+            f"**Categories processed:** {categories_processed}\n"
+            f"**New categories added:** {categories_added}\n"
+            f"**Existing categories updated:** {categories_updated}"
+        )
 
     @commands.command(name="save_threads", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def save_threads(self, ctx):
-        for guild in self.bot.guilds:
-            for thread in guild.threads:
-                try:
-                    await self.bot.db.execute(
-                        "INSERT INTO "
-                        "threads(id, guild_id, parent_id, owner_id, slowmode_delay, archived, locked, archiver_id, auto_archive_duration, is_private, name, deleted) "
-                        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
-                        thread.id,
-                        thread.guild.id,
-                        thread.parent_id,
-                        thread.owner_id,
-                        thread.slowmode_delay,
-                        thread.archived,
-                        thread.locked,
-                        thread.archiver_id,
-                        thread.auto_archive_duration,
-                        thread.is_private(),
-                        thread.name,
-                        False,
-                    )
-                except asyncpg.UniqueViolationError:
-                    pass
-                except Exception:
-                    logging.exception("Save_threads")
-        await ctx.send("Done")
+        """
+        Save all threads to the database.
+
+        This command processes all threads from all guilds the bot is in,
+        adding new threads to the threads table.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        guilds_processed = 0
+        threads_processed = 0
+        threads_added = 0
+        threads_updated = 0
+
+        try:
+            for guild in self.bot.guilds:
+                self.logger.info(
+                    f"Processing threads for guild: {guild.name} ({guild.id})"
+                )
+                guild_threads_processed = 0
+
+                for thread in guild.threads:
+                    try:
+                        result = await self.bot.db.execute(
+                            "INSERT INTO "
+                            "threads(id, guild_id, parent_id, owner_id, slowmode_delay, archived, locked, archiver_id, auto_archive_duration, is_private, name, deleted) "
+                            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) "
+                            "ON CONFLICT (id) DO UPDATE SET "
+                            "slowmode_delay = $5, archived = $6, locked = $7, archiver_id = $8, auto_archive_duration = $9, name = $11, deleted = $12",
+                            thread.id,
+                            thread.guild.id,
+                            thread.parent_id,
+                            thread.owner_id,
+                            thread.slowmode_delay,
+                            thread.archived,
+                            thread.locked,
+                            thread.archiver_id,
+                            thread.auto_archive_duration,
+                            thread.is_private(),
+                            thread.name,
+                            False,
+                        )
+
+                        if "INSERT" in result:
+                            threads_added += 1
+                            self.logger.debug(
+                                f"Added new thread: {thread.name} ({thread.id})"
+                            )
+                        else:
+                            threads_updated += 1
+                            self.logger.debug(
+                                f"Updated existing thread: {thread.name} ({thread.id})"
+                            )
+
+                    except asyncpg.PostgresError as e:
+                        self.logger.error(
+                            f"Failed to save thread '{thread.name}' ({thread.id}) in guild {guild.name}: {e}"
+                        )
+                        # Continue processing other threads instead of failing completely
+                        continue
+
+                    guild_threads_processed += 1
+                    threads_processed += 1
+
+                self.logger.info(
+                    f"Processed {guild_threads_processed} threads from guild {guild.name}"
+                )
+                guilds_processed += 1
+
+        except Exception as e:
+            raise QueryError(f"Unexpected error during thread saving process") from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **Thread saving completed successfully!**\n"
+            f"**Guilds processed:** {guilds_processed}\n"
+            f"**Threads processed:** {threads_processed}\n"
+            f"**New threads added:** {threads_added}\n"
+            f"**Existing threads updated:** {threads_updated}"
+        )
 
     @commands.command(name="save_roles", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def save_roles(self, ctx):
-        for guild in self.bot.guilds:
-            logging.debug(f"{guild=}")
-            for role in guild.roles:
-                logging.debug(f"{role=}")
-                if role.is_default():
-                    continue
-                try:
-                    await self.bot.db.execute(
-                        "INSERT INTO "
-                        "roles(id, name, color, created_at, hoisted, managed, position, guild_id) "
-                        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-                        role.id,
-                        role.name,
-                        str(role.color),
-                        role.created_at.replace(tzinfo=None),
-                        role.hoist,
-                        role.managed,
-                        role.position,
-                        guild.id,
-                    )
-                except asyncpg.UniqueViolationError:
-                    logging.debug(f"Role already in DB")
-                for member in role.members:
-                    try:
-                        await self.bot.db.execute(
-                            "INSERT INTO role_membership(user_id, role_id) VALUES($1,$2)",
-                            member.id,
-                            role.id,
+        """
+        Save all roles and role memberships to the database.
+
+        This command processes all roles from all guilds the bot is in,
+        adding new roles to the roles table and updating role memberships.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        guilds_processed = 0
+        roles_processed = 0
+        roles_added = 0
+        roles_updated = 0
+        memberships_processed = 0
+        memberships_added = 0
+
+        try:
+            for guild in self.bot.guilds:
+                self.logger.info(
+                    f"Processing roles for guild: {guild.name} ({guild.id})"
+                )
+                guild_roles_processed = 0
+                guild_memberships_processed = 0
+
+                for role in guild.roles:
+                    if role.is_default():
+                        self.logger.debug(
+                            f"Skipping default role in guild {guild.name}"
                         )
-                    except asyncpg.UniqueViolationError:
-                        logging.debug(f"connection already in DB {member} - {role}")
-        await ctx.send("Done")
+                        continue
+
+                    try:
+                        # Save or update the role
+                        result = await self.bot.db.execute(
+                            "INSERT INTO "
+                            "roles(id, name, color, created_at, hoisted, managed, position, guild_id) "
+                            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8) "
+                            "ON CONFLICT (id) DO UPDATE SET "
+                            "name = $2, color = $3, hoisted = $5, managed = $6, position = $7",
+                            role.id,
+                            role.name,
+                            str(role.color),
+                            role.created_at.replace(tzinfo=None),
+                            role.hoist,
+                            role.managed,
+                            role.position,
+                            guild.id,
+                        )
+
+                        if "INSERT" in result:
+                            roles_added += 1
+                            self.logger.debug(
+                                f"Added new role: {role.name} ({role.id})"
+                            )
+                        else:
+                            roles_updated += 1
+                            self.logger.debug(
+                                f"Updated existing role: {role.name} ({role.id})"
+                            )
+
+                    except asyncpg.PostgresError as e:
+                        self.logger.error(
+                            f"Failed to save role '{role.name}' ({role.id}) in guild {guild.name}: {e}"
+                        )
+                        # Continue processing other roles instead of failing completely
+                        continue
+
+                    guild_roles_processed += 1
+                    roles_processed += 1
+
+                    # Process role memberships
+                    for member in role.members:
+                        try:
+                            await self.bot.db.execute(
+                                "INSERT INTO role_membership(user_id, role_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+                                member.id,
+                                role.id,
+                            )
+                            memberships_added += 1
+                            guild_memberships_processed += 1
+                            memberships_processed += 1
+                            self.logger.debug(
+                                f"Added membership: {member.name} -> {role.name}"
+                            )
+
+                        except asyncpg.PostgresError as e:
+                            self.logger.error(
+                                f"Failed to save role membership for {member.name} in role {role.name}: {e}"
+                            )
+                            # Continue processing other memberships
+                            continue
+
+                self.logger.info(
+                    f"Processed {guild_roles_processed} roles and {guild_memberships_processed} memberships from guild {guild.name}"
+                )
+                guilds_processed += 1
+
+        except Exception as e:
+            raise QueryError(f"Unexpected error during role saving process") from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **Role saving completed successfully!**\n"
+            f"**Guilds processed:** {guilds_processed}\n"
+            f"**Roles processed:** {roles_processed}\n"
+            f"**New roles added:** {roles_added}\n"
+            f"**Existing roles updated:** {roles_updated}\n"
+            f"**Role memberships processed:** {memberships_processed}\n"
+            f"**New memberships added:** {memberships_added}"
+        )
 
     @commands.command(name="update_role_color", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def update_role_color(self, ctx):
-        for guild in self.bot.guilds:
-            for role in guild.roles:
-                if role.is_default():
-                    continue
-                await self.bot.db.execute(
-                    "UPDATE roles SET color = $1 WHERE id = $2",
-                    str(role.color),
-                    role.id,
+        """
+        Update role colors in the database.
+
+        This command updates the color field for all roles in the database
+        to match their current Discord color values.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        guilds_processed = 0
+        roles_processed = 0
+        roles_updated = 0
+
+        try:
+            for guild in self.bot.guilds:
+                self.logger.info(
+                    f"Updating role colors for guild: {guild.name} ({guild.id})"
                 )
-        await ctx.send("Done")
+                guild_roles_processed = 0
+
+                for role in guild.roles:
+                    if role.is_default():
+                        self.logger.debug(
+                            f"Skipping default role in guild {guild.name}"
+                        )
+                        continue
+
+                    try:
+                        result = await self.bot.db.execute(
+                            "UPDATE roles SET color = $1 WHERE id = $2",
+                            str(role.color),
+                            role.id,
+                        )
+
+                        # Check if any rows were updated
+                        if "UPDATE" in result and "0" not in result:
+                            roles_updated += 1
+                            self.logger.debug(
+                                f"Updated color for role: {role.name} ({role.id}) to {role.color}"
+                            )
+                        else:
+                            self.logger.debug(
+                                f"No update needed for role: {role.name} ({role.id})"
+                            )
+
+                    except asyncpg.PostgresError as e:
+                        self.logger.error(
+                            f"Failed to update color for role '{role.name}' ({role.id}) in guild {guild.name}: {e}"
+                        )
+                        # Continue processing other roles instead of failing completely
+                        continue
+
+                    guild_roles_processed += 1
+                    roles_processed += 1
+
+                self.logger.info(
+                    f"Processed {guild_roles_processed} role colors from guild {guild.name}"
+                )
+                guilds_processed += 1
+
+        except Exception as e:
+            raise QueryError(
+                f"Unexpected error during role color update process"
+            ) from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **Role color update completed successfully!**\n"
+            f"**Guilds processed:** {guilds_processed}\n"
+            f"**Roles processed:** {roles_processed}\n"
+            f"**Role colors updated:** {roles_updated}"
+        )
 
     @commands.command(name="save_users_from_join_leave", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def save_users_from_join_leave(self, ctx):
-        jn_users = await self.bot.db.fetch("SELECT user_id,created_at FROM join_leave")
-        for user in jn_users:
-            logging.debug(user)
-            try:
-                await self.bot.db.execute(
-                    "INSERT INTO "
-                    "users(user_id, created_at, bot, username) "
-                    "VALUES($1,$2,$3,$4)",
-                    user["user_id"],
-                    user["created_at"],
-                    False,
-                    user["user_name"],
-                )
+        """
+        Save users from join/leave records to the users table.
 
-            except asyncpg.UniqueViolationError:
-                logging.debug("Users already in DB")
-        await ctx.send("Done")
+        This command processes users from the join_leave table and adds them
+        to the users table if they don't already exist.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        users_processed = 0
+        users_added = 0
+
+        try:
+            # Fetch users from join_leave table
+            jn_users = await self.bot.db.fetch(
+                "SELECT user_id, created_at, user_name FROM join_leave"
+            )
+
+            if not jn_users:
+                await ctx.send("ℹ️ No users found in join_leave table to process.")
+                return
+
+            self.logger.info(f"Processing {len(jn_users)} users from join_leave table")
+
+            for user in jn_users:
+                try:
+                    result = await self.bot.db.execute(
+                        "INSERT INTO "
+                        "users(user_id, created_at, bot, username) "
+                        "VALUES($1,$2,$3,$4) "
+                        "ON CONFLICT (user_id) DO NOTHING",
+                        user["user_id"],
+                        user["created_at"],
+                        False,  # Assume not bot for join/leave records
+                        user["user_name"],
+                    )
+
+                    if "INSERT" in result:
+                        users_added += 1
+                        self.logger.debug(
+                            f"Added user from join_leave: {user['user_name']} ({user['user_id']})"
+                        )
+                    else:
+                        self.logger.debug(
+                            f"User already exists: {user['user_name']} ({user['user_id']})"
+                        )
+
+                except asyncpg.PostgresError as e:
+                    self.logger.error(
+                        f"Failed to save user {user['user_id']} from join_leave: {e}"
+                    )
+                    # Continue processing other users instead of failing completely
+                    continue
+
+                users_processed += 1
+
+        except asyncpg.PostgresError as e:
+            raise DatabaseError("Failed to fetch users from join_leave table") from e
+        except Exception as e:
+            raise QueryError(
+                f"Unexpected error during join_leave user saving process"
+            ) from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **Join/leave user saving completed successfully!**\n"
+            f"**Users processed:** {users_processed}\n"
+            f"**New users added:** {users_added}\n"
+            f"**Existing users skipped:** {users_processed - users_added}"
+        )
 
     @commands.command(name="save_channels_from_messages", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def save_users_from_messages(self, ctx):
-        m_channels = await self.bot.db.fetch(
-            """SELECT reactions.message_id FROM reactions
-                                                    LEFT JOIN messages m on reactions.message_id = m.message_id
-                                                    WHERE m.message_id IS NULL
-                                                    GROUP BY reactions.message_id"""
-        )
-        for channel in m_channels:
-            try:
-                message = await self.bot.fetch_message(channel["message_id"])
-                logging.info(f"{message}")
-                await self.bot.db.execute(
-                    "INSERT INTO users(user_id, username, bot) VALUES($1,$2,$3)",
-                    channel["user_id"],
-                    channel["user_name"],
-                    channel["is_bot"],
+        """
+        Save users from message reactions to the users table.
+
+        This command finds reactions to messages that aren't in the messages table
+        and attempts to fetch those messages to save user information.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        messages_processed = 0
+        users_added = 0
+        messages_not_found = 0
+
+        try:
+            # Fetch message IDs from reactions that don't have corresponding messages
+            missing_messages = await self.bot.db.fetch(
+                """SELECT reactions.message_id FROM reactions
+                   LEFT JOIN messages m on reactions.message_id = m.message_id
+                   WHERE m.message_id IS NULL
+                   GROUP BY reactions.message_id"""
+            )
+
+            if not missing_messages:
+                await ctx.send(
+                    "ℹ️ No missing messages found in reactions table to process."
                 )
-                logging.info(f"inserting {channel}")
-            except Exception as e:
-                logging.info(f"{e}")
-        await ctx.send("Done")
+                return
+
+            self.logger.info(
+                f"Processing {len(missing_messages)} missing messages from reactions"
+            )
+
+            for message_record in missing_messages:
+                message_id = message_record["message_id"]
+
+                try:
+                    # Try to fetch the message from Discord
+                    message = await self.bot.get_message(message_id)
+
+                    if message is None:
+                        # Try alternative method if get_message fails
+                        for guild in self.bot.guilds:
+                            for channel in guild.text_channels:
+                                try:
+                                    message = await channel.fetch_message(message_id)
+                                    break
+                                except (discord.NotFound, discord.Forbidden):
+                                    continue
+                            if message:
+                                break
+
+                    if message:
+                        # Save the user information from the message
+                        try:
+                            await self.bot.db.execute(
+                                "INSERT INTO users(user_id, username, bot) VALUES($1,$2,$3) ON CONFLICT (user_id) DO NOTHING",
+                                message.author.id,
+                                message.author.name,
+                                message.author.bot,
+                            )
+                            users_added += 1
+                            self.logger.debug(
+                                f"Added user from message {message_id}: {message.author.name} ({message.author.id})"
+                            )
+
+                        except asyncpg.PostgresError as e:
+                            self.logger.error(
+                                f"Failed to save user from message {message_id}: {e}"
+                            )
+                            continue
+                    else:
+                        messages_not_found += 1
+                        self.logger.debug(f"Could not fetch message {message_id}")
+
+                except discord.NotFound:
+                    messages_not_found += 1
+                    self.logger.debug(f"Message {message_id} not found")
+                except discord.Forbidden:
+                    self.logger.warning(f"No permission to access message {message_id}")
+                    continue
+                except Exception as e:
+                    self.logger.error(
+                        f"Unexpected error processing message {message_id}: {e}"
+                    )
+                    continue
+
+                messages_processed += 1
+
+        except asyncpg.PostgresError as e:
+            raise DatabaseError(
+                "Failed to fetch missing messages from reactions table"
+            ) from e
+        except Exception as e:
+            raise QueryError(
+                f"Unexpected error during message user saving process"
+            ) from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **Message user saving completed successfully!**\n"
+            f"**Messages processed:** {messages_processed}\n"
+            f"**Users added:** {users_added}\n"
+            f"**Messages not found:** {messages_not_found}"
+        )
 
     @commands.command(name="save", hidden=True)
     @commands.is_owner()
+    @handle_command_errors
     async def save(self, ctx):
+        """
+        Perform a comprehensive save of all message history from accessible channels and threads.
+
+        This is a long-running command that processes all guilds, channels, and threads
+        the bot has access to, saving message history to the database. It also enables
+        ongoing message tracking listeners at completion.
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+            ValidationError: If Discord API operations fail
+        """
         try:
             await ctx.message.delete()
-        except:
-            pass
-        logging.info(f"starting save")
-        for guild in self.bot.guilds:
-            logging.debug(f"{guild=}")
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
 
-            # Get all text channels with read permissions
-            accessible_channels = [
-                channel
-                for channel in guild.text_channels
-                if channel.permissions_for(channel.guild.me).read_message_history
-            ]
+        # Initialize progress tracking
+        start_time = datetime.now()
+        total_guilds = len(self.bot.guilds)
+        guilds_processed = 0
+        total_channels_processed = 0
+        total_threads_processed = 0
+        total_messages_saved = 0
+        errors_encountered = 0
 
-            if not accessible_channels:
-                logging.info(f"No accessible channels found in guild {guild.name}")
-                continue
+        self.logger.info(
+            f"Starting comprehensive save operation for {total_guilds} guilds"
+        )
 
-            # Get channel IDs
-            channel_ids = [channel.id for channel in accessible_channels]
+        # Send initial progress message
+        progress_msg = await ctx.send(
+            f"🔄 **Starting comprehensive message save operation**\n"
+            f"**Guilds to process:** {total_guilds}\n"
+            f"**Started at:** {start_time.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+            f"*This may take a very long time. Progress updates will be provided...*"
+        )
 
-            # Batch query for last messages in all channels
-            # Using a more efficient query with JOIN instead of ANY operator
-            last_messages = await self.bot.db.fetch(
-                """
-                SELECT m.channel_id, m.created_at
-                FROM messages m
-                INNER JOIN (
-                    SELECT channel_id, MAX(created_at) AS max_created_at
-                    FROM messages
-                    WHERE channel_id = ANY($1)
-                    GROUP BY channel_id
-                ) sub ON m.channel_id = sub.channel_id AND m.created_at = sub.max_created_at
-                """,
-                channel_ids,
+        try:
+            for guild_index, guild in enumerate(self.bot.guilds, 1):
+                guild_start_time = datetime.now()
+                guild_channels_processed = 0
+                guild_threads_processed = 0
+                guild_messages_saved = 0
+
+                self.logger.info(
+                    f"Processing guild {guild_index}/{total_guilds}: {guild.name} ({guild.id})"
+                )
+
+                try:
+                    # Get all text channels with read permissions
+                    accessible_channels = [
+                        channel
+                        for channel in guild.text_channels
+                        if channel.permissions_for(
+                            channel.guild.me
+                        ).read_message_history
+                    ]
+
+                    if not accessible_channels:
+                        self.logger.info(
+                            f"No accessible channels found in guild {guild.name}"
+                        )
+                    else:
+                        # Get channel IDs
+                        channel_ids = [channel.id for channel in accessible_channels]
+
+                        try:
+                            # Batch query for last messages in all channels
+                            last_messages = await self.bot.db.fetch(
+                                """
+                                SELECT m.channel_id, m.created_at
+                                FROM messages m
+                                INNER JOIN (
+                                    SELECT channel_id, MAX(created_at) AS max_created_at
+                                    FROM messages
+                                    WHERE channel_id = ANY($1)
+                                    GROUP BY channel_id
+                                ) sub ON m.channel_id = sub.channel_id AND m.created_at = sub.max_created_at
+                                """,
+                                channel_ids,
+                            )
+                        except asyncpg.PostgresError as e:
+                            self.logger.error(
+                                f"Database error querying last messages for guild {guild.name}: {e}"
+                            )
+                            errors_encountered += 1
+                            continue
+
+                        # Create a dictionary for quick lookup
+                        last_message_dict = {
+                            row["channel_id"]: row["created_at"]
+                            for row in last_messages
+                        }
+
+                        # Default date for channels with no messages
+                        default_date = datetime.strptime("2015-01-01", "%Y-%m-%d")
+
+                        # Process each channel with the pre-fetched data
+                        for channel in accessible_channels:
+                            try:
+                                self.logger.debug(
+                                    f"Processing channel: {channel.name} ({channel.id})"
+                                )
+
+                                # Get the last message date or use default
+                                first = last_message_dict.get(channel.id, default_date)
+                                self.logger.debug(
+                                    f"Last message in {channel.name} at {first}"
+                                )
+
+                                count = 0
+                                try:
+                                    async for message in channel.history(
+                                        limit=None, after=first, oldest_first=True
+                                    ):
+                                        try:
+                                            await save_message(self, message)
+                                            count += 1
+                                            guild_messages_saved += 1
+                                            total_messages_saved += 1
+                                        except Exception as e:
+                                            self.logger.error(
+                                                f"Error saving message {message.id} in channel {channel.name}: {e}"
+                                            )
+                                            errors_encountered += 1
+                                            continue
+                                except discord.Forbidden:
+                                    self.logger.warning(
+                                        f"No permission to read history in channel {channel.name}"
+                                    )
+                                    errors_encountered += 1
+                                    continue
+                                except discord.HTTPException as e:
+                                    self.logger.error(
+                                        f"Discord API error reading channel {channel.name}: {e}"
+                                    )
+                                    errors_encountered += 1
+                                    continue
+
+                                self.logger.info(
+                                    f"Channel {channel.name} completed: {count} messages saved"
+                                )
+                                guild_channels_processed += 1
+                                total_channels_processed += 1
+
+                            except Exception as e:
+                                self.logger.error(
+                                    f"Unexpected error processing channel {channel.name}: {e}"
+                                )
+                                errors_encountered += 1
+                                continue
+
+                    # Process threads
+                    self.logger.info(
+                        f"Starting thread processing for guild {guild.name}"
+                    )
+
+                    # Get all threads with read permissions
+                    accessible_threads = [
+                        thread
+                        for thread in guild.threads
+                        if thread.permissions_for(thread.guild.me).read_message_history
+                    ]
+
+                    if not accessible_threads:
+                        self.logger.info(
+                            f"No accessible threads found in guild {guild.name}"
+                        )
+                    else:
+                        # Get thread IDs
+                        thread_ids = [thread.id for thread in accessible_threads]
+
+                        try:
+                            # Batch query for last messages in all threads
+                            last_thread_messages = await self.bot.db.fetch(
+                                """
+                                SELECT m.channel_id, m.created_at
+                                FROM messages m
+                                INNER JOIN (
+                                    SELECT channel_id, MAX(created_at) AS max_created_at
+                                    FROM messages
+                                    WHERE channel_id = ANY($1)
+                                    GROUP BY channel_id
+                                ) sub ON m.channel_id = sub.channel_id AND m.created_at = sub.max_created_at
+                                """,
+                                thread_ids,
+                            )
+                        except asyncpg.PostgresError as e:
+                            self.logger.error(
+                                f"Database error querying last thread messages for guild {guild.name}: {e}"
+                            )
+                            errors_encountered += 1
+                            # Continue with threads processing even if query fails
+                            last_thread_messages = []
+
+                        # Create a dictionary for quick lookup
+                        last_thread_message_dict = {
+                            row["channel_id"]: row["created_at"]
+                            for row in last_thread_messages
+                        }
+
+                        # Default date for threads with no messages
+                        default_date = datetime.strptime("2015-01-01", "%Y-%m-%d")
+
+                        # Process each thread with the pre-fetched data
+                        for thread in accessible_threads:
+                            try:
+                                self.logger.debug(
+                                    f"Processing thread: {thread.name} ({thread.id})"
+                                )
+
+                                # Get the last message date or use default
+                                first = last_thread_message_dict.get(
+                                    thread.id, default_date
+                                )
+                                self.logger.debug(
+                                    f"Last message in thread {thread.name} at {first}"
+                                )
+
+                                count = 0
+                                try:
+                                    async for message in thread.history(
+                                        limit=None, after=first, oldest_first=True
+                                    ):
+                                        try:
+                                            await save_message(self, message)
+                                            count += 1
+                                            guild_messages_saved += 1
+                                            total_messages_saved += 1
+                                            # Small delay to prevent rate limiting
+                                            await asyncio.sleep(0.05)
+                                        except Exception as e:
+                                            self.logger.error(
+                                                f"Error saving message {message.id} in thread {thread.name}: {e}"
+                                            )
+                                            errors_encountered += 1
+                                            continue
+                                except discord.Forbidden:
+                                    self.logger.warning(
+                                        f"No permission to read history in thread {thread.name}"
+                                    )
+                                    errors_encountered += 1
+                                    continue
+                                except discord.HTTPException as e:
+                                    self.logger.error(
+                                        f"Discord API error reading thread {thread.name}: {e}"
+                                    )
+                                    errors_encountered += 1
+                                    continue
+
+                                self.logger.info(
+                                    f"Thread {thread.name} completed: {count} messages saved"
+                                )
+                                guild_threads_processed += 1
+                                total_threads_processed += 1
+
+                            except Exception as e:
+                                self.logger.error(
+                                    f"Unexpected error processing thread {thread.name}: {e}"
+                                )
+                                errors_encountered += 1
+                                continue
+
+                    # Guild processing completed
+                    guild_duration = datetime.now() - guild_start_time
+                    guilds_processed += 1
+
+                    self.logger.info(
+                        f"Guild {guild.name} completed: "
+                        f"{guild_channels_processed} channels, {guild_threads_processed} threads, "
+                        f"{guild_messages_saved} messages saved in {guild_duration}"
+                    )
+
+                    # Send progress update every few guilds or if it's the last guild
+                    if guild_index % 3 == 0 or guild_index == total_guilds:
+                        elapsed_time = datetime.now() - start_time
+                        try:
+                            await progress_msg.edit(
+                                content=f"🔄 **Message save operation in progress**\n"
+                                f"**Progress:** {guilds_processed}/{total_guilds} guilds processed\n"
+                                f"**Channels processed:** {total_channels_processed}\n"
+                                f"**Threads processed:** {total_threads_processed}\n"
+                                f"**Messages saved:** {total_messages_saved:,}\n"
+                                f"**Errors encountered:** {errors_encountered}\n"
+                                f"**Elapsed time:** {elapsed_time}\n"
+                                f"*Currently processing: {guild.name}*"
+                            )
+                        except discord.HTTPException:
+                            # If we can't edit the message, continue anyway
+                            pass
+
+                except Exception as e:
+                    self.logger.error(
+                        f"Critical error processing guild {guild.name}: {e}"
+                    )
+                    errors_encountered += 1
+                    continue
+
+        except Exception as e:
+            self.logger.error(f"Critical error during save operation: {e}")
+            raise DatabaseError(f"Save operation failed with critical error") from e
+
+        # Save operation completed
+        total_duration = datetime.now() - start_time
+        self.logger.info(f"Save operation completed in {total_duration}")
+
+        # Enable event listeners for ongoing message tracking
+        try:
+            listeners_enabled = 0
+            if self.save_listener not in self.bot.extra_events.get("on_message", []):
+                self.bot.add_listener(self.save_listener, name="on_message")
+                listeners_enabled += 1
+            if self.message_deleted not in self.bot.extra_events.get(
+                "on_raw_message_delete", []
+            ):
+                self.bot.add_listener(
+                    self.message_deleted, name="on_raw_message_delete"
+                )
+                listeners_enabled += 1
+            if self.message_edited not in self.bot.extra_events.get(
+                "on_raw_message_edit", []
+            ):
+                self.bot.add_listener(self.message_edited, name="on_raw_message_edit")
+                listeners_enabled += 1
+            if self.reaction_add not in self.bot.extra_events.get(
+                "on_raw_reaction_add", []
+            ):
+                self.bot.add_listener(self.reaction_add, name="on_raw_reaction_add")
+                listeners_enabled += 1
+            if self.reaction_remove not in self.bot.extra_events.get(
+                "on_raw_reaction_remove", []
+            ):
+                self.bot.add_listener(
+                    self.reaction_remove, name="on_raw_reaction_remove"
+                )
+                listeners_enabled += 1
+
+            self.logger.info(
+                f"Enabled {listeners_enabled} event listeners for ongoing message tracking"
             )
+        except Exception as e:
+            self.logger.error(f"Error enabling event listeners: {e}")
+            errors_encountered += 1
 
-            # Create a dictionary for quick lookup
-            last_message_dict = {
-                row["channel_id"]: row["created_at"] for row in last_messages
-            }
+        # Send comprehensive completion message
+        completion_message = (
+            f"✅ **Comprehensive message save operation completed!**\n"
+            f"**Total duration:** {total_duration}\n"
+            f"**Guilds processed:** {guilds_processed}/{total_guilds}\n"
+            f"**Channels processed:** {total_channels_processed}\n"
+            f"**Threads processed:** {total_threads_processed}\n"
+            f"**Messages saved:** {total_messages_saved:,}\n"
+            f"**Errors encountered:** {errors_encountered}\n"
+            f"**Event listeners enabled:** ✅\n"
+            f"**Completed at:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC"
+        )
 
-            # Default date for channels with no messages
-            default_date = datetime.strptime("2015-01-01", "%Y-%m-%d")
+        try:
+            await progress_msg.edit(content=completion_message)
+        except discord.HTTPException:
+            # If we can't edit, send a new message
+            await ctx.send(completion_message)
 
-            # Process each channel with the pre-fetched data
-            for channel in accessible_channels:
-                logging.debug(f"{channel=}")
-                logging.info(f"Starting with {channel.name}")
-
-                # Get the last message date or use default
-                first = last_message_dict.get(channel.id, default_date)
-                logging.info(f"Last message at {first}")
-
-                count = 0
-                async for message in channel.history(
-                    limit=None, after=first, oldest_first=True
-                ):
-                    logging.debug(f"Saving {message.id} to database")
-                    count += 1
-                    await save_message(self, message)
-                logging.info(f"{channel.name} Done. saved {count} messages")
-            logging.info("starting with threads\n")
-
-            # Get all threads with read permissions
-            accessible_threads = [
-                thread
-                for thread in guild.threads
-                if thread.permissions_for(thread.guild.me).read_message_history
-            ]
-
-            if not accessible_threads:
-                logging.info(f"No accessible threads found in guild {guild.name}")
-                continue
-
-            # Get thread IDs
-            thread_ids = [thread.id for thread in accessible_threads]
-
-            # Batch query for last messages in all threads
-            # Using a more efficient query with JOIN instead of ANY operator
-            last_thread_messages = await self.bot.db.fetch(
-                """
-                SELECT m.channel_id, m.created_at
-                FROM messages m
-                INNER JOIN (
-                    SELECT channel_id, MAX(created_at) AS max_created_at
-                    FROM messages
-                    WHERE channel_id = ANY($1)
-                    GROUP BY channel_id
-                ) sub ON m.channel_id = sub.channel_id AND m.created_at = sub.max_created_at
-                """,
-                thread_ids,
-            )
-
-            # Create a dictionary for quick lookup
-            last_thread_message_dict = {
-                row["channel_id"]: row["created_at"] for row in last_thread_messages
-            }
-
-            # Default date for threads with no messages
-            default_date = datetime.strptime("2015-01-01", "%Y-%m-%d")
-
-            # Process each thread with the pre-fetched data
-            for thread in accessible_threads:
-                logging.debug(f"{thread=}")
-                logging.info(f"Starting with {thread.name}")
-
-                # Get the last message date or use default
-                first = last_thread_message_dict.get(thread.id, default_date)
-                logging.info(f"Last message at {first}")
-
-                count = 0
-                async for message in thread.history(
-                    limit=None, after=first, oldest_first=True
-                ):
-                    logging.debug(f"Saving {message.id} to database")
-                    count += 1
-                    await save_message(self, message)
-                    await asyncio.sleep(0.05)
-                logging.info(f"{thread.name} Done. saved {count} messages")
-        logging.info("!save completed")
-        owner = self.bot.get_user(self.bot.owner_id)
-        if owner is not None:
-            await owner.send("The save command is now complete")
-        else:
-            logging.error(f"I couldn't find the owner")
-        if self.save_listener not in self.bot.extra_events["on_message"]:
-            self.bot.add_listener(self.save_listener, name="on_message")
-        if self.message_deleted not in self.bot.extra_events["on_raw_message_delete"]:
-            self.bot.add_listener(self.message_deleted, name="on_raw_message_delete")
-        if self.message_edited not in self.bot.extra_events["on_raw_message_edit"]:
-            self.bot.add_listener(self.message_edited, name="on_raw_message_edit")
-        if self.reaction_add not in self.bot.extra_events["on_raw_reaction_add"]:
-            self.bot.add_listener(self.reaction_add, name="on_raw_reaction_add")
-        if self.reaction_remove not in self.bot.extra_events["on_raw_reaction_remove"]:
-            self.bot.add_listener(self.reaction_remove, name="on_raw_reaction_remove")
+        # Notify the bot owner
+        try:
+            owner = self.bot.get_user(self.bot.owner_id)
+            if owner is not None:
+                await owner.send(
+                    f"🎉 **Save command completed successfully!**\n"
+                    f"**Messages saved:** {total_messages_saved:,}\n"
+                    f"**Duration:** {total_duration}\n"
+                    f"**Errors:** {errors_encountered}"
+                )
+                self.logger.info("Completion notification sent to bot owner")
+            else:
+                self.logger.warning(
+                    "Could not find bot owner to send completion notification"
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to send completion notification to owner: {e}")
 
     @Cog.listener("on_message")
     async def save_listener(self, message):
@@ -1577,18 +2537,101 @@ class StatsCogs(commands.Cog, name="stats"):
         name="messagecount",
         description="Retrieve message count from a channel in the last x hours",
     )
+    @handle_interaction_errors
     async def message_count(
         self, interaction: discord.Interaction, channel: discord.TextChannel, hours: int
     ):
+        """
+        Retrieve message count from a specific channel within a time range.
+
+        Args:
+            interaction: The Discord interaction object
+            channel: The text channel to count messages from
+            hours: Number of hours to look back (must be positive)
+
+        Raises:
+            ValidationError: If the hours parameter is invalid
+            DatabaseError: If database query fails
+            QueryError: If there's an issue with the SQL query
+        """
+        # Validate hours parameter
+        if hours <= 0:
+            raise ValidationError(
+                field="hours", message="Hours must be a positive number"
+            )
+
+        if hours > 8760:  # More than a year
+            raise ValidationError(
+                field="hours", message="Hours cannot exceed 8760 (1 year)"
+            )
+
+        # Calculate the time threshold
         d_time = datetime.now() - timedelta(hours=hours)
-        results = await self.bot.db.fetchrow(
-            "SELECT count(*) total FROM messages WHERE created_at > $1 and channel_id = $2",
-            d_time,
-            channel.id,
-        )
-        await interaction.response.send_message(
-            f"There is a total of {results['total']} messages in channel {channel} in the last {hours} hours (since {d_time} UTC)"
-        )
+
+        try:
+            # Query the database for message count
+            results = await self.bot.db.fetchrow(
+                "SELECT count(*) as total FROM messages WHERE created_at > $1 AND channel_id = $2",
+                d_time,
+                channel.id,
+            )
+
+            if results is None:
+                raise QueryError("Database query returned no results")
+
+            message_count = results["total"]
+
+            # Log the query for debugging
+            self.logger.info(
+                f"Message count query: {message_count} messages in {channel.name} ({channel.id}) over last {hours} hours"
+            )
+
+            # Create a formatted response
+            embed = discord.Embed(
+                title="📊 Message Count Statistics",
+                color=discord.Color.blue(),
+                timestamp=datetime.now(),
+            )
+
+            embed.add_field(name="Channel", value=channel.mention, inline=True)
+
+            embed.add_field(
+                name="Time Period",
+                value=f"Last {hours} hour{'s' if hours != 1 else ''}",
+                inline=True,
+            )
+
+            embed.add_field(
+                name="Message Count",
+                value=f"**{message_count:,}** messages",
+                inline=True,
+            )
+
+            embed.add_field(
+                name="Since",
+                value=f"{d_time.strftime('%Y-%m-%d %H:%M:%S')} UTC",
+                inline=False,
+            )
+
+            # Add rate information if there are messages
+            if message_count > 0:
+                rate_per_hour = message_count / hours
+                embed.add_field(
+                    name="Average Rate",
+                    value=f"{rate_per_hour:.2f} messages/hour",
+                    inline=True,
+                )
+
+            embed.set_footer(text=f"Requested by {interaction.user.display_name}")
+
+            await interaction.response.send_message(embed=embed)
+
+        except asyncpg.PostgresError as e:
+            raise DatabaseError(
+                f"Failed to retrieve message count for channel {channel.name}"
+            ) from e
+        except Exception as e:
+            raise QueryError(f"Unexpected error during message count query") from e
 
 
 async def setup(bot):

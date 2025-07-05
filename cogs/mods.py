@@ -11,31 +11,155 @@ from discord.ext.commands import Cog
 
 import config
 from utils.error_handling import handle_interaction_errors, log_error
-from utils.exceptions import ExternalServiceError, DiscordError
+from utils.exceptions import (
+    ExternalServiceError,
+    DiscordError,
+    ValidationError,
+    ResourceNotFoundError,
+)
 
 
 class ModCogs(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="reset", description="resets the cooldown of a command")
+    @app_commands.command(
+        name="reset", description="Resets the cooldown of a command for a user"
+    )
     @app_commands.default_permissions(ban_members=True)
     @handle_interaction_errors
     async def reset(self, interaction: discord.Interaction, command: str):
-        self.bot.get_command(command).reset_cooldown(interaction)
-        await interaction.response.send_message(f"Reset the cooldown of {command}")
+        """
+        Reset the cooldown of a specific command for the user.
 
-    @app_commands.command(name="state", description="Makes Cognita post a mod message")
+        Args:
+            interaction: The Discord interaction object
+            command: The name of the command to reset cooldown for
+
+        Raises:
+            ValidationError: If the command name is invalid
+            ResourceNotFoundError: If the command doesn't exist
+        """
+        # Validate command name
+        if not command or len(command.strip()) == 0:
+            raise ValidationError(message="Command name cannot be empty")
+
+        command = command.strip().lower()
+
+        # Validate command name format (basic alphanumeric and underscore)
+        if not re.match(r"^[a-zA-Z0-9_]+$", command):
+            raise ValidationError(
+                message="Command name can only contain letters, numbers, and underscores"
+            )
+
+        # Get the command object
+        cmd = self.bot.get_command(command)
+        if cmd is None:
+            # Also check app commands
+            app_cmd = None
+            for app_command in self.bot.tree.get_commands():
+                if app_command.name == command:
+                    app_cmd = app_command
+                    break
+
+            if app_cmd is None:
+                raise ResourceNotFoundError(
+                    resource_type="command",
+                    resource_id=command,
+                    message=f"Command **{command}** not found. Please check the command name and try again.",
+                )
+
+            # App commands don't have traditional cooldowns that can be reset this way
+            raise ValidationError(
+                message=f"Command **{command}** is an application command and doesn't support cooldown reset through this method"
+            )
+
+        # Check if the command has cooldowns
+        if not hasattr(cmd, "_buckets") or cmd._buckets is None:
+            raise ValidationError(
+                message=f"Command **{command}** does not have any cooldowns to reset"
+            )
+
+        # Reset the cooldown
+        try:
+            cmd.reset_cooldown(interaction)
+            await interaction.response.send_message(
+                f"✅ Successfully reset the cooldown for command **{command}** for {interaction.user.mention}"
+            )
+        except Exception as e:
+            raise ValidationError(
+                message=f"Failed to reset cooldown for command **{command}**: {str(e)}"
+            )
+
+    @app_commands.command(
+        name="state", description="Post an official moderator message"
+    )
     @app_commands.default_permissions(ban_members=True)
     @handle_interaction_errors
     async def state(self, interaction: discord.Interaction, message: str):
-        embed = discord.Embed(
-            title="**MOD MESSAGE**", color=0xFF0000, description=message
-        )
-        embed.set_footer(
-            text=interaction.user.name, icon_url=interaction.user.display_avatar.url
-        )
-        await interaction.response.send_message(embed=embed)
+        """
+        Post an official moderator message with proper formatting and attribution.
+
+        Args:
+            interaction: The Discord interaction object
+            message: The message content to post
+
+        Raises:
+            ValidationError: If the message content is invalid
+        """
+        # Validate message content
+        if not message or len(message.strip()) == 0:
+            raise ValidationError(message="Message content cannot be empty")
+
+        message = message.strip()
+
+        # Validate message length (Discord embed description limit is 4096 characters)
+        if len(message) > 4000:  # Leave some room for formatting
+            raise ValidationError(
+                message="Message content must be 4000 characters or less"
+            )
+
+        # Basic content sanitization - prevent @everyone and @here mentions
+        if "@everyone" in message.lower() or "@here" in message.lower():
+            raise ValidationError(
+                message="Moderator messages cannot contain @everyone or @here mentions"
+            )
+
+        # Create the embed
+        try:
+            embed = discord.Embed(
+                title="🛡️ **MODERATOR MESSAGE**",
+                color=discord.Color.red(),
+                description=message,
+                timestamp=datetime.datetime.utcnow(),
+            )
+
+            # Add moderator attribution
+            embed.set_footer(
+                text=f"Posted by {interaction.user.display_name}",
+                icon_url=interaction.user.display_avatar.url,
+            )
+
+            # Add a field to make it clear this is official
+            embed.add_field(
+                name="📋 Official Notice",
+                value="This message is from the moderation team. Please read carefully.",
+                inline=False,
+            )
+
+            await interaction.response.send_message(embed=embed)
+
+            # Log the moderator action
+            logging.info(
+                f"Moderator message posted by {interaction.user.name} ({interaction.user.id}) in {interaction.channel.name if hasattr(interaction, 'channel') else 'unknown channel'}"
+            )
+
+        except discord.HTTPException as e:
+            raise ValidationError(message=f"Failed to post moderator message: {str(e)}")
+        except Exception as e:
+            raise ValidationError(
+                message=f"Unexpected error posting moderator message: {str(e)}"
+            )
 
     @Cog.listener("on_message")
     async def log_attachment(self, message):
