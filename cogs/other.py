@@ -974,66 +974,6 @@ class OtherCogs(commands.Cog, name="Other"):
                 f"Rolled {amount}d{dice} + {modifier} = {sum(rolls) + modifier} ({rolls})"
             )
 
-    @app_commands.command(name="gallery_stats", description="Posts the gallery stats")
-    async def gallery_stats(self, interaction: discord.Interaction):
-        """
-        Generate an Excel spreadsheet with gallery statistics.
-
-        This command creates an Excel spreadsheet containing information about
-        gallery submissions, including titles, links, creators, and posting dates.
-        It processes all messages in the gallery channel that contain embeds.
-
-        Args:
-            interaction: The interaction that triggered the command
-        """
-        gallery = interaction.guild.get_channel_or_thread(964519175320125490)
-        if exists("gallery.xlsx"):
-            os.remove("gallery.xlsx")
-        wb = Workbook()
-        ws = wb.active
-        ws["A1"] = "Entry #"
-        ws["B1"] = "Title (if given)"
-        ws["C1"] = "Link"
-        ws["D1"] = "Fanwork Message link"
-        ws["E1"] = (
-            "Type of Submission (Classify based on posting location-- gallery or nsfw-gallery)"
-        )
-        ws["F1"] = "Creator (Use their Discord username, not their handle)"
-        ws["G1"] = "Posted Date"
-        ws["H1"] = "Inktober Prompt"
-        ws["I1"] = "Quest( if applicable)"
-        ws["J1"] = "Name"
-        ws["K1"] = "Notes"
-        ws["L1"] = "Image"
-        first = datetime.strptime("2022-09-14", "%Y-%m-%d")
-        row = 2
-        async for message in gallery.history(
-            limit=None, after=first, oldest_first=True
-        ):
-            if len(message.embeds) != 0 and message.author.id == 631257798465945650:
-                logging.info(f"Message: {message.embeds[0].description}")
-                # ws.cell(row=row, column=1).value = entry
-                ws.cell(row=row, column=2).value = message.embeds[0].title
-                ws.cell(row=row, column=3).value = message.embeds[0].image.url
-                ws.cell(row=row, column=4).value = re.findall(
-                    r"(https://discord\.com/channels/\d*/\d*/\d*)|$",
-                    message.embeds[0].description,
-                )[0]
-                # ws.cell(row=row, column=5).value = 'gallery'
-                ws.cell(row=row, column=6).value = interaction.guild.get_member(
-                    int(re.findall(r"<@(\d*)>|$", message.embeds[0].description)[0])
-                ).name
-                ws.cell(row=row, column=7).value = message.created_at.strftime(
-                    "%d-%m-%Y @ %H:%M:%S"
-                )
-                # ws.cell(row=row, column=8).value = message.embeds[0].description
-                # ws.cell(row=row, column=9).value = message.embeds[0].fields[0].value
-                # ws.cell(row=row, column=10).value = message.embeds[0].fields[1].value
-                # ws.cell(row=row, column=11).value = message.embeds[0].fields[2].value
-                # ws.cell(row=row, column=12).value = message.embeds[0].image.url
-                wb.save("gallery.xlsx")
-                row += 1
-
     @app_commands.command(name="ao3", description="Posts information about a ao3 work")
     async def ao3(self, interaction: discord.Interaction, ao3_url: str) -> None:
         """
