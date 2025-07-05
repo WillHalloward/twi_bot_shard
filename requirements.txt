@@ -102,7 +102,7 @@ openai==1.82.0
     # via twi-bot-shard (pyproject.toml)
 openpyxl==3.1.5
     # via twi-bot-shard (pyproject.toml)
-pillow==11.2.1
+pillow==11.3.0
     # via twi-bot-shard (pyproject.toml)
 propcache==0.3.1
     # via
