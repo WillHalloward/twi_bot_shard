@@ -7,6 +7,7 @@ password management, and text processing.
 """
 
 import asyncio
+import json
 import os
 import sys
 from typing import Dict, List, Optional, Tuple, Any
@@ -20,7 +21,8 @@ import discord
 from discord.ext import commands
 
 # Import the cog to test
-from cogs.twi import TwiCog, google_search
+from cogs.twi import TwiCog
+from cogs.twi_utils import google_search
 
 # Import test utilities
 from tests.fixtures import DatabaseFixture, TestDataFixture
@@ -44,7 +46,7 @@ async def test_google_search_function():
     print("\nTesting google_search function...")
 
     # Mock the Google API service
-    with patch("cogs.twi.build") as mock_build:
+    with patch("cogs.twi_utils.build") as mock_build:
         mock_service = MagicMock()
         mock_cse = MagicMock()
         mock_list = MagicMock()
@@ -76,7 +78,7 @@ async def test_google_search_function():
         mock_build.assert_called_once_with(
             "customsearch", "v1", developerKey="fake_api_key"
         )
-        mock_cse.list.assert_called_once_with(q="test query", cx="fake_cse_id")
+        mock_cse.list.assert_called_once_with(q="test query", cx="fake_cse_id", num=9)
 
     print("✅ google_search function test passed")
     return True
@@ -191,23 +193,33 @@ async def test_wiki_command():
     # Create a mock interaction
     interaction = MockInteractionFactory.create()
 
-    # Mock the Google search function
-    with patch("cogs.twi.google_search") as mock_search:
-        mock_search.return_value = {
-            "items": [
-                {
-                    "title": "Test Wiki Page",
-                    "link": "https://thewanderinginn.fandom.com/wiki/Test",
-                    "snippet": "Test wiki content",
+    # Mock the fetch function and HTTP client
+    with patch("cogs.twi_search.fetch") as mock_fetch:
+        # Mock the wiki API response
+        wiki_response = json.dumps(
+            {
+                "query": {
+                    "pages": {
+                        "123": {
+                            "title": "Test Wiki Page",
+                            "fullurl": "https://thewanderinginn.fandom.com/wiki/Test",
+                            "index": 1,
+                        }
+                    }
                 }
-            ]
-        }
+            }
+        )
+        mock_fetch.return_value = wiki_response
+
+        # Mock the bot's HTTP client
+        mock_session = AsyncMock()
+        cog.bot.http_client.get_session = AsyncMock(return_value=mock_session)
 
         # Call the command's callback directly
         await cog.wiki.callback(cog, interaction, "test query")
 
-        # Verify the search was called
-        mock_search.assert_called_once()
+        # Verify the fetch was called
+        mock_fetch.assert_called_once()
 
     # Verify the response was sent
     interaction.response.send_message.assert_called_once()
@@ -234,7 +246,7 @@ async def test_find_command():
     interaction = MockInteractionFactory.create()
 
     # Mock the Google search function
-    with patch("cogs.twi.google_search") as mock_search:
+    with patch("cogs.twi_utils.google_search") as mock_search:
         mock_search.return_value = {
             "items": [
                 {
@@ -382,7 +394,7 @@ async def test_error_handling():
     interaction = MockInteractionFactory.create()
 
     # Test Google search error handling
-    with patch("cogs.twi.google_search", side_effect=Exception("API Error")):
+    with patch("cogs.twi_utils.google_search", side_effect=Exception("API Error")):
         try:
             await cog.wiki.callback(cog, interaction, "test query")
             # Should handle the error gracefully
@@ -421,7 +433,7 @@ async def test_edge_cases():
     interaction = MockInteractionFactory.create()
 
     # Test empty search results
-    with patch("cogs.twi.google_search") as mock_search:
+    with patch("cogs.twi_utils.google_search") as mock_search:
         mock_search.return_value = {"items": []}
 
         await cog.wiki.callback(cog, interaction, "nonexistent query")

@@ -32,26 +32,24 @@ def main():
     if check_result.stderr:
         print(check_result.stderr, file=sys.stderr)
 
-    # Ask if the user wants to apply the changes
+    # Automatically apply the changes if needed
     if check_result.returncode != 0:
-        response = input("\nDo you want to apply these changes? (y/n): ")
-        if response.lower() == "y":
-            print("\nApplying changes...")
-            format_result = subprocess.run(
-                ["black", "."],
-                cwd=project_root,
-                capture_output=True,
-                text=True,
-            )
+        print("\nApplying changes...")
+        format_result = subprocess.run(
+            ["black", "."],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+        )
 
-            # Print the output
-            if format_result.stdout:
-                print(format_result.stdout)
+        # Print the output
+        if format_result.stdout:
+            print(format_result.stdout)
 
-            if format_result.stderr:
-                print(format_result.stderr, file=sys.stderr)
+        if format_result.stderr:
+            print(format_result.stderr, file=sys.stderr)
 
-            return format_result.returncode
+        return format_result.returncode
     else:
         print("\nAll files are already formatted correctly.")
 

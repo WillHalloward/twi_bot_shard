@@ -5,9 +5,9 @@ This document contains a comprehensive to-do list of items to fix, improve, or c
 ## Code Quality & Refactoring
 
 ### High Priority
-- [ ] **Refactor stats.py cog** - Split the massive 2639-line StatsCogs class into smaller, more manageable modules (Priority: High)
-- [ ] **Refactor twi.py cog** - Break down the 1171-line TwiCog into smaller, focused components (Priority: High)
-- [ ] **Reduce code duplication** - Identify and consolidate repeated patterns across cogs, especially in error handling and database operations (Priority: High)
+- [x] **Refactor stats.py cog** - Split the massive 2639-line StatsCogs class into smaller, more manageable modules (Priority: High) ✅ **COMPLETED** - Successfully refactored into 5 focused modules: stats_utils.py (utility functions), stats_commands.py (owner commands), stats_listeners.py (event listeners), stats_tasks.py (background tasks), and stats_queries.py (user query commands)
+- [x] **Refactor twi.py cog** - Break down the 1171-line TwiCog into smaller, focused components (Priority: High) ✅ **COMPLETED** - Successfully refactored into 4 focused modules: twi_utils.py (shared utilities), twi_password.py (password management), twi_search.py (wiki and content search), and twi_content.py (invisible text and colored text functionality)
+- [x] **Reduce code duplication** - Identify and consolidate repeated patterns across cogs, especially in error handling and database operations (Priority: High) ✅ **COMPLETED** - Created comprehensive common patterns utility (utils/common_patterns.py) with consolidated error handling, database operations, validation, and logging patterns. Updated report.py cog as demonstration. Includes full test coverage.
 - [ ] **Implement consistent logging patterns** - Standardize logging across all cogs using the structured logging setup (Priority: High)
 
 ### Medium Priority

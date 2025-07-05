@@ -10,6 +10,7 @@ from utils.exceptions import (
     ValidationError,
     PermissionError,
 )
+from utils.common_patterns import CommonPatterns, with_db_error_handling
 
 
 class ReportModal(discord.ui.Modal):
@@ -242,6 +243,7 @@ class ReportCog(commands.Cog, name="report"):
         self.bot.tree.add_command(self.report)
 
     @handle_interaction_errors
+    @with_db_error_handling("report", "Failed to process report")
     async def report(self, interaction: discord.Interaction, message: discord.Message):
         """
         Report a message using the context menu.
@@ -255,7 +257,7 @@ class ReportCog(commands.Cog, name="report"):
             PermissionError: If user doesn't have permission to report
             DatabaseError: If database operations fail
         """
-        # Validate inputs
+        # Validate inputs using common patterns
         if not message:
             raise ValidationError(message="No message selected for reporting")
 
@@ -270,56 +272,58 @@ class ReportCog(commands.Cog, name="report"):
         if message.author.bot:
             raise ValidationError(message="You cannot report bot messages")
 
-        # Check if user has already reported this message
-        try:
-            existing_report = await self.bot.db.fetchrow(
+        # Check if user has already reported this message using common patterns
+        async def check_existing_report():
+            return await self.bot.db.fetchrow(
                 "SELECT id FROM reports WHERE message_id = $1 AND user_id = $2",
                 message.id,
                 interaction.user.id,
             )
 
-            if existing_report:
-                raise ValidationError(message="You have already reported this message")
+        existing_report = await CommonPatterns.safe_db_query(
+            check_existing_report,
+            "check_existing_report",
+            interaction.user.id,
+            self.logger,
+            "Failed to check existing reports",
+        )
 
-        except Exception as e:
-            if isinstance(e, ValidationError):
-                raise
-            self.logger.error(f"Error checking existing reports: {e}")
-            raise DatabaseError("Failed to check existing reports") from e
+        if existing_report:
+            raise ValidationError(message="You have already reported this message")
 
         # Create and send the report view
-        try:
-            view = ReportView(message, self.bot)
+        view = ReportView(message, self.bot)
 
-            embed = discord.Embed(
-                title="🚨 Report Message",
-                description=f"You are reporting a message by {message.author.mention}",
-                color=discord.Color.red(),
-            )
-            embed.add_field(
-                name="Message Content",
-                value=(
-                    message.content[:1000]
-                    + ("..." if len(message.content) > 1000 else "")
-                    if message.content
-                    else "*No text content*"
-                ),
-                inline=False,
-            )
-            embed.add_field(name="Channel", value=message.channel.mention, inline=True)
-            embed.add_field(name="Message ID", value=str(message.id), inline=True)
-            embed.set_footer(text="Please select a reason and submit your report")
+        embed = discord.Embed(
+            title="🚨 Report Message",
+            description=f"You are reporting a message by {message.author.mention}",
+            color=discord.Color.red(),
+        )
+        embed.add_field(
+            name="Message Content",
+            value=(
+                message.content[:1000] + ("..." if len(message.content) > 1000 else "")
+                if message.content
+                else "*No text content*"
+            ),
+            inline=False,
+        )
+        embed.add_field(name="Channel", value=message.channel.mention, inline=True)
+        embed.add_field(name="Message ID", value=str(message.id), inline=True)
+        embed.set_footer(text="Please select a reason and submit your report")
 
-            await interaction.response.send_message(
-                embed=embed, view=view, ephemeral=True
-            )
-            self.logger.info(
-                f"Report interface opened by user {interaction.user.id} for message {message.id}"
-            )
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-        except Exception as e:
-            self.logger.error(f"Error creating report interface: {e}")
-            raise DatabaseError("Failed to create report interface") from e
+        # Log using common patterns
+        CommonPatterns.log_command_execution(
+            "report",
+            interaction.user.id,
+            interaction.user.display_name,
+            self.logger,
+            f"opened report interface for message {message.id}",
+            message_id=message.id,
+            channel_id=message.channel.id,
+        )
 
     async def cog_load(self) -> None:
         """Called when the cog is loaded."""

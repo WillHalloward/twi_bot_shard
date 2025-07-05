@@ -20,7 +20,8 @@ import discord
 from discord.ext import commands
 
 # Import the cog to test
-from cogs.stats import StatsCogs, save_message, save_reaction
+from cogs.stats import StatsCogs
+from cogs.stats_utils import save_message, save_reaction
 
 # Import test utilities
 from tests.fixtures import DatabaseFixture, TestDataFixture
@@ -54,26 +55,16 @@ async def test_save_message():
     message = MockMessageFactory.create()
 
     # Mock the database methods
-    bot.db.prepare_statement = AsyncMock()
-    bot.db.transaction = AsyncMock()
+    bot.db.fetchval = AsyncMock(return_value=False)  # User doesn't exist
+    bot.db.execute = AsyncMock()
     bot.db.execute_many = AsyncMock()
 
-    # Mock the prepared statement
-    mock_stmt = AsyncMock()
-    mock_stmt.execute = AsyncMock()
-    bot.db.prepare_statement.return_value = mock_stmt
-
-    # Mock the transaction context manager
-    mock_transaction = AsyncMock()
-    mock_transaction.__aenter__ = AsyncMock()
-    mock_transaction.__aexit__ = AsyncMock()
-    bot.db.transaction.return_value = mock_transaction
-
     # Call the function
-    await save_message(cog, message)
+    await save_message(bot, message)
 
-    # Verify that prepare_statement was called
-    assert bot.db.prepare_statement.call_count >= 1
+    # Verify that database methods were called
+    assert bot.db.fetchval.call_count >= 1
+    assert bot.db.execute.call_count >= 1
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "stats")
@@ -100,7 +91,7 @@ async def test_save_reaction():
     bot.db.execute_many = AsyncMock()
 
     # Call the function
-    await save_reaction(cog, reaction)
+    await save_reaction(bot, reaction)
 
     # Verify that db.execute_many was called
     bot.db.execute_many.assert_called_once()
