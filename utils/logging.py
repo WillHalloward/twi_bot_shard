@@ -154,13 +154,14 @@ def init_logging(
     format_value = log_format
 
     if format_value is None:
-        # Get the log format from config, defaulting based on whether we're logging to a file
-        if hasattr(config, "log_format"):
+        # If logging to a file, use "file" format (no colors) for multitail compatibility
+        # Otherwise, get the log format from config or default to "console"
+        if file:
+            format_value = "file"
+        elif hasattr(config, "log_format"):
             format_value = config.log_format.value
         else:
-            # If logging to a file, use "file" format (no colors) for multitail compatibility
-            # Otherwise use "console" format (with colors)
-            format_value = "file" if file else "console"
+            format_value = "console"
 
     configure_stdlib_logging(level, file)
     configure_structlog(format_value)
@@ -169,7 +170,9 @@ def init_logging(
 
 
 # Create a logger for use throughout the application
-logger = init_logging()
+# Check if we have a logfile configured and use appropriate format
+_logfile = getattr(config, "logfile", None)
+logger = init_logging(log_file=_logfile)
 
 # Example usage:
 # logger.info("message_received", user_id=123456, channel_id=789012, content_length=42)
