@@ -32,7 +32,20 @@ def query_faiss(
     return [lookup[str(i)] for i in indices[0]]
 
 
-def build_prompt(question: str, schema_chunks: list[str]) -> str:
+def build_prompt(question: str, schema_chunks: list[str], server_id: int = None, channel_id: int = None, user_id: int = None) -> str:
+    context_info = ""
+    if server_id or channel_id or user_id:
+        context_info = "\nCurrent Context:\n"
+        if server_id:
+            context_info += f"- Server ID: {server_id}\n"
+        if channel_id:
+            context_info += f"- Channel ID: {channel_id}\n"
+        if user_id:
+            context_info += f"- User ID: {user_id} (the user asking this question)\n"
+        context_info += "- When users ask about 'my' or 'me', they are referring to the User ID above\n"
+        context_info += "- When users ask about 'this server' or 'here', they are referring to the Server ID above\n"
+        context_info += "- When users ask about 'this channel', they are referring to the Channel ID above\n"
+
     return f"""
 You are a PostgreSQL SQL query generator for Cognita, a Discord bot that helps users interact with their Discord server data.
 
@@ -41,7 +54,7 @@ Context:
 - The database contains information about Discord servers, users, messages, reactions, commands, and other Discord-related data
 - Users are asking questions about their Discord server statistics, activity, and data
 - The generated query will be executed as-is with no modifications or parameter substitution
-
+{context_info}
 Instructions:
 - Only return a single valid SELECT SQL query that can be executed directly
 - Do NOT include any explanation, comments, or additional text
@@ -51,6 +64,7 @@ Instructions:
 - If you cannot generate a proper SQL query for the question, respond with exactly: "COGNITA_NO_QUERY_POSSIBLE"
 - Focus on Discord-related data like servers, users, messages, reactions, commands, etc.
 - Consider that this data comes from Discord bot interactions and server monitoring
+- Use the context information above to resolve references like 'my', 'me', 'this server', 'here', 'this channel'
 
 Available Schema Information:
 {chr(10).join(schema_chunks)}

@@ -1296,11 +1296,16 @@ class OwnerCog(commands.Cog, name="Owner"):
             )
 
             try:
-                prompt = build_prompt(question, relevant_schema)
+                # Extract context information from the interaction
+                server_id = interaction.guild.id if interaction.guild else None
+                channel_id = interaction.channel.id if interaction.channel else None
+                user_id = interaction.user.id
+
+                prompt = build_prompt(question, relevant_schema, server_id, channel_id, user_id)
                 if not prompt:
                     raise ExternalServiceError(message="❌ Failed to build AI prompt")
                 logging.info(
-                    f"OWNER ASK_DB: Built prompt with {len(prompt)} characters"
+                    f"OWNER ASK_DB: Built prompt with {len(prompt)} characters (Server: {server_id}, Channel: {channel_id}, User: {user_id})"
                 )
             except Exception as e:
                 logging.error(f"OWNER ASK_DB ERROR: Prompt building failed: {e}")
