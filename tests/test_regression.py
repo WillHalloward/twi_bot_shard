@@ -157,8 +157,10 @@ async def test_find_command():
             return {"searchInformation": {"totalResults": "0"}}
 
     # Test with results
-    with patch("cogs.twi.google_search", mock_google_search), \
-         patch("utils.permissions.is_bot_channel", return_value=True):
+    with (
+        patch("cogs.twi.google_search", mock_google_search),
+        patch("utils.permissions.is_bot_channel", return_value=True),
+    ):
         # Call the command's callback directly
         await cog.find.callback(cog, interaction, "test_query")
 
@@ -176,8 +178,10 @@ async def test_find_command():
     interaction.response.send_message.reset_mock()
 
     # Test with no results
-    with patch("cogs.twi.google_search", mock_google_search), \
-         patch("utils.permissions.is_bot_channel", return_value=True):
+    with (
+        patch("cogs.twi.google_search", mock_google_search),
+        patch("utils.permissions.is_bot_channel", return_value=True),
+    ):
         # Call the command's callback directly
         await cog.find.callback(cog, interaction, "nonexistent_query")
 
@@ -299,8 +303,10 @@ async def test_password_command():
     interaction = MockInteractionFactory.create(channel=mock_channel)
 
     # Test in an allowed channel
-    with patch("config.password_allowed_channel_ids", [test_channel_id]), \
-         patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id]):
+    with (
+        patch("config.password_allowed_channel_ids", [test_channel_id]),
+        patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id]),
+    ):
         # Call the command's callback directly
         await cog.password.callback(cog, interaction)
 
@@ -314,8 +320,10 @@ async def test_password_command():
     interaction.response.send_message.reset_mock()
 
     # Test in a non-allowed channel
-    with patch("config.password_allowed_channel_ids", [test_channel_id + 1]), \
-         patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id + 1]):
+    with (
+        patch("config.password_allowed_channel_ids", [test_channel_id + 1]),
+        patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id + 1]),
+    ):
         # Call the command's callback directly
         await cog.password.callback(cog, interaction)
 

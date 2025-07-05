@@ -454,8 +454,8 @@ def test_sanitize_string_properties(value: str, level: ValidationLevel) -> None:
 
     # Property 2: Result should not have leading/trailing whitespace
     # Use a more robust approach to check for whitespace
-    assert not result.startswith((' ', '\t', '\n', '\r'))
-    assert not result.endswith((' ', '\t', '\n', '\r'))
+    assert not result.startswith((" ", "\t", "\n", "\r"))
+    assert not result.endswith((" ", "\t", "\n", "\r"))
 
     # Property 3: If input is None, result should be empty string
     if value is None:

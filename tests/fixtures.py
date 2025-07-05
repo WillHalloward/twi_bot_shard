@@ -20,8 +20,10 @@ from sqlalchemy.orm import sessionmaker
 
 # Import models
 from models.base import Base
+
 # Import all models to ensure they're registered with Base.metadata
 from models import *
+
 # Explicitly import all model classes to ensure they're registered
 from models.tables.servers import Server
 from models.tables.commands import CommandHistory
@@ -118,6 +120,7 @@ class TestDataFixture:
     This class provides methods for loading test data into the database
     for testing purposes.
     """
+
     __test__ = False  # Tell pytest this is not a test class
 
     def __init__(self, db_fixture: DatabaseFixture):
@@ -186,7 +189,7 @@ class TestDataFixture:
             test_server = Server(
                 server_id=2000000,
                 server_name="Test Server",
-                creation_date=datetime.now()
+                creation_date=datetime.now(),
             )
             session.add(test_server)
             await session.flush()  # Flush to get the server_id available for foreign key
@@ -195,7 +198,9 @@ class TestDataFixture:
                 command = CommandHistory(
                     serial=i + 1,
                     start_date=datetime.now() - timedelta(minutes=i),
-                    end_date=datetime.now() - timedelta(minutes=i) + timedelta(seconds=1.5 + i),
+                    end_date=datetime.now()
+                    - timedelta(minutes=i)
+                    + timedelta(seconds=1.5 + i),
                     user_id=3000000 + i,
                     command_name=f"test_command_{i}",
                     guild_id=2000000,  # Reference the test server

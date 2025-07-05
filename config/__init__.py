@@ -45,7 +45,9 @@ class BotConfig(BaseModel):
     """
 
     # Bot settings
-    bot_token: str = Field(..., description="Discord bot token", json_schema_extra={"sensitive": True})
+    bot_token: str = Field(
+        ..., description="Discord bot token", json_schema_extra={"sensitive": True}
+    )
     logging_level: int = Field(logging.INFO, description="Logging level")
     logfile: str = Field("test", description="Log file name")
     log_format: LogFormat = Field(
@@ -58,7 +60,9 @@ class BotConfig(BaseModel):
     # Database settings
     host: str = Field(..., description="Database host")
     db_user: str = Field(..., description="Database user")
-    db_password: str = Field(..., description="Database password", json_schema_extra={"sensitive": True})
+    db_password: str = Field(
+        ..., description="Database password", json_schema_extra={"sensitive": True}
+    )
     database: str = Field(..., description="Database name")
     port: int = Field(5432, description="Database port")
 
@@ -80,20 +84,28 @@ class BotConfig(BaseModel):
     # Reddit settings
     user_agent: Optional[str] = Field(None, description="Reddit user agent")
     username: Optional[str] = Field(None, description="Reddit username")
-    password: Optional[str] = Field(None, description="Reddit password", json_schema_extra={"sensitive": True})
+    password: Optional[str] = Field(
+        None, description="Reddit password", json_schema_extra={"sensitive": True}
+    )
 
     # Webhook settings
     webhook_testing_log: Optional[str] = Field(
-        None, description="Webhook for testing logs", json_schema_extra={"sensitive": True}
+        None,
+        description="Webhook for testing logs",
+        json_schema_extra={"sensitive": True},
     )
-    webhook: Optional[str] = Field(None, description="Webhook URL", json_schema_extra={"sensitive": True})
+    webhook: Optional[str] = Field(
+        None, description="Webhook URL", json_schema_extra={"sensitive": True}
+    )
 
     # Twitter settings
     twitter_api_key: Optional[str] = Field(
         None, description="Twitter API key", json_schema_extra={"sensitive": True}
     )
     twitter_api_key_secret: Optional[str] = Field(
-        None, description="Twitter API key secret", json_schema_extra={"sensitive": True}
+        None,
+        description="Twitter API key secret",
+        json_schema_extra={"sensitive": True},
     )
     twitter_bearer_token: Optional[str] = Field(
         None, description="Twitter bearer token", json_schema_extra={"sensitive": True}
@@ -102,7 +114,9 @@ class BotConfig(BaseModel):
         None, description="Twitter access token", json_schema_extra={"sensitive": True}
     )
     twitter_access_token_secret: Optional[str] = Field(
-        None, description="Twitter access token secret", json_schema_extra={"sensitive": True}
+        None,
+        description="Twitter access token secret",
+        json_schema_extra={"sensitive": True},
     )
 
     # AO3 settings
@@ -113,7 +127,9 @@ class BotConfig(BaseModel):
 
     # Secret encryption key
     secret_encryption_key: Optional[str] = Field(
-        None, description="Encryption key for secrets", json_schema_extra={"sensitive": True}
+        None,
+        description="Encryption key for secrets",
+        json_schema_extra={"sensitive": True},
     )
 
     # Complex structures
@@ -219,10 +235,10 @@ class BotConfig(BaseModel):
     def db_settings_must_not_be_empty(cls, v, info):
         """Validate that database settings are not empty."""
         if not v:
-            raise ValueError(f'{info.field_name} must not be empty')
+            raise ValueError(f"{info.field_name} must not be empty")
         return v
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     @classmethod
     def check_api_keys_consistency(cls, values):
         """

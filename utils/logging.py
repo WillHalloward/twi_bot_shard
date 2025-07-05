@@ -86,7 +86,9 @@ def configure_stdlib_logging(
 
 
 # Configure structlog
-def configure_structlog(log_format: str = "console", enable_colors: bool = True) -> None:
+def configure_structlog(
+    log_format: str = "console", enable_colors: bool = True
+) -> None:
     """Configure structlog with processors for formatting and output.
 
     Args:

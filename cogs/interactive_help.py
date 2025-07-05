@@ -573,7 +573,7 @@ class InteractiveHelp(commands.Cog):
             "Gallery": "Image gallery management commands",
             "Creator Links": "Creator link management commands",
             "Statistics": "Statistics tracking commands",
-            "Other": "Miscellaneous commands"
+            "Other": "Miscellaneous commands",
         }
         self.commands_by_category = self.commands_db
 

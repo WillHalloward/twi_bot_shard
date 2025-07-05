@@ -30,15 +30,11 @@ class CommandHistory(Base):
 
     serial: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-    user_id: Mapped[int] = mapped_column(
-        BigInteger, nullable=False
-    )
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     command_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    channel_id: Mapped[Optional[int]] = mapped_column(
-        BigInteger, nullable=True
-    )
+    channel_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     guild_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey("servers.server_id"), nullable=True
     )

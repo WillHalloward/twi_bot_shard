@@ -128,7 +128,9 @@ class DocumentationCodeTest(unittest.TestCase):
                             f"Possible SQL syntax error in code block #{i+1} in {file_path}: UPDATE without SET"
                         )
 
-    @unittest.skip("Temporarily skipped due to execution errors in documentation examples")
+    @unittest.skip(
+        "Temporarily skipped due to execution errors in documentation examples"
+    )
     def test_executable_python_examples(self):
         """Test that executable Python examples can be executed without errors."""
         for file_path, blocks in self.code_blocks.items():

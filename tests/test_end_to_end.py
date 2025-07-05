@@ -242,8 +242,10 @@ async def test_find_command():
     interaction = MockInteraction()
 
     # Test with results
-    with patch("cogs.twi.google_search", mock_google_search), \
-         patch("utils.permissions.is_bot_channel", return_value=True):
+    with (
+        patch("cogs.twi.google_search", mock_google_search),
+        patch("utils.permissions.is_bot_channel", return_value=True),
+    ):
         # Call the command's callback directly
         await cog.find.callback(cog, interaction, "test_query")
 
@@ -261,8 +263,10 @@ async def test_find_command():
     interaction.response.send_message.reset_mock()
 
     # Test with no results
-    with patch("cogs.twi.google_search", mock_google_search), \
-         patch("utils.permissions.is_bot_channel", return_value=True):
+    with (
+        patch("cogs.twi.google_search", mock_google_search),
+        patch("utils.permissions.is_bot_channel", return_value=True),
+    ):
         # Call the command's callback directly
         await cog.find.callback(cog, interaction, "nonexistent_query")
 

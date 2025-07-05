@@ -860,6 +860,7 @@ async def main() -> None:
         ) as bot:
             # Set up auto-kill task if enabled
             if config.kill_after > 0:
+
                 async def kill_bot_after_delay() -> None:
                     """
                     Background task that automatically kills the bot after a specified delay.

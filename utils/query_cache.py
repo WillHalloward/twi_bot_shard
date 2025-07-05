@@ -131,6 +131,7 @@ class QueryCache:
         Returns:
             A tuple that can be used as a cache key.
         """
+
         def make_hashable(obj):
             """Convert unhashable types to hashable equivalents."""
             if isinstance(obj, list):
@@ -302,7 +303,11 @@ class QueryCache:
 
     def shutdown(self) -> None:
         """Shutdown the cache and cancel background tasks."""
-        if hasattr(self, "_cleanup_task") and self._cleanup_task and not self._cleanup_task.done():
+        if (
+            hasattr(self, "_cleanup_task")
+            and self._cleanup_task
+            and not self._cleanup_task.done()
+        ):
             self._cleanup_task.cancel()
 
 

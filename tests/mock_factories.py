@@ -668,12 +668,31 @@ class MockRoleFactory:
             role_types = [
                 lambda: fake.word().capitalize(),  # Single capitalized word
                 lambda: f"{fake.word().capitalize()} {fake.word().capitalize()}",  # Two capitalized words
-                lambda: random.choice([
-                    "Admin", "Moderator", "Staff", "Helper", "VIP", "Member",
-                    "Regular", "Supporter", "Booster", "Bot", "Muted", "Verified",
-                    "Trusted", "New Member", "Special Guest", "Partner", "Artist",
-                    "Content Creator", "Developer", "Giveaway Winner", "Event Manager"
-                ]),
+                lambda: random.choice(
+                    [
+                        "Admin",
+                        "Moderator",
+                        "Staff",
+                        "Helper",
+                        "VIP",
+                        "Member",
+                        "Regular",
+                        "Supporter",
+                        "Booster",
+                        "Bot",
+                        "Muted",
+                        "Verified",
+                        "Trusted",
+                        "New Member",
+                        "Special Guest",
+                        "Partner",
+                        "Artist",
+                        "Content Creator",
+                        "Developer",
+                        "Giveaway Winner",
+                        "Event Manager",
+                    ]
+                ),
                 lambda: f"Level {random.randint(1, 100)}",  # Level roles
                 lambda: f"Tier {random.randint(1, 5)}",  # Tier roles
             ]
@@ -691,7 +710,9 @@ class MockRoleFactory:
 
         if permissions is None:
             # Generate random permissions
-            permissions = discord.Permissions(random.randint(0, discord.Permissions.all().value))
+            permissions = discord.Permissions(
+                random.randint(0, discord.Permissions.all().value)
+            )
 
         if managed is None:
             managed = random.random() < 0.1  # 10% chance to be managed
@@ -749,19 +770,37 @@ class MockReactionFactory:
         if emoji is None:
             # Use a simple emoji string
             emoji_options = [
-                "👍", "👎", "❤️", "🔥", "🎉", "😂", "😢", "🤔", "👀", "✅",
-                "❌", "⭐", "🌟", "💯", "🙏", "👏", "🤣", "😍", "🥰", "😊"
+                "👍",
+                "👎",
+                "❤️",
+                "🔥",
+                "🎉",
+                "😂",
+                "😢",
+                "🤔",
+                "👀",
+                "✅",
+                "❌",
+                "⭐",
+                "🌟",
+                "💯",
+                "🙏",
+                "👏",
+                "🤣",
+                "😍",
+                "🥰",
+                "😊",
             ]
             emoji = random.choice(emoji_options)
 
         if count is None:
             # Generate a realistic count (most reactions have few users)
             count_weights = [
-                (1, 0.4),    # 40% chance for 1 reaction
-                (2, 0.2),    # 20% chance for 2 reactions
-                (3, 0.1),    # 10% chance for 3 reactions
-                (4, 0.05),   # 5% chance for 4 reactions
-                (5, 0.05),   # 5% chance for 5 reactions
+                (1, 0.4),  # 40% chance for 1 reaction
+                (2, 0.2),  # 20% chance for 2 reactions
+                (3, 0.1),  # 10% chance for 3 reactions
+                (4, 0.05),  # 5% chance for 4 reactions
+                (5, 0.05),  # 5% chance for 5 reactions
                 (range(6, 10), 0.1),  # 10% chance for 6-9 reactions
                 (range(10, 20), 0.05),  # 5% chance for 10-19 reactions
                 (range(20, 50), 0.03),  # 3% chance for 20-49 reactions
@@ -788,7 +827,9 @@ class MockReactionFactory:
 
         if users is None:
             # Generate random users who reacted
-            users = [MockUserFactory.create() for _ in range(min(count, 5))]  # Limit to 5 for performance
+            users = [
+                MockUserFactory.create() for _ in range(min(count, 5))
+            ]  # Limit to 5 for performance
 
         if message is None:
             message = MockMessageFactory.create()
@@ -800,7 +841,9 @@ class MockReactionFactory:
         reaction.me = me
 
         # Add is_custom_emoji method
-        reaction.is_custom_emoji = MagicMock(return_value=isinstance(emoji, (discord.Emoji, discord.PartialEmoji)))
+        reaction.is_custom_emoji = MagicMock(
+            return_value=isinstance(emoji, (discord.Emoji, discord.PartialEmoji))
+        )
 
         # Create an async iterator for users who reacted
         class AsyncUserIterator:

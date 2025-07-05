@@ -99,6 +99,7 @@ class MockDatabase:
     async def prepare_statement(self, name, query):
         """Mock prepare_statement method."""
         from unittest.mock import AsyncMock
+
         mock_stmt = AsyncMock()
         mock_stmt.execute = AsyncMock()
         return mock_stmt
@@ -106,6 +107,7 @@ class MockDatabase:
     async def transaction(self):
         """Mock transaction method."""
         from unittest.mock import AsyncMock
+
         mock_transaction = AsyncMock()
         mock_transaction.__aenter__ = AsyncMock()
         mock_transaction.__aexit__ = AsyncMock()
@@ -196,6 +198,7 @@ class TestBot(commands.Bot):
 
         # Add mock http_client
         from unittest.mock import AsyncMock, MagicMock
+
         self.http_client = MagicMock()
         # Create a proper mock session that can be used with the fetch function
         mock_session = MagicMock()

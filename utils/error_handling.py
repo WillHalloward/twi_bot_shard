@@ -96,6 +96,7 @@ def _extract_command_params(interaction: discord.Interaction, command) -> dict:
 
     return params
 
+
 # Patterns for sensitive information that should be redacted
 SENSITIVE_PATTERNS: List[Pattern] = [
     # API keys and tokens
@@ -267,7 +268,10 @@ def get_detailed_error_context(
     }
 
     # Add traceback for non-CognitaError exceptions, but exclude CommandOnCooldown
-    if not isinstance(error, CognitaError) and not isinstance(error, (commands.CommandOnCooldown, discord.app_commands.errors.CommandOnCooldown)):
+    if not isinstance(error, CognitaError) and not isinstance(
+        error,
+        (commands.CommandOnCooldown, discord.app_commands.errors.CommandOnCooldown),
+    ):
         context["traceback"] = "".join(
             traceback.format_exception(type(error), error, error.__traceback__)
         )
@@ -619,11 +623,20 @@ def log_error(
             logger.error(f"Failed to serialize error context: {e}")
 
     # For unexpected errors, log the full traceback (but exclude CommandOnCooldown)
-    if isinstance(error, Exception) and not isinstance(error, CognitaError) and not isinstance(error, (commands.CommandOnCooldown, discord.app_commands.errors.CommandOnCooldown)):
+    if (
+        isinstance(error, Exception)
+        and not isinstance(error, CognitaError)
+        and not isinstance(
+            error,
+            (commands.CommandOnCooldown, discord.app_commands.errors.CommandOnCooldown),
+        )
+    ):
         error_details = "".join(
             traceback.format_exception(type(error), error, error.__traceback__)
         )
-        logger.log(log_level, f"Traceback for {error_type} in {command_name}:\n{error_details}")
+        logger.log(
+            log_level, f"Traceback for {error_type} in {command_name}:\n{error_details}"
+        )
 
 
 def handle_command_errors(func: CommandT) -> CommandT:
@@ -839,7 +852,9 @@ async def handle_global_app_command_error(
         command_name = None
         error_str = str(error)
         if "Application command '" in error_str and "' not found" in error_str:
-            start = error_str.find("Application command '") + len("Application command '")
+            start = error_str.find("Application command '") + len(
+                "Application command '"
+            )
             end = error_str.find("' not found")
             command_name = error_str[start:end]
 
@@ -847,7 +862,7 @@ async def handle_global_app_command_error(
             # Define command to extension mapping
             command_to_extension = {
                 "poll": "cogs.patreon_poll",
-                "poll_list": "cogs.patreon_poll", 
+                "poll_list": "cogs.patreon_poll",
                 "getpoll": "cogs.patreon_poll",
                 "findpoll": "cogs.patreon_poll",
                 "gallery": "cogs.gallery",
@@ -864,12 +879,18 @@ async def handle_global_app_command_error(
             }
 
             extension_name = command_to_extension.get(command_name)
-            if extension_name and hasattr(interaction.client, 'load_extension_if_needed'):
-                logger.info(f"Attempting to lazy load extension {extension_name} for command {command_name}")
+            if extension_name and hasattr(
+                interaction.client, "load_extension_if_needed"
+            ):
+                logger.info(
+                    f"Attempting to lazy load extension {extension_name} for command {command_name}"
+                )
 
                 try:
                     # Attempt to load the extension
-                    success = await interaction.client.load_extension_if_needed(extension_name)
+                    success = await interaction.client.load_extension_if_needed(
+                        extension_name
+                    )
 
                     if success:
                         logger.info(f"Successfully loaded extension {extension_name}")
@@ -887,82 +908,113 @@ async def handle_global_app_command_error(
                                     break
 
                             if command:
-                                logger.info(f"Found command {command_name}, attempting to execute it automatically")
+                                logger.info(
+                                    f"Found command {command_name}, attempting to execute it automatically"
+                                )
                                 try:
                                     # Try to invoke the command using the proper Discord.py method
                                     # First, try using the command's _invoke method if it exists
                                     try:
-                                        if hasattr(command, '_invoke'):
+                                        if hasattr(command, "_invoke"):
                                             await command._invoke(interaction)
                                         else:
                                             raise AttributeError("No _invoke method")
                                     except (AttributeError, TypeError):
                                         # Fall back to calling the callback directly
-                                        if hasattr(command, 'callback'):
+                                        if hasattr(command, "callback"):
                                             # Try to get the cog from the command's binding or other attributes
                                             cog = None
-                                            if hasattr(command, 'binding'):
+                                            if hasattr(command, "binding"):
                                                 cog = command.binding
-                                            elif hasattr(command, 'cog'):
+                                            elif hasattr(command, "cog"):
                                                 cog = command.cog
-                                            elif hasattr(command, '_cog'):
+                                            elif hasattr(command, "_cog"):
                                                 cog = command._cog
 
                                             if cog is not None:
                                                 # Call the callback with the cog instance
-                                                await command.callback(cog, interaction, **_extract_command_params(interaction, command))
+                                                await command.callback(
+                                                    cog,
+                                                    interaction,
+                                                    **_extract_command_params(
+                                                        interaction, command
+                                                    ),
+                                                )
                                             else:
                                                 # Try calling without cog (might work for some commands)
-                                                await command.callback(interaction, **_extract_command_params(interaction, command))
+                                                await command.callback(
+                                                    interaction,
+                                                    **_extract_command_params(
+                                                        interaction, command
+                                                    ),
+                                                )
                                         else:
-                                            logger.warning(f"Command {command_name} has no known invocation method")
-                                            raise Exception("No known invocation method")
+                                            logger.warning(
+                                                f"Command {command_name} has no known invocation method"
+                                            )
+                                            raise Exception(
+                                                "No known invocation method"
+                                            )
 
-                                    logger.info(f"Successfully executed command {command_name} after lazy loading")
+                                    logger.info(
+                                        f"Successfully executed command {command_name} after lazy loading"
+                                    )
 
                                     # Don't continue with normal error handling since we've handled this case
                                     return
 
                                 except Exception as e:
-                                    logger.error(f"Failed to automatically execute command {command_name}: {e}")
+                                    logger.error(
+                                        f"Failed to automatically execute command {command_name}: {e}"
+                                    )
                                     # Fall back to telling the user to try again
                                     try:
                                         if interaction.response.is_done():
                                             await interaction.followup.send(
                                                 f"The `/{command_name}` command has been loaded, but there was an issue executing it automatically. Please try your command again.",
-                                                ephemeral=True
+                                                ephemeral=True,
                                             )
                                         else:
                                             await interaction.response.send_message(
                                                 f"The `/{command_name}` command has been loaded, but there was an issue executing it automatically. Please try your command again.",
-                                                ephemeral=True
+                                                ephemeral=True,
                                             )
                                     except Exception as msg_error:
-                                        logger.error(f"Failed to send fallback message: {msg_error}")
+                                        logger.error(
+                                            f"Failed to send fallback message: {msg_error}"
+                                        )
                             else:
-                                logger.warning(f"Command {command_name} not found after loading and syncing")
+                                logger.warning(
+                                    f"Command {command_name} not found after loading and syncing"
+                                )
                                 # Fall back to telling the user to try again
                                 try:
                                     if interaction.response.is_done():
                                         await interaction.followup.send(
                                             f"The `/{command_name}` command has been loaded. Please try your command again.",
-                                            ephemeral=True
+                                            ephemeral=True,
                                         )
                                     else:
                                         await interaction.response.send_message(
                                             f"The `/{command_name}` command has been loaded. Please try your command again.",
-                                            ephemeral=True
+                                            ephemeral=True,
                                         )
                                 except Exception as msg_error:
-                                    logger.error(f"Failed to send command not found message: {msg_error}")
+                                    logger.error(
+                                        f"Failed to send command not found message: {msg_error}"
+                                    )
 
                             # Don't continue with normal error handling since we've handled this case
                             return
 
                         except Exception as e:
-                            logger.error(f"Failed to sync command tree after lazy loading: {e}")
+                            logger.error(
+                                f"Failed to sync command tree after lazy loading: {e}"
+                            )
                     else:
-                        logger.warning(f"Failed to load extension {extension_name} for command {command_name}")
+                        logger.warning(
+                            f"Failed to load extension {extension_name} for command {command_name}"
+                        )
 
                 except Exception as e:
                     logger.error(f"Error during lazy loading of {extension_name}: {e}")

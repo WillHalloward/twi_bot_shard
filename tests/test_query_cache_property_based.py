@@ -30,9 +30,11 @@ except ImportError:
 # Import query cache components
 from utils.query_cache import QueryCache, CacheKey, CacheValue, CacheStats
 
+
 # Create a subclass of QueryCache that doesn't start the background task
 class TestQueryCache(QueryCache):
     """QueryCache subclass for testing that doesn't start the background task."""
+
     __test__ = False  # Tell pytest this is not a test class
 
     def __init__(
@@ -48,6 +50,7 @@ class TestQueryCache(QueryCache):
         self._stats = CacheStats()
         self._logger = logger or logging.getLogger("query_cache")
         self._invalidation_patterns: Dict[str, List[str]] = {}
+
 
 # Define strategies for generating test data
 
@@ -231,6 +234,7 @@ def test_get_set_properties(
     query: str, args: List[Any], value: Any, ttl: Optional[int]
 ) -> None:
     """Test properties of get and set functions."""
+
     # Create a synchronous version of QueryCache for testing
     class SyncQueryCache(QueryCache):
         def get(self, query, args):
@@ -293,6 +297,7 @@ def test_get_set_properties(
 )
 def test_invalidate_properties(query: str, args: List[Any], value: Any) -> None:
     """Test properties of invalidate function."""
+
     # Create a synchronous version of QueryCache for testing
     class SyncQueryCache(QueryCache):
         def get(self, query, args):
@@ -367,6 +372,7 @@ def test_invalidate_by_table_properties(
     table: str, query: str, args: List[Any], value: Any
 ) -> None:
     """Test properties of invalidate_by_table function."""
+
     # Create a synchronous version of QueryCache for testing
     class SyncQueryCache(QueryCache):
         def get(self, query, args):

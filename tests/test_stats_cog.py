@@ -284,9 +284,7 @@ async def test_message_count_command():
     interaction.response.send_message.assert_called_once()
     args, kwargs = interaction.response.send_message.call_args
     assert "42" in args[0]  # Check that the count is in the response
-    assert (
-        str(channel) in args[0]
-    )  # Check that the channel object is in the response
+    assert str(channel) in args[0]  # Check that the channel object is in the response
     assert "24" in args[0]  # Check that the hours are in the response
 
     # Clean up

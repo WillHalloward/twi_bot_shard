@@ -49,5 +49,4 @@ from config.__init__ import (
     BotConfig,
     load_from_env,
     ENVIRONMENT,
-
 )

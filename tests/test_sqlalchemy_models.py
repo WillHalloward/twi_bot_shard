@@ -18,7 +18,21 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker, Mapped, mapped_column
-from sqlalchemy import Column, Integer, BigInteger, String, ForeignKey, Table, MetaData, text, Boolean, DateTime, JSON, Interval, PrimaryKeyConstraint
+from sqlalchemy import (
+    Column,
+    Integer,
+    BigInteger,
+    String,
+    ForeignKey,
+    Table,
+    MetaData,
+    text,
+    Boolean,
+    DateTime,
+    JSON,
+    Interval,
+    PrimaryKeyConstraint,
+)
 from typing import Optional
 
 # Create an in-memory SQLite database for testing
@@ -29,6 +43,7 @@ test_metadata = MetaData()
 
 # Create a separate declarative base for testing
 from sqlalchemy.orm import declarative_base
+
 TestBase = declarative_base(metadata=test_metadata)
 
 # Define required tables for foreign key references
@@ -53,44 +68,60 @@ servers_table = Table(
     Column("name", String(100)),
 )
 
+
 # Define test models using the test base (no schema issues)
 class GalleryMementos(TestBase):
     """Test model for gallery_mementos table."""
+
     __tablename__ = "gallery_mementos"
 
     channel_name: Mapped[str] = mapped_column(String(100), primary_key=True)
     channel_id: Mapped[int] = mapped_column(BigInteger, unique=True)
     guild_id: Mapped[int] = mapped_column(BigInteger)
 
+
 class CommandHistory(TestBase):
     """Test model for command_history table."""
+
     __tablename__ = "command_history"
 
     serial: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.user_id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.user_id"), nullable=False
+    )
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     command_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    channel_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("channels.id"), nullable=True)
-    guild_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("servers.server_id"), nullable=True)
+    channel_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("channels.id"), nullable=True
+    )
+    guild_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("servers.server_id"), nullable=True
+    )
     args: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     run_time: Mapped[Optional[timedelta]] = mapped_column(Interval, nullable=True)
-    start_date: Mapped[datetime] = mapped_column(DateTime, insert_default=datetime.now, nullable=False)
+    start_date: Mapped[datetime] = mapped_column(
+        DateTime, insert_default=datetime.now, nullable=False
+    )
     slash_command: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     started_successfully: Mapped[bool] = mapped_column(Boolean, default=False)
     finished_successfully: Mapped[bool] = mapped_column(Boolean, default=False)
 
+
 class CreatorLink(TestBase):
     """Test model for creator_links table."""
+
     __tablename__ = "creator_links"
-    __table_args__ = (
-        PrimaryKeyConstraint("user_id", "title", "serial_id"),
-    )
+    __table_args__ = (PrimaryKeyConstraint("user_id", "title", "serial_id"),)
 
     serial_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.user_id"), nullable=False, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.user_id"), nullable=False, primary_key=True
+    )
     title: Mapped[str] = mapped_column(String(100), nullable=False, primary_key=True)
     link: Mapped[str] = mapped_column(String(255))
-    last_changed: Mapped[datetime] = mapped_column(DateTime, insert_default=datetime.now, nullable=False)
+    last_changed: Mapped[datetime] = mapped_column(
+        DateTime, insert_default=datetime.now, nullable=False
+    )
     nsfw: Mapped[bool] = mapped_column(Boolean, default=False)
     weight: Mapped[int] = mapped_column(Integer, default=0)
     feature: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -100,9 +131,7 @@ async def create_test_engine():
     """Create a test engine and tables."""
     # Create engine with foreign key support
     engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=True,
-        connect_args={"check_same_thread": False}
+        TEST_DATABASE_URL, echo=True, connect_args={"check_same_thread": False}
     )
 
     # Enable foreign key support in SQLite
@@ -114,9 +143,15 @@ async def create_test_engine():
         await conn.run_sync(test_metadata.create_all)
 
         # Insert some test data for foreign key references
-        await conn.execute(users_table.insert().values(user_id=123456789, username="test_user"))
-        await conn.execute(channels_table.insert().values(id=123456789, name="test_channel"))
-        await conn.execute(servers_table.insert().values(server_id=987654321, name="test_server"))
+        await conn.execute(
+            users_table.insert().values(user_id=123456789, username="test_user")
+        )
+        await conn.execute(
+            channels_table.insert().values(id=123456789, name="test_channel")
+        )
+        await conn.execute(
+            servers_table.insert().values(server_id=987654321, name="test_server")
+        )
 
     return engine
 
@@ -238,9 +273,7 @@ async def session():
     """Create a test session."""
     # Create test engine and session
     engine = await create_test_engine()
-    async_session = sessionmaker(
-        engine, expire_on_commit=False, class_=AsyncSession
-    )
+    async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
     session = async_session()
     try:

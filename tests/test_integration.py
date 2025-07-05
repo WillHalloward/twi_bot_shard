@@ -140,10 +140,13 @@ class MockDatabase:
 # Test bot class
 class TestBot(commands.Bot):
     """Test bot class for testing."""
+
     __test__ = False  # Tell pytest this is not a test class
 
     def __init__(self):
-        super().__init__(command_prefix="!", intents=discord.Intents.all(), help_command=None)
+        super().__init__(
+            command_prefix="!", intents=discord.Intents.all(), help_command=None
+        )
         self.db = MockDatabase()
         self._user = MockUserFactory.create(bot=True, name="TestBot")
         self.get_cog = MagicMock(return_value=None)

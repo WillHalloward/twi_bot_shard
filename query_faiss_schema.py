@@ -5,6 +5,7 @@ import numpy as np
 import json
 from openai import OpenAI
 import config
+
 # Config
 INDEX_FILE = "schema_index.faiss"
 LOOKUP_FILE = "schema_lookup.json"
@@ -14,20 +15,22 @@ TOP_K = 5  # Number of relevant tables to include
 
 client = OpenAI(api_key=config.openai_api_key)
 
+
 def get_embedding(text: str) -> list[float]:
-    response = client.embeddings.create(
-        model=EMBEDDING_MODEL,
-        input=[text]
-    )
+    response = client.embeddings.create(model=EMBEDDING_MODEL, input=[text])
     return response.data[0].embedding
 
-def query_faiss(question: str, index_file: str, lookup_file: str, k: int = TOP_K) -> list[str]:
+
+def query_faiss(
+    question: str, index_file: str, lookup_file: str, k: int = TOP_K
+) -> list[str]:
     index = faiss.read_index(index_file)
     with open(lookup_file, "r", encoding="utf-8") as f:
         lookup = json.load(f)
     query_vec = np.array([get_embedding(question)], dtype="float32")
     _, indices = index.search(query_vec, k)
     return [lookup[str(i)] for i in indices[0]]
+
 
 def build_prompt(question: str, schema_chunks: list[str]) -> str:
     return f"""
@@ -56,18 +59,24 @@ User Question (from Discord):
 \"\"\"{question}\"\"\"
 """
 
+
 def generate_sql(prompt: str) -> str:
     response = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[
-            {"role": "system", "content": "You are a specialized SQL assistant for Cognita, a Discord bot. You help generate PostgreSQL queries to analyze Discord server data including messages, users, reactions, commands, and server statistics. Focus on Discord-related data patterns and common Discord bot use cases."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are a specialized SQL assistant for Cognita, a Discord bot. You help generate PostgreSQL queries to analyze Discord server data including messages, users, reactions, commands, and server statistics. Focus on Discord-related data patterns and common Discord bot use cases.",
+            },
+            {"role": "user", "content": prompt},
         ],
-        temperature=0
+        temperature=0,
     )
     return response.choices[0].message.content.strip()
 
+
 import re
+
 
 def extract_sql_from_response(text: str) -> str:
     # Check for soft error response first
@@ -86,6 +95,7 @@ def extract_sql_from_response(text: str) -> str:
 
     # Return soft error instead of raising exception
     return "COGNITA_NO_QUERY_POSSIBLE"
+
 
 def main():
     question = input("🔍 Ask your database: ").strip()

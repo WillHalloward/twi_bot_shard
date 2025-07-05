@@ -27,9 +27,7 @@ class CreatorLink(Base):
     __tablename__ = "creator_links"
 
     serial_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        BigInteger, nullable=False, primary_key=True
-    )
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, primary_key=True)
     title: Mapped[str] = mapped_column(String(100), nullable=False, primary_key=True)
     link: Mapped[str] = mapped_column(String(255))
     last_changed: Mapped[datetime] = mapped_column(
@@ -40,6 +38,4 @@ class CreatorLink(Base):
     feature: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Define __table_args__ to create composite indexes and primary key
-    __table_args__ = (
-        PrimaryKeyConstraint("user_id", "title", "serial_id"),
-    )
+    __table_args__ = (PrimaryKeyConstraint("user_id", "title", "serial_id"),)

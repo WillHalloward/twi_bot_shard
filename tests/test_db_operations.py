@@ -89,7 +89,9 @@ async def create_mock_session():
         result = MagicMock()
 
         if "GalleryMementos" in str(query) or "gallery_mementos" in str(query):
-            if ("channel_name" in str(query) and "=" in str(query)) or ("test-gallery" in str(query)):
+            if ("channel_name" in str(query) and "=" in str(query)) or (
+                "test-gallery" in str(query)
+            ):
                 # For get_by_id with "test-gallery" or get_by_field
                 if "DELETE" in str(query).upper():
                     # For delete operation
@@ -177,10 +179,7 @@ async def test_db_service_crud():
 
     # Test create
     gallery = await db_service.create(
-        session, 
-        channel_name="test-gallery", 
-        channel_id=123456789, 
-        guild_id=987654321
+        session, channel_name="test-gallery", channel_id=123456789, guild_id=987654321
     )
     assert gallery is not None
 
@@ -194,11 +193,7 @@ async def test_db_service_crud():
     assert len(all_galleries) > 0
 
     # Test update
-    updated = await db_service.update(
-        session, 
-        "test-gallery", 
-        channel_id=987654321
-    )
+    updated = await db_service.update(session, "test-gallery", channel_id=987654321)
     assert updated is not None
     assert updated.channel_id == 987654321
 
@@ -219,6 +214,7 @@ async def test_repository_pattern():
     # Create a generic repository for GalleryMementos
     async def session_factory():
         return session
+
     repo = GenericRepository(GalleryMementos, session_factory)
 
     # Test get_all
@@ -236,9 +232,7 @@ async def test_repository_pattern():
 
     # Test create
     new_gallery = await repo.create(
-        channel_name="new-gallery", 
-        channel_id=123456789, 
-        guild_id=987654321
+        channel_name="new-gallery", channel_id=123456789, guild_id=987654321
     )
     assert new_gallery is not None
 
@@ -268,18 +262,16 @@ async def test_transaction_management():
 
         # Create a gallery
         gallery = await db_service.create(
-            session, 
-            channel_name="transaction-test", 
-            channel_id=123456789, 
-            guild_id=987654321
+            session,
+            channel_name="transaction-test",
+            channel_id=123456789,
+            guild_id=987654321,
         )
         assert gallery is not None
 
         # Update the gallery
         updated = await db_service.update(
-            session, 
-            "transaction-test", 
-            channel_id=987654321
+            session, "transaction-test", channel_id=987654321
         )
         assert updated is not None
 
@@ -294,10 +286,10 @@ async def test_transaction_management():
 
             # Create a gallery
             gallery = await db_service.create(
-                session, 
-                channel_name="rollback-test", 
-                channel_id=123456789, 
-                guild_id=987654321
+                session,
+                channel_name="rollback-test",
+                channel_id=123456789,
+                guild_id=987654321,
             )
             assert gallery is not None
 
