@@ -83,6 +83,8 @@ class MockInteraction:
         self.guild = MockGuild(guild_id)
         self.channel = MockChannel(channel_id)
         self.response = MockResponse()
+        self.followup = MagicMock()
+        self.followup.send = AsyncMock()
         self.client = MagicMock()
         self.command = MagicMock()
         self.command.name = "test_command"
@@ -175,25 +177,31 @@ async def test_wiki_command():
     )
 
     # Test with results
-    mock_fetch = AsyncMock()
-    mock_fetch.side_effect = [wiki_search_response, wiki_image_response]
-    with patch("cogs.patreon_poll.fetch", mock_fetch):
+    async def mock_fetch_func(session, url):
+        if "generator=search" in url:
+            return wiki_search_response
+        else:
+            return wiki_image_response
+
+    mock_fetch = AsyncMock(side_effect=mock_fetch_func)
+    with patch("cogs.twi.fetch", mock_fetch):
         # Call the command's callback directly
         await cog.wiki.callback(cog, interaction, "test_query")
 
-        # Verify the response
-        interaction.response.send_message.assert_called_once()
-        args, kwargs = interaction.response.send_message.call_args
+        # Verify the response - wiki command uses defer() then followup.send()
+        interaction.response.defer.assert_called_once()
+        interaction.followup.send.assert_called_once()
+        args, kwargs = interaction.followup.send.call_args
         assert kwargs.get("embed") is not None
         embed = kwargs.get("embed")
-        assert "Wiki results search" in embed.title
+        assert "Wiki Search Results" in embed.title
 
         # Print the actual values for debugging
         print(f"Embed field value: {embed.fields[0].value}")
         print(f"Thumbnail URL: {embed.thumbnail.url}")
 
-        # Check if the field contains the expected link
-        assert "Test Article" in embed.fields[0].value
+        # Check if the field contains the expected title and link
+        assert "Test Article" in embed.fields[0].name
         assert (
             "https://thewanderinginn.fandom.com/wiki/Test_Article"
             in embed.fields[0].value
@@ -202,27 +210,32 @@ async def test_wiki_command():
         # Just check that a thumbnail URL exists, don't check the exact value
         assert embed.thumbnail.url is not None
 
-    # Reset the mock
-    interaction.response.send_message.reset_mock()
+    # Reset the mocks
+    interaction.response.defer.reset_mock()
+    interaction.followup.send.reset_mock()
 
     # Test with no results
     mock_fetch_no_results = AsyncMock()
     mock_fetch_no_results.return_value = json.dumps({"error": "no results"})
-    with patch("cogs.patreon_poll.fetch", mock_fetch_no_results):
+    with patch("cogs.twi.fetch", mock_fetch_no_results):
 
-        # Reset the mock before calling the command
-        interaction.response.send_message.reset_mock()
+        # Reset the mocks before calling the command
+        interaction.response.defer.reset_mock()
+        interaction.followup.send.reset_mock()
 
         # Call the command's callback directly
         await cog.wiki.callback(cog, interaction, "nonexistent_query")
 
         # Verify the response
-        interaction.response.send_message.assert_called_once()
-        args, kwargs = interaction.response.send_message.call_args
+        interaction.response.defer.assert_called_once()
+        interaction.followup.send.assert_called_once()
+        args, kwargs = interaction.followup.send.call_args
 
-        # Check that the "not found" message is sent
-        assert "I'm sorry, I could not find a article matching" in args[0]
-        assert "nonexistent_query" in args[0]
+        # Check that the "not found" embed is sent
+        assert kwargs.get("embed") is not None
+        embed = kwargs.get("embed")
+        assert "No articles found matching" in embed.description
+        assert "nonexistent_query" in embed.description
 
     print("✅ wiki command test passed")
     return True
@@ -249,18 +262,20 @@ async def test_find_command():
         # Call the command's callback directly
         await cog.find.callback(cog, interaction, "test_query")
 
-        # Verify the response
-        interaction.response.send_message.assert_called_once()
-        args, kwargs = interaction.response.send_message.call_args
+        # Verify the response - find command uses defer() then followup.send()
+        interaction.response.defer.assert_called_once()
+        interaction.followup.send.assert_called_once()
+        args, kwargs = interaction.followup.send.call_args
         assert kwargs.get("embed") is not None
         embed = kwargs.get("embed")
-        assert "Search" in embed.title
+        assert "Search Results" in embed.title
         assert "test_query" in embed.description
         assert "Test Result" in embed.fields[0].name
         assert "This is a test result snippet." in embed.fields[0].value
 
-    # Reset the mock
-    interaction.response.send_message.reset_mock()
+    # Reset the mocks
+    interaction.response.defer.reset_mock()
+    interaction.followup.send.reset_mock()
 
     # Test with no results
     with (
@@ -271,9 +286,13 @@ async def test_find_command():
         await cog.find.callback(cog, interaction, "nonexistent_query")
 
         # Verify the response
-        interaction.response.send_message.assert_called_once()
-        args, kwargs = interaction.response.send_message.call_args
-        assert "I could not find anything that matches your search." in args[0]
+        interaction.response.defer.assert_called_once()
+        interaction.followup.send.assert_called_once()
+        args, kwargs = interaction.followup.send.call_args
+        assert kwargs.get("embed") is not None
+        embed = kwargs.get("embed")
+        assert "No results found on wanderinginn.com" in embed.description
+        assert "nonexistent_query" in embed.description
 
     print("✅ find command test passed")
     return True
@@ -309,7 +328,7 @@ async def test_invis_text_command():
     args, kwargs = interaction.response.send_message.call_args
     assert kwargs.get("embed") is not None
     embed = kwargs.get("embed")
-    assert "Chapters with invisible text" in embed.title
+    assert "Chapters with Invisible Text" in embed.title
     assert "Chapter 1" in embed.fields[0].name
     assert "2" in embed.fields[0].value
     assert "Chapter 2" in embed.fields[1].name
@@ -333,7 +352,7 @@ async def test_invis_text_command():
     args, kwargs = interaction.response.send_message.call_args
     assert kwargs.get("embed") is not None
     embed = kwargs.get("embed")
-    assert "Chapter 1" in embed.title
+    assert "Invisible Text Found" in embed.title
     assert "This is invisible text 1" in embed.fields[0].value
     assert "This is invisible text 2" in embed.fields[1].value
 
@@ -350,7 +369,13 @@ async def test_invis_text_command():
     # Verify the response
     interaction.response.send_message.assert_called_once()
     args, kwargs = interaction.response.send_message.call_args
-    assert "Sorry i could not find any invisible text on that chapter" in args[0]
+    # Check if it's in content or embed
+    content = kwargs.get("content", "")
+    embed = kwargs.get("embed")
+    if embed:
+        assert "No invisible text found" in embed.description
+    else:
+        assert "No invisible text found" in content
 
     print("✅ invis_text command test passed")
     return True

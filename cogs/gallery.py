@@ -14,6 +14,7 @@ import AO3
 from models.tables.gallery import GalleryMementos
 from models.tables.creator_links import CreatorLink
 from utils.db_service import DatabaseService
+from utils.base_cog import BaseCog
 from utils.permissions import (
     admin_or_me_check,
     admin_or_me_check_wrapper,
@@ -211,8 +212,9 @@ class ButtonView(discord.ui.View):
             self.interaction = interaction
 
 
-class GalleryCog(commands.Cog, name="Gallery & Mementos"):
+class GalleryCog(BaseCog, name="Gallery & Mementos"):
     def __init__(self, bot):
+        super().__init__(bot)
         self.bot = bot
         self.repost = app_commands.ContextMenu(
             name="Repost",

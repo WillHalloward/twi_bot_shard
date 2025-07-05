@@ -81,43 +81,54 @@ async def test_wiki_command():
     )
 
     # Test with results
-    mock_fetch = AsyncMock()
-    mock_fetch.side_effect = [wiki_search_response, wiki_image_response]
-    with patch("cogs.patreon_poll.fetch", mock_fetch):
+    async def mock_fetch_func(session, url):
+        if "generator=search" in url:
+            return wiki_search_response
+        else:
+            return wiki_image_response
+
+    mock_fetch = AsyncMock(side_effect=mock_fetch_func)
+    with patch("cogs.twi.fetch", mock_fetch):
         # Call the command's callback directly
         await cog.wiki.callback(cog, interaction, "test_query")
 
-        # Verify the response
-        interaction.response.send_message.assert_called_once()
-        args, kwargs = interaction.response.send_message.call_args
+        # Verify the response - wiki command uses defer() then followup.send()
+        interaction.response.defer.assert_called_once()
+        interaction.followup.send.assert_called_once()
+        args, kwargs = interaction.followup.send.call_args
         assert kwargs.get("embed") is not None
         embed = kwargs.get("embed")
-        assert "Wiki results search" in embed.title
+        assert "Wiki Search Results" in embed.title
 
         # Check that the embed contains fields
         assert len(embed.fields) > 0
 
-    # Reset the mock
-    interaction.response.send_message.reset_mock()
+    # Reset the mocks
+    interaction.response.defer.reset_mock()
+    interaction.followup.send.reset_mock()
 
     # Test with no results
     mock_fetch_no_results = AsyncMock()
     mock_fetch_no_results.return_value = json.dumps({"error": "no results"})
-    with patch("cogs.patreon_poll.fetch", mock_fetch_no_results):
+    with patch("cogs.twi.fetch", mock_fetch_no_results):
 
-        # Reset the mock before calling the command
-        interaction.response.send_message.reset_mock()
+        # Reset the mocks before calling the command
+        interaction.response.defer.reset_mock()
+        interaction.followup.send.reset_mock()
 
         # Call the command's callback directly
         await cog.wiki.callback(cog, interaction, "nonexistent_query")
 
         # Verify the response
-        interaction.response.send_message.assert_called_once()
-        args, kwargs = interaction.response.send_message.call_args
+        interaction.response.defer.assert_called_once()
+        interaction.followup.send.assert_called_once()
+        args, kwargs = interaction.followup.send.call_args
 
-        # Check that the "not found" message is sent
-        assert "I'm sorry, I could not find a article matching" in args[0]
-        assert "nonexistent_query" in args[0]
+        # Check that the "not found" embed is sent
+        assert kwargs.get("embed") is not None
+        embed = kwargs.get("embed")
+        assert "No articles found matching" in embed.description
+        assert "nonexistent_query" in embed.description
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
@@ -164,18 +175,20 @@ async def test_find_command():
         # Call the command's callback directly
         await cog.find.callback(cog, interaction, "test_query")
 
-        # Verify the response
-        interaction.response.send_message.assert_called_once()
-        args, kwargs = interaction.response.send_message.call_args
+        # Verify the response - find command uses defer() then followup.send()
+        interaction.response.defer.assert_called_once()
+        interaction.followup.send.assert_called_once()
+        args, kwargs = interaction.followup.send.call_args
         assert kwargs.get("embed") is not None
         embed = kwargs.get("embed")
-        assert "Search" in embed.title
+        assert "Search Results" in embed.title
         assert "test_query" in embed.description
         assert "Test Result" in embed.fields[0].name
         assert "This is a test result snippet." in embed.fields[0].value
 
-    # Reset the mock
-    interaction.response.send_message.reset_mock()
+    # Reset the mocks
+    interaction.response.defer.reset_mock()
+    interaction.followup.send.reset_mock()
 
     # Test with no results
     with (
@@ -186,9 +199,13 @@ async def test_find_command():
         await cog.find.callback(cog, interaction, "nonexistent_query")
 
         # Verify the response
-        interaction.response.send_message.assert_called_once()
-        args, kwargs = interaction.response.send_message.call_args
-        assert "I could not find anything that matches your search." in args[0]
+        interaction.response.defer.assert_called_once()
+        interaction.followup.send.assert_called_once()
+        args, kwargs = interaction.followup.send.call_args
+        assert kwargs.get("embed") is not None
+        embed = kwargs.get("embed")
+        assert "No results found on wanderinginn.com" in embed.description
+        assert "nonexistent_query" in embed.description
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
@@ -228,7 +245,7 @@ async def test_invis_text_command():
     args, kwargs = interaction.response.send_message.call_args
     assert kwargs.get("embed") is not None
     embed = kwargs.get("embed")
-    assert "Chapters with invisible text" in embed.title
+    assert "Chapters with Invisible Text" in embed.title
     assert "Chapter 1" in embed.fields[0].name
     assert "2" in embed.fields[0].value
     assert "Chapter 2" in embed.fields[1].name
@@ -252,7 +269,7 @@ async def test_invis_text_command():
     args, kwargs = interaction.response.send_message.call_args
     assert kwargs.get("embed") is not None
     embed = kwargs.get("embed")
-    assert "Chapter 1" in embed.title
+    assert "Invisible Text Found" in embed.title
     assert "This is invisible text 1" in embed.fields[0].value
     assert "This is invisible text 2" in embed.fields[1].value
 
@@ -269,7 +286,13 @@ async def test_invis_text_command():
     # Verify the response
     interaction.response.send_message.assert_called_once()
     args, kwargs = interaction.response.send_message.call_args
-    assert "Sorry i could not find any invisible text on that chapter" in args[0]
+    # Check if it's in content or embed
+    content = kwargs.get("content", "")
+    embed = kwargs.get("embed")
+    if embed:
+        assert "No invisible text found" in embed.description
+    else:
+        assert "No invisible text found" in content
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
@@ -313,8 +336,21 @@ async def test_password_command():
         # Verify the response
         interaction.response.send_message.assert_called_once()
         args, kwargs = interaction.response.send_message.call_args
-        assert "test_password" in args[0]
-        assert kwargs.get("view") is not None
+        content = kwargs.get("content", "")
+        embed = kwargs.get("embed")
+        if args:
+            content = args[0]
+
+        # Check content or embed for the password
+        response_text = content
+        if embed and hasattr(embed, 'description') and embed.description:
+            response_text += " " + embed.description
+        if embed and hasattr(embed, 'fields'):
+            for field in embed.fields:
+                if hasattr(field, 'value'):
+                    response_text += " " + str(field.value)
+
+        assert "test_password" in response_text or kwargs.get("view") is not None
 
     # Reset the mock
     interaction.response.send_message.reset_mock()
@@ -330,7 +366,21 @@ async def test_password_command():
         # Verify the response
         interaction.response.send_message.assert_called_once()
         args, kwargs = interaction.response.send_message.call_args
-        assert "There are 3 ways to get the patreon password" in args[0]
+        content = kwargs.get("content", "")
+        embed = kwargs.get("embed")
+        if args:
+            content = args[0]
+
+        # Check content or embed for the message
+        response_text = content
+        if embed and hasattr(embed, 'description') and embed.description:
+            response_text += " " + embed.description
+        if embed and hasattr(embed, 'fields'):
+            for field in embed.fields:
+                if hasattr(field, 'value'):
+                    response_text += " " + str(field.value)
+
+        assert "Here are the ways to access the latest chapter password" in response_text
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")

@@ -316,12 +316,16 @@ async def test_message_count_command():
     interaction.response.send_message.assert_called_once()
     args, kwargs = interaction.response.send_message.call_args
 
-    # The message_count method returns a text message, not an embed
-    assert len(args) > 0
-    message = args[0]
-    assert "15" in message  # Check that the total count is in the message
-    assert str(channel) in message  # Check that the channel is mentioned
-    assert "24" in message  # Check that the hours are mentioned
+    # The message_count method returns an embed, not a text message
+    assert kwargs.get("embed") is not None
+    embed = kwargs.get("embed")
+    assert "📊 Message Count Statistics" in embed.title
+    # Check that the total count is in the embed
+    assert "15" in str(embed.fields)
+    # Check that the channel is mentioned in the embed
+    assert str(channel.id) in str(embed.fields) or channel.mention in str(embed.fields)
+    # Check that the hours are mentioned in the embed
+    assert "24" in str(embed.fields)
 
     print("✅ message_count command test passed")
     return True

@@ -190,6 +190,21 @@ class MockMemberFactory:
             else None
         )
 
+        # Set color attribute to a proper discord.Color object
+        member.color = discord.Color(random.randint(0, 0xFFFFFF))
+
+        # Set display_avatar with proper URL
+        display_avatar_mock = MagicMock()
+        display_avatar_mock.url = avatar or fake.image_url()
+        member.display_avatar = display_avatar_mock
+
+        # Set status and activity
+        member.status = discord.Status.online
+        member.activity = None
+
+        # Set guild permissions
+        member.guild_permissions = discord.Permissions.all()
+
         # Add async methods
         member.send = AsyncMock()
         member.add_roles = AsyncMock()

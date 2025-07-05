@@ -283,9 +283,23 @@ async def test_message_count_command():
     # Verify the response
     interaction.response.send_message.assert_called_once()
     args, kwargs = interaction.response.send_message.call_args
-    assert "42" in args[0]  # Check that the count is in the response
-    assert str(channel) in args[0]  # Check that the channel object is in the response
-    assert "24" in args[0]  # Check that the hours are in the response
+    content = kwargs.get("content", "")
+    embed = kwargs.get("embed")
+    if args:
+        content = args[0]
+
+    # Check content or embed for the response
+    response_text = content
+    if embed and hasattr(embed, 'description') and embed.description:
+        response_text += " " + embed.description
+    if embed and hasattr(embed, 'fields'):
+        for field in embed.fields:
+            if hasattr(field, 'value'):
+                response_text += " " + str(field.value)
+
+    assert "42" in response_text  # Check that the count is in the response
+    assert channel.mention in response_text or str(channel.id) in response_text  # Check that the channel is in the response
+    assert "24" in response_text  # Check that the hours are in the response
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "stats")
