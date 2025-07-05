@@ -441,6 +441,11 @@ ERROR_RESPONSES: Dict[Type[Exception], Dict[str, Any]] = {
         "log_level": logging.INFO,
         "ephemeral": True,
     },
+    discord.app_commands.errors.CommandOnCooldown: {
+        "message": "Please wait {error.retry_after:.1f} seconds before using this command again.",
+        "log_level": logging.WARNING,
+        "ephemeral": True,
+    },
     commands.NoPrivateMessage: {
         "message": "This command cannot be used in private messages.",
         "log_level": logging.INFO,

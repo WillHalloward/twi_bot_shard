@@ -834,18 +834,26 @@ class PollCog(commands.Cog, name="Poll"):
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
     ):
         if isinstance(error, discord.app_commands.errors.CommandOnCooldown):
-            self.logger.info("poll_command_cooldown",
-                           user_id=interaction.user.id,
-                           retry_after=error.retry_after)
-            await interaction.response.send_message(
-                f"Please wait {round(error.retry_after, 2)} seconds before using this command again.",
-                ephemeral=True,
-            )
+            self.logger.warning("poll_command_cooldown",
+                              user_id=interaction.user.id,
+                              retry_after=error.retry_after)
+            try:
+                await interaction.response.send_message(
+                    f"Please wait {round(error.retry_after, 2)} seconds before using this command again.",
+                    ephemeral=True,
+                )
+            except Exception as e:
+                self.logger.error("failed_to_send_cooldown_message", 
+                                user_id=interaction.user.id, 
+                                error=str(e))
+            # Don't let the error propagate to the global handler since we've handled it
+            return
         else:
             self.logger.error("poll_command_error",
                             user_id=interaction.user.id,
                             error=str(error),
                             error_type=type(error).__name__)
+            # Let other errors propagate to the global handler
 
     @app_commands.command(
         name="polllist",
