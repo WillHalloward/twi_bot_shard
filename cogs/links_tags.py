@@ -123,7 +123,10 @@ class LinkTags(commands.Cog, name="Links"):
                 message=f"I could not find a link with the title **{title}**. Use `/link list` to see all available links.",
             )
 
-    @link.command(name="list", description="View all link categories and counts, or links in a specific category.")
+    @link.command(
+        name="list",
+        description="View all link categories and counts, or links in a specific category.",
+    )
     @app_commands.autocomplete(category=category_autocomplete)
     @handle_interaction_errors
     async def link_list(self, interaction: discord.Interaction, category: str = None):
@@ -145,7 +148,9 @@ class LinkTags(commands.Cog, name="Links"):
             # Show links within the specified category
             # Validate category
             if len(category.strip()) == 0:
-                raise ValidationError(field="category", message="Category cannot be empty")
+                raise ValidationError(
+                    field="category", message="Category cannot be empty"
+                )
 
             category = category.strip()
 
@@ -161,7 +166,9 @@ class LinkTags(commands.Cog, name="Links"):
                         category,
                     )
             except asyncpg.PostgresError as e:
-                raise DatabaseError(f"Failed to retrieve links for category '{category}'") from e
+                raise DatabaseError(
+                    f"Failed to retrieve links for category '{category}'"
+                ) from e
             except Exception as e:
                 raise QueryError(f"Unexpected error during category links query") from e
 
@@ -187,7 +194,8 @@ class LinkTags(commands.Cog, name="Links"):
             # Show all categories with counts (original behavior)
             try:
                 # Query to get categories with link counts
-                query_r = await self.bot.db.fetch("""
+                query_r = await self.bot.db.fetch(
+                    """
                     SELECT 
                         COALESCE(tag, 'Uncategorized') as category,
                         COUNT(*) as link_count
@@ -196,14 +204,19 @@ class LinkTags(commands.Cog, name="Links"):
                     ORDER BY 
                         CASE WHEN tag IS NULL THEN 1 ELSE 0 END,
                         tag
-                """)
+                """
+                )
             except asyncpg.PostgresError as e:
                 raise DatabaseError("Failed to retrieve links categories") from e
             except Exception as e:
-                raise QueryError("Unexpected error during links categories query") from e
+                raise QueryError(
+                    "Unexpected error during links categories query"
+                ) from e
 
             if not query_r:
-                await interaction.response.send_message("No links are currently available.")
+                await interaction.response.send_message(
+                    "No links are currently available."
+                )
                 return
 
             # Build the message with proper formatting
@@ -213,7 +226,9 @@ class LinkTags(commands.Cog, name="Links"):
             for category_info in query_r:
                 category_name = category_info["category"]
                 count = category_info["link_count"]
-                line = f"• **{category_name}**: {count} link{'s' if count != 1 else ''}\n"
+                line = (
+                    f"• **{category_name}**: {count} link{'s' if count != 1 else ''}\n"
+                )
 
                 # Check if adding this line would exceed Discord's limit
                 if len(message) + len(line) < 1990:
@@ -475,7 +490,6 @@ class LinkTags(commands.Cog, name="Links"):
             raise DatabaseError(f"Failed to edit link '{title}'") from e
         except Exception as e:
             raise DatabaseError(f"Unexpected error while editing link") from e
-
 
     @app_commands.command(
         name="tag", description="View all links that got a certain tag"
