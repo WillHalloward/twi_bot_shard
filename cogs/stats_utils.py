@@ -193,6 +193,64 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
                 attachment_data,
             )
 
+        # Handle embeds
+        if message.embeds:
+            for embed in message.embeds:
+                # Insert embed data into the embeds table
+                embed_id = await bot.db.fetchval(
+                    """
+                    INSERT INTO embeds (message_id, title, description, url, timestamp, color, footer_text, footer_icon_url, 
+                                      image_url, image_proxy_url, image_height, image_width, thumbnail_url, thumbnail_proxy_url, 
+                                      thumbnail_height, thumbnail_width, video_url, video_proxy_url, video_height, video_width, 
+                                      provider_name, provider_url, author_name, author_url, author_icon_url, created_at) 
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26) 
+                    RETURNING id
+                    """,
+                    message.id,
+                    embed.title,
+                    embed.description,
+                    embed.url,
+                    embed.timestamp.replace(tzinfo=None) if embed.timestamp else None,
+                    embed.color.value if embed.color else None,
+                    embed.footer.text if embed.footer else None,
+                    embed.footer.icon_url if embed.footer else None,
+                    embed.image.url if embed.image else None,
+                    embed.image.proxy_url if embed.image else None,
+                    embed.image.height if embed.image else None,
+                    embed.image.width if embed.image else None,
+                    embed.thumbnail.url if embed.thumbnail else None,
+                    embed.thumbnail.proxy_url if embed.thumbnail else None,
+                    embed.thumbnail.height if embed.thumbnail else None,
+                    embed.thumbnail.width if embed.thumbnail else None,
+                    embed.video.url if embed.video else None,
+                    embed.video.proxy_url if embed.video else None,
+                    embed.video.height if embed.video else None,
+                    embed.video.width if embed.video else None,
+                    embed.provider.name if embed.provider else None,
+                    embed.provider.url if embed.provider else None,
+                    embed.author.name if embed.author else None,
+                    embed.author.url if embed.author else None,
+                    embed.author.icon_url if embed.author else None,
+                    message.created_at.replace(tzinfo=None),
+                )
+
+                # Insert embed fields if any
+                if embed.fields:
+                    field_data = [
+                        (
+                            embed_id,
+                            field.name,
+                            field.value,
+                            field.inline,
+                            i,  # field_order
+                        )
+                        for i, field in enumerate(embed.fields)
+                    ]
+
+                    await bot.db.execute_many(
+                        "INSERT INTO embed_fields (embed_id, name, value, inline, field_order) VALUES ($1, $2, $3, $4, $5)",
+                        field_data,
+                    )
 
         # Handle user mentions
         if message.mentions:

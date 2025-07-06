@@ -166,8 +166,8 @@ class StatsQueriesMixin:
                 COUNT(*) as total_messages,
                 COUNT(DISTINCT user_id) as unique_users,
                 AVG(LENGTH(content)) as avg_message_length,
-                COUNT(*) FILTER (WHERE attachments.attachment_id IS NOT NULL) as messages_with_attachments,
-                COUNT(*) FILTER (WHERE embeds.message_id IS NOT NULL) as messages_with_embeds
+                COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments,
+                COUNT(*) FILTER (WHERE embeds.id IS NOT NULL) as messages_with_embeds
             FROM messages 
             LEFT JOIN attachments ON messages.message_id = attachments.message_id
             LEFT JOIN embeds ON messages.message_id = embeds.message_id
