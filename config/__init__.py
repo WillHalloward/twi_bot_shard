@@ -30,7 +30,10 @@ class LogFormat(str, Enum):
     FILE = "file"  # Console format without colors, suitable for file output
 
 
-# Load environment
+# Load environment from .env file first
+from dotenv import load_dotenv
+load_dotenv()
+
 ENVIRONMENT = os.getenv("ENVIRONMENT", Environment.DEVELOPMENT)
 
 
@@ -332,10 +335,7 @@ def load_from_env() -> BotConfig:
         ValueError: If required environment variables are missing or invalid
         json.JSONDecodeError: If JSON-formatted environment variables are invalid
     """
-    from dotenv import load_dotenv
-
-    # Load environment variables from .env file
-    load_dotenv()
+    # .env file is already loaded at module level
 
     # Track missing required variables
     missing_vars = []
