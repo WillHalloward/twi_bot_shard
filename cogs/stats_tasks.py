@@ -78,13 +78,20 @@ class StatsTasksMixin:
                     logging.error(f"{type(e).__name__} - {e}")
             logging.debug("requesting leave/join stats")
 
-        # Query the materialized view for join/leave stats
+        # Query the join_leave table directly for more reliable results
+        # This avoids timezone issues with the materialized view
+        # Calculate 24 hours ago using Python to match how data is stored
+        twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
         user_join_leave_results = await self.bot.db.fetchrow(
             """         
-            SELECT joins as "join", leaves as "leave"
-            FROM daily_member_stats
+            SELECT 
+                COUNT(*) FILTER (WHERE join_or_leave = 'join') as "join",
+                COUNT(*) FILTER (WHERE join_or_leave = 'leave') as "leave"
+            FROM join_leave
             WHERE server_id = 346842016480755724
-            """
+            AND date >= $1
+            """,
+            twenty_four_hours_ago
         )
         logging.debug(f"Found stats {user_join_leave_results}")
 
