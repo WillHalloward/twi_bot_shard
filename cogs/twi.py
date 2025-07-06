@@ -179,7 +179,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                 # Create enhanced embed response
                 embed = discord.Embed(
                     title="🔐 Patreon Password",
-                    description=f"**Password:** `{password['password']}`",
+                    description=f"{password['password']}",
                     color=discord.Color.green(),
                     timestamp=datetime.datetime.now(),
                 )
@@ -189,19 +189,6 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
                     value=f"[Click here to read]({password['link']})",
                     inline=False,
                 )
-
-                if is_public:
-                    embed.add_field(
-                        name="ℹ️ Note",
-                        value="This password is posted publicly. Future requests in the next 10 minutes will be private.",
-                        inline=False,
-                    )
-                else:
-                    embed.add_field(
-                        name="🔒 Private Response",
-                        value="This is a private response to avoid spam.",
-                        inline=False,
-                    )
 
                 embed.set_footer(text="Password provided for Patreon supporters")
 
