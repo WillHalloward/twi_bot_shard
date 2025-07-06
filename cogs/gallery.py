@@ -216,19 +216,21 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
     def __init__(self, bot):
         super().__init__(bot)
         self.bot = bot
-        self.repost = app_commands.ContextMenu(
-            name="Repost",
-            callback=self.repost,
-        )
-        self.bot.tree.add_command(self.repost)
         self.repost_cache = None
 
         # Get repositories from the repository factory
         self.gallery_repo = bot.repo_factory.get_repository(GalleryMementos)
         self.creator_links_repo = bot.repo_factory.get_repository(CreatorLink)
 
+        # Create context menu after method is defined
+        self.repost_context_menu = app_commands.ContextMenu(
+            name="Repost",
+            callback=self.repost,
+        )
+        self.bot.tree.add_command(self.repost_context_menu)
+
     async def cog_unload(self) -> None:
-        self.bot.tree.remove_command(self.repost.name, type=self.repost.type)
+        self.bot.tree.remove_command(self.repost_context_menu.name, type=self.repost_context_menu.type)
 
     async def cog_load(self) -> None:
         # Use repository to load gallery mementos

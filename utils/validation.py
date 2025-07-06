@@ -608,7 +608,7 @@ def validate_interaction_params(**param_validators: Dict[str, Callable[[Any], An
 
     def decorator(command_func: CommandT) -> CommandT:
         @wraps(command_func)
-        async def wrapper(self, interaction: discord.Interaction, **kwargs):
+        async def wrapper(self, interaction: discord.Interaction, *args, **kwargs):
             # Validate each parameter
             for param_name, validator in param_validators.items():
                 if param_name in kwargs:
@@ -620,7 +620,7 @@ def validate_interaction_params(**param_validators: Dict[str, Callable[[Any], An
                         )
                         return
 
-            return await command_func(self, interaction, **kwargs)
+            return await command_func(self, interaction, *args, **kwargs)
 
         return cast(CommandT, wrapper)
 

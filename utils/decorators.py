@@ -32,13 +32,17 @@ def log_command(command_name: Optional[str] = None) -> Callable[[CommandT], Comm
 
         @functools.wraps(func)
         async def wrapper(
-            self: Any, ctx_or_interaction: Any, *args: Any, **kwargs: Any
+            self: Any, *args: Any, **kwargs: Any
         ) -> Any:
-            # Log command usage
-            await self.log_command_usage(ctx_or_interaction, cmd_name)
+            # Extract the interaction/context from args
+            ctx_or_interaction = args[0] if args else None
 
-            # Call the original function
-            return await func(self, ctx_or_interaction, *args, **kwargs)
+            # Log command usage
+            if ctx_or_interaction:
+                await self.log_command_usage(ctx_or_interaction, cmd_name)
+
+            # Call the original function with all arguments
+            return await func(self, *args, **kwargs)
 
         return cast(CommandT, wrapper)
 
