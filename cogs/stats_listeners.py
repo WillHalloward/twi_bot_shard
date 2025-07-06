@@ -192,9 +192,12 @@ class StatsListenersMixin:
         """
         try:
             await self.bot.db.execute(
-                "INSERT INTO join_leave(user_id, server_id, join_date) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+                "INSERT INTO join_leave(user_id, server_id, date, join_or_leave, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
                 member.id,
                 member.guild.id,
+                datetime.now().replace(tzinfo=None),
+                'join',
+                member.guild.name,
                 datetime.now().replace(tzinfo=None),
             )
         except Exception as e:
@@ -210,10 +213,13 @@ class StatsListenersMixin:
         """
         try:
             await self.bot.db.execute(
-                "UPDATE join_leave SET leave_date = $1 WHERE user_id = $2 AND server_id = $3 AND leave_date IS NULL",
-                datetime.now().replace(tzinfo=None),
+                "INSERT INTO join_leave(user_id, server_id, date, join_or_leave, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
                 member.id,
                 member.guild.id,
+                datetime.now().replace(tzinfo=None),
+                'leave',
+                member.guild.name,
+                datetime.now().replace(tzinfo=None),
             )
         except Exception as e:
             logging.error(f"Error saving member leave: {e}")
@@ -258,8 +264,15 @@ class StatsListenersMixin:
                         "removed",
                         current_time,
                     )
+
+                # Log role changes
+                if added_roles:
+                    logging.info(f"User {after.id} gained roles: {[role.name for role in added_roles]}")
+                if removed_roles:
+                    logging.info(f"User {after.id} lost roles: {[role.name for role in removed_roles]}")
+
         except Exception as e:
-            logging.error(f"Error saving role changes: {e}")
+            logging.error(f"Error processing role changes: {e}")
 
     @Cog.listener("on_user_update")
     async def user_update(self, before: discord.User, after: discord.User) -> None:
@@ -330,11 +343,10 @@ class StatsListenersMixin:
         """
         try:
             await self.bot.db.execute(
-                "INSERT INTO threads(id, name, parent_id, created_at, guild_id, archived, locked) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+                "INSERT INTO threads(id, name, parent_id, guild_id, archived, locked) VALUES ($1,$2,$3,$4,$5,$6)",
                 thread.id,
                 thread.name,
                 thread.parent_id,
-                thread.created_at.replace(tzinfo=None),
                 thread.guild.id,
                 thread.archived,
                 thread.locked,

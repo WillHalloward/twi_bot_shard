@@ -207,8 +207,14 @@ class ReportView(discord.ui.View):
                 self.message.channel.id,
             )
 
+            # Log the report submission
             self.logger.info(
-                f"Report submitted by user {interaction.user.id} for message {self.message.id} with reason {self.selected_reason}"
+                f"Report submitted by user {interaction.user.id} for message {self.message.id} "
+                f"with reason {self.selected_reason}. Anonymous: {self.is_anonymous}. "
+                f"Additional info: {self.additional_info_text}. "
+                f"Reported user: {self.message.author.id}. "
+                f"Guild: {interaction.guild.id if interaction.guild else None}. "
+                f"Channel: {self.message.channel.id}"
             )
 
             await interaction.response.send_message(
@@ -222,8 +228,8 @@ class ReportView(discord.ui.View):
             self.stop()
 
         except Exception as e:
-            self.logger.error(f"Database error submitting report: {e}")
-            raise DatabaseError("Failed to submit report to database") from e
+            self.logger.error(f"Error processing report: {e}")
+            raise DatabaseError("Failed to process report") from e
 
     async def on_timeout(self) -> None:
         """Handle view timeout."""

@@ -149,35 +149,27 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
                 message.author.name,
             )
 
-        # Insert the message
+        # Insert the message (with conflict handling for duplicates)
         await bot.db.execute(
             """
-            INSERT INTO messages(message_id, user_id, channel_id, server_id, content, created_at, message_type, tts, mention_everyone, pinned, webhook_id, application_id, activity, flags, thread_id, reference_message_id, interaction_id, interaction_type, interaction_user_id) 
-            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+            INSERT INTO messages(message_id, created_at, content, user_name, server_name, server_id, channel_id, channel_name, user_id, user_nick, jump_url, is_bot, deleted, reference) 
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+            ON CONFLICT (message_id) DO NOTHING
             """,
             message.id,
-            message.author.id,
-            message.channel.id,
-            message.guild.id if message.guild else None,
-            message.content,
             message.created_at.replace(tzinfo=None),
-            str(message.type),
-            message.tts,
-            message.mention_everyone,
-            message.pinned,
-            message.webhook_id,
-            message.application_id,
-            str(message.activity) if message.activity else None,
-            int(message.flags) if message.flags else None,
-            (
-                message.channel.id
-                if hasattr(message.channel, "parent_id") and message.channel.parent_id
-                else None
-            ),
+            message.content,
+            message.author.name,
+            message.guild.name if message.guild else "DM",
+            message.guild.id if message.guild else None,
+            message.channel.id,
+            getattr(message.channel, 'name', 'DM'),
+            message.author.id,
+            getattr(message.author, 'display_name', message.author.name),
+            message.jump_url,
+            message.author.bot,
+            False,  # deleted - default to False for new messages
             message.reference.message_id if message.reference else None,
-            message.interaction.id if message.interaction else None,
-            str(message.interaction.type) if message.interaction else None,
-            message.interaction.user.id if message.interaction else None,
         )
 
         # Handle attachments
@@ -185,44 +177,22 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
             attachment_data = [
                 (
                     attachment.id,
-                    message.id,
                     attachment.filename,
-                    attachment.description,
-                    attachment.content_type,
-                    attachment.size,
                     attachment.url,
-                    attachment.proxy_url,
+                    attachment.size,
                     attachment.height,
                     attachment.width,
-                    attachment.ephemeral,
+                    attachment.is_spoiler(),
+                    message.id,
                 )
                 for attachment in message.attachments
             ]
 
             await bot.db.execute_many(
-                "INSERT INTO attachments(attachment_id, message_id, filename, description, content_type, size, url, proxy_url, height, width, ephemeral) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+                "INSERT INTO attachments(id, filename, url, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
                 attachment_data,
             )
 
-        # Handle embeds
-        if message.embeds:
-            embed_data = [
-                (
-                    message.id,
-                    embed.title,
-                    embed.type,
-                    embed.description,
-                    embed.url,
-                    embed.timestamp.replace(tzinfo=None) if embed.timestamp else None,
-                    embed.color.value if embed.color else None,
-                )
-                for embed in message.embeds
-            ]
-
-            await bot.db.execute_many(
-                "INSERT INTO embeds(message_id, title, type, description, url, timestamp, color) VALUES ($1,$2,$3,$4,$5,$6,$7)",
-                embed_data,
-            )
 
         # Handle user mentions
         if message.mentions:

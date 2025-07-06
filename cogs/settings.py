@@ -86,8 +86,14 @@ class SettingsCog(commands.Cog, name="Settings"):
                     role.id,
                 )
 
+            # Log the admin role setting
+            self.logger.info(
+                f"Admin role set for guild {interaction.guild.id}: {role.name} (ID: {role.id})"
+            )
+
             await interaction.response.send_message(
-                f"Admin role set to {role.mention} for this server.", ephemeral=True
+                f"Admin role set to {role.mention} for this server.",
+                ephemeral=True
             )
         except Exception as e:
             self.logger.error(
@@ -128,12 +134,12 @@ class SettingsCog(commands.Cog, name="Settings"):
                     )
                 else:
                     await interaction.response.send_message(
-                        f"The admin role (ID: {admin_role_id}) could not be found. It may have been deleted.",
+                        f"The configured admin role (ID: {admin_role_id}) could not be found. It may have been deleted.",
                         ephemeral=True,
                     )
             else:
                 await interaction.response.send_message(
-                    "No admin role has been set for this server.", ephemeral=True
+                    "No admin role has been configured for this server.", ephemeral=True
                 )
         except Exception as e:
             self.logger.error(
@@ -171,9 +177,9 @@ class SettingsCog(commands.Cog, name="Settings"):
                 guild_id,
             )
 
-            # If no admin role is set, fall back to the configured fallback admin role ID
+            # If no admin role is configured, return False (except for bot owner)
             if not admin_role_id:
-                admin_role_id = config.fallback_admin_role_id
+                return False
 
             # If user_roles is provided, check if admin_role_id is in the list
             if user_roles:

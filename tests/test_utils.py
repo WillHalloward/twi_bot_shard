@@ -57,6 +57,25 @@ class TestSetup:
         return bot
 
     @staticmethod
+    async def create_test_database():
+        """
+        Create a test database instance for transaction testing.
+
+        Returns:
+            A Database instance with a mock pool for testing.
+        """
+        from utils.db import Database
+        from unittest.mock import AsyncMock
+
+        # Create a mock pool
+        mock_pool = AsyncMock()
+
+        # Create a Database instance with the mock pool
+        db = Database(mock_pool)
+
+        return db
+
+    @staticmethod
     async def setup_database() -> Tuple[DatabaseFixture, TestDataFixture]:
         """
         Set up a test database and load test data.
