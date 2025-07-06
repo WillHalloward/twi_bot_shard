@@ -6,6 +6,7 @@ This module provides an interactive help system using Discord's buttons and sele
 
 import logging
 from typing import Dict, List, Optional, Union
+import structlog
 
 import discord
 from discord import app_commands
@@ -286,7 +287,7 @@ class InteractiveHelp(commands.Cog):
             bot: The bot instance
         """
         self.bot = bot
-        self.logger = logging.getLogger("interactive_help")
+        self.logger = structlog.get_logger("cogs.interactive_help")
 
         # Command database
         self.commands_db = {

@@ -14,6 +14,7 @@ This cog has been refactored into smaller, focused modules for better maintainab
 
 import logging
 from discord.ext import commands
+import structlog
 
 from cogs.twi_password import PasswordMixin
 from cogs.twi_search import SearchMixin
@@ -64,7 +65,7 @@ class TwiCog(
         self.bot = bot
 
         # Set up logging
-        self.logger = logging.getLogger("twi_cog")
+        self.logger = structlog.get_logger("cogs.twi")
 
     async def cog_load(self) -> None:
         """

@@ -10,6 +10,7 @@ from typing import Any, Optional, Type, TypeVar
 
 import discord
 from discord.ext import commands
+import structlog
 
 from utils.repository_factory import RepositoryFactory
 
@@ -36,7 +37,11 @@ class BaseCog(commands.Cog):
             name: Optional name for the cog. If not provided, the class name will be used.
         """
         self.bot = bot
-        self.logger = logging.getLogger(name or self.__class__.__name__)
+        # Use structured logging with hierarchical naming
+        cog_name = name or self.__class__.__name__.lower().replace("cog", "").replace(
+            "s", ""
+        )
+        self.logger = structlog.get_logger(f"cogs.{cog_name}")
         self.repo_factory: RepositoryFactory = bot.repo_factory
 
     def get_repository(self, model_class: Type[T]) -> Any:
@@ -53,7 +58,7 @@ class BaseCog(commands.Cog):
     async def log_command_usage(
         self, ctx_or_interaction: Any, command_name: str
     ) -> None:
-        """Log command usage.
+        """Log command usage with structured logging.
 
         Args:
             ctx_or_interaction: The command context or interaction.
@@ -71,14 +76,19 @@ class BaseCog(commands.Cog):
         guild = ctx_or_interaction.guild
 
         self.logger.info(
-            f"Command '{command_name}' used by {user.name}#{user.discriminator} ({user.id}) "
-            f"in guild {guild.name if guild else 'DM'} ({guild.id if guild else 'N/A'})"
+            "command_used",
+            command=command_name,
+            user_id=user.id,
+            user_name=f"{user.name}#{user.discriminator}",
+            guild_id=guild.id if guild else None,
+            guild_name=guild.name if guild else "DM",
+            interaction_type="slash" if is_interaction else "prefix",
         )
 
     async def handle_error(
         self, ctx_or_interaction: Any, error: Exception, command_name: str
     ) -> None:
-        """Handle command errors.
+        """Handle command errors with structured logging.
 
         Args:
             ctx_or_interaction: The command context or interaction.
@@ -88,8 +98,27 @@ class BaseCog(commands.Cog):
         # Determine if we're dealing with a Context or an Interaction
         is_interaction = isinstance(ctx_or_interaction, discord.Interaction)
 
-        # Log the error
-        self.logger.error(f"Error in command '{command_name}': {error}", exc_info=error)
+        # Get the user and guild for context
+        user = (
+            ctx_or_interaction.user
+            if is_interaction
+            else ctx_or_interaction.message.author
+        )
+        guild = ctx_or_interaction.guild
+
+        # Log the error with structured context
+        self.logger.error(
+            "command_error",
+            command=command_name,
+            error_type=error.__class__.__name__,
+            error_message=str(error),
+            user_id=user.id,
+            user_name=f"{user.name}#{user.discriminator}",
+            guild_id=guild.id if guild else None,
+            guild_name=guild.name if guild else "DM",
+            interaction_type="slash" if is_interaction else "prefix",
+            exc_info=error,
+        )
 
         # Send an error message to the user
         error_message = f"An error occurred while executing the command: {error}"

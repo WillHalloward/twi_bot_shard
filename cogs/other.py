@@ -16,6 +16,7 @@ from datetime import datetime
 from itertools import groupby
 from os.path import exists
 from typing import List
+import structlog
 
 # Import third-party modules in a specific order
 # Discord-related imports
@@ -290,7 +291,7 @@ class OtherCogs(commands.Cog, name="Other"):
             bot: The bot instance to which this cog is attached
         """
         self.bot: commands.Bot = bot
-        self.logger = logging.getLogger("cogs.other")
+        self.logger = structlog.get_logger("cogs.other")
         self.quote_cache = None
         self.category_cache = None
         self.pin_cache = None

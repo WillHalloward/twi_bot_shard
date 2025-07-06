@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import List, Optional
 
@@ -5,7 +6,6 @@ import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
-import structlog
 
 from utils.error_handling import handle_interaction_errors
 from utils.validation import validate_url
@@ -22,7 +22,6 @@ from utils.exceptions import (
 class LinkTags(commands.Cog, name="Links"):
     def __init__(self, bot):
         self.bot = bot
-        self.logger = structlog.get_logger("cogs.links_tags")
         self.links_cache = None
 
     async def cog_load(self) -> None:

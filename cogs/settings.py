@@ -1,3 +1,4 @@
+import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -44,7 +45,7 @@ class SettingsCog(commands.Cog, name="Settings"):
     @app_commands.command(
         name="set_admin_role", description="Set the admin role for this server"
     )
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.default_permissions(manage_messages=True)
     @handle_interaction_errors
     async def set_admin_role(
         self, interaction: discord.Interaction, role: discord.Role

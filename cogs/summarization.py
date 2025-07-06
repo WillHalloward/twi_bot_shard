@@ -3,6 +3,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import config
+import structlog
 from openai import OpenAI
 import openai
 
@@ -21,7 +22,7 @@ class SummarizationCog(commands.Cog):
     def __init__(self, bot, server_rules):
         self.bot = bot
         self.server_rules = server_rules
-        self.logger = logging.getLogger("cogs.summarization")
+        self.logger = structlog.get_logger("cogs.summarization")
 
     async def summarize_messages(self, messages):
         """

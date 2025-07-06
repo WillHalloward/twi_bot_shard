@@ -23,6 +23,7 @@ Architecture:
 
 import logging
 from typing import TYPE_CHECKING
+import structlog
 
 import config
 from discord.ext import commands
@@ -74,14 +75,14 @@ class StatsCogs(
             bot: The Discord bot instance
         """
         self.bot = bot
-        self.logger = logging.getLogger("cogs.stats")
+        self.logger = structlog.get_logger("cogs.stats")
 
         # Start the background stats loop if not in test mode
         if config.logfile != "test":
             self.stats_loop.start()
-            self.logger.info("Stats loop started")
+            self.logger.info("stats_loop_started")
         else:
-            self.logger.info("Stats loop disabled (test mode)")
+            self.logger.info("stats_loop_disabled", reason="test_mode")
 
     async def cog_unload(self) -> None:
         """
@@ -91,7 +92,7 @@ class StatsCogs(
         """
         if hasattr(self, "stats_loop") and self.stats_loop.is_running():
             self.stats_loop.cancel()
-            self.logger.info("Stats loop stopped")
+            self.logger.info("stats_loop_stopped")
 
     async def cog_load(self) -> None:
         """
@@ -99,7 +100,7 @@ class StatsCogs(
 
         Performs any necessary initialization after the cog is added to the bot.
         """
-        self.logger.info("Stats cog loaded successfully")
+        self.logger.info("stats_cog_loaded")
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
@@ -108,7 +109,7 @@ class StatsCogs(
 
         Logs that the stats cog is ready and operational.
         """
-        self.logger.info("Stats cog is ready and operational")
+        self.logger.info("stats_cog_ready")
 
 
 async def setup(bot: "Bot") -> None:

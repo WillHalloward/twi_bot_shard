@@ -138,7 +138,6 @@ class PasswordMixin:
             if time_since_last < datetime.timedelta(minutes=5):
                 embed.add_field(
                     name="⚠️ Rate Limit Notice",
-                    value="This command was recently used publicly. Consider using DMs for frequent requests.",
                     inline=False,
                 )
 

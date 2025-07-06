@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import logging
 from typing import Optional
+import structlog
 
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
@@ -17,7 +18,7 @@ class ReportModal(discord.ui.Modal):
     def __init__(self, report_view: "ReportView"):
         super().__init__(title="Additional Information")
         self.report_view = report_view
-        self.logger = logging.getLogger("report_modal")
+        self.logger = structlog.get_logger("cogs.report.modal")
 
         self.additional_info = discord.ui.TextInput(
             label="Additional Information",
@@ -51,7 +52,7 @@ class ReportView(discord.ui.View):
         super().__init__(timeout=300)  # 5 minutes timeout
         self.message = message
         self.bot = bot
-        self.logger = logging.getLogger("report_view")
+        self.logger = structlog.get_logger("cogs.report.view")
 
         # Store user selections
         self.selected_reason: Optional[str] = None
@@ -236,7 +237,7 @@ class ReportView(discord.ui.View):
 class ReportCog(commands.Cog, name="report"):
     def __init__(self, bot):
         self.bot = bot
-        self.logger = logging.getLogger("report_cog")
+        self.logger = structlog.get_logger("cogs.report")
         self.report = app_commands.ContextMenu(
             name="Report Message", callback=self.report
         )
