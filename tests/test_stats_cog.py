@@ -678,7 +678,7 @@ async def test_edge_cases():
     message.author = None
 
     # Should handle None author gracefully
-    with patch("cogs.stats.save_message") as mock_save:
+    with patch("cogs.stats_utils.save_message") as mock_save:
         await cog.save_listener(message)
         # Should still attempt to save or handle gracefully
 

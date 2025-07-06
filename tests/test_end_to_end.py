@@ -270,7 +270,7 @@ async def test_find_command():
         embed = kwargs.get("embed")
         assert "Search Results" in embed.title
         assert "test_query" in embed.description
-        assert "Test Result" in embed.fields[0].name
+        assert "1. Test Result" in embed.fields[0].name
         assert "This is a test result snippet." in embed.fields[0].value
 
     # Reset the mocks

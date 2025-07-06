@@ -315,10 +315,191 @@ class StatsCommandsMixin:
             f"**Existing channels updated:** {channels_updated}"
         )
 
-    # Note: Additional command methods (save_emotes, save_categories, save_threads,
-    # save_roles, update_role_color, save_users_from_join_leave, save_users_from_messages, save)
-    # would be added here following the same pattern. For brevity, I'm including the key ones
-    # and the comprehensive save method structure.
+    @commands.command(name="save_categories", hidden=True)
+    @commands.is_owner()
+    @handle_command_errors
+    async def save_categories(self, ctx: "Context") -> None:
+        """
+        Save all channel categories to the database.
+
+        This command processes all channel categories from all guilds the bot is in,
+        adding new categories to the categories table.
+
+        Args:
+            ctx: The command context
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        guilds_processed = 0
+        categories_processed = 0
+        categories_added = 0
+        categories_updated = 0
+
+        try:
+            for guild in self.bot.guilds:
+                self.logger.info(
+                    f"Processing categories for guild: {guild.name} ({guild.id})"
+                )
+                guild_categories_processed = 0
+
+                for category in guild.categories:
+                    try:
+                        result = await self.bot.db.execute(
+                            "INSERT INTO "
+                            "categories(id, name, created_at, guild_id, position, is_nsfw) "
+                            "VALUES ($1,$2,$3,$4,$5,$6) "
+                            "ON CONFLICT (id) DO UPDATE SET "
+                            "name = $2, position = $5, is_nsfw = $6",
+                            category.id,
+                            category.name,
+                            category.created_at.replace(tzinfo=None),
+                            category.guild.id,
+                            category.position,
+                            category.is_nsfw(),
+                        )
+
+                        if "INSERT" in result:
+                            categories_added += 1
+                            self.logger.debug(
+                                f"Added new category: {category.name} ({category.id})"
+                            )
+                        else:
+                            categories_updated += 1
+                            self.logger.debug(
+                                f"Updated existing category: {category.name} ({category.id})"
+                            )
+
+                    except asyncpg.PostgresError as e:
+                        self.logger.error(
+                            f"Failed to save category '{category.name}' ({category.id}) in guild {guild.name}: {e}"
+                        )
+                        # Continue processing other categories instead of failing completely
+                        continue
+
+                    guild_categories_processed += 1
+                    categories_processed += 1
+
+                self.logger.info(
+                    f"Processed {guild_categories_processed} categories from guild {guild.name}"
+                )
+                guilds_processed += 1
+
+        except Exception as e:
+            raise QueryError(f"Unexpected error during category saving process") from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **Category saving completed successfully!**\n"
+            f"**Guilds processed:** {guilds_processed}\n"
+            f"**Categories processed:** {categories_processed}\n"
+            f"**New categories added:** {categories_added}\n"
+            f"**Existing categories updated:** {categories_updated}"
+        )
+
+    @commands.command(name="save_threads", hidden=True)
+    @commands.is_owner()
+    @handle_command_errors
+    async def save_threads(self, ctx: "Context") -> None:
+        """
+        Save all threads to the database.
+
+        This command processes all threads from all guilds the bot is in,
+        adding new threads to the threads table.
+
+        Args:
+            ctx: The command context
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+        """
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        guilds_processed = 0
+        threads_processed = 0
+        threads_added = 0
+        threads_updated = 0
+
+        try:
+            for guild in self.bot.guilds:
+                self.logger.info(
+                    f"Processing threads for guild: {guild.name} ({guild.id})"
+                )
+                guild_threads_processed = 0
+
+                for thread in guild.threads:
+                    try:
+                        result = await self.bot.db.execute(
+                            "INSERT INTO "
+                            "threads(id, guild_id, parent_id, owner_id, slowmode_delay, archived, locked, archiver_id, auto_archive_duration, is_private, name, deleted) "
+                            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) "
+                            "ON CONFLICT (id) DO UPDATE SET "
+                            "slowmode_delay = $5, archived = $6, locked = $7, archiver_id = $8, auto_archive_duration = $9, name = $11, deleted = $12",
+                            thread.id,
+                            thread.guild.id,
+                            thread.parent_id,
+                            thread.owner_id,
+                            thread.slowmode_delay,
+                            thread.archived,
+                            thread.locked,
+                            thread.archiver_id,
+                            thread.auto_archive_duration,
+                            thread.is_private(),
+                            thread.name,
+                            False,
+                        )
+
+                        if "INSERT" in result:
+                            threads_added += 1
+                            self.logger.debug(
+                                f"Added new thread: {thread.name} ({thread.id})"
+                            )
+                        else:
+                            threads_updated += 1
+                            self.logger.debug(
+                                f"Updated existing thread: {thread.name} ({thread.id})"
+                            )
+
+                    except asyncpg.PostgresError as e:
+                        self.logger.error(
+                            f"Failed to save thread '{thread.name}' ({thread.id}) in guild {guild.name}: {e}"
+                        )
+                        # Continue processing other threads instead of failing completely
+                        continue
+
+                    guild_threads_processed += 1
+                    threads_processed += 1
+
+                self.logger.info(
+                    f"Processed {guild_threads_processed} threads from guild {guild.name}"
+                )
+                guilds_processed += 1
+
+        except Exception as e:
+            raise QueryError(f"Unexpected error during thread saving process") from e
+
+        # Send comprehensive completion message
+        await ctx.send(
+            f"✅ **Thread saving completed successfully!**\n"
+            f"**Guilds processed:** {guilds_processed}\n"
+            f"**Threads processed:** {threads_processed}\n"
+            f"**New threads added:** {threads_added}\n"
+            f"**Existing threads updated:** {threads_updated}"
+        )
 
     @commands.command(name="save", hidden=True)
     @commands.is_owner()

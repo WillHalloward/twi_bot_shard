@@ -44,7 +44,7 @@ test_metadata = MetaData()
 # Create a separate declarative base for testing
 from sqlalchemy.orm import declarative_base
 
-TestBase = declarative_base(metadata=test_metadata)
+ModelBase = declarative_base(metadata=test_metadata)
 
 # Define required tables for foreign key references
 users_table = Table(
@@ -70,7 +70,7 @@ servers_table = Table(
 
 
 # Define test models using the test base (no schema issues)
-class GalleryMementos(TestBase):
+class GalleryMementos(ModelBase):
     """Test model for gallery_mementos table."""
 
     __tablename__ = "gallery_mementos"
@@ -80,7 +80,7 @@ class GalleryMementos(TestBase):
     guild_id: Mapped[int] = mapped_column(BigInteger)
 
 
-class CommandHistory(TestBase):
+class CommandHistory(ModelBase):
     """Test model for command_history table."""
 
     __tablename__ = "command_history"
@@ -107,7 +107,7 @@ class CommandHistory(TestBase):
     finished_successfully: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
-class CreatorLink(TestBase):
+class CreatorLink(ModelBase):
     """Test model for creator_links table."""
 
     __tablename__ = "creator_links"

@@ -18,7 +18,6 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 # Import database components
 import asyncpg
 from utils.db import Database
-from utils.sqlalchemy_db import SQLAlchemyDatabase
 
 # Import test utilities
 from tests.fixtures import DatabaseFixture, TestDataFixture
@@ -30,6 +29,33 @@ from tests.mock_factories import (
     MockMessageFactory,
 )
 from tests.test_utils import TestSetup, TestTeardown, TestAssertions, TestHelpers
+
+
+def setup_mock_database_with_pool(db, mock_conn, mock_transaction=None):
+    """Helper function to set up mock database with proper async context manager support."""
+    # Create a proper async context manager for pool.acquire()
+    class MockAcquire:
+        def __init__(self, conn):
+            self.conn = conn
+
+        async def __aenter__(self):
+            return self.conn
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    # Mock pool - use MagicMock instead of AsyncMock for the pool itself
+    from unittest.mock import MagicMock
+    mock_pool = MagicMock()
+    mock_pool.acquire = lambda: MockAcquire(mock_conn)
+
+    # If a transaction mock is provided, set it up properly
+    if mock_transaction:
+        from unittest.mock import MagicMock
+        mock_conn.transaction = MagicMock(return_value=mock_transaction)
+
+    db.pool = mock_pool
+    return mock_pool
 
 
 async def test_basic_transaction_commit():
@@ -46,15 +72,10 @@ async def test_basic_transaction_commit():
 
     # Mock connection
     mock_conn = AsyncMock()
-    mock_conn.transaction.return_value = mock_transaction
     mock_conn.execute = AsyncMock()
 
-    # Mock pool
-    mock_pool = AsyncMock()
-    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-    mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-
-    db.pool = mock_pool
+    # Set up mock pool with proper async context manager support
+    mock_pool = setup_mock_database_with_pool(db, mock_conn, mock_transaction)
 
     # Test transaction commit
     async with db.pool.acquire() as conn:
@@ -66,9 +87,6 @@ async def test_basic_transaction_commit():
     # Verify transaction was used
     mock_conn.transaction.assert_called_once()
     mock_conn.execute.assert_called_once()
-
-    # Clean up
-    await TestTeardown.teardown_database(db)
 
     print("✅ Basic transaction commit test passed")
     return True
@@ -88,15 +106,10 @@ async def test_transaction_rollback():
 
     # Mock connection
     mock_conn = AsyncMock()
-    mock_conn.transaction.return_value = mock_transaction
     mock_conn.execute = AsyncMock(side_effect=Exception("Database error"))
 
-    # Mock pool
-    mock_pool = AsyncMock()
-    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-    mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-
-    db.pool = mock_pool
+    # Set up mock pool with proper async context manager support
+    mock_pool = setup_mock_database_with_pool(db, mock_conn, mock_transaction)
 
     # Test transaction rollback
     try:
@@ -112,9 +125,6 @@ async def test_transaction_rollback():
     # Verify transaction was used and rollback occurred
     mock_conn.transaction.assert_called_once()
     mock_transaction.__aexit__.assert_called_once()
-
-    # Clean up
-    await TestTeardown.teardown_database(db)
 
     print("✅ Transaction rollback test passed")
     return True
@@ -138,15 +148,14 @@ async def test_nested_transactions():
 
     # Mock connection
     mock_conn = AsyncMock()
-    mock_conn.transaction.side_effect = [mock_outer_transaction, mock_inner_transaction]
     mock_conn.execute = AsyncMock()
 
-    # Mock pool
-    mock_pool = AsyncMock()
-    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-    mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+    # Set up mock pool with proper async context manager support
+    mock_pool = setup_mock_database_with_pool(db, mock_conn, mock_outer_transaction)
 
-    db.pool = mock_pool
+    # Set up side effect for nested transactions
+    from unittest.mock import MagicMock
+    mock_conn.transaction = MagicMock(side_effect=[mock_outer_transaction, mock_inner_transaction])
 
     # Test nested transactions
     async with db.pool.acquire() as conn:
@@ -162,9 +171,6 @@ async def test_nested_transactions():
     # Verify both transactions were used
     assert mock_conn.transaction.call_count == 2
     assert mock_conn.execute.call_count == 2
-
-    # Clean up
-    await TestTeardown.teardown_database(db)
 
     print("✅ Nested transactions test passed")
     return True
@@ -189,19 +195,39 @@ async def test_concurrent_transactions():
     mock_transaction2.__aenter__ = AsyncMock()
     mock_transaction2.__aexit__ = AsyncMock()
 
-    mock_conn1.transaction.return_value = mock_transaction1
     mock_conn1.execute = AsyncMock()
-
-    mock_conn2.transaction.return_value = mock_transaction2
     mock_conn2.execute = AsyncMock()
 
+    # Set up transaction mocks properly
+    from unittest.mock import MagicMock
+    mock_conn1.transaction = MagicMock(return_value=mock_transaction1)
+    mock_conn2.transaction = MagicMock(return_value=mock_transaction2)
+
     # Mock pool that returns different connections
-    mock_pool = AsyncMock()
-    acquire_contexts = [
-        MagicMock(__aenter__=AsyncMock(return_value=mock_conn1), __aexit__=AsyncMock()),
-        MagicMock(__aenter__=AsyncMock(return_value=mock_conn2), __aexit__=AsyncMock()),
-    ]
-    mock_pool.acquire.side_effect = acquire_contexts
+    class MockAcquire:
+        def __init__(self, conn):
+            self.conn = conn
+
+        async def __aenter__(self):
+            return self.conn
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    # Create a counter to alternate between connections
+    connection_counter = 0
+    def get_connection():
+        nonlocal connection_counter
+        if connection_counter == 0:
+            connection_counter = 1
+            return MockAcquire(mock_conn1)
+        else:
+            connection_counter = 0
+            return MockAcquire(mock_conn2)
+
+    from unittest.mock import MagicMock
+    mock_pool = MagicMock()
+    mock_pool.acquire = get_connection
 
     db.pool = mock_pool
 
@@ -229,9 +255,6 @@ async def test_concurrent_transactions():
     mock_conn1.execute.assert_called_once()
     mock_conn2.execute.assert_called_once()
 
-    # Clean up
-    await TestTeardown.teardown_database(db)
-
     print("✅ Concurrent transactions test passed")
     return True
 
@@ -250,17 +273,12 @@ async def test_transaction_with_multiple_operations():
 
     # Mock connection
     mock_conn = AsyncMock()
-    mock_conn.transaction.return_value = mock_transaction
     mock_conn.execute = AsyncMock()
     mock_conn.fetch = AsyncMock(return_value=[])
     mock_conn.fetchrow = AsyncMock(return_value=None)
 
-    # Mock pool
-    mock_pool = AsyncMock()
-    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-    mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-
-    db.pool = mock_pool
+    # Set up mock pool with proper async context manager support
+    mock_pool = setup_mock_database_with_pool(db, mock_conn, mock_transaction)
 
     # Test transaction with multiple operations
     async with db.pool.acquire() as conn:
@@ -290,9 +308,6 @@ async def test_transaction_with_multiple_operations():
     assert mock_conn.execute.call_count == 3  # INSERT, UPDATE, DELETE
     assert mock_conn.fetch.call_count == 1  # SELECT
 
-    # Clean up
-    await TestTeardown.teardown_database(db)
-
     print("✅ Transaction with multiple operations test passed")
     return True
 
@@ -311,15 +326,10 @@ async def test_transaction_isolation_levels():
 
     # Mock connection
     mock_conn = AsyncMock()
-    mock_conn.transaction.return_value = mock_transaction
     mock_conn.execute = AsyncMock()
 
-    # Mock pool
-    mock_pool = AsyncMock()
-    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-    mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-
-    db.pool = mock_pool
+    # Set up mock pool with proper async context manager support
+    mock_pool = setup_mock_database_with_pool(db, mock_conn, mock_transaction)
 
     # Test different isolation levels
     isolation_levels = ["read_committed", "repeatable_read", "serializable"]
@@ -331,9 +341,6 @@ async def test_transaction_isolation_levels():
 
     # Verify transactions were called with isolation levels
     assert mock_conn.transaction.call_count == len(isolation_levels)
-
-    # Clean up
-    await TestTeardown.teardown_database(db)
 
     print("✅ Transaction isolation levels test passed")
     return True
@@ -347,22 +354,17 @@ async def test_deadlock_detection():
     db = await TestSetup.create_test_database()
 
     # Mock deadlock scenario
-    mock_conn = AsyncMock()
     mock_transaction = AsyncMock()
     mock_transaction.__aenter__ = AsyncMock()
     mock_transaction.__aexit__ = AsyncMock()
 
     # Simulate deadlock error
     deadlock_error = asyncpg.DeadlockDetectedError("Deadlock detected")
+    mock_conn = AsyncMock()
     mock_conn.execute = AsyncMock(side_effect=deadlock_error)
-    mock_conn.transaction.return_value = mock_transaction
 
-    # Mock pool
-    mock_pool = AsyncMock()
-    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-    mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-
-    db.pool = mock_pool
+    # Set up mock pool with proper async context manager support
+    mock_pool = setup_mock_database_with_pool(db, mock_conn, mock_transaction)
 
     # Test deadlock handling
     try:
@@ -376,9 +378,6 @@ async def test_deadlock_detection():
     # Verify transaction was attempted
     mock_conn.transaction.assert_called_once()
 
-    # Clean up
-    await TestTeardown.teardown_database(db)
-
     print("✅ Deadlock detection test passed")
     return True
 
@@ -391,22 +390,17 @@ async def test_transaction_timeout():
     db = await TestSetup.create_test_database()
 
     # Mock timeout scenario
-    mock_conn = AsyncMock()
     mock_transaction = AsyncMock()
     mock_transaction.__aenter__ = AsyncMock()
     mock_transaction.__aexit__ = AsyncMock()
 
     # Simulate timeout error
     timeout_error = asyncio.TimeoutError("Transaction timeout")
+    mock_conn = AsyncMock()
     mock_conn.execute = AsyncMock(side_effect=timeout_error)
-    mock_conn.transaction.return_value = mock_transaction
 
-    # Mock pool
-    mock_pool = AsyncMock()
-    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-    mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-
-    db.pool = mock_pool
+    # Set up mock pool with proper async context manager support
+    mock_pool = setup_mock_database_with_pool(db, mock_conn, mock_transaction)
 
     # Test timeout handling
     try:
@@ -418,9 +412,6 @@ async def test_transaction_timeout():
 
     # Verify transaction was attempted
     mock_conn.transaction.assert_called_once()
-
-    # Clean up
-    await TestTeardown.teardown_database(db)
 
     print("✅ Transaction timeout test passed")
     return True
@@ -434,20 +425,15 @@ async def test_savepoint_operations():
     db = await TestSetup.create_test_database()
 
     # Mock savepoint operations
-    mock_conn = AsyncMock()
     mock_transaction = AsyncMock()
     mock_transaction.__aenter__ = AsyncMock()
     mock_transaction.__aexit__ = AsyncMock()
 
-    mock_conn.transaction.return_value = mock_transaction
+    mock_conn = AsyncMock()
     mock_conn.execute = AsyncMock()
 
-    # Mock pool
-    mock_pool = AsyncMock()
-    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-    mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-
-    db.pool = mock_pool
+    # Set up mock pool with proper async context manager support
+    mock_pool = setup_mock_database_with_pool(db, mock_conn, mock_transaction)
 
     # Test savepoint operations
     async with db.pool.acquire() as conn:
@@ -473,9 +459,6 @@ async def test_savepoint_operations():
     mock_conn.transaction.assert_called_once()
     assert mock_conn.execute.call_count >= 4  # INSERT, SAVEPOINT, ROLLBACK, INSERT
 
-    # Clean up
-    await TestTeardown.teardown_database(db)
-
     print("✅ Savepoint operations test passed")
     return True
 
@@ -488,21 +471,16 @@ async def test_bulk_operations_in_transaction():
     db = await TestSetup.create_test_database()
 
     # Mock bulk operations
-    mock_conn = AsyncMock()
     mock_transaction = AsyncMock()
     mock_transaction.__aenter__ = AsyncMock()
     mock_transaction.__aexit__ = AsyncMock()
 
-    mock_conn.transaction.return_value = mock_transaction
+    mock_conn = AsyncMock()
     mock_conn.executemany = AsyncMock()
     mock_conn.copy_records_to_table = AsyncMock()
 
-    # Mock pool
-    mock_pool = AsyncMock()
-    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-    mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-
-    db.pool = mock_pool
+    # Set up mock pool with proper async context manager support
+    mock_pool = setup_mock_database_with_pool(db, mock_conn, mock_transaction)
 
     # Test bulk operations
     async with db.pool.acquire() as conn:
@@ -520,9 +498,6 @@ async def test_bulk_operations_in_transaction():
     mock_conn.transaction.assert_called_once()
     mock_conn.executemany.assert_called_once()
     mock_conn.copy_records_to_table.assert_called_once()
-
-    # Clean up
-    await TestTeardown.teardown_database(db)
 
     print("✅ Bulk operations in transaction test passed")
     return True

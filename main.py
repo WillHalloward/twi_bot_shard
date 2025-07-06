@@ -834,12 +834,21 @@ async def main() -> None:
 
         # Define critical cogs that must be loaded at startup
         # These are cogs that provide essential functionality or are required by other cogs
-        critical_cogs = [
+        base_critical_cogs = [
             "cogs.owner",  # Owner commands for bot management
             "cogs.mods",  # Moderation commands
             "cogs.stats",  # Core statistics tracking
             "cogs.settings",  # Bot settings management
         ]
+
+        # In production (live) mode, load all cogs at startup for better performance
+        # In testing mode, use lazy loading to speed up testing and development
+        if config.ENVIRONMENT == config.Environment.PRODUCTION:
+            critical_cogs = cogs  # Load all cogs at startup in production
+            root_logger.info("Production mode: Loading all cogs at startup")
+        else:
+            critical_cogs = base_critical_cogs  # Use lazy loading in development/testing
+            root_logger.info("Development/Testing mode: Using lazy loading for non-critical cogs")
 
         # Non-critical cogs will be loaded lazily when needed
         root_logger.info(f"Critical cogs: {', '.join(critical_cogs)}")

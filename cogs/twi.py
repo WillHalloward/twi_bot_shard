@@ -78,6 +78,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
             bot: The bot instance to which this cog is attached
         """
         self.bot = bot
+        self.logger = logging.getLogger('cogs.twi')
         self.invis_text_cache = None
         self.last_run = datetime.datetime.now() - datetime.timedelta(minutes=10)
 

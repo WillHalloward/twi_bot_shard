@@ -76,7 +76,7 @@ async def test_google_search_function():
         mock_build.assert_called_once_with(
             "customsearch", "v1", developerKey="fake_api_key"
         )
-        mock_cse.list.assert_called_once_with(q="test query", cx="fake_cse_id")
+        mock_cse.list.assert_called_once_with(q="test query", cx="fake_cse_id", num=9)
 
     print("✅ google_search function test passed")
     return True
@@ -191,26 +191,21 @@ async def test_wiki_command():
     # Create a mock interaction
     interaction = MockInteractionFactory.create()
 
-    # Mock the Google search function
-    with patch("cogs.twi.google_search") as mock_search:
-        mock_search.return_value = {
-            "items": [
-                {
-                    "title": "Test Wiki Page",
-                    "link": "https://thewanderinginn.fandom.com/wiki/Test",
-                    "snippet": "Test wiki content",
-                }
-            ]
-        }
+    # Mock the fetch function that the wiki command actually uses
+    wiki_response = '{"query": {"pages": {"1": {"index": 1, "title": "Test Wiki Page", "fullurl": "https://thewanderinginn.fandom.com/wiki/Test", "images": [{"title": "Test_Image.jpg"}]}}}}'
+
+    with patch("cogs.twi.fetch") as mock_fetch:
+        mock_fetch.return_value = wiki_response
 
         # Call the command's callback directly
         await cog.wiki.callback(cog, interaction, "test query")
 
-        # Verify the search was called
-        mock_search.assert_called_once()
+        # Verify the fetch was called
+        mock_fetch.assert_called_once()
 
-    # Verify the response was sent
-    interaction.response.send_message.assert_called_once()
+    # Verify the response was deferred and followup was sent
+    interaction.response.defer.assert_called_once()
+    interaction.followup.send.assert_called_once()
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
@@ -234,8 +229,12 @@ async def test_find_command():
     interaction = MockInteractionFactory.create()
 
     # Mock the Google search function
-    with patch("cogs.twi.google_search") as mock_search:
+    with (
+        patch("cogs.twi.google_search") as mock_search,
+        patch("utils.permissions.is_bot_channel", return_value=True),
+    ):
         mock_search.return_value = {
+            "searchInformation": {"totalResults": "1"},
             "items": [
                 {
                     "title": "Test Search Result",
@@ -251,8 +250,9 @@ async def test_find_command():
         # Verify the search was called
         mock_search.assert_called_once()
 
-    # Verify the response was sent
-    interaction.response.send_message.assert_called_once()
+    # Verify the response was deferred and followup was sent
+    interaction.response.defer.assert_called_once()
+    interaction.followup.send.assert_called_once()
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
@@ -342,20 +342,21 @@ async def test_update_password_command():
     # Create a mock interaction
     interaction = MockInteractionFactory.create()
 
-    # Mock file operations
-    mock_data = {"passwords": {}}
+    # Mock database operations
+    bot.db.execute = AsyncMock()
 
-    with patch("builtins.open", mock_open()):
-        with patch("json.load", return_value=mock_data):
-            with patch("json.dump") as mock_dump:
-                with patch("os.path.exists", return_value=True):
-                    # Call the command's callback directly
-                    await cog.update_password.callback(
-                        cog, interaction, "new_password", "https://example.com/new"
-                    )
+    # Mock the admin permission check
+    with (
+        patch("utils.permissions.admin_or_me_check", return_value=True),
+        patch("utils.permissions.app_admin_or_me_check", return_value=True),
+    ):
+        # Call the command's callback directly
+        await cog.update_password.callback(
+            cog, interaction, "new_password", "https://wanderinginn.com/new"
+        )
 
-                    # Verify that json.dump was called (password was saved)
-                    mock_dump.assert_called_once()
+        # Verify that database execute was called (password was saved)
+        bot.db.execute.assert_called_once()
 
     # Verify the response was sent
     interaction.response.send_message.assert_called_once()
@@ -492,7 +493,7 @@ async def test_button_class():
 
     # Verify button properties
     assert button.url == "https://example.com"
-    assert button.label == "Link"
+    assert button.label == "Chapter"
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
