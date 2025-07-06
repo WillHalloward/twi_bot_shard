@@ -529,5 +529,5 @@ special_role_ids = config.special_role_ids
 bot_channel_id = config.bot_channel_id
 inn_general_channel_id = config.inn_general_channel_id
 password_allowed_channel_ids = config.password_allowed_channel_ids
-owner_id = config.bot_owner_id
+bot_owner_id = config.bot_owner_id
 fallback_admin_role_id = config.fallback_admin_role_id
