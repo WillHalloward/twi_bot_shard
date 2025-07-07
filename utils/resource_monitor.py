@@ -40,7 +40,7 @@ class ResourceMonitor:
         network_io_threshold: float = 80.0,
         enable_gc_monitoring: bool = False,
         enable_memory_leak_detection: bool = True,
-        memory_leak_threshold: int = 10485760,  # 10 MB
+        memory_leak_threshold: int = 52428800,  # 50 MB (increased from 10MB)
         logger: Optional[logging.Logger] = None,
     ):
         """
@@ -182,8 +182,8 @@ class ResourceMonitor:
                             f"Received: {net_recv_mb:.2f} MB/s (threshold: {self.network_io_threshold} MB/s)"
                         )
 
-                # Check for high connection count
-                if stats["connection_count"] > 100:  # Arbitrary threshold
+                # Check for high connection count (adjusted for reduced HTTP client limits)
+                if stats["connection_count"] > 50:  # Adjusted threshold to match HTTP client limits
                     self.logger.warning(
                         f"High connection count detected: {stats['connection_count']} connections"
                     )
@@ -252,7 +252,7 @@ class ResourceMonitor:
             "cpu_percent": self._process.cpu_percent(),
             "thread_count": self._process.num_threads(),
             "open_files_count": len(self._process.open_files()),
-            "connection_count": len(self._process.connections()),
+            "connection_count": len(self._process.net_connections()),
             "uptime": current_time - self._process.create_time(),
             "system_memory_percent": psutil.virtual_memory().percent,
             "system_cpu_percent": psutil.cpu_percent(),
@@ -332,7 +332,7 @@ class ResourceMonitor:
 
         # Connection tracking
         if hasattr(self, "_connection_stats"):
-            connections = self._process.connections()
+            connections = self._process.net_connections()
 
             # Reset counters
             self._connection_stats["by_type"] = defaultdict(int)

@@ -130,12 +130,14 @@ class Cognita(commands.Bot):
         # Track startup time
         self.startup_times: Dict[str, float] = {}
 
-        # Initialize resource monitor
+        # Initialize resource monitor with improved settings
         self.logger = logging.getLogger("bot")
         self.resource_monitor = ResourceMonitor(
             check_interval=300,  # Check every 5 minutes
             memory_threshold=85.0,
             cpu_threshold=80.0,
+            memory_leak_threshold=52428800,  # 50MB threshold to reduce false positives
+            enable_memory_leak_detection=True,
             logger=self.logger.getChild("resource_monitor"),
         )
 
@@ -221,7 +223,10 @@ class Cognita(commands.Bot):
         # Task 3: Start status rotation loop
         self.bg_task = self.loop.create_task(self.start_status_loop())
 
-        # Task 4: Register repositories
+        # Task 4: Start periodic cleanup loop
+        self.cleanup_task = self.loop.create_task(self.periodic_cleanup())
+
+        # Task 5: Register repositories
         start_time = time.time()
         self.register_repositories()
         self.startup_times["repositories_init"] = time.time() - start_time
@@ -232,7 +237,7 @@ class Cognita(commands.Bot):
         # Wait for all parallel initialization tasks to complete
         await asyncio.gather(*init_tasks)
 
-        # Task 5: Set up secret manager
+        # Task 6: Set up secret manager
         try:
             start_time = time.time()
             # Initialize the secret manager with the encryption key from config
@@ -708,6 +713,35 @@ class Cognita(commands.Bot):
             await self.change_presence(activity=discord.Game(next(status)))
             await asyncio.sleep(10)
 
+    async def periodic_cleanup(self):
+        """Perform periodic cleanup to prevent memory accumulation."""
+        while not self.is_closed():
+            await asyncio.sleep(1800)  # Every 30 minutes
+
+            try:
+                # Force garbage collection
+                import gc
+                collected = gc.collect()
+                self.logger.info(f"Periodic cleanup: collected {collected} objects")
+
+                # Recreate HTTP session if needed to clear accumulated connections
+                if hasattr(self.http_client, '_session') and self.http_client._session:
+                    old_session = self.http_client._session
+                    self.http_client._session = None
+                    await old_session.close()
+                    self.logger.info("HTTP session recreated for cleanup")
+
+                # Log current resource usage after cleanup
+                if hasattr(self, "resource_monitor"):
+                    stats = self.resource_monitor.get_resource_stats()
+                    self.logger.info(
+                        f"Post-cleanup stats: Memory: {stats['memory_percent']:.1f}%, "
+                        f"Connections: {stats['connection_count']}"
+                    )
+
+            except Exception as e:
+                self.logger.error(f"Error during periodic cleanup: {e}")
+
     async def close(self) -> None:
         """
         Close the bot and clean up resources.
@@ -799,9 +833,13 @@ async def main() -> None:
     context.load_verify_locations(f"ssl-cert/server-ca.pem")
     context.load_cert_chain(f"ssl-cert/client-cert.pem", f"ssl-cert/client-key.pem")
 
-    # Create HTTP client with connection pooling
+    # Create HTTP client with connection pooling and aggressive cleanup
     http_client = HTTPClient(
-        timeout=30, max_connections=100, logger=root_logger.getChild("http_client")
+        timeout=30, 
+        max_connections=50,  # Reduce from 100
+        max_keepalive_connections=10,  # Reduce from 30
+        keepalive_timeout=30,  # Reduce from 60
+        logger=root_logger.getChild("http_client")
     )
 
     async with asyncpg.create_pool(
@@ -813,7 +851,8 @@ async def main() -> None:
         command_timeout=300,
         min_size=5,  # Minimum number of connections
         max_size=20,  # Maximum number of connections
-        max_inactive_connection_lifetime=300.0,  # Close inactive connections after 5 minutes
+        max_inactive_connection_lifetime=180.0,  # Reduce from 300 to 180 seconds (3 minutes)
+        max_cached_statement_lifetime=300.0,  # Add statement cache lifetime
         timeout=30.0,  # Connection timeout
     ) as pool:
         # Define all cogs
