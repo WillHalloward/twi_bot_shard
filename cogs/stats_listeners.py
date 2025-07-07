@@ -302,7 +302,12 @@ class StatsListenersMixin:
             channel: The newly created channel
         """
         try:
-            if isinstance(channel, discord.TextChannel):
+            # Handle all guild channel types
+            if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel)):
+                # Get channel-specific attributes with safe defaults
+                topic = getattr(channel, 'topic', None)
+                is_nsfw = getattr(channel, 'is_nsfw', lambda: False)() if callable(getattr(channel, 'is_nsfw', None)) else False
+
                 await self.bot.db.execute(
                     "INSERT INTO channels(id, name, category_id, created_at, guild_id, position, topic, is_nsfw) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
                     channel.id,
@@ -311,8 +316,8 @@ class StatsListenersMixin:
                     channel.created_at.replace(tzinfo=None),
                     channel.guild.id,
                     channel.position,
-                    channel.topic,
-                    channel.is_nsfw(),
+                    topic,
+                    is_nsfw,
                 )
         except Exception as e:
             logging.error(f"Error saving new channel: {e}")
@@ -517,6 +522,30 @@ class StatsListenersMixin:
         except Exception as e:
             logging.error(f"Error updating role: {e}")
 
+    async def ensure_channel_exists(self, channel: discord.abc.GuildChannel):
+        """Ensure a channel exists in the database, inserting it if necessary."""
+        try:
+            # Check if channel exists
+            result = await self.bot.db.fetchval("SELECT id FROM channels WHERE id = $1", channel.id)
+            if result is None:
+                # Channel doesn't exist, insert it
+                topic = getattr(channel, 'topic', None)
+                is_nsfw = getattr(channel, 'is_nsfw', lambda: False)() if callable(getattr(channel, 'is_nsfw', None)) else False
+
+                await self.bot.db.execute(
+                    "INSERT INTO channels(id, name, category_id, created_at, guild_id, position, topic, is_nsfw) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+                    channel.id,
+                    channel.name,
+                    channel.category_id,
+                    channel.created_at.replace(tzinfo=None),
+                    channel.guild.id,
+                    channel.position,
+                    topic,
+                    is_nsfw,
+                )
+        except Exception as e:
+            logging.error(f"Error ensuring channel exists: {e}")
+
     @Cog.listener("on_voice_state_update")
     async def voice_state_update(
         self,
@@ -537,6 +566,7 @@ class StatsListenersMixin:
 
             # User joined a voice channel
             if before.channel is None and after.channel is not None:
+                await self.ensure_channel_exists(after.channel)
                 await self.bot.db.execute(
                     "INSERT INTO voice_activity(user_id, guild_id, channel_id, action, timestamp) VALUES ($1,$2,$3,$4,$5)",
                     member.id,
@@ -548,6 +578,7 @@ class StatsListenersMixin:
 
             # User left a voice channel
             elif before.channel is not None and after.channel is None:
+                await self.ensure_channel_exists(before.channel)
                 await self.bot.db.execute(
                     "INSERT INTO voice_activity(user_id, guild_id, channel_id, action, timestamp) VALUES ($1,$2,$3,$4,$5)",
                     member.id,
@@ -563,6 +594,8 @@ class StatsListenersMixin:
                 and before.channel is not None
                 and after.channel is not None
             ):
+                await self.ensure_channel_exists(before.channel)
+                await self.ensure_channel_exists(after.channel)
                 await self.bot.db.execute(
                     "INSERT INTO voice_activity(user_id, guild_id, channel_id, action, timestamp) VALUES ($1,$2,$3,$4,$5)",
                     member.id,
