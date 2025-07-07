@@ -810,7 +810,7 @@ async def is_bot_channel(interaction_or_ctx):
 
 def is_bot_channel_wrapper(ctx):
     """
-    Wrapper for async is_bot_channel to use with @commands.check decorator.
+    Wrapper for is_bot_channel to use with @commands.check decorator.
 
     Args:
         ctx: The command context
@@ -825,7 +825,7 @@ def is_bot_channel_wrapper(ctx):
     return commands.check(predicate)
 
 
-def app_is_bot_channel(interaction):
+async def app_is_bot_channel(interaction):
     """
     Wrapper for async is_bot_channel to use with @app_commands.check decorator.
 
@@ -835,7 +835,7 @@ def app_is_bot_channel(interaction):
     Returns:
         bool: True if the command is being used in the bot channel, False otherwise
     """
-    return is_bot_channel(interaction)
+    return await is_bot_channel(interaction)
 
 
 # Permission check decorators for easier use

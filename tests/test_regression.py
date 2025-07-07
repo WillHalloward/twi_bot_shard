@@ -21,6 +21,7 @@ from discord.ext import commands
 from sqlalchemy import select
 
 # Import project components
+import config
 from cogs.twi import TwiCog
 from cogs.gallery import GalleryCog
 from models.tables.gallery import GalleryMementos
@@ -168,9 +169,30 @@ async def test_find_command():
             return {"searchInformation": {"totalResults": "0"}}
 
     # Test with results
+    # Mock the Google API build function instead of google_search
+    mock_service = MagicMock()
+    mock_cse = MagicMock()
+    mock_list = MagicMock()
+
+    # Set up the mock chain for successful search
+    mock_service.cse.return_value = mock_cse
+    mock_cse.list.return_value = mock_list
+    mock_list.execute.return_value = {
+        "searchInformation": {"totalResults": "1"},
+        "items": [
+            {
+                "title": "Test Result",
+                "snippet": "This is a test result snippet.",
+                "link": "https://wanderinginn.com/test-result",
+            }
+        ],
+    }
+
     with (
-        patch("cogs.twi.google_search", mock_google_search),
-        patch("utils.permissions.is_bot_channel", return_value=True),
+        patch("cogs.twi.build", return_value=mock_service),
+        patch("config.google_api_key", "test_api_key"),
+        patch("config.google_cse_id", "test_cse_id"),
+        patch("utils.permissions.app_is_bot_channel", return_value=True),
     ):
         # Call the command's callback directly
         await cog.find.callback(cog, interaction, "test_query")
@@ -191,9 +213,21 @@ async def test_find_command():
     interaction.followup.send.reset_mock()
 
     # Test with no results
+    # Mock the Google API build function for no results
+    mock_service_no_results = MagicMock()
+    mock_cse_no_results = MagicMock()
+    mock_list_no_results = MagicMock()
+
+    # Set up the mock chain for no results
+    mock_service_no_results.cse.return_value = mock_cse_no_results
+    mock_cse_no_results.list.return_value = mock_list_no_results
+    mock_list_no_results.execute.return_value = {"searchInformation": {"totalResults": "0"}}
+
     with (
-        patch("cogs.twi.google_search", mock_google_search),
-        patch("utils.permissions.is_bot_channel", return_value=True),
+        patch("cogs.twi.build", return_value=mock_service_no_results),
+        patch("config.google_api_key", "test_api_key"),
+        patch("config.google_cse_id", "test_cse_id"),
+        patch("utils.permissions.app_is_bot_channel", return_value=True),
     ):
         # Call the command's callback directly
         await cog.find.callback(cog, interaction, "nonexistent_query")
@@ -325,10 +359,10 @@ async def test_password_command():
     mock_channel = MockChannelFactory.create_text_channel(channel_id=test_channel_id)
     interaction = MockInteractionFactory.create(channel=mock_channel)
 
-    # Test in an allowed channel
+    # Test in an allowed channel - patch both the config module and the cogs.twi import
     with (
         patch("config.password_allowed_channel_ids", [test_channel_id]),
-        patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id]),
+        patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id])
     ):
         # Call the command's callback directly
         await cog.password.callback(cog, interaction)
@@ -355,10 +389,10 @@ async def test_password_command():
     # Reset the mock
     interaction.response.send_message.reset_mock()
 
-    # Test in a non-allowed channel
+    # Test in a non-allowed channel - patch both the config module and the cogs.twi import
     with (
         patch("config.password_allowed_channel_ids", [test_channel_id + 1]),
-        patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id + 1]),
+        patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id + 1])
     ):
         # Call the command's callback directly
         await cog.password.callback(cog, interaction)
@@ -468,7 +502,10 @@ async def test_set_repost_command():
     # Verify the response
     interaction.response.send_message.assert_called_once()
     args, kwargs = interaction.response.send_message.call_args
-    assert f"Added {channel.mention} to repost channels" in args[0]
+    # The command sends an embed, not a text message
+    assert kwargs.get("embed") is not None
+    embed = kwargs.get("embed")
+    assert f"Successfully added {channel.mention} to repost channels" in embed.description
     assert kwargs.get("ephemeral") is True
 
     # Verify that the repository methods were called
@@ -496,7 +533,10 @@ async def test_set_repost_command():
     # Verify the response
     interaction.response.send_message.assert_called_once()
     args, kwargs = interaction.response.send_message.call_args
-    assert f"Removed {channel.mention} from repost channels" in args[0]
+    # The command sends an embed, not a text message
+    assert kwargs.get("embed") is not None
+    embed = kwargs.get("embed")
+    assert f"Successfully removed {channel.mention} from repost channels" in embed.description
     assert kwargs.get("ephemeral") is True
 
     # Verify that the repository methods were called

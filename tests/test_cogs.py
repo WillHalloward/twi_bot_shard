@@ -201,7 +201,16 @@ class TestBot(commands.Bot):
 
         self.http_client = MagicMock()
         # Create a proper mock session that can be used with the fetch function
+        mock_response = MagicMock()
+        mock_response.text = AsyncMock(return_value='{"test": "response"}')
+
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+
         mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=mock_context_manager)
+
         self.http_client.get_session = AsyncMock(return_value=mock_session)
 
         # Mock the latency property to return a valid float instead of NaN

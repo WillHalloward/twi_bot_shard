@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 sys.modules["config"] = MagicMock()
 sys.modules["config"].INVITE_CHANNEL = 123456789
 sys.modules["config"].NEW_USER_CHANNEL = 123456789
+sys.modules["config"].logfile = "test"
 
 import discord
 from discord import app_commands
@@ -180,7 +181,15 @@ class TestBot(commands.Bot):
 
         # Add mock http_client
         self.http_client = MagicMock()
-        self.http_client.get_session = AsyncMock(return_value=MagicMock())
+
+        # Create a proper mock session that supports async context manager
+        mock_session = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.text = AsyncMock(return_value='{"test": "response"}')
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        self.http_client.get_session = AsyncMock(return_value=mock_session)
 
         # Mock the latency property to return a valid float instead of NaN
         self._latency = 0.05  # 50ms latency
@@ -470,10 +479,8 @@ async def test_repost_attachment():
             mock_response.__aenter__.return_value = mock_response
             mock_get.return_value = mock_response
 
-            # Mock the imghdr.what function to return 'jpeg'
-            with patch("imghdr.what", return_value="jpeg"):
-                # Call the method with our mocks
-                await cog.repost_attachment(interaction, message)
+            # Call the method with our mocks
+            await cog.repost_attachment(interaction, message)
 
         # Verify that the interaction response was sent
         interaction.response.send_message.assert_called_once()

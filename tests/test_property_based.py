@@ -240,19 +240,18 @@ async def test_admin_or_me_check_returns_boolean(user_id: int, guild_id: int) ->
 @given(channel_id=channel_id_strategy)
 async def test_is_bot_channel_returns_boolean(channel_id: int) -> None:
     """Test that is_bot_channel returns a boolean value."""
+    # Import config module
+    import config
+
     # Create mock objects
     channel = MockChannelFactory.create_text_channel(channel_id=channel_id)
 
     # Create a mock context
     ctx = MockContextFactory.create(channel=channel)
 
-    # Create a mock config module with bot_channel_id
-    mock_config = MagicMock()
-    mock_config.bot_channel_id = channel_id
-
-    # Patch the config module
-    with patch.object(sys.modules["utils.permissions"], "config", mock_config):
-        # Call the function
+    # Patch the config module directly
+    with patch.object(config, 'bot_channel_id', channel_id):
+        # Call the function (is_bot_channel is async)
         result = await is_bot_channel(ctx)
 
         # Check that the result is a boolean
@@ -261,12 +260,9 @@ async def test_is_bot_channel_returns_boolean(channel_id: int) -> None:
         # Check that the result is True when the channel ID matches
         assert result is True
 
-    # Change the bot_channel_id to a different value
-    mock_config.bot_channel_id = channel_id + 1
-
-    # Patch the config module again
-    with patch.object(sys.modules["utils.permissions"], "config", mock_config):
-        # Call the function
+    # Patch with a different value
+    with patch.object(config, 'bot_channel_id', channel_id + 1):
+        # Call the function (is_bot_channel is async)
         result = await is_bot_channel(ctx)
 
         # Check that the result is a boolean

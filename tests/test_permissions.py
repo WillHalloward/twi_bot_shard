@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 # Mock the config module before importing permissions
 sys.modules["config"] = MagicMock()
 sys.modules["config"].bot_channel_id = 111222333
+sys.modules["config"].logfile = "test"
 
 import discord
 from discord.ext import commands
@@ -27,6 +28,7 @@ from utils.permissions import (
     is_bot_channel,
     is_bot_channel_wrapper,
     app_is_bot_channel,
+    init_permission_manager,
 )
 
 
@@ -98,6 +100,13 @@ class MockSettingsCog:
 async def test_admin_or_me_check():
     """Test the admin_or_me_check function."""
     print("\nTesting admin_or_me_check function...")
+
+    # Create a mock bot and initialize permission manager
+    mock_bot = MagicMock()
+    mock_bot.db = MagicMock()
+
+    # Initialize the permission manager
+    init_permission_manager(mock_bot)
 
     # Create mock roles
     admin_role = MockRole(346842813687922689)
@@ -177,6 +186,14 @@ async def test_admin_check_wrappers():
     """Test the admin check wrapper functions."""
     print("\nTesting admin check wrapper functions...")
 
+    # Create a mock bot and initialize permission manager
+    mock_bot = MagicMock()
+    mock_bot.db = MagicMock()
+    mock_bot.get_cog.return_value = None
+
+    # Initialize the permission manager
+    init_permission_manager(mock_bot)
+
     # Test admin_or_me_check_wrapper
     with patch("utils.permissions.admin_or_me_check", AsyncMock(return_value=True)):
         # Create a context
@@ -210,12 +227,15 @@ async def test_is_bot_channel():
     """Test the is_bot_channel function."""
     print("\nTesting is_bot_channel function...")
 
-    # Patch the config.bot_channel_id in the permissions module
-    with patch("utils.permissions.config.bot_channel_id", 111222333):
+    # Import config module and patch it directly
+    import config
+
+    # Patch the config.bot_channel_id directly
+    with patch.object(config, 'bot_channel_id', 111222333):
         # Test with context in bot channel
         ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=111222333)
 
-        # Test bot channel check with context
+        # Test bot channel check with context (is_bot_channel is async)
         result = await is_bot_channel(ctx)
         assert result is True
 
@@ -224,14 +244,14 @@ async def test_is_bot_channel():
             user_id=123456789, guild_id=987654321, channel_id=111222333
         )
 
-        # Test bot channel check with interaction
+        # Test bot channel check with interaction (is_bot_channel is async)
         result = await is_bot_channel(interaction)
         assert result is True
 
         # Test with context not in bot channel
         ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=999999999)
 
-        # Test bot channel check with context
+        # Test bot channel check with context (is_bot_channel is async)
         result = await is_bot_channel(ctx)
         assert result is False
 
@@ -243,8 +263,11 @@ async def test_bot_channel_wrappers():
     """Test the bot channel wrapper functions."""
     print("\nTesting bot channel wrapper functions...")
 
+    # Import config module and patch it directly
+    import config
+
     # Test is_bot_channel_wrapper
-    with patch("utils.permissions.is_bot_channel", AsyncMock(return_value=True)):
+    with patch.object(config, 'bot_channel_id', 111222333):
         # Create a context
         ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=111222333)
 
@@ -261,7 +284,7 @@ async def test_bot_channel_wrappers():
         )
 
         # Call the app check function
-        # app_is_bot_channel returns is_bot_channel(interaction), which is a coroutine
+        # app_is_bot_channel is now async and returns await is_bot_channel(interaction)
         # So we need to await it
         result = await app_is_bot_channel(interaction)
 
