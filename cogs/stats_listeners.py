@@ -337,38 +337,7 @@ class StatsListenersMixin:
             )
         except Exception as e:
             logging.error(f"Error marking channel as deleted: {e}")
-            
-    @Cog.listener("on_guild_channel_update")
-    async def guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel) -> None:
-        try:
-            if before.category_id != after.category_id:
-                await self.bot.db.execute(
-                    "UPDATE channels SET category_id = $1 WHERE id = $2",
-                    after.category_id,
-                    after.id,
-                )
-        except Exception as e:
-            logging.error(f"Error updating channel: {e}")
-        
-        try:
-            if before.name != after.name:
-                await self.bot.db.execute(
-                    "UPDATE channels SET name = $1 WHERE id = $2",
-                    after.name,
-                    after.id,
-                )
-        except Exception as e:
-            logging.error(f"Error updating channel name: {e}")
 
-        try:
-            if before.position != after.position:
-                await self.bot.db.execute(
-                    "UPDATE channels SET position = $1 WHERE id = $2",
-                    after.position,
-                    after.id,
-                )
-        except Exception as e:
-            logging.error(f"Error updating channel position: {e}")
 
     @Cog.listener("on_thread_create")
     async def thread_created(self, thread: discord.Thread) -> None:
@@ -407,46 +376,6 @@ class StatsListenersMixin:
         except Exception as e:
             logging.error(f"Error marking thread as deleted: {e}")
 
-    @Cog.listener("on_thread_update")
-    async def thread_update(
-        self, before: discord.Thread, after: discord.Thread
-    ) -> None:
-        """
-        Listen for thread updates and save changes to the database.
-
-        Args:
-            before: The thread state before the update
-            after: The thread state after the update
-        """
-        try:
-            await self.bot.db.execute(
-                "UPDATE threads SET name = $1, archived = $2, locked = $3 WHERE id = $4",
-                after.name,
-                after.archived,
-                after.locked,
-                after.id,
-            )
-        except Exception as e:
-            logging.error(f"Error updating thread: {e}")
-
-    @Cog.listener("on_guild_update")
-    async def guild_update(self, before: discord.Guild, after: discord.Guild) -> None:
-        """
-        Listen for guild updates and save changes to the database.
-
-        Args:
-            before: The guild state before the update
-            after: The guild state after the update
-        """
-        try:
-            if before.name != after.name:
-                await self.bot.db.execute(
-                    "UPDATE servers SET server_name = $1 WHERE server_id = $2",
-                    after.name,
-                    after.id,
-                )
-        except Exception as e:
-            logging.error(f"Error updating guild: {e}")
 
     @Cog.listener("on_guild_emojis_update")
     async def guild_emoji_update(
@@ -531,29 +460,6 @@ class StatsListenersMixin:
         except Exception as e:
             logging.error(f"Error marking role as deleted: {e}")
 
-    @Cog.listener("on_guild_role_update")
-    async def guild_role_update(
-        self, before: discord.Role, after: discord.Role
-    ) -> None:
-        """
-        Listen for role updates and save changes to the database.
-
-        Args:
-            before: The role state before the update
-            after: The role state after the update
-        """
-        try:
-            await self.bot.db.execute(
-                "UPDATE roles SET name = $1, color = $2, position = $3, permissions = $4 WHERE id = $5",
-                after.name,
-                after.color.value,
-                after.position,
-                after.permissions.value,
-                after.id,
-            )
-        except Exception as e:
-            logging.error(f"Error updating role: {e}")
-
     async def ensure_channel_exists(self, channel: discord.abc.GuildChannel):
         """Ensure a channel exists in the database, inserting it if necessary."""
         try:
@@ -578,15 +484,232 @@ class StatsListenersMixin:
         except Exception as e:
             logging.error(f"Error ensuring channel exists: {e}")
 
-    @Cog.listener("on_voice_state_update")
-    async def voice_state_update(
-        self,
-        member: discord.Member,
-        before: discord.VoiceState,
-        after: discord.VoiceState,
-    ) -> None:
+    # ============================================================================
+    # MISSING FEATURES FROM ORIGINAL IMPLEMENTATION
+    # ============================================================================
+
+    @Cog.listener("on_thread_member_join")
+    async def thread_member_join(self, thread_member: discord.ThreadMember) -> None:
         """
-        Listen for voice state updates and save voice activity to the database.
+        Listen for thread member joins and save them to the database.
+
+        Args:
+            thread_member: The thread member who joined
+        """
+        try:
+            await self.bot.db.execute(
+                "INSERT INTO thread_membership(user_id, thread_id) VALUES($1,$2)",
+                thread_member.id,
+                thread_member.thread_id,
+            )
+            logging.debug(f"User {thread_member.id} joined thread {thread_member.thread_id}")
+        except Exception as e:
+            logging.error(f"Error saving thread member join: {e}")
+
+    @Cog.listener("on_thread_member_remove")
+    async def thread_member_leave(self, thread_member: discord.ThreadMember) -> None:
+        """
+        Listen for thread member leaves and remove them from the database.
+
+        Args:
+            thread_member: The thread member who left
+        """
+        try:
+            await self.bot.db.execute(
+                "DELETE FROM thread_membership WHERE user_id = $1 and thread_id = $2",
+                thread_member.id,
+                thread_member.thread_id,
+            )
+            logging.debug(f"User {thread_member.id} left thread {thread_member.thread_id}")
+        except Exception as e:
+            logging.error(f"Error removing thread member: {e}")
+
+    async def log_update(self, table: str, action: str, before_value: str, after_value: str, primary_key: str) -> None:
+        """
+        Log an update to the updates table for audit trail purposes.
+
+        Args:
+            table: The table that was updated
+            action: The type of action performed
+            before_value: The value before the update
+            after_value: The value after the update
+            primary_key: The primary key of the updated record
+        """
+        try:
+            await self.bot.db.execute(
+                "INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
+                table,
+                action,
+                before_value,
+                after_value,
+                datetime.now().replace(tzinfo=None),
+                primary_key,
+            )
+        except Exception as e:
+            logging.error(f"Error logging update to audit trail: {e}")
+
+    # Enhanced Channel Update Tracking
+    @Cog.listener("on_guild_channel_update")
+    async def guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel) -> None:
+        """
+        Listen for channel updates and save detailed changes to the database with audit trail.
+
+        Args:
+            before: The channel state before the update
+            after: The channel state after the update
+        """
+        try:
+            # Track channel name changes
+            if before.name != after.name:
+                await self.bot.db.execute(
+                    "UPDATE channels SET name = $1 WHERE id = $2",
+                    after.name,
+                    after.id,
+                )
+                await self.log_update("channels", "UPDATE_CHANNEL_NAME", before.name, after.name, str(after.id))
+
+            # Track category changes
+            if before.category_id != after.category_id:
+                await self.bot.db.execute(
+                    "UPDATE channels SET category_id = $1 WHERE id = $2",
+                    after.category_id,
+                    after.id,
+                )
+                await self.log_update("channels", "UPDATE_CHANNEL_CATEGORY_ID", str(before.category_id), str(after.category_id), str(after.id))
+
+            # Track position changes
+            if before.position != after.position:
+                await self.bot.db.execute(
+                    "UPDATE channels SET position = $1 WHERE id = $2",
+                    after.position,
+                    after.id,
+                )
+                await self.log_update("channels", "UPDATE_CHANNEL_POSITION", str(before.position), str(after.position), str(after.id))
+
+            # Track topic changes (for text channels)
+            if hasattr(before, 'topic') and hasattr(after, 'topic') and before.topic != after.topic:
+                await self.bot.db.execute(
+                    "UPDATE channels SET topic = $1 WHERE id = $2",
+                    after.topic,
+                    after.id,
+                )
+                await self.log_update("channels", "UPDATE_CHANNEL_TOPIC", before.topic, after.topic, str(after.id))
+
+            # Track NSFW status changes (for text channels)
+            if hasattr(before, 'is_nsfw') and hasattr(after, 'is_nsfw') and before.is_nsfw() != after.is_nsfw():
+                await self.bot.db.execute(
+                    "UPDATE channels SET is_nsfw = $1 WHERE id = $2",
+                    after.is_nsfw(),
+                    after.id,
+                )
+                await self.log_update("channels", "UPDATE_CHANNEL_IS_NSFW", str(before.is_nsfw()), str(after.is_nsfw()), str(after.id))
+
+        except Exception as e:
+            logging.error(f"Error updating channel with audit trail: {e}")
+
+    # Enhanced Thread Update Tracking with Audit Trail
+    @Cog.listener("on_thread_update")
+    async def enhanced_thread_update(self, before: discord.Thread, after: discord.Thread) -> None:
+        """
+        Enhanced thread update listener with comprehensive audit trail.
+
+        Args:
+            before: The thread state before the update
+            after: The thread state after the update
+        """
+        try:
+            # Track thread name changes
+            if before.name != after.name:
+                await self.log_update("threads", "THREAD_NAME_UPDATED", before.name, after.name, str(after.id))
+
+            # Track archive status changes
+            if before.archived != after.archived:
+                await self.log_update("threads", "THREAD_ARCHIVED_UPDATED", str(before.archived), str(after.archived), str(after.id))
+
+            # Track lock status changes
+            if before.locked != after.locked:
+                await self.log_update("threads", "THREAD_LOCKED_UPDATED", str(before.locked), str(after.locked), str(after.id))
+
+            # Update the threads table
+            await self.bot.db.execute(
+                "UPDATE threads SET name = $1, archived = $2, locked = $3 WHERE id = $4",
+                after.name,
+                after.archived,
+                after.locked,
+                after.id,
+            )
+
+        except Exception as e:
+            logging.error(f"Error in enhanced thread update tracking: {e}")
+
+    # Enhanced Guild Update Tracking with Audit Trail
+    @Cog.listener("on_guild_update")
+    async def enhanced_guild_update(self, before: discord.Guild, after: discord.Guild) -> None:
+        """
+        Enhanced guild update listener with comprehensive audit trail.
+
+        Args:
+            before: The guild state before the update
+            after: The guild state after the update
+        """
+        try:
+            # Track server name changes
+            if before.name != after.name:
+                await self.bot.db.execute(
+                    "UPDATE servers SET server_name = $1 WHERE server_id = $2",
+                    after.name,
+                    after.id,
+                )
+                await self.log_update("servers", "UPDATE_SERVER_NAME", before.name, after.name, str(after.id))
+
+        except Exception as e:
+            logging.error(f"Error in enhanced guild update tracking: {e}")
+
+    # Enhanced Role Update Tracking with Audit Trail
+    @Cog.listener("on_guild_role_update")
+    async def enhanced_guild_role_update(self, before: discord.Role, after: discord.Role) -> None:
+        """
+        Enhanced role update listener with comprehensive audit trail.
+
+        Args:
+            before: The role state before the update
+            after: The role state after the update
+        """
+        try:
+            # Track role name changes
+            if before.name != after.name:
+                await self.log_update("roles", "UPDATE_ROLE_NAME", before.name, after.name, str(after.id))
+
+            # Track role color changes
+            if before.color != after.color:
+                await self.log_update("roles", "UPDATE_ROLE_COLOR", str(before.color.value), str(after.color.value), str(after.id))
+
+            # Track role position changes
+            if before.position != after.position:
+                await self.log_update("roles", "UPDATE_ROLE_POSITION", str(before.position), str(after.position), str(after.id))
+
+            # Track role permission changes
+            if before.permissions != after.permissions:
+                await self.log_update("roles", "UPDATE_ROLE_PERMISSIONS", str(before.permissions.value), str(after.permissions.value), str(after.id))
+
+            # Update the roles table
+            await self.bot.db.execute(
+                "UPDATE roles SET name = $1, color = $2, position = $3, permissions = $4 WHERE id = $5",
+                after.name,
+                after.color.value,
+                after.position,
+                after.permissions.value,
+                after.id,
+            )
+
+        except Exception as e:
+            logging.error(f"Error in enhanced role update tracking: {e}")
+
+    # Enhanced Voice State Tracking with Detailed State Changes
+    @Cog.listener("on_voice_state_update")
+    async def enhanced_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
+        """
+        Enhanced voice state update listener with detailed state change tracking.
 
         Args:
             member: The member whose voice state changed
@@ -594,6 +717,27 @@ class StatsListenersMixin:
             after: The voice state after the update
         """
         try:
+            # Track mute state changes
+            if before.mute != after.mute:
+                await self.log_update("voice_state", "UPDATE_VOICE_STATE_MUTE", str(before.mute), str(after.mute), str(member.id))
+
+            # Track deaf state changes
+            if before.deaf != after.deaf:
+                await self.log_update("voice_state", "UPDATE_VOICE_STATE_DEAF", str(before.deaf), str(after.deaf), str(member.id))
+
+            # Track self-mute state changes
+            if before.self_mute != after.self_mute:
+                await self.log_update("voice_state", "UPDATE_VOICE_STATE_SELF_MUTE", str(before.self_mute), str(after.self_mute), str(member.id))
+
+            # Track self-deaf state changes
+            if before.self_deaf != after.self_deaf:
+                await self.log_update("voice_state", "UPDATE_VOICE_STATE_SELF_DEAF", str(before.self_deaf), str(after.self_deaf), str(member.id))
+
+            # Track suppress state changes
+            if before.suppress != after.suppress:
+                await self.log_update("voice_state", "UPDATE_VOICE_STATE_SUPPRESS", str(before.suppress), str(after.suppress), str(member.id))
+
+            # Handle voice channel join/leave tracking
             current_time = datetime.now().replace(tzinfo=None)
 
             # User joined a voice channel
@@ -644,5 +788,6 @@ class StatsListenersMixin:
                     "joined",
                     current_time,
                 )
+
         except Exception as e:
-            logging.error(f"Error saving voice state update: {e}")
+            logging.error(f"Error in enhanced voice state update tracking: {e}")
