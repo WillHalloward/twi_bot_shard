@@ -2,11 +2,14 @@
 
 This document provides essential information for developers working on the Twi Bot Shard project. It includes build/configuration instructions, testing information, and development guidelines.
 
+> **📖 User Setup**: For general setup instructions, see the [Complete Setup Guide](docs/SETUP.md)  
+> **⚡ Quick Start**: For a brief installation overview, see the [README.md](README.md#quick-start)
+
 ## Build/Configuration Instructions
 
 ### Environment Setup
 
-1. **Python Version**: This project requires Python 3.12 or higher.
+1. **Python Version**: This project requires Python 3.12.9.
 
 2. **Dependencies**: Install dependencies using uv (recommended) or pip:
    ```bash
@@ -34,6 +37,8 @@ This document provides essential information for developers working on the Twi B
    USERNAME=your_username
    PASSWORD=your_password
    LOGFILE=test
+   LOG_FORMAT=console  # Options: console, json
+   ENVIRONMENT=development  # Options: development, testing, production
    WEBHOOK_TESTING_LOG=your_webhook_testing_log
    WEBHOOK=your_webhook
    TWITTER_API_KEY=your_twitter_api_key
@@ -44,6 +49,9 @@ This document provides essential information for developers working on the Twi B
    AO3_USERNAME=your_ao3_username
    AO3_PASSWORD=your_ao3_password
    OPENAI_API_KEY=your_openai_api_key
+   SECRET_ENCRYPTION_KEY=your_secret_encryption_key  # Optional: for encrypting sensitive data
+   CHANNEL_IDS={}  # Optional: custom channel ID mappings as JSON
+   ROLE_IDS={}     # Optional: custom role ID mappings as JSON
    ```
 
 4. **SSL Certificates**: Place your SSL certificates in the `ssl-cert` directory:
