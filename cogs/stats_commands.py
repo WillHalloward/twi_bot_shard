@@ -6,7 +6,7 @@ to the database. These commands are typically owner-only and used for data manag
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import asyncpg
@@ -1140,4 +1140,180 @@ class StatsCommandsMixin:
         except Exception as e:
             raise QueryError(
                 f"Unexpected error during comprehensive save operation"
+            ) from e
+
+    @commands.command(name="save_recent", hidden=True)
+    @commands.is_owner()
+    @handle_command_errors
+    async def save_recent(self, ctx: "Context", days: int = 30) -> None:
+        """
+        Fetch all messages from the last x days and ensure they are in the database.
+
+        This command fetches messages from the specified number of days and saves any
+        missing messages to fill gaps in the message history.
+
+        Args:
+            ctx: The command context
+            days: Number of days to look back (default: 30)
+
+        Raises:
+            DatabaseError: If database operations fail
+            QueryError: If there's an issue with SQL queries
+            ValidationError: If Discord API operations fail
+        """
+        if days <= 0:
+            await ctx.send("❌ Days must be a positive number.")
+            return
+
+        if days > 365:
+            await ctx.send("❌ Days cannot exceed 365 for safety reasons.")
+            return
+
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except discord.Forbidden:
+            self.logger.warning("No permission to delete command message")
+
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+
+        # Send initial progress message
+        total_guilds = len(self.bot.guilds)
+        progress_msg = await ctx.send(
+            f"🔄 **Starting recent message save operation**\n"
+            f"**Date range:** {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} ({days} days)\n"
+            f"**Guilds to process:** {total_guilds}\n"
+            f"**Started at:** {end_date.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+            f"*Checking for message gaps and filling them...*"
+        )
+
+        # Initialize counters
+        guilds_processed = 0
+        channels_processed = 0
+        messages_saved = 0
+        errors_encountered = 0
+
+        try:
+            for guild in self.bot.guilds:
+                guild_start_time = datetime.now()
+                self.logger.info(f"Processing guild: {guild.name} ({guild.id})")
+
+                try:
+                    # Get all text channels with read permissions
+                    accessible_channels = [
+                        channel
+                        for channel in guild.text_channels
+                        if channel.permissions_for(guild.me).read_message_history
+                    ]
+
+                    for channel in accessible_channels:
+                        try:
+                            self.logger.debug(f"Processing channel: {channel.name} ({channel.id})")
+
+                            # Get existing message IDs from database for this channel and date range
+                            existing_message_ids = set()
+                            existing_messages = await self.bot.db.fetch(
+                                """
+                                SELECT message_id FROM messages 
+                                WHERE channel_id = $1 
+                                AND created_at >= $2 
+                                AND created_at <= $3
+                                """,
+                                channel.id,
+                                start_date,
+                                end_date
+                            )
+                            existing_message_ids = {row['message_id'] for row in existing_messages}
+
+                            # Fetch messages from Discord for the date range
+                            discord_messages = []
+                            async for message in channel.history(
+                                limit=None,
+                                after=start_date,
+                                before=end_date,
+                                oldest_first=True
+                            ):
+                                discord_messages.append(message)
+
+                            # Find missing messages (exist in Discord but not in database)
+                            missing_messages = [
+                                msg for msg in discord_messages 
+                                if msg.id not in existing_message_ids
+                            ]
+
+                            # Save missing messages
+                            for message in missing_messages:
+                                try:
+                                    await save_message(self.bot, message)
+                                    messages_saved += 1
+                                except Exception as e:
+                                    self.logger.error(f"Error saving message {message.id}: {e}")
+                                    errors_encountered += 1
+
+                            channels_processed += 1
+
+                            # Update progress every 10 channels
+                            if channels_processed % 10 == 0:
+                                try:
+                                    elapsed_time = datetime.now() - end_date
+                                    await progress_msg.edit(
+                                        content=f"🔄 **Recent message save in progress**\n"
+                                        f"**Date range:** {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} ({days} days)\n"
+                                        f"**Guilds processed:** {guilds_processed}/{total_guilds}\n"
+                                        f"**Channels processed:** {channels_processed}\n"
+                                        f"**Messages saved:** {messages_saved:,}\n"
+                                        f"**Errors encountered:** {errors_encountered}\n"
+                                        f"**Elapsed time:** {str(elapsed_time).split('.')[0]}\n"
+                                        f"**Current guild:** {guild.name}"
+                                    )
+                                except discord.HTTPException:
+                                    pass  # Continue if we can't edit the message
+
+                        except Exception as e:
+                            self.logger.error(f"Error processing channel {channel.name}: {e}")
+                            errors_encountered += 1
+
+                    guilds_processed += 1
+
+                except Exception as e:
+                    self.logger.error(f"Error processing guild {guild.name}: {e}")
+                    errors_encountered += 1
+                    guilds_processed += 1
+
+            # Final completion message
+            total_time = datetime.now() - end_date
+            await progress_msg.edit(
+                content=f"✅ **Recent message save completed!**\n"
+                f"**Date range:** {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} ({days} days)\n"
+                f"**Guilds processed:** {guilds_processed}/{total_guilds}\n"
+                f"**Channels processed:** {channels_processed}\n"
+                f"**Messages saved:** {messages_saved:,}\n"
+                f"**Errors encountered:** {errors_encountered}\n"
+                f"**Total time:** {str(total_time).split('.')[0]}\n"
+                f"**Completed at:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC"
+            )
+
+            # Notify bot owner of completion
+            try:
+                owner = self.bot.get_user(self.bot.owner_id)
+                if owner:
+                    await owner.send(
+                        f"🎉 **Recent message save completed!**\n"
+                        f"**Server:** {ctx.guild.name if ctx.guild else 'DM'}\n"
+                        f"**Date range:** {days} days\n"
+                        f"**Channels processed:** {channels_processed}\n"
+                        f"**Messages saved:** {messages_saved:,}\n"
+                        f"**Total time:** {str(total_time).split('.')[0]}\n"
+                        f"**Errors:** {errors_encountered}"
+                    )
+                    self.logger.info("Completion notification sent to bot owner")
+            except Exception as e:
+                self.logger.error(f"Failed to send completion notification to owner: {e}")
+
+        except Exception as e:
+            raise QueryError(
+                f"Unexpected error during recent message save operation"
             ) from e
