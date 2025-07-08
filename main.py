@@ -355,6 +355,54 @@ class Cognita(commands.Bot):
         # Log startup time summary
         self.log_startup_time_summary()
 
+        # Check if environment is production and run comprehensive save
+        if config.ENVIRONMENT == config.Environment.PRODUCTION:
+            self.logger.info("Production environment detected - starting comprehensive save operation")
+            try:
+                from cogs.stats_utils import perform_comprehensive_save
+
+                # Define a simple progress callback for logging
+                async def log_progress(guilds_processed, total_guilds, channels_processed, 
+                                     messages_saved, errors_encountered, elapsed_time, current_guild_name):
+                    self.logger.info(
+                        f"Comprehensive save progress: {guilds_processed}/{total_guilds} guilds, "
+                        f"{channels_processed} channels, {messages_saved} messages saved, "
+                        f"{errors_encountered} errors, elapsed: {elapsed_time}, "
+                        f"current guild: {current_guild_name}"
+                    )
+
+                # Define a completion callback for logging
+                async def log_completion(results):
+                    self.logger.info(
+                        f"Comprehensive save completed: {results['guilds_processed']} guilds processed, "
+                        f"{results['channels_processed']} channels processed, "
+                        f"{results['messages_saved']} messages saved, "
+                        f"{results['errors_encountered']} errors encountered, "
+                        f"total time: {results['total_time']}"
+                    )
+
+                # Run the comprehensive save operation
+                start_time = time.time()
+                results = await perform_comprehensive_save(
+                    self, 
+                    progress_callback=log_progress,
+                    completion_callback=log_completion
+                )
+                comprehensive_save_time = time.time() - start_time
+                self.startup_times["comprehensive_save"] = comprehensive_save_time
+
+                self.logger.info(
+                    f"Production comprehensive save completed in {comprehensive_save_time:.2f}s"
+                )
+
+            except Exception as e:
+                error_details = "".join(
+                    traceback.format_exception(type(e), e, e.__traceback__)
+                )
+                self.logger.error(
+                    f"Failed to run comprehensive save in production: {e}\n{error_details}"
+                )
+
     def register_repositories(self) -> None:
         """
         Register repositories for all database models.

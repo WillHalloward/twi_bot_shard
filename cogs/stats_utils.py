@@ -123,6 +123,199 @@ async def save_reaction(bot: "commands.Bot", reaction: discord.Reaction) -> None
         raise
 
 
+async def perform_comprehensive_save(
+    bot: "commands.Bot",
+    progress_callback=None,
+    completion_callback=None
+) -> dict:
+    """
+    Perform a comprehensive save of all message history from accessible channels and threads.
+
+    This function can be called independently of any command context, making it suitable
+    for use by timers, background tasks, or other automated processes.
+
+    Args:
+        bot: The Discord bot instance
+        progress_callback: Optional callback function for progress updates.
+                         Should accept (guilds_processed, total_guilds, channels_processed, 
+                         messages_saved, errors_encountered, elapsed_time, current_guild_name)
+        completion_callback: Optional callback function called when operation completes.
+                           Should accept the results dictionary.
+
+    Returns:
+        dict: Results of the operation containing:
+            - guilds_processed: Number of guilds processed
+            - total_guilds: Total number of guilds
+            - channels_processed: Number of channels processed
+            - threads_processed: Number of threads processed (currently 0, threads not implemented)
+            - messages_saved: Total number of messages saved
+            - errors_encountered: Number of errors encountered
+            - start_time: When the operation started
+            - end_time: When the operation completed
+            - total_time: Total time taken
+
+    Raises:
+        Exception: If database operations fail
+    """
+    from datetime import datetime
+
+    # Initialize progress tracking
+    start_time = datetime.now()
+    total_guilds = len(bot.guilds)
+    guilds_processed = 0
+    total_channels_processed = 0
+    total_threads_processed = 0  # Not implemented yet, but keeping for consistency
+    total_messages_saved = 0
+    errors_encountered = 0
+
+    logging.info(f"Starting comprehensive save operation for {total_guilds} guilds")
+
+    try:
+        for guild_index, guild in enumerate(bot.guilds, 1):
+            guild_start_time = datetime.now()
+            guild_channels_processed = 0
+            guild_threads_processed = 0
+            guild_messages_saved = 0
+
+            logging.info(f"Processing guild {guild_index}/{total_guilds}: {guild.name} ({guild.id})")
+
+            try:
+                # Get all text channels with read permissions
+                accessible_channels = [
+                    channel
+                    for channel in guild.text_channels
+                    if channel.permissions_for(channel.guild.me).read_message_history
+                ]
+
+                if not accessible_channels:
+                    logging.info(f"No accessible channels found in guild {guild.name}")
+                else:
+                    # Process channels and save messages
+                    for channel in accessible_channels:
+                        try:
+                            logging.debug(f"Processing channel: {channel.name} ({channel.id})")
+
+                            # Get last message timestamp from database
+                            last_message_time = await bot.db.fetchval(
+                                "SELECT MAX(created_at) FROM messages WHERE channel_id = $1",
+                                channel.id,
+                            )
+
+                            # Set after parameter for history iteration
+                            after = (
+                                last_message_time
+                                if last_message_time
+                                else datetime.strptime("2015-01-01", "%Y-%m-%d")
+                            )
+
+                            # Process messages in batches
+                            async for message in channel.history(
+                                limit=None, after=after, oldest_first=True
+                            ):
+                                try:
+                                    await save_message(bot, message)
+                                    guild_messages_saved += 1
+                                    total_messages_saved += 1
+                                except Exception as e:
+                                    logging.error(f"Error saving message {message.id}: {e}")
+                                    errors_encountered += 1
+
+                            guild_channels_processed += 1
+                            total_channels_processed += 1
+
+                        except Exception as e:
+                            logging.error(f"Error processing channel {channel.name}: {e}")
+                            errors_encountered += 1
+
+                guilds_processed += 1
+
+                # Call progress callback every 5 guilds or on the last guild
+                if progress_callback and (guild_index % 5 == 0 or guild_index == total_guilds):
+                    elapsed_time = datetime.now() - start_time
+                    try:
+                        await progress_callback(
+                            guilds_processed,
+                            total_guilds,
+                            total_channels_processed,
+                            total_messages_saved,
+                            errors_encountered,
+                            elapsed_time,
+                            guild.name
+                        )
+                    except Exception as e:
+                        logging.error(f"Error in progress callback: {e}")
+
+            except Exception as e:
+                logging.error(f"Error processing guild {guild.name}: {e}")
+                errors_encountered += 1
+
+    except Exception as e:
+        logging.error(f"Unexpected error during comprehensive save operation: {e}")
+        raise
+
+    # Prepare results
+    end_time = datetime.now()
+    total_time = end_time - start_time
+
+    results = {
+        'guilds_processed': guilds_processed,
+        'total_guilds': total_guilds,
+        'channels_processed': total_channels_processed,
+        'threads_processed': total_threads_processed,
+        'messages_saved': total_messages_saved,
+        'errors_encountered': errors_encountered,
+        'start_time': start_time,
+        'end_time': end_time,
+        'total_time': total_time
+    }
+
+    # Call completion callback if provided
+    if completion_callback:
+        try:
+            await completion_callback(results)
+        except Exception as e:
+            logging.error(f"Error in completion callback: {e}")
+
+    # Enable event listeners for ongoing message tracking
+    try:
+        stats_cog = bot.get_cog("stats")
+        if stats_cog:
+            listeners_enabled = 0
+            if stats_cog.save_listener not in bot.extra_events.get("on_message", []):
+                bot.add_listener(stats_cog.save_listener, name="on_message")
+                listeners_enabled += 1
+            if stats_cog.message_deleted not in bot.extra_events.get("on_raw_message_delete", []):
+                bot.add_listener(stats_cog.message_deleted, name="on_raw_message_delete")
+                listeners_enabled += 1
+            if stats_cog.message_edited not in bot.extra_events.get("on_raw_message_edit", []):
+                bot.add_listener(stats_cog.message_edited, name="on_raw_message_edit")
+                listeners_enabled += 1
+            if stats_cog.reaction_add not in bot.extra_events.get("on_raw_reaction_add", []):
+                bot.add_listener(stats_cog.reaction_add, name="on_raw_reaction_add")
+                listeners_enabled += 1
+            if stats_cog.reaction_remove not in bot.extra_events.get("on_raw_reaction_remove", []):
+                bot.add_listener(stats_cog.reaction_remove, name="on_raw_reaction_remove")
+                listeners_enabled += 1
+
+            logging.info(f"Enabled {listeners_enabled} event listeners for ongoing message tracking")
+        else:
+            logging.warning("Stats cog not found, cannot enable event listeners")
+    except Exception as e:
+        logging.error(f"Error enabling event listeners: {e}")
+        results['errors_encountered'] = results.get('errors_encountered', 0) + 1
+
+    logging.info(
+        f"Comprehensive save operation completed. "
+        f"Guilds: {guilds_processed}/{total_guilds}, "
+        f"Channels: {total_channels_processed}, "
+        f"Messages: {total_messages_saved:,}, "
+        f"Errors: {errors_encountered}, "
+        f"Time: {str(total_time).split('.')[0]}"
+    )
+
+    return results
+
+
 async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
     """
     Save message data to the database.
