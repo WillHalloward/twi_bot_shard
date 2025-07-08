@@ -917,6 +917,7 @@ async def main() -> None:
             "cogs.report",
             "cogs.summarization",
             "cogs.settings",
+            "cogs.interactive_help",
         ]
 
         # Define critical cogs that must be loaded at startup
@@ -926,6 +927,7 @@ async def main() -> None:
             "cogs.mods",  # Moderation commands
             "cogs.stats",  # Core statistics tracking
             "cogs.settings",  # Bot settings management
+            "cogs.interactive_help",  # Interactive help system
         ]
 
         # In production (live) mode, load all cogs at startup for better performance
@@ -953,6 +955,7 @@ async def main() -> None:
             initial_extensions=cogs,
             critical_extensions=critical_cogs,
             intents=intents,
+            help_command=None,
         ) as bot:
             # Set up auto-kill task if enabled
             if config.kill_after > 0:
