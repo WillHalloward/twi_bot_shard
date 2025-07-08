@@ -337,6 +337,38 @@ class StatsListenersMixin:
             )
         except Exception as e:
             logging.error(f"Error marking channel as deleted: {e}")
+            
+    @Cog.listener("on_guild_channel_update")
+    async def guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel) -> None:
+        try:
+            if before.category_id != after.category_id:
+                await self.bot.db.execute(
+                    "UPDATE channels SET category_id = $1 WHERE id = $2",
+                    after.category_id,
+                    after.id,
+                )
+        except Exception as e:
+            logging.error(f"Error updating channel: {e}")
+        
+        try:
+            if before.name != after.name:
+                await self.bot.db.execute(
+                    "UPDATE channels SET name = $1 WHERE id = $2",
+                    after.name,
+                    after.id,
+                )
+        except Exception as e:
+            logging.error(f"Error updating channel name: {e}")
+
+        try:
+            if before.position != after.position:
+                await self.bot.db.execute(
+                    "UPDATE channels SET position = $1 WHERE id = $2",
+                    after.position,
+                    after.id,
+                )
+        except Exception as e:
+            logging.error(f"Error updating channel position: {e}")
 
     @Cog.listener("on_thread_create")
     async def thread_created(self, thread: discord.Thread) -> None:

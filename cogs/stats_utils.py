@@ -5,6 +5,7 @@ This module contains utility functions used by the stats cog for saving
 reactions and messages to the database.
 """
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -147,7 +148,7 @@ async def perform_comprehensive_save(
             - guilds_processed: Number of guilds processed
             - total_guilds: Total number of guilds
             - channels_processed: Number of channels processed
-            - threads_processed: Number of threads processed (currently 0, threads not implemented)
+            - threads_processed: Number of threads processed
             - messages_saved: Total number of messages saved
             - errors_encountered: Number of errors encountered
             - start_time: When the operation started
@@ -164,7 +165,7 @@ async def perform_comprehensive_save(
     total_guilds = len(bot.guilds)
     guilds_processed = 0
     total_channels_processed = 0
-    total_threads_processed = 0  # Not implemented yet, but keeping for consistency
+    total_threads_processed = 0
     total_messages_saved = 0
     errors_encountered = 0
 
@@ -225,6 +226,67 @@ async def perform_comprehensive_save(
 
                         except Exception as e:
                             logging.error(f"Error processing channel {channel.name}: {e}")
+                            errors_encountered += 1
+
+                # Process threads
+                logging.info(f"Starting thread processing for guild {guild.name}")
+
+                # Get all threads with read permissions
+                accessible_threads = [
+                    thread
+                    for thread in guild.threads
+                    if thread.permissions_for(thread.guild.me).read_message_history
+                ]
+
+                if not accessible_threads:
+                    logging.info(f"No accessible threads found in guild {guild.name}")
+                else:
+                    # Process each thread
+                    for thread in accessible_threads:
+                        try:
+                            logging.debug(f"Processing thread: {thread.name} ({thread.id})")
+
+                            # Get last message timestamp from database for this thread
+                            last_thread_message_time = await bot.db.fetchval(
+                                "SELECT MAX(created_at) FROM messages WHERE channel_id = $1",
+                                thread.id,
+                            )
+
+                            # Set after parameter for history iteration
+                            after = (
+                                last_thread_message_time
+                                if last_thread_message_time
+                                else datetime.strptime("2015-01-01", "%Y-%m-%d")
+                            )
+
+                            # Process thread messages
+                            thread_message_count = 0
+                            async for message in thread.history(
+                                limit=None, after=after, oldest_first=True
+                            ):
+                                try:
+                                    await save_message(bot, message)
+                                    thread_message_count += 1
+                                    guild_messages_saved += 1
+                                    total_messages_saved += 1
+                                    # Small delay to prevent rate limiting
+                                    await asyncio.sleep(0.05)
+                                except Exception as e:
+                                    logging.error(f"Error saving message {message.id} in thread {thread.name}: {e}")
+                                    errors_encountered += 1
+
+                            logging.info(f"Thread {thread.name} completed: {thread_message_count} messages saved")
+                            guild_threads_processed += 1
+                            total_threads_processed += 1
+
+                        except discord.Forbidden:
+                            logging.warning(f"No permission to read history in thread {thread.name}")
+                            errors_encountered += 1
+                        except discord.HTTPException as e:
+                            logging.error(f"Discord API error reading thread {thread.name}: {e}")
+                            errors_encountered += 1
+                        except Exception as e:
+                            logging.error(f"Error processing thread {thread.name}: {e}")
                             errors_encountered += 1
 
                 guilds_processed += 1
