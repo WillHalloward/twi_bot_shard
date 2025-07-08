@@ -17,7 +17,9 @@ Cognita is a feature-rich Discord bot that provides various utilities for "The W
 - Innktober event features
 - Text summarization
 
-## Installation
+## Quick Start
+
+For a quick overview of the installation process:
 
 1. Clone the repository:
 ```bash
@@ -44,21 +46,25 @@ uv pip install -e .
 
 4. Verify dependencies installation:
 ```bash
-python test_dependencies.py
+uv run test_dependencies.py
 ```
 
 5. Set up PostgreSQL database
 
-6. Configure the `.env` file with your credentials (see [Setup Guide](docs/SETUP.md) for details)
+6. Configure the `.env` file with your credentials
 
 7. Run the bot:
 ```bash
 python main.py
 ```
 
+**📖 For detailed setup instructions, see the [Complete Setup Guide](docs/SETUP.md)**
+
+**👨‍💻 For developers, see the [Development Guidelines](.junie/guidelines.md)**
+
 ## Requirements
 
-- Python 3.12+
+- Python 3.12.9
 - PostgreSQL database
 - Discord Bot Token
 - Various API keys (see [Setup Guide](docs/SETUP.md))
@@ -75,10 +81,9 @@ The bot uses environment variables for configuration. These can be set in a `.en
 ## Features
 
 ### Gallery & Mementos
-- `Gallery`: Adds an image to #gallery
-- `Mementos`: Adds an image to #mementos
-- `SetMementos`: Set what channel !mementos posts to
-- `setGallery`: Set what channel !gallery posts to
+- **Repost Context Menu**: Right-click on any message to repost it to a designated channel
+- **Content Support**: Handles images, text, AO3 links, Twitter links, Instagram links, and Discord files
+- **Channel Configuration**: Use `/set_repost` to configure destination channels
 
 ### Links
 - `AddLink`: Adds a link with the given name to the given url and tag
@@ -151,7 +156,7 @@ The bot includes several database optimizations to improve performance, reliabil
 To apply the database schema changes:
 
 1. Connect to your PostgreSQL database:
-   ```
+   ```bash
    psql -U your_username -d your_database
    ```
 
@@ -189,22 +194,22 @@ The project includes several test scripts to verify different aspects of the sys
 
 1. **Dependency Test**: Verify that all dependencies are installed correctly
    ```bash
-   python tests\test_dependencies.py
+   uv run test_dependencies.py
    ```
 
 2. **Database Connection Test**: Test the database connection
    ```bash
-   python tests\test_db_connection.py
+   uv run test_db_connection.py
    ```
 
 3. **SQLAlchemy Models Test**: Test the SQLAlchemy models
    ```bash
-   python tests\test_sqlalchemy_models.py
+   uv run test_sqlalchemy_models.py
    ```
 
 4. **Cog Loading Test**: Test loading all cogs to ensure they can be loaded without errors
    ```bash
-   python tests\test_cogs.py
+   uv run test_cogs.py
    ```
    This is particularly useful after making updates to verify that all changes work correctly.
 

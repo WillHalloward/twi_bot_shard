@@ -2,11 +2,14 @@
 
 This guide provides detailed instructions for setting up and configuring the Twi Bot Shard (Cognita) Discord bot.
 
+> **💡 Quick Start**: For a brief installation overview, see the [README.md](../README.md#quick-start)  
+> **👨‍💻 Developers**: For development-specific setup and testing, see [Development Guidelines](../.junie/guidelines.md)
+
 ## Prerequisites
 
 Before you begin, ensure you have the following:
 
-- Python 3.8 or higher installed
+- Python 3.12.9 installed
 - PostgreSQL database server (version 12 or higher recommended)
 - A Discord account and the ability to create a bot
 - Basic knowledge of command line operations
@@ -45,7 +48,7 @@ cd twi_bot_shard
 ## Step 3: Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+uv pip install -e .
 ```
 
 ## Step 4: PostgreSQL Setup
@@ -135,8 +138,13 @@ TWITTER_ACCESS_TOKEN_SECRET=your_twitter_access_token_secret
 AO3_USERNAME=your_ao3_username
 AO3_PASSWORD=your_ao3_password
 
+# Security Configuration (optional)
+SECRET_ENCRYPTION_KEY=your_secret_encryption_key  # For encrypting sensitive data
+
 # Logging Configuration
 LOGFILE=test
+LOG_FORMAT=console  # Options: console, json
+ENVIRONMENT=development  # Options: development, testing, production
 
 # Webhook URLs for logging
 WEBHOOK_TESTING_LOG=your_testing_webhook_url
@@ -148,6 +156,10 @@ KILL_AFTER=0  # Time in seconds after which the bot will automatically exit (0 t
 # Complex structures as JSON (for Patreon cookies and headers)
 COOKIES={"patreon_device_id":"your_device_id"}
 HEADERS={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"}
+
+# Discord Configuration (optional JSON structures)
+CHANNEL_IDS={}  # Custom channel ID mappings as JSON
+ROLE_IDS={}     # Custom role ID mappings as JSON
 ```
 
 2. Replace all placeholder values with your actual credentials
@@ -171,7 +183,7 @@ python main.py
 2. Open Command Prompt as Administrator
 3. Navigate to the NSSM installation directory
 4. Run:
-```
+```cmd
 nssm install CognitaBot
 ```
 5. In the Application tab:
@@ -188,7 +200,7 @@ sudo nano /etc/systemd/system/cognita.service
 ```
 
 2. Add the following content:
-```
+```ini
 [Unit]
 Description=Cognita Discord Bot
 After=network.target postgresql.service
