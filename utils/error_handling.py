@@ -800,6 +800,32 @@ async def handle_global_command_error(ctx: commands.Context, error: Exception) -
         ctx: The command context
         error: The error that occurred
     """
+    # Skip CommandNotFound errors for ! commands (admin commands)
+    # to avoid false positives when people write Spanish text with exclamation marks
+    if isinstance(error, commands.CommandNotFound):
+        # Check if the message starts with ! (admin command prefix)
+        if ctx.message.content.startswith('!'):
+            # Don't send error message for ! commands, just log and track
+            log_error(
+                error=error,
+                command_name="unknown_admin_command",
+                user_id=ctx.author.id,
+                log_level=logging.DEBUG,  # Use DEBUG level since this is expected behavior
+            )
+
+            # Record error telemetry
+            if hasattr(ctx, "bot"):
+                await track_error(
+                    ctx.bot,
+                    type(error).__name__,
+                    "unknown_admin_command",
+                    ctx.author.id,
+                    getattr(error, "message", str(error)),
+                    ctx.guild.id if ctx.guild else None,
+                    ctx.channel.id if ctx.channel else None,
+                )
+            return
+
     # Get the appropriate error response
     response = get_error_response(error)
 
