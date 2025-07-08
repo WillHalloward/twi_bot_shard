@@ -140,3 +140,6 @@ dmypy.json
 
 # Temporary output files
 *.output.txt
+
+# Temporary test files and verification scripts
+temp_tests/

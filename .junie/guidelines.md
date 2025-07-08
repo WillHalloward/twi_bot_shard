@@ -12,7 +12,7 @@ This document provides essential information for developers working on the Twi B
    ```bash
    # Using uv (recommended)
    uv pip install -e .
-   
+
    # Using pip
    pip install -e .
    ```
@@ -83,13 +83,18 @@ This document provides essential information for developers working on the Twi B
 
 ### Creating New Tests
 
-1. **Test Structure**: Follow the existing test structure in `test_sqlalchemy_models.py` for new tests.
-2. **Async Tests**: Use `asyncio.run()` to run async tests.
-3. **In-Memory Database**: For model tests, use an in-memory SQLite database:
+1. **Temporary Test Files**: For temporary test scripts, verification scripts, and example usage files, create them in the `temp_tests/` directory. This folder is git-ignored to keep the root directory clean. Examples of files that belong here:
+   - `example_timer_usage.py`
+   - `test_final_imports.py`
+   - `test_save_function.py`
+
+2. **Test Structure**: Follow the existing test structure in `test_sqlalchemy_models.py` for new tests.
+3. **Async Tests**: Use `asyncio.run()` to run async tests.
+4. **In-Memory Database**: For model tests, use an in-memory SQLite database:
    ```python
    TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
    ```
-4. **Test Example**:
+5. **Test Example**:
    ```python
    import asyncio
    import os
