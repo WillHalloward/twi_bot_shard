@@ -390,19 +390,14 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
         Exception: If database operations fail
     """
     try:
-        # Check if user exists, if not create them
-        user_exists = await bot.db.fetchval(
-            "SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", message.author.id
+        # Insert user with conflict handling (UPSERT pattern)
+        await bot.db.execute(
+            "INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4) ON CONFLICT (user_id) DO NOTHING",
+            message.author.id,
+            message.author.created_at.replace(tzinfo=None),
+            message.author.bot,
+            message.author.name,
         )
-
-        if not user_exists:
-            await bot.db.execute(
-                "INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4)",
-                message.author.id,
-                message.author.created_at.replace(tzinfo=None),
-                message.author.bot,
-                message.author.name,
-            )
 
         # Insert the message (with conflict handling for duplicates)
         await bot.db.execute(
