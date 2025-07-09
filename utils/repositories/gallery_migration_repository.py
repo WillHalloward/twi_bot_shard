@@ -298,30 +298,45 @@ class GalleryMigrationRepository:
             try:
                 for entry_data in entries:
                     try:
-                        # Ensure extracted_at is set with timezone-aware datetime
-                        if 'extracted_at' not in entry_data or entry_data['extracted_at'] is None:
-                            entry_data['extracted_at'] = datetime.now(timezone.utc)
+                        # Create a copy to avoid modifying the original data
+                        processed_entry = entry_data.copy()
 
-                        # Ensure created_at is timezone-aware if it exists
-                        if 'created_at' in entry_data and entry_data['created_at'] is not None:
-                            created_at = entry_data['created_at']
-                            # If created_at is timezone-naive, make it timezone-aware
-                            if isinstance(created_at, datetime) and created_at.tzinfo is None:
-                                entry_data['created_at'] = created_at.replace(tzinfo=timezone.utc)
+                        # List of ALL possible datetime fields in the model
+                        datetime_fields = [
+                            'created_at', 'extracted_at', 'migrated_at', 
+                            'reviewed_at'
+                        ]
 
-                        # Ensure other datetime fields are timezone-aware if they exist
-                        datetime_fields = ['migrated_at', 'reviewed_at']
+                        # Convert ALL datetime fields to timezone-aware
                         for field in datetime_fields:
-                            if field in entry_data and entry_data[field] is not None:
-                                dt_value = entry_data[field]
-                                if isinstance(dt_value, datetime) and dt_value.tzinfo is None:
-                                    entry_data[field] = dt_value.replace(tzinfo=timezone.utc)
+                            if field in processed_entry and processed_entry[field] is not None:
+                                dt_value = processed_entry[field]
+                                if isinstance(dt_value, datetime):
+                                    if dt_value.tzinfo is None:
+                                        # Convert timezone-naive to timezone-aware (UTC)
+                                        processed_entry[field] = dt_value.replace(tzinfo=timezone.utc)
+                                    else:
+                                        # Already timezone-aware, keep as is
+                                        processed_entry[field] = dt_value
 
-                        migration_entry = GalleryMigration(**entry_data)
+                        # Ensure extracted_at is always set with timezone-aware datetime
+                        if 'extracted_at' not in processed_entry or processed_entry['extracted_at'] is None:
+                            processed_entry['extracted_at'] = datetime.now(timezone.utc)
+
+                        # Additional safety check: scan for any remaining datetime objects
+                        for key, value in processed_entry.items():
+                            if isinstance(value, datetime) and value.tzinfo is None:
+                                self.logger.warning(f"Found timezone-naive datetime in field '{key}', converting to UTC")
+                                processed_entry[key] = value.replace(tzinfo=timezone.utc)
+
+                        migration_entry = GalleryMigration(**processed_entry)
                         session.add(migration_entry)
                         created_count += 1
+
                     except Exception as e:
                         self.logger.error(f"Error creating entry for message {entry_data.get('message_id')}: {e}")
+                        # Log the problematic data for debugging
+                        self.logger.error(f"Problematic entry data: {entry_data}")
                         continue
 
                 await session.commit()
