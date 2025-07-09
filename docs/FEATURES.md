@@ -19,21 +19,23 @@ This document provides a comprehensive list of features and commands available i
 
 ## Gallery & Mementos
 
-Commands for managing image galleries.
+Features for reposting content to designated channels.
 
-### Gallery Commands
+### Repost System
+
+The gallery system uses Discord's context menu functionality to repost content:
+
+| Feature | Description | Usage | Permissions |
+|---------|-------------|-------|------------|
+| **Repost Context Menu** | Right-click on any message to repost it to a designated channel | Right-click message → Apps → "Repost" | Everyone |
+| **Supported Content Types** | Supports images, text, AO3 links, Twitter links, Instagram links, and Discord file attachments | Context menu automatically detects content type | Everyone |
+| **Interactive Channel Selection** | Choose destination channel through dropdown menu | Select channel in repost interface | Everyone |
+
+### Configuration Commands
 
 | Command | Description | Usage | Permissions |
 |---------|-------------|-------|------------|
-| `!gallery` | Adds an image to the gallery channel | `!gallery [image attachment]` | Everyone |
-| `!setGallery` | Sets the channel where gallery images are posted | `!setGallery #channel` | Admin |
-
-### Mementos Commands
-
-| Command | Description | Usage | Permissions |
-|---------|-------------|-------|------------|
-| `!mementos` | Adds an image to the mementos channel | `!mementos [image attachment]` | Everyone |
-| `!setMementos` | Sets the channel where mementos are posted | `!setMementos #channel` | Admin |
+| `/set_repost` | Sets the channel where reposts are sent | `/set_repost channel:#channel` | Admin |
 
 ## Links & Tags
 

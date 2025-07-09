@@ -143,3 +143,6 @@ dmypy.json
 
 # Temporary test files and verification scripts
 temp_tests/
+/doc-updates-summary.md
+/ideas.md
+/tasks.md

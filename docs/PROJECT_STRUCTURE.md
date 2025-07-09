@@ -10,6 +10,7 @@ twi_bot_shard/
 │   ├── creator_links.py   # Creator link management
 │   ├── example_cog.py     # Example cog with best practices
 │   ├── gallery.py         # Image gallery management
+│   ├── interactive_help.py # Interactive help system
 │   ├── links_tags.py      # Link management system
 │   ├── mods.py            # Moderation tools
 │   ├── other.py           # Miscellaneous utility commands
@@ -17,7 +18,7 @@ twi_bot_shard/
 │   ├── patreon_poll.py    # Patreon poll integration
 │   ├── report.py          # Reporting functionality
 │   ├── settings.py        # Bot settings management
-│   ├── stats.py           # Statistics tracking
+│   ├── stats*.py          # Statistics tracking (modular system with multiple files)
 │   ├── summarization.py   # Text summarization features
 │   └── twi.py             # The Wandering Inn specific features
 ├── database/              # Database scripts and schema
@@ -79,14 +80,20 @@ async def setup(bot):
 #### Key Cogs
 
 - **gallery.py**: Manages image galleries with commands for adding images and setting gallery channels
+- **interactive_help.py**: Provides interactive help system for bot commands and features
 - **links_tags.py**: Provides a link management system with tagging functionality
 - **patreon_poll.py**: Integrates with Patreon to fetch and display polls
 - **twi.py**: Contains commands specific to The Wandering Inn, including wiki search and colored text information
 - **mods.py**: Provides moderation tools for server administrators
-- **stats.py**: Tracks and reports on server statistics
+- **stats.py**: Main stats cog that combines all stats functionality through mixins
+  - **stats_commands.py**: Owner commands for data management
+  - **stats_listeners.py**: Real-time event listeners for message tracking
+  - **stats_queries.py**: User-facing query commands for statistics
+  - **stats_tasks.py**: Background tasks for reporting and maintenance
+  - **stats_utils.py**: Utility functions for data processing
+  - **stats_original.py**: Original stats implementation (legacy)
 - **creator_links.py**: Manages links to creator content
 - **report.py**: Handles user reporting functionality
-- **innktober.py**: Features for the Innktober event
 - **summarization.py**: Text summarization capabilities
 
 ### Database Structure
