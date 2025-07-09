@@ -20,7 +20,10 @@ class GalleryMigration(Base):
 
     __tablename__ = "gallery_migration"
 
-    # Original message information (required fields first)
+    # Primary key (must come first)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
+
+    # Original message information (required fields)
     message_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     channel_name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -44,7 +47,6 @@ class GalleryMigration(Base):
     raw_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)  # Original message content
 
     # Fields with defaults (must come last)
-    id: Mapped[Optional[int]] = mapped_column(Integer, primary_key=True, autoincrement=True, default=None)
     is_bot: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     extracted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     migrated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
