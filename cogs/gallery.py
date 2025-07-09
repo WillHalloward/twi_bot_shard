@@ -1,6 +1,11 @@
 import logging
 import mimetypes
 import os
+import asyncio
+import csv
+import io
+from datetime import datetime
+from typing import Literal
 
 import aiohttp
 import discord
@@ -1418,6 +1423,244 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             await interaction.response.send_message(
                 "❌ A database error occurred. Please try again later.", ephemeral=True
             )
+
+    @app_commands.command(name="bulk_analyze_gallery_large")
+    @app_commands.check(app_admin_or_me_check)
+    @handle_interaction_errors
+    @log_command("bulk_analyze_gallery_large")
+    async def bulk_analyze_gallery_large(
+        self, 
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+        after_date: str = None,
+        chunk_size: int = 500
+    ):
+        """
+        Bulk analyze large amounts of gallery embeds with progress tracking and chunked processing.
+
+        Args:
+            interaction: The Discord interaction
+            channel: The channel to analyze
+            after_date: Only analyze messages after this date (YYYY-MM-DD format)
+            chunk_size: Number of messages to process per chunk (default 500, max 1000)
+        """
+        await interaction.response.defer(ephemeral=True)
+
+        if chunk_size > 1000:
+            chunk_size = 1000
+            await interaction.followup.send(
+                "⚠️ Chunk size reduced to 1000 messages to prevent timeout.",
+                ephemeral=True
+            )
+
+        # Parse after_date if provided
+        after = None
+        if after_date:
+            try:
+                after = datetime.strptime(after_date, "%Y-%m-%d")
+            except ValueError:
+                await interaction.followup.send(
+                    "❌ Invalid date format. Please use YYYY-MM-DD format.",
+                    ephemeral=True
+                )
+                return
+
+        # Initialize tracking variables
+        all_embed_data = []
+        total_processed = 0
+        chunk_count = 0
+        start_time = datetime.now()
+
+        try:
+            # Get total message count for progress tracking
+            total_messages = 0
+            async for _ in channel.history(limit=None, after=after):
+                total_messages += 1
+                if total_messages % 1000 == 0:  # Update every 1000 messages counted
+                    try:
+                        await interaction.edit_original_response(
+                            content=f"🔍 Counting messages... Found {total_messages} so far"
+                        )
+                    except:
+                        pass
+
+            await interaction.edit_original_response(
+                content=f"📊 Found {total_messages} total messages. Starting analysis..."
+            )
+
+            # Process messages in chunks
+            current_chunk = []
+            async for message in channel.history(limit=None, after=after):
+                current_chunk.append(message)
+
+                # Process chunk when it reaches the specified size
+                if len(current_chunk) >= chunk_size:
+                    chunk_count += 1
+                    chunk_data = await self._process_message_chunk(current_chunk, chunk_count)
+                    all_embed_data.extend(chunk_data)
+                    total_processed += len(current_chunk)
+
+                    # Update progress
+                    progress_percent = (total_processed / total_messages) * 100
+                    elapsed_time = datetime.now() - start_time
+                    estimated_total = elapsed_time * (total_messages / total_processed)
+                    remaining_time = estimated_total - elapsed_time
+
+                    try:
+                        await interaction.edit_original_response(
+                            content=f"🔄 Processing chunk {chunk_count}...\n"
+                                   f"📈 Progress: {total_processed}/{total_messages} ({progress_percent:.1f}%)\n"
+                                   f"⏱️ Elapsed: {str(elapsed_time).split('.')[0]}\n"
+                                   f"⏳ Estimated remaining: {str(remaining_time).split('.')[0]}\n"
+                                   f"📋 Embeds found: {len(all_embed_data)}"
+                        )
+                    except:
+                        pass
+
+                    current_chunk = []
+
+                    # Brief pause to prevent rate limiting
+                    await asyncio.sleep(0.5)
+
+            # Process remaining messages in the last chunk
+            if current_chunk:
+                chunk_count += 1
+                chunk_data = await self._process_message_chunk(current_chunk, chunk_count)
+                all_embed_data.extend(chunk_data)
+                total_processed += len(current_chunk)
+
+        except Exception as e:
+            self.logger.error(
+                f"Error during large bulk analysis: {e}",
+                extra={
+                    "command": "bulk_analyze_gallery_large",
+                    "user_id": interaction.user.id,
+                    "channel_id": channel.id,
+                },
+            )
+            await interaction.followup.send(
+                f"❌ Error during analysis: {str(e)}\n"
+                f"Processed {total_processed} messages before error.",
+                ephemeral=True
+            )
+            return
+
+        # Generate final report and file
+        await self._generate_analysis_report(
+            interaction, all_embed_data, channel, total_processed, 
+            start_time, after_date, chunk_count
+        )
+
+    async def _process_message_chunk(self, messages, chunk_number):
+        """Process a chunk of messages and extract embed data"""
+        embed_data = []
+
+        for message in messages:
+            if message.embeds:
+                for i, embed in enumerate(message.embeds):
+                    # Extract fields
+                    fields_info = []
+                    if embed.fields:
+                        for field in embed.fields:
+                            fields_info.append({
+                                'name': field.name,
+                                'value': field.value[:100] + "..." if len(field.value) > 100 else field.value,
+                                'inline': field.inline
+                            })
+
+                    embed_info = {
+                        'message_id': message.id,
+                        'embed_index': i,
+                        'chunk_number': chunk_number,
+                        'title': embed.title,
+                        'description': embed.description[:200] + "..." if embed.description and len(embed.description) > 200 else embed.description,
+                        'url': embed.url,
+                        'color': str(embed.color) if embed.color else None,
+                        'image_url': embed.image.url if embed.image else None,
+                        'thumbnail_url': embed.thumbnail.url if embed.thumbnail else None,
+                        'fields_count': len(embed.fields) if embed.fields else 0,
+                        'fields': fields_info,
+                        'author': message.author.name,
+                        'author_id': message.author.id,
+                        'channel_name': message.channel.name,
+                        'channel_id': message.channel.id,
+                        'created_at': message.created_at.isoformat(),
+                        'jump_url': message.jump_url,
+                        'is_bot': message.author.bot,
+                        'has_attachments': len(message.attachments) > 0,
+                        'attachment_count': len(message.attachments)
+                    }
+                    embed_data.append(embed_info)
+
+        return embed_data
+
+    async def _generate_analysis_report(self, interaction, embed_data, channel, total_processed, start_time, after_date, chunk_count):
+        """Generate and send the final analysis report"""
+
+        # Create CSV output
+        output_buffer = io.StringIO()
+        if embed_data:
+            # Flatten fields for CSV
+            flattened_data = []
+            for item in embed_data:
+                flat_item = item.copy()
+                if item['fields']:
+                    fields_str = "; ".join([f"{f['name']}: {f['value']}" for f in item['fields']])
+                    flat_item['fields'] = fields_str
+                else:
+                    flat_item['fields'] = ""
+                flattened_data.append(flat_item)
+
+            fieldnames = flattened_data[0].keys()
+            writer = csv.DictWriter(output_buffer, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(flattened_data)
+
+        output = output_buffer.getvalue()
+
+        # Calculate statistics
+        total_time = datetime.now() - start_time
+        bot_embeds = len([e for e in embed_data if e['is_bot']])
+        manual_embeds = len([e for e in embed_data if not e['is_bot']])
+
+        # Send as file with comprehensive report
+        file = discord.File(
+            io.StringIO(output), 
+            filename=f"large_gallery_analysis_{channel.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        )
+
+        embed_report = discord.Embed(
+            title="📊 Large Gallery Analysis Complete",
+            color=discord.Color.green()
+        )
+        embed_report.add_field(
+            name="📈 Processing Stats",
+            value=f"• Messages processed: {total_processed:,}\n"
+                  f"• Embeds found: {len(embed_data):,}\n"
+                  f"• Chunks processed: {chunk_count}\n"
+                  f"• Total time: {str(total_time).split('.')[0]}",
+            inline=False
+        )
+        embed_report.add_field(
+            name="🤖 Content Breakdown",
+            value=f"• Bot embeds: {bot_embeds:,}\n"
+                  f"• Manual embeds: {manual_embeds:,}\n"
+                  f"• Bot percentage: {(bot_embeds/len(embed_data)*100):.1f}%" if embed_data else "• No embeds found",
+            inline=False
+        )
+        embed_report.add_field(
+            name="⚙️ Parameters",
+            value=f"• Channel: {channel.mention}\n"
+                  f"• Date filter: {after_date or 'None'}\n"
+                  f"• File size: {len(output):,} characters",
+            inline=False
+        )
+
+        await interaction.followup.send(
+            embed=embed_report,
+            file=file,
+            ephemeral=True
+        )
 
 
 async def setup(bot):
