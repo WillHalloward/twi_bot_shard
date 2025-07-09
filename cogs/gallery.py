@@ -29,7 +29,7 @@ from utils.error_handling import handle_interaction_errors
 from utils.decorators import log_command
 from utils.validation import validate_interaction_params, validate_string
 
-ao3_pattern = r"https?://archiveofourown\.org/.*"
+ao3_pattern = r"https?://archiveofourown\.org/\S+"
 twitter_pattern = (
     r"((?:https?://)?(?:www\.|mobile\.)?(?:(?:[fv]x)?twitter|x)\.com/[^/]+/status/\d+)"
 )
@@ -929,9 +929,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
     async def repost_ao3(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
-        logging.error(message.content)
+        self.logger.debug(f"Processing AO3 message: {message.content}")
         url = re.search(ao3_pattern, message.content).group(0)
-        logging.error(url)
+        self.logger.debug(f"Extracted AO3 URL: {url}")
         work = AO3.Work(AO3.utils.workid_from_url(url))
         menu = RepostMenu(
             jump_url=message.jump_url,
