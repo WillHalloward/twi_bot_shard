@@ -302,6 +302,21 @@ class GalleryMigrationRepository:
                         if 'extracted_at' not in entry_data or entry_data['extracted_at'] is None:
                             entry_data['extracted_at'] = datetime.now(timezone.utc)
 
+                        # Ensure created_at is timezone-aware if it exists
+                        if 'created_at' in entry_data and entry_data['created_at'] is not None:
+                            created_at = entry_data['created_at']
+                            # If created_at is timezone-naive, make it timezone-aware
+                            if isinstance(created_at, datetime) and created_at.tzinfo is None:
+                                entry_data['created_at'] = created_at.replace(tzinfo=timezone.utc)
+
+                        # Ensure other datetime fields are timezone-aware if they exist
+                        datetime_fields = ['migrated_at', 'reviewed_at']
+                        for field in datetime_fields:
+                            if field in entry_data and entry_data[field] is not None:
+                                dt_value = entry_data[field]
+                                if isinstance(dt_value, datetime) and dt_value.tzinfo is None:
+                                    entry_data[field] = dt_value.replace(tzinfo=timezone.utc)
+
                         migration_entry = GalleryMigration(**entry_data)
                         session.add(migration_entry)
                         created_count += 1
