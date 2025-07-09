@@ -3,20 +3,19 @@ Repository for gallery migration operations.
 """
 
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable, Awaitable
 from datetime import datetime
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.tables.gallery_migration import GalleryMigration
-from utils.db_service import DatabaseService
 
 
 class GalleryMigrationRepository:
     """Repository for managing gallery migration data."""
 
-    def __init__(self, db_service: DatabaseService):
-        self.db = db_service
+    def __init__(self, session_factory: Callable[[], Awaitable[AsyncSession]]):
+        self.session_factory = session_factory
         self.logger = logging.getLogger(__name__)
 
     async def create_migration_entry(
@@ -44,7 +43,7 @@ class GalleryMigrationRepository:
     ) -> Optional[GalleryMigration]:
         """
         Create a new gallery migration entry.
-        
+
         Args:
             message_id: Discord message ID
             channel_id: Discord channel ID
@@ -66,12 +65,13 @@ class GalleryMigrationRepository:
             needs_manual_review: Whether entry needs manual review
             raw_embed_data: Raw embed data for reference
             raw_content: Original message content
-            
+
         Returns:
             Created GalleryMigration entry or None if failed
         """
         try:
-            async with self.db.get_session() as session:
+            session = await self.session_factory()
+            try:
                 migration_entry = GalleryMigration(
                     message_id=message_id,
                     channel_id=channel_id,
@@ -94,14 +94,16 @@ class GalleryMigrationRepository:
                     raw_embed_data=raw_embed_data,
                     raw_content=raw_content
                 )
-                
+
                 session.add(migration_entry)
                 await session.commit()
                 await session.refresh(migration_entry)
-                
+
                 self.logger.info(f"Created gallery migration entry for message {message_id}")
                 return migration_entry
-                
+            finally:
+                await session.close()
+
         except Exception as e:
             self.logger.error(f"Error creating gallery migration entry: {e}")
             return None
@@ -109,11 +111,14 @@ class GalleryMigrationRepository:
     async def get_by_message_id(self, message_id: int) -> Optional[GalleryMigration]:
         """Get migration entry by message ID."""
         try:
-            async with self.db.get_session() as session:
+            session = await self.session_factory()
+            try:
                 result = await session.execute(
                     select(GalleryMigration).where(GalleryMigration.message_id == message_id)
                 )
                 return result.scalar_one_or_none()
+            finally:
+                await session.close()
         except Exception as e:
             self.logger.error(f"Error getting migration entry by message ID {message_id}: {e}")
             return None
@@ -121,11 +126,14 @@ class GalleryMigrationRepository:
     async def get_all_unmigrated(self) -> List[GalleryMigration]:
         """Get all unmigrated entries."""
         try:
-            async with self.db.get_session() as session:
+            session = await self.session_factory()
+            try:
                 result = await session.execute(
                     select(GalleryMigration).where(GalleryMigration.migrated == False)
                 )
-                return result.scalars().all()
+                return list(result.scalars().all())
+            finally:
+                await session.close()
         except Exception as e:
             self.logger.error(f"Error getting unmigrated entries: {e}")
             return []
@@ -133,14 +141,17 @@ class GalleryMigrationRepository:
     async def get_entries_needing_review(self) -> List[GalleryMigration]:
         """Get entries that need manual review."""
         try:
-            async with self.db.get_session() as session:
+            session = await self.session_factory()
+            try:
                 result = await session.execute(
                     select(GalleryMigration).where(
                         GalleryMigration.needs_manual_review == True,
                         GalleryMigration.reviewed == False
                     )
                 )
-                return result.scalars().all()
+                return list(result.scalars().all())
+            finally:
+                await session.close()
         except Exception as e:
             self.logger.error(f"Error getting entries needing review: {e}")
             return []
@@ -153,7 +164,8 @@ class GalleryMigrationRepository:
     ) -> bool:
         """Update migration status for an entry."""
         try:
-            async with self.db.get_session() as session:
+            session = await self.session_factory()
+            try:
                 await session.execute(
                     update(GalleryMigration)
                     .where(GalleryMigration.message_id == message_id)
@@ -164,6 +176,8 @@ class GalleryMigrationRepository:
                 )
                 await session.commit()
                 return True
+            finally:
+                await session.close()
         except Exception as e:
             self.logger.error(f"Error updating migration status for {message_id}: {e}")
             return False
@@ -177,7 +191,8 @@ class GalleryMigrationRepository:
     ) -> bool:
         """Update review status for an entry."""
         try:
-            async with self.db.get_session() as session:
+            session = await self.session_factory()
+            try:
                 await session.execute(
                     update(GalleryMigration)
                     .where(GalleryMigration.message_id == message_id)
@@ -189,6 +204,8 @@ class GalleryMigrationRepository:
                 )
                 await session.commit()
                 return True
+            finally:
+                await session.close()
         except Exception as e:
             self.logger.error(f"Error updating review status for {message_id}: {e}")
             return False
@@ -196,7 +213,8 @@ class GalleryMigrationRepository:
     async def update_tags(self, message_id: int, tags: List[str]) -> bool:
         """Update tags for an entry."""
         try:
-            async with self.db.get_session() as session:
+            session = await self.session_factory()
+            try:
                 await session.execute(
                     update(GalleryMigration)
                     .where(GalleryMigration.message_id == message_id)
@@ -204,6 +222,8 @@ class GalleryMigrationRepository:
                 )
                 await session.commit()
                 return True
+            finally:
+                await session.close()
         except Exception as e:
             self.logger.error(f"Error updating tags for {message_id}: {e}")
             return False
@@ -211,17 +231,18 @@ class GalleryMigrationRepository:
     async def get_statistics(self) -> Dict[str, Any]:
         """Get migration statistics."""
         try:
-            async with self.db.get_session() as session:
+            session = await self.session_factory()
+            try:
                 # Total entries
                 total_result = await session.execute(select(GalleryMigration))
-                total_entries = len(total_result.scalars().all())
-                
+                total_entries = len(list(total_result.scalars().all()))
+
                 # Migrated entries
                 migrated_result = await session.execute(
                     select(GalleryMigration).where(GalleryMigration.migrated == True)
                 )
-                migrated_entries = len(migrated_result.scalars().all())
-                
+                migrated_entries = len(list(migrated_result.scalars().all()))
+
                 # Entries needing review
                 review_result = await session.execute(
                     select(GalleryMigration).where(
@@ -229,14 +250,14 @@ class GalleryMigrationRepository:
                         GalleryMigration.reviewed == False
                     )
                 )
-                review_entries = len(review_result.scalars().all())
-                
+                review_entries = len(list(review_result.scalars().all()))
+
                 # Bot vs manual posts
                 bot_result = await session.execute(
                     select(GalleryMigration).where(GalleryMigration.is_bot == True)
                 )
-                bot_entries = len(bot_result.scalars().all())
-                
+                bot_entries = len(list(bot_result.scalars().all()))
+
                 return {
                     "total_entries": total_entries,
                     "migrated_entries": migrated_entries,
@@ -246,6 +267,8 @@ class GalleryMigrationRepository:
                     "manual_posts": total_entries - bot_entries,
                     "migration_progress": (migrated_entries / total_entries * 100) if total_entries > 0 else 0
                 }
+            finally:
+                await session.close()
         except Exception as e:
             self.logger.error(f"Error getting migration statistics: {e}")
             return {}
@@ -253,12 +276,15 @@ class GalleryMigrationRepository:
     async def delete_entry(self, message_id: int) -> bool:
         """Delete a migration entry."""
         try:
-            async with self.db.get_session() as session:
+            session = await self.session_factory()
+            try:
                 await session.execute(
                     delete(GalleryMigration).where(GalleryMigration.message_id == message_id)
                 )
                 await session.commit()
                 return True
+            finally:
+                await session.close()
         except Exception as e:
             self.logger.error(f"Error deleting migration entry {message_id}: {e}")
             return False
@@ -267,7 +293,8 @@ class GalleryMigrationRepository:
         """Bulk create migration entries."""
         created_count = 0
         try:
-            async with self.db.get_session() as session:
+            session = await self.session_factory()
+            try:
                 for entry_data in entries:
                     try:
                         migration_entry = GalleryMigration(**entry_data)
@@ -276,11 +303,13 @@ class GalleryMigrationRepository:
                     except Exception as e:
                         self.logger.error(f"Error creating entry for message {entry_data.get('message_id')}: {e}")
                         continue
-                
+
                 await session.commit()
                 self.logger.info(f"Bulk created {created_count} migration entries")
                 return created_count
-                
+            finally:
+                await session.close()
+
         except Exception as e:
             self.logger.error(f"Error in bulk create: {e}")
             return created_count

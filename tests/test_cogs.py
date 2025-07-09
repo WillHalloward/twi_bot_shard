@@ -219,6 +219,15 @@ class TestBot(commands.Bot):
         # Mock guilds list for testing
         self._guilds = []
 
+    async def get_db_session(self):
+        """
+        Get a new SQLAlchemy database session (mock version).
+
+        Returns:
+            MockAsyncSession: A mock async session for testing
+        """
+        return await self.session_maker()
+
     @property
     def latency(self) -> float:
         """Override latency property to return a valid float instead of NaN."""

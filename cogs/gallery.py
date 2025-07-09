@@ -231,7 +231,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         self.creator_links_repo = bot.repo_factory.get_repository(CreatorLink)
 
         # Initialize migration repository and data extractor
-        self.migration_repo = GalleryMigrationRepository(bot.db)
+        self.migration_repo = GalleryMigrationRepository(bot.get_db_session)
         self.data_extractor = GalleryDataExtractor()
 
         # Create context menu after method is defined
