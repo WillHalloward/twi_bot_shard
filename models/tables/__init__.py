@@ -1,5 +1,6 @@
 # Import all table models here
 from models.tables.gallery import GalleryMementos
+from models.tables.gallery_migration import GalleryMigration
 from models.tables.commands import CommandHistory
 from models.tables.messages import Message
 from models.tables.reactions import Reaction
