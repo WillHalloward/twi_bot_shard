@@ -4,7 +4,7 @@ SQLAlchemy model for gallery_migration table.
 
 from sqlalchemy import String, Integer, BigInteger, Text, DateTime, Boolean, JSON
 from sqlalchemy.orm import Mapped, mapped_column
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from models.base import Base
@@ -48,7 +48,7 @@ class GalleryMigration(Base):
 
     # Fields with defaults (must come last)
     is_bot: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    extracted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    extracted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
     migrated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     has_attachments: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     attachment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

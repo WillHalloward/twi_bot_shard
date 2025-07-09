@@ -4,7 +4,7 @@ Repository for gallery migration operations.
 
 import logging
 from typing import List, Optional, Dict, Any, Callable, Awaitable
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,14 +85,15 @@ class GalleryMigrationRepository:
                     author_id=author_id,
                     author_name=author_name,
                     is_bot=is_bot,
-                    created_at=created_at or datetime.utcnow(),
+                    created_at=created_at or datetime.now(timezone.utc),
                     target_forum=target_forum,
                     content_type=content_type,
                     has_attachments=has_attachments,
                     attachment_count=attachment_count,
                     needs_manual_review=needs_manual_review,
                     raw_embed_data=raw_embed_data,
-                    raw_content=raw_content
+                    raw_content=raw_content,
+                    extracted_at=datetime.now(timezone.utc)
                 )
 
                 session.add(migration_entry)
@@ -171,7 +172,7 @@ class GalleryMigrationRepository:
                     .where(GalleryMigration.message_id == message_id)
                     .values(
                         migrated=migrated,
-                        migrated_at=migrated_at or datetime.utcnow()
+                        migrated_at=migrated_at or datetime.now(timezone.utc)
                     )
                 )
                 await session.commit()
@@ -199,7 +200,7 @@ class GalleryMigrationRepository:
                     .values(
                         reviewed=reviewed,
                         reviewed_by=reviewed_by,
-                        reviewed_at=reviewed_at or datetime.utcnow()
+                        reviewed_at=reviewed_at or datetime.now(timezone.utc)
                     )
                 )
                 await session.commit()
@@ -297,6 +298,10 @@ class GalleryMigrationRepository:
             try:
                 for entry_data in entries:
                     try:
+                        # Ensure extracted_at is set with timezone-aware datetime
+                        if 'extracted_at' not in entry_data or entry_data['extracted_at'] is None:
+                            entry_data['extracted_at'] = datetime.now(timezone.utc)
+
                         migration_entry = GalleryMigration(**entry_data)
                         session.add(migration_entry)
                         created_count += 1
