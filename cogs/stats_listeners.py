@@ -343,6 +343,7 @@ class StatsListenersMixin:
     async def thread_created(self, thread: discord.Thread) -> None:
         """
         Listen for thread creation and save new threads to the database.
+        Also ping a role in new threads (except in excluded channels).
 
         Args:
             thread: The newly created thread
@@ -357,6 +358,12 @@ class StatsListenersMixin:
                 thread.archived,
                 thread.locked,
             )
+
+            # Add the missing role pinging functionality
+            # Ping role 1153075640535367721 in all new threads except those in channel 1190045713778868335
+            if thread.parent_id != 1190045713778868335:
+                await thread.send("<@&1153075640535367721>")
+
         except Exception as e:
             logging.error(f"Error saving new thread: {e}")
 
