@@ -17,11 +17,14 @@ from utils.exceptions import (
     ValidationError,
     ResourceNotFoundError,
 )
+from utils.webhook_manager import WebhookManager
 
 
 class ModCogs(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.logger = logging.getLogger(__name__)
+        self.webhook_manager = WebhookManager(bot.http_client)
 
     @app_commands.command(
         name="reset", description="Resets the cooldown of a command for a user"
@@ -168,33 +171,33 @@ class ModCogs(commands.Cog):
             and not message.author.bot
             and not isinstance(message.channel, discord.channel.DMChannel)
         ):
-            # Use the bot's shared HTTP client session for connection pooling
-            session = await self.bot.http_client.get_session()
-            webhook = Webhook.from_url(config.webhook, session=session)
             for attachment in message.attachments:
                 try:
-                    embed = discord.Embed(
-                        title="New attachment",
-                        url=message.jump_url,
-                        description=f"content: {message.content}",
-                    )
-                    file = await attachment.to_file(spoiler=attachment.is_spoiler())
-                    embed.set_image(url=f"attachment://{attachment.filename}")
-                    embed.add_field(
-                        name="User", value=message.author.mention, inline=True
-                    )
-                    embed.add_field(
-                        name="Channel", value=message.channel.mention, inline=True
-                    )
-                    if message.author.avatar is not None:
-                        embed.set_thumbnail(url=message.author.display_avatar.url)
-                    await webhook.send(
-                        file=file,
-                        embed=embed,
-                        allowed_mentions=discord.AllowedMentions(
-                            everyone=False, roles=False, users=False
-                        ),
-                    )
+                    async with self.webhook_manager.get_webhook(config.webhook) as webhook:
+                        embed = discord.Embed(
+                            title="New attachment",
+                            url=message.jump_url,
+                            description=f"content: {message.content}",
+                        )
+                        file = await attachment.to_file(spoiler=attachment.is_spoiler())
+                        embed.set_image(url=f"attachment://{attachment.filename}")
+                        embed.add_field(
+                            name="User", value=message.author.mention, inline=True
+                        )
+                        embed.add_field(
+                            name="Channel", value=message.channel.mention, inline=True
+                        )
+                        if message.author.avatar is not None:
+                            embed.set_thumbnail(url=message.author.display_avatar.url)
+
+                        await webhook.send(
+                            file=file,
+                            embed=embed,
+                            allowed_mentions=discord.AllowedMentions(
+                                everyone=False, roles=False, users=False
+                            ),
+                        )
+
                 except Exception as e:
                     # Use standardized error logging with context
                     error = ExternalServiceError(f"Failed to log attachment: {str(e)}")
@@ -214,32 +217,25 @@ class ModCogs(commands.Cog):
             isinstance(message.channel, discord.channel.DMChannel)
             and not message.author.bot
         ):
-            # Use the bot's shared HTTP client session for connection pooling
-            session = await self.bot.http_client.get_session()
-            webhook = discord.Webhook.from_url(
-                config.webhook_testing_log, session=session
-            )
             if message.attachments:
                 for attachment in message.attachments:
                     try:
-                        embed = discord.Embed(
-                            title="New attachment",
-                            description=f"content: {message.content}",
-                        )
-                        file = await attachment.to_file(spoiler=attachment.is_spoiler())
-                        embed.set_image(url=f"attachment://{attachment.filename}")
-                        embed.add_field(
-                            name="User", value=message.author.mention, inline=True
-                        )
-                        embed.add_field(
-                            name="Username", value=message.author.name, inline=True
-                        )
-                        await webhook.send(file=file, embed=embed)
+                        async with self.webhook_manager.get_webhook(config.webhook_testing_log) as webhook:
+                            embed = discord.Embed(
+                                title="New attachment",
+                                description=f"content: {message.content}",
+                            )
+                            file = await attachment.to_file(spoiler=attachment.is_spoiler())
+                            embed.set_image(url=f"attachment://{attachment.filename}")
+                            embed.add_field(
+                                name="User", value=message.author.mention, inline=True
+                            )
+                            embed.add_field(
+                                name="Username", value=message.author.name, inline=True
+                            )
+                            await webhook.send(file=file, embed=embed)
                     except Exception as e:
-                        # Use standardized error logging with context
-                        error = ExternalServiceError(
-                            f"Failed to log DM attachment: {str(e)}"
-                        )
+                        error = ExternalServiceError(f"Failed to log DM attachment: {str(e)}")
                         log_error(
                             error=error,
                             command_name="dm_watch",
@@ -249,24 +245,24 @@ class ModCogs(commands.Cog):
                         )
             else:
                 try:
-                    embed = discord.Embed(
-                        title="New message", description=f"content: {message.content}"
-                    )
-                    embed.add_field(
-                        name="sender", value=message.author.mention, inline=True
-                    )
-                    embed.add_field(
-                        name="Username", value=message.author.name, inline=True
-                    )
-                    if message.channel.recipient:
-                        embed.add_field(
-                            name="Recipient",
-                            value=message.channel.recipient.mention,
-                            inline=True,
+                    async with self.webhook_manager.get_webhook(config.webhook_testing_log) as webhook:
+                        embed = discord.Embed(
+                            title="New message", description=f"content: {message.content}"
                         )
-                    await webhook.send(embed=embed)
+                        embed.add_field(
+                            name="sender", value=message.author.mention, inline=True
+                        )
+                        embed.add_field(
+                            name="Username", value=message.author.name, inline=True
+                        )
+                        if message.channel.recipient:
+                            embed.add_field(
+                                name="Recipient",
+                                value=message.channel.recipient.mention,
+                                inline=True,
+                            )
+                        await webhook.send(embed=embed)
                 except Exception as e:
-                    # Use standardized error logging with context
                     error = ExternalServiceError(f"Failed to log DM message: {str(e)}")
                     log_error(
                         error=error,
@@ -288,18 +284,16 @@ class ModCogs(commands.Cog):
                 message.content,
             ):
                 try:
-                    # Use the bot's shared HTTP client session for connection pooling
-                    session = await self.bot.http_client.get_session()
-                    webhook = discord.Webhook.from_url(config.webhook, session=session)
-                    await webhook.send(
-                        f"Link detected: {message.content[0:1600]}\n"
-                        f"User: {message.author.name} {message.author.id}\n"
-                        f"Channel: {message.channel.mention}\n"
-                        f"Jump Url: {message.jump_url}",
-                        allowed_mentions=discord.AllowedMentions(
-                            everyone=False, roles=False, users=False
-                        ),
-                    )
+                    async with self.webhook_manager.get_webhook(config.webhook) as webhook:
+                        await webhook.send(
+                            f"Link detected: {message.content[0:1600]}\n"
+                            f"User: {message.author.name} {message.author.id}\n"
+                            f"Channel: {message.channel.mention}\n"
+                            f"Jump Url: {message.jump_url}",
+                            allowed_mentions=discord.AllowedMentions(
+                                everyone=False, roles=False, users=False
+                            ),
+                        )
                 except Exception as e:
                     # Use standardized error logging with context
                     error = ExternalServiceError(

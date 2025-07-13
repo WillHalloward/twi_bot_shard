@@ -762,7 +762,10 @@ class Cognita(commands.Bot):
             await asyncio.sleep(10)
 
     async def periodic_cleanup(self):
-        """Perform periodic cleanup to prevent memory accumulation."""
+        """
+        Perform periodic cleanup tasks to maintain bot health.
+        Now uses a smarter approach that doesn't interfere with active operations.
+        """
         while not self.is_closed():
             await asyncio.sleep(1800)  # Every 30 minutes
 
@@ -772,12 +775,20 @@ class Cognita(commands.Bot):
                 collected = gc.collect()
                 self.logger.info(f"Periodic cleanup: collected {collected} objects")
 
-                # Recreate HTTP session if needed to clear accumulated connections
+                # Only recreate the shared session if it's been idle
+                # The webhook operations now use fresh sessions, so this won't cause conflicts
                 if hasattr(self.http_client, '_session') and self.http_client._session:
-                    old_session = self.http_client._session
-                    self.http_client._session = None
-                    await old_session.close()
-                    self.logger.info("HTTP session recreated for cleanup")
+                    # Check if the session has any active connections
+                    connector = self.http_client._session.connector
+                    if connector and hasattr(connector, '_conns'):
+                        active_connections = sum(len(conns) for conns in connector._conns.values())
+                        if active_connections == 0:  # Only recreate if no active connections
+                            old_session = self.http_client._session
+                            self.http_client._session = None
+                            await old_session.close()
+                            self.logger.info("HTTP session recreated for cleanup (no active connections)")
+                        else:
+                            self.logger.debug(f"Skipping session recreation: {active_connections} active connections")
 
                 # Log current resource usage after cleanup
                 if hasattr(self, "resource_monitor"):

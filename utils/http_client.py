@@ -331,6 +331,83 @@ class HTTPClient:
                     )
         return self._session
 
+    async def get_fresh_session(self) -> ClientSession:
+        """
+        Get a fresh ClientSession for operations that need guaranteed availability.
+        This creates a new session each time to avoid race conditions with cleanup.
+
+        Returns:
+            A new aiohttp ClientSession that the caller is responsible for closing.
+        """
+        # Create trace config for request timing
+        trace_config = TraceConfig()
+
+        async def on_request_start(session, trace_config_ctx, params):
+            trace_config_ctx.start = time.time()
+
+        async def on_request_end(session, trace_config_ctx, params):
+            if hasattr(trace_config_ctx, "start"):
+                duration = time.time() - trace_config_ctx.start
+                self._stats["request_times"].append(duration)
+                if len(self._stats["request_times"]) > 1000:
+                    self._stats["request_times"] = self._stats["request_times"][-1000:]
+
+        trace_config.on_request_start.append(on_request_start)
+        trace_config.on_request_end.append(on_request_end)
+
+        connector = aiohttp.TCPConnector(
+            limit=self.max_connections,
+            limit_per_host=self.max_keepalive_connections,
+            ttl_dns_cache=300,
+            enable_cleanup_closed=True,
+            keepalive_timeout=self.keepalive_timeout,
+        )
+        timeout = ClientTimeout(total=self.timeout)
+
+        return ClientSession(
+            connector=connector,
+            timeout=timeout,
+            raise_for_status=False,
+            trace_configs=[trace_config],
+        )
+
+    async def get_session_with_retry(self, max_retries: int = 1) -> ClientSession:
+        """
+        Get session with automatic retry on session closed errors.
+
+        This method provides a simple interface for other parts of the codebase
+        that need resilience against session closure issues without the full
+        complexity of the webhook manager.
+
+        Args:
+            max_retries: Maximum number of retries on session errors
+
+        Returns:
+            A ClientSession that should work properly
+
+        Raises:
+            Exception: If all retry attempts fail
+        """
+        for attempt in range(max_retries + 1):
+            try:
+                session = await self.get_session()
+                # Test that the session is usable
+                if session and not session.closed:
+                    return session
+                else:
+                    raise aiohttp.ClientError("Session is closed or None")
+            except Exception as e:
+                error_msg = str(e).lower()
+                if ("session is closed" in error_msg or "cannot reuse" in error_msg) and attempt < max_retries:
+                    self.logger.warning(
+                        f"Session error on attempt {attempt + 1}/{max_retries + 1}: {e}, retrying..."
+                    )
+                    await asyncio.sleep(0.1 * (attempt + 1))  # Brief backoff
+                    continue
+                else:
+                    # Either not a session error, or we've exhausted retries
+                    raise
+
     async def close(self) -> None:
         """
         Close the shared ClientSession.

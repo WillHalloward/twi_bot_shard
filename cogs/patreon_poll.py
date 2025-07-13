@@ -124,7 +124,7 @@ async def get_poll(bot):
             try:
                 # Fetch page data
                 async with TimingContext(logger, "fetch_page_data") as timing_ctx:
-                    session = await bot.http_client.get_session()
+                    session = await bot.http_client.get_session_with_retry()
                     html = await fetch(session, url)
                     timing_ctx.add_info(page_number=stats["pages_processed"], url=url)
 
@@ -175,7 +175,7 @@ async def get_poll(bot):
                                 async with TimingContext(
                                     logger, "fetch_poll_details"
                                 ) as timing_ctx:
-                                    session = await bot.http_client.get_session()
+                                    session = await bot.http_client.get_session_with_retry()
                                     html = await fetch(
                                         session,
                                         posts["relationships"]["poll"]["links"][
@@ -370,7 +370,7 @@ async def check_and_update_expired_polls(bot, polls):
 
             try:
                 # Fetch latest poll data from Patreon API to get final vote counts
-                session = await bot.http_client.get_session()
+                session = await bot.http_client.get_session_with_retry()
                 html = await fetch(session, poll["api_url"])
                 json_data = json.loads(html)
 
@@ -481,7 +481,7 @@ async def p_poll(polls, interaction, bot):
                 logger.info("fetching_live_poll_data", poll_id=poll["id"])
                 try:
                     # Use the bot's shared HTTP client session for connection pooling
-                    session = await bot.http_client.get_session()
+                    session = await bot.http_client.get_session_with_retry()
                     html = await fetch(session, poll["api_url"])
                     json_data = json.loads(html)
 
@@ -780,7 +780,7 @@ class PollCog(commands.Cog, name="Poll"):
             # Check for active polls first
             async with TimingContext(self.logger, "fetch_active_polls") as timing_ctx:
                 active_polls = await self.bot.db.fetch(
-                    "SELECT * FROM poll WHERE expire_date > now()"
+                    "SELECT * FROM poll WHERE expire_date > now() ORDER BY index_serial DESC LIMIT 1"
                 )
                 timing_ctx.add_info(active_polls_count=len(active_polls))
 

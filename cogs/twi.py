@@ -316,7 +316,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
 
             # Use the bot's shared HTTP client session for connection pooling
             try:
-                session = await self.bot.http_client.get_session()
+                session = await self.bot.http_client.get_session_with_retry()
             except Exception as e:
                 logging.error(
                     f"TWI WIKI ERROR: Failed to get HTTP session for user {interaction.user.id}: {e}"
