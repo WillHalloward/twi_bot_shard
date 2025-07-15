@@ -2476,7 +2476,6 @@ class OtherCogs(commands.Cog, name="Other"):
             # Group roles by category and build embed fields
             try:
                 available_roles = 0
-                unavailable_roles = 0
 
                 for key, group in groupby(
                     roles, key=lambda k: k["category"] or "Uncategorized"
@@ -2490,23 +2489,8 @@ class OtherCogs(commands.Cog, name="Other"):
                             role = interaction.guild.get_role(row["id"])
                             if role:
                                 # Check if user meets requirements
-                                required_roles = row.get("required_roles")
-                                can_assign = True
 
-                                if required_roles:
-                                    can_assign = any(
-                                        req_role in user_roles
-                                        for req_role in required_roles
-                                    )
-
-                                if can_assign:
-                                    role_indicator = "✅"
-                                    available_roles += 1
-                                else:
-                                    role_indicator = "🔒"
-                                    unavailable_roles += 1
-
-                                temp_str = f"{role_indicator} {role.mention}\n"
+                                temp_str = f"{role.mention}\n"
                                 role_count += 1
 
                                 # Check if adding this role would exceed field limit
@@ -2548,16 +2532,6 @@ class OtherCogs(commands.Cog, name="Other"):
                         )
 
                 # Add summary information
-                summary_text = f"**Available:** {available_roles} roles\n"
-                if unavailable_roles > 0:
-                    summary_text += f"**Locked:** {unavailable_roles} roles\n"
-                summary_text += f"**Total:** {len(roles)} roles"
-
-                embed.add_field(name="📊 Summary", value=summary_text, inline=True)
-
-                # Add legend
-                legend_text = "✅ Available to you\n🔒 Requires other roles"
-                embed.add_field(name="🔑 Legend", value=legend_text, inline=True)
 
             except Exception as e:
                 logging.error(
