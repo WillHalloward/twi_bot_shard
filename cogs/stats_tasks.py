@@ -51,10 +51,13 @@ class StatsTasksMixin:
                     m.channel_id,
                     m.channel_name,
                     COUNT(*) as message_count,
-                    c.category_id,
-                    cat.name as category_name,
+                    -- For threads, get category from parent channel; for regular channels, get from channel itself
+                    COALESCE(parent_c.category_id, c.category_id) as category_id,
+                    COALESCE(parent_cat.name, cat.name) as category_name,
                     t.parent_id,
                     t.name as thread_name,
+                    -- For threads, get parent channel name; for regular channels, use channel name
+                    COALESCE(parent_c.name, m.channel_name) as parent_channel_name,
                     CASE 
                         WHEN t.id IS NOT NULL THEN 'thread'
                         ELSE 'channel'
@@ -63,11 +66,18 @@ class StatsTasksMixin:
                 LEFT JOIN channels c ON m.channel_id = c.id
                 LEFT JOIN categories cat ON c.category_id = cat.id
                 LEFT JOIN threads t ON m.channel_id = t.id
+                -- Join parent channel for threads
+                LEFT JOIN channels parent_c ON t.parent_id = parent_c.id
+                LEFT JOIN categories parent_cat ON parent_c.category_id = parent_cat.id
                 WHERE m.created_at >= NOW() - INTERVAL '1 DAY'
                 AND m.server_id = 346842016480755724
                 AND m.is_bot = FALSE
                 AND m.deleted = FALSE
-                GROUP BY m.channel_id, m.channel_name, c.category_id, cat.name, t.parent_id, t.name, t.id
+                GROUP BY m.channel_id, m.channel_name, 
+                         COALESCE(parent_c.category_id, c.category_id),
+                         COALESCE(parent_cat.name, cat.name),
+                         t.parent_id, t.name, t.id,
+                         COALESCE(parent_c.name, m.channel_name)
             )
             SELECT 
                 COALESCE(category_name, 'Uncategorized') as category,
@@ -75,6 +85,7 @@ class StatsTasksMixin:
                 thread_name,
                 message_count,
                 channel_type,
+                parent_channel_name,
                 COALESCE(parent_id, channel_id) as sort_parent
             FROM message_stats
             ORDER BY 
@@ -110,6 +121,7 @@ class StatsTasksMixin:
                 thread_name = result['thread_name']
                 count = result['message_count']
                 channel_type = result['channel_type']
+                parent_channel_name = result['parent_channel_name']
 
                 max_count = max(max_count, count)
 
@@ -119,22 +131,17 @@ class StatsTasksMixin:
                 category_data[category]['total'] += count
 
                 if channel_type == 'thread':
-                    # Find parent channel in the same category
-                    parent_found = False
-                    for ch_name, ch_data in category_data[category]['channels'].items():
-                        if ch_data.get('channel_id') == result['sort_parent']:
-                            if 'threads' not in ch_data:
-                                ch_data['threads'] = {}
-                            ch_data['threads'][thread_name] = count
-                            parent_found = True
-                            break
+                    # Use parent_channel_name to find the correct parent channel
+                    if parent_channel_name not in category_data[category]['channels']:
+                        # Create parent channel entry if it doesn't exist
+                        category_data[category]['channels'][parent_channel_name] = {'count': 0, 'threads': {}}
 
-                    if not parent_found:
-                        # Create placeholder for parent channel if not found
-                        if channel_name not in category_data[category]['channels']:
-                            category_data[category]['channels'][channel_name] = {'count': 0, 'threads': {}}
-                        category_data[category]['channels'][channel_name]['threads'][thread_name] = count
+                    # Add thread to parent channel
+                    if 'threads' not in category_data[category]['channels'][parent_channel_name]:
+                        category_data[category]['channels'][parent_channel_name]['threads'] = {}
+                    category_data[category]['channels'][parent_channel_name]['threads'][thread_name] = count
                 else:
+                    # Regular channel
                     if channel_name not in category_data[category]['channels']:
                         category_data[category]['channels'][channel_name] = {'count': count}
                     else:
