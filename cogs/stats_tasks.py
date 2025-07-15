@@ -67,7 +67,7 @@ class StatsTasksMixin:
                 AND m.server_id = 346842016480755724
                 AND m.is_bot = FALSE
                 AND m.deleted = FALSE
-                GROUP BY m.channel_id, m.channel_name, c.category_id, cat.name, t.parent_id, t.name
+                GROUP BY m.channel_id, m.channel_name, c.category_id, cat.name, t.parent_id, t.name, t.id
             )
             SELECT 
                 COALESCE(category_name, 'Uncategorized') as category,
