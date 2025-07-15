@@ -43,13 +43,45 @@ class StatsTasksMixin:
         except Exception as e:
             logging.error(f"Failed to refresh materialized views: {e}")
 
-        # Query the materialized view instead of the raw tables
+        # Query with hierarchical structure: category -> channel -> thread
         messages_result = await self.bot.db.fetch(
             """         
-            SELECT total, channel_name as "Channel"
-            FROM daily_message_stats
-            WHERE server_id = 346842016480755724
-            ORDER BY total DESC
+            WITH message_stats AS (
+                SELECT 
+                    m.channel_id,
+                    m.channel_name,
+                    COUNT(*) as message_count,
+                    c.category_id,
+                    cat.name as category_name,
+                    t.parent_id,
+                    t.name as thread_name,
+                    CASE 
+                        WHEN t.id IS NOT NULL THEN 'thread'
+                        ELSE 'channel'
+                    END as channel_type
+                FROM messages m
+                LEFT JOIN channels c ON m.channel_id = c.id
+                LEFT JOIN categories cat ON c.category_id = cat.id
+                LEFT JOIN threads t ON m.channel_id = t.id
+                WHERE m.created_at >= NOW() - INTERVAL '1 DAY'
+                AND m.server_id = 346842016480755724
+                AND m.is_bot = FALSE
+                AND m.deleted = FALSE
+                GROUP BY m.channel_id, m.channel_name, c.category_id, cat.name, t.parent_id, t.name
+            )
+            SELECT 
+                COALESCE(category_name, 'Uncategorized') as category,
+                channel_name,
+                thread_name,
+                message_count,
+                channel_type,
+                COALESCE(parent_id, channel_id) as sort_parent
+            FROM message_stats
+            ORDER BY 
+                COALESCE(category_name, 'Uncategorized'),
+                COALESCE(parent_id, channel_id),
+                CASE WHEN channel_type = 'thread' THEN 1 ELSE 0 END,
+                message_count DESC
             """
         )
 
@@ -67,15 +99,81 @@ class StatsTasksMixin:
                 logging.error("I couldn't find the owner")
         else:
             logging.debug(f"Found results {messages_result}")
-            length = len(str(messages_result[0]["total"])) + 1
-            message += "==== Stats last 24 hours ====\n"
-            message += "==== Messages stats ====\n"
-            logging.debug(f"Build message {message}")
+
+            # Calculate category totals and organize data
+            category_data = {}
+            max_count = 0
+
             for result in messages_result:
+                category = result['category']
+                channel_name = result['channel_name']
+                thread_name = result['thread_name']
+                count = result['message_count']
+                channel_type = result['channel_type']
+
+                max_count = max(max_count, count)
+
+                if category not in category_data:
+                    category_data[category] = {'total': 0, 'channels': {}}
+
+                category_data[category]['total'] += count
+
+                if channel_type == 'thread':
+                    # Find parent channel in the same category
+                    parent_found = False
+                    for ch_name, ch_data in category_data[category]['channels'].items():
+                        if ch_data.get('channel_id') == result['sort_parent']:
+                            if 'threads' not in ch_data:
+                                ch_data['threads'] = {}
+                            ch_data['threads'][thread_name] = count
+                            parent_found = True
+                            break
+
+                    if not parent_found:
+                        # Create placeholder for parent channel if not found
+                        if channel_name not in category_data[category]['channels']:
+                            category_data[category]['channels'][channel_name] = {'count': 0, 'threads': {}}
+                        category_data[category]['channels'][channel_name]['threads'][thread_name] = count
+                else:
+                    if channel_name not in category_data[category]['channels']:
+                        category_data[category]['channels'][channel_name] = {'count': count}
+                    else:
+                        category_data[category]['channels'][channel_name]['count'] = count
+
+            # Calculate formatting width
+            length = len(str(max(max_count, max(cat_data['total'] for cat_data in category_data.values())))) + 1
+
+            message += "==== Stats last 24 hours ====\n"
+            message += "==== Messages stats ====\n\n"
+
+            # Sort categories by total message count
+            sorted_categories = sorted(category_data.items(), key=lambda x: x[1]['total'], reverse=True)
+
+            for category, cat_data in sorted_categories:
                 try:
-                    message += f"{result['total']:<{length}}:: {result['Channel']}\n"
+                    # Category header with emoji
+                    emoji = "📁" if category != "Uncategorized" else "📂"
+                    message += f"{emoji} {category} ({cat_data['total']:,} messages)\n"
+
+                    # Sort channels by message count
+                    sorted_channels = sorted(cat_data['channels'].items(), key=lambda x: x[1].get('count', 0), reverse=True)
+
+                    for channel_name, channel_data in sorted_channels:
+                        channel_count = channel_data.get('count', 0)
+                        if channel_count > 0:
+                            message += f"    #{channel_name:<25} {channel_count:>{length-4}}\n"
+
+                        # Add threads if they exist
+                        if 'threads' in channel_data:
+                            sorted_threads = sorted(channel_data['threads'].items(), key=lambda x: x[1], reverse=True)
+                            for thread_name, thread_count in sorted_threads:
+                                message += f"        🧵 {thread_name:<21} {thread_count:>{length-8}}\n"
+
+                    message += "\n"  # Add spacing between categories
+
                 except Exception as e:
                     logging.error(f"{type(e).__name__} - {e}")
+
             logging.debug("requesting leave/join stats")
 
         # Query the join_leave table directly for more reliable results
