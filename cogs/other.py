@@ -1094,21 +1094,22 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     @commands.is_owner()
     @handle_interaction_errors
-    async def say(self, interaction: discord.Interaction, say: str) -> None:
+    async def say(self, interaction: discord.Interaction, say: str, channel: discord.TextChannel = None) -> None:
         """
-        Make the bot repeat a message in the current channel.
+        Make the bot repeat a message in the current channel or a specified channel.
 
         This owner-only command makes the bot send a message with the specified content
-        in the current channel. Includes comprehensive security checks, content validation,
-        and detailed logging for audit purposes.
+        in the current channel (if no channel is specified) or in the specified channel.
+        Includes comprehensive security checks, content validation, and detailed logging for audit purposes.
 
         Args:
             interaction: The Discord interaction object
             say: The message content to repeat
+            channel: Optional channel to send the message to (defaults to current channel)
 
         Raises:
-            ValidationError: If message content is invalid or contains prohibited content
-            PermissionError: If user lacks required permissions
+            ValidationError: If message content or channel is invalid or contains prohibited content
+            PermissionError: If user lacks required permissions or bot cannot access channel
             ExternalServiceError: If Discord API operations fail
         """
         try:
@@ -1117,6 +1118,9 @@ class OtherCogs(commands.Cog, name="Other"):
                 raise ValidationError(message="❌ Message content cannot be empty")
 
             say = say.strip()
+
+            # Determine target channel (use provided channel or current channel)
+            target_channel = channel if channel else interaction.channel
 
             # Content length validation
             if len(say) > 2000:
@@ -1155,52 +1159,122 @@ class OtherCogs(commands.Cog, name="Other"):
                     message="❌ Too many line breaks in message (maximum 20)"
                 )
 
+            # Channel validation (only if a specific channel was provided)
+            if channel:
+                if not isinstance(channel, discord.TextChannel):
+                    raise ValidationError(message="❌ Target must be a text channel")
+
+                # Cross-guild channel validation
+                if interaction.guild and channel.guild != interaction.guild:
+                    logging.warning(
+                        f"OTHER SAY SECURITY: Cross-guild channel access attempted by user {interaction.user.id}: source guild {interaction.guild.id}, target guild {channel.guild.id}"
+                    )
+                    raise PermissionError(
+                        message="❌ Cannot send messages to channels in other servers"
+                    )
+
             # Log the command usage for security audit
-            logging.info(
-                f"OTHER SAY: Say command used by owner {interaction.user.id} ({interaction.user.name}) in channel {interaction.channel.id} ({'DM' if isinstance(interaction.channel, discord.DMChannel) else interaction.channel.name})"
-            )
+            if channel:
+                logging.info(
+                    f"OTHER SAY: Say command used by owner {interaction.user.id} ({interaction.user.name}) targeting channel {target_channel.id} ({target_channel.name}) in guild {target_channel.guild.id if target_channel.guild else 'DM'}"
+                )
+            else:
+                logging.info(
+                    f"OTHER SAY: Say command used by owner {interaction.user.id} ({interaction.user.name}) in channel {interaction.channel.id} ({'DM' if isinstance(interaction.channel, discord.DMChannel) else interaction.channel.name})"
+                )
             logging.info(
                 f"OTHER SAY CONTENT: '{say[:200]}{'...' if len(say) > 200 else ''}'"
             )
 
-            # Validate channel permissions
-            if interaction.guild:
-                bot_member = interaction.guild.get_member(interaction.client.user.id)
+            # Validate bot permissions in target channel
+            if target_channel.guild:
+                bot_member = target_channel.guild.get_member(interaction.client.user.id)
                 if not bot_member:
-                    raise PermissionError(message="❌ Bot member not found in guild")
+                    raise PermissionError(
+                        message="❌ Bot is not a member of the target channel's server" if channel else "❌ Bot member not found in guild"
+                    )
 
-                channel_perms = interaction.channel.permissions_for(bot_member)
+                channel_perms = target_channel.permissions_for(bot_member)
                 if not channel_perms.send_messages:
                     raise PermissionError(
-                        message="❌ Bot lacks permission to send messages in this channel"
+                        message=f"❌ Bot lacks permission to send messages in {target_channel.mention}" if channel else "❌ Bot lacks permission to send messages in this channel"
+                    )
+
+                if channel and not channel_perms.view_channel:
+                    raise PermissionError(
+                        message=f"❌ Bot cannot view the target channel {target_channel.mention}"
                     )
 
                 if not channel_perms.embed_links and any(
                     word in say.lower() for word in ["http", "www", ".com", ".org"]
                 ):
                     logging.warning(
-                        f"OTHER SAY WARNING: Bot lacks embed permissions but message contains links"
+                        f"OTHER SAY WARNING: Bot lacks embed permissions in target channel but message contains links" if channel else f"OTHER SAY WARNING: Bot lacks embed permissions but message contains links"
                     )
 
-            # Send confirmation to user (ephemeral)
-            await interaction.response.send_message(
-                f"✅ **Message Sent Successfully**\n**Channel:** {interaction.channel.mention if hasattr(interaction.channel, 'mention') else 'DM'}\n**Length:** {len(say)} characters",
-                ephemeral=True,
-            )
+            # Additional channel-specific checks (only if a specific channel was provided)
+            if channel:
+                try:
+                    # Check if channel is accessible
+                    (
+                        await target_channel.fetch_message(target_channel.last_message_id)
+                        if target_channel.last_message_id
+                        else None
+                    )
+                except discord.NotFound:
+                    # Channel exists but no messages, that's fine
+                    pass
+                except discord.Forbidden:
+                    raise PermissionError(
+                        message=f"❌ Bot lacks access to read {target_channel.mention}"
+                    )
+                except Exception as e:
+                    logging.warning(
+                        f"OTHER SAY WARNING: Could not verify channel access for {target_channel.id}: {e}"
+                    )
 
-            # Send the actual message
+            # Send the actual message to target channel first
             try:
-                sent_message = await interaction.channel.send(say)
-                logging.info(
-                    f"OTHER SAY SUCCESS: Message sent successfully with ID {sent_message.id}"
-                )
+                sent_message = await target_channel.send(say)
+                if channel:
+                    logging.info(
+                        f"OTHER SAY SUCCESS: Message sent successfully to channel {target_channel.id} with message ID {sent_message.id}"
+                    )
+                else:
+                    logging.info(
+                        f"OTHER SAY SUCCESS: Message sent successfully with ID {sent_message.id}"
+                    )
+
+                # Send confirmation to user (ephemeral) after successful send
+                # Truncate message content for display if too long
+                display_message = say if len(say) <= 100 else say[:100] + "..."
+
+                if channel:
+                    # Include jump URL when a specific channel was provided
+                    jump_url = f"https://discord.com/channels/{target_channel.guild.id if target_channel.guild else '@me'}/{target_channel.id}/{sent_message.id}"
+                    await interaction.response.send_message(
+                        f"✅ **Message Sent Successfully**\n**Target Channel:** {target_channel.mention}\n**Server:** {target_channel.guild.name if target_channel.guild else 'DM'}\n**Message:** {display_message}\n**Jump to Message:** {jump_url}",
+                        ephemeral=True,
+                    )
+                else:
+                    await interaction.response.send_message(
+                        f"✅ **Message Sent Successfully**\n**Channel:** {target_channel.mention if hasattr(target_channel, 'mention') else 'DM'}\n**Message:** {display_message}",
+                        ephemeral=True,
+                    )
+
             except discord.HTTPException as e:
-                error_msg = (
-                    f"❌ **Failed to Send Message**\nDiscord API Error: {str(e)}"
-                )
-                logging.error(
-                    f"OTHER SAY ERROR: Discord HTTP error when sending message: {e}"
-                )
+                if channel:
+                    error_msg = f"❌ **Failed to Send Message**\nDiscord API Error: {str(e)}\n**Target:** {target_channel.mention}"
+                    logging.error(
+                        f"OTHER SAY ERROR: Discord HTTP error when sending to channel {target_channel.id}: {e}"
+                    )
+                else:
+                    error_msg = (
+                        f"❌ **Failed to Send Message**\nDiscord API Error: {str(e)}"
+                    )
+                    logging.error(
+                        f"OTHER SAY ERROR: Discord HTTP error when sending message: {e}"
+                    )
                 raise ExternalServiceError(message=error_msg) from e
 
         except (ValidationError, PermissionError, ExternalServiceError):
@@ -1209,175 +1283,6 @@ class OtherCogs(commands.Cog, name="Other"):
         except Exception as e:
             error_msg = f"❌ **Say Command Failed**\nUnexpected error: {str(e)}"
             logging.error(f"OTHER SAY ERROR: Unexpected error in say command: {e}")
-            raise ExternalServiceError(message=error_msg) from e
-
-    @app_commands.command(
-        name="saychannel",
-        description="Makes Cognita repeat whatever was said in a specific channel",
-    )
-    @commands.is_owner()
-    @handle_interaction_errors
-    async def say_channel(
-        self, interaction: discord.Interaction, channel: discord.TextChannel, say: str
-    ) -> None:
-        """
-        Make the bot repeat a message in a specified channel.
-
-        This owner-only command makes the bot send a message with the specified content
-        in the specified channel. Includes comprehensive security checks, content validation,
-        channel permission validation, and detailed logging for audit purposes.
-
-        Args:
-            interaction: The Discord interaction object
-            channel: The channel to send the message in
-            say: The message content to repeat
-
-        Raises:
-            ValidationError: If message content or channel is invalid or contains prohibited content
-            PermissionError: If user lacks required permissions or bot cannot access channel
-            ExternalServiceError: If Discord API operations fail
-        """
-        try:
-            # Input validation
-            if not say or len(say.strip()) == 0:
-                raise ValidationError(message="❌ Message content cannot be empty")
-
-            if not channel:
-                raise ValidationError(message="❌ Target channel is required")
-
-            say = say.strip()
-
-            # Content length validation
-            if len(say) > 2000:
-                raise ValidationError(
-                    message="❌ Message too long (maximum 2000 characters)"
-                )
-
-            # Security checks - content filtering
-            prohibited_patterns = [
-                r"@everyone",
-                r"@here",
-                r"<@&\d+>",  # Role mentions
-                r"discord\.gg/",  # Discord invites
-                r"https?://discord\.com/invite/",  # Discord invites
-            ]
-
-            import re
-
-            for pattern in prohibited_patterns:
-                if re.search(pattern, say, re.IGNORECASE):
-                    logging.warning(
-                        f"OTHER SAY_CHANNEL SECURITY: Prohibited content detected by user {interaction.user.id}: '{pattern}' in '{say[:100]}'"
-                    )
-                    raise ValidationError(
-                        message=f"❌ Message contains prohibited content: {pattern}"
-                    )
-
-            # Additional security checks
-            if say.count("@") > 5:  # Prevent mass mentions
-                raise ValidationError(
-                    message="❌ Too many mentions in message (maximum 5)"
-                )
-
-            if len(say.split("\n")) > 20:  # Prevent spam with excessive newlines
-                raise ValidationError(
-                    message="❌ Too many line breaks in message (maximum 20)"
-                )
-
-            # Channel validation
-            if not isinstance(channel, discord.TextChannel):
-                raise ValidationError(message="❌ Target must be a text channel")
-
-            # Cross-guild channel validation
-            if interaction.guild and channel.guild != interaction.guild:
-                logging.warning(
-                    f"OTHER SAY_CHANNEL SECURITY: Cross-guild channel access attempted by user {interaction.user.id}: source guild {interaction.guild.id}, target guild {channel.guild.id}"
-                )
-                raise PermissionError(
-                    message="❌ Cannot send messages to channels in other servers"
-                )
-
-            # Log the command usage for security audit
-            logging.info(
-                f"OTHER SAY_CHANNEL: Say channel command used by owner {interaction.user.id} ({interaction.user.name}) targeting channel {channel.id} ({channel.name}) in guild {channel.guild.id if channel.guild else 'DM'}"
-            )
-            logging.info(
-                f"OTHER SAY_CHANNEL CONTENT: '{say[:200]}{'...' if len(say) > 200 else ''}'"
-            )
-
-            # Validate bot permissions in target channel
-            if channel.guild:
-                bot_member = channel.guild.get_member(interaction.client.user.id)
-                if not bot_member:
-                    raise PermissionError(
-                        message="❌ Bot is not a member of the target channel's server"
-                    )
-
-                channel_perms = channel.permissions_for(bot_member)
-                if not channel_perms.send_messages:
-                    raise PermissionError(
-                        message=f"❌ Bot lacks permission to send messages in {channel.mention}"
-                    )
-
-                if not channel_perms.view_channel:
-                    raise PermissionError(
-                        message=f"❌ Bot cannot view the target channel {channel.mention}"
-                    )
-
-                if not channel_perms.embed_links and any(
-                    word in say.lower() for word in ["http", "www", ".com", ".org"]
-                ):
-                    logging.warning(
-                        f"OTHER SAY_CHANNEL WARNING: Bot lacks embed permissions in target channel but message contains links"
-                    )
-
-            # Additional channel-specific checks
-            try:
-                # Check if channel is accessible
-                (
-                    await channel.fetch_message(channel.last_message_id)
-                    if channel.last_message_id
-                    else None
-                )
-            except discord.NotFound:
-                # Channel exists but no messages, that's fine
-                pass
-            except discord.Forbidden:
-                raise PermissionError(
-                    message=f"❌ Bot lacks access to read {channel.mention}"
-                )
-            except Exception as e:
-                logging.warning(
-                    f"OTHER SAY_CHANNEL WARNING: Could not verify channel access for {channel.id}: {e}"
-                )
-
-            # Send confirmation to user (ephemeral)
-            await interaction.response.send_message(
-                f"✅ **Message Sent Successfully**\n**Target Channel:** {channel.mention}\n**Server:** {channel.guild.name if channel.guild else 'DM'}\n**Length:** {len(say)} characters",
-                ephemeral=True,
-            )
-
-            # Send the actual message to target channel
-            try:
-                sent_message = await channel.send(say)
-                logging.info(
-                    f"OTHER SAY_CHANNEL SUCCESS: Message sent successfully to channel {channel.id} with message ID {sent_message.id}"
-                )
-            except discord.HTTPException as e:
-                error_msg = f"❌ **Failed to Send Message**\nDiscord API Error: {str(e)}\n**Target:** {channel.mention}"
-                logging.error(
-                    f"OTHER SAY_CHANNEL ERROR: Discord HTTP error when sending to channel {channel.id}: {e}"
-                )
-                raise ExternalServiceError(message=error_msg) from e
-
-        except (ValidationError, PermissionError, ExternalServiceError):
-            # Re-raise our custom exceptions to be handled by the decorator
-            raise
-        except Exception as e:
-            error_msg = f"❌ **Say Channel Command Failed**\nUnexpected error: {str(e)}"
-            logging.error(
-                f"OTHER SAY_CHANNEL ERROR: Unexpected error in say_channel command: {e}"
-            )
             raise ExternalServiceError(message=error_msg) from e
 
     @commands.Cog.listener()
