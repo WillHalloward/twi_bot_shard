@@ -307,27 +307,26 @@ class GalleryMigrationRepository:
                             'reviewed_at'
                         ]
 
-                        # Convert ALL datetime fields to timezone-aware
+                        # Convert ALL datetime fields to timezone-naive for database insertion
+                        # Database columns are TIMESTAMP WITHOUT TIME ZONE
                         for field in datetime_fields:
                             if field in processed_entry and processed_entry[field] is not None:
                                 dt_value = processed_entry[field]
                                 if isinstance(dt_value, datetime):
-                                    if dt_value.tzinfo is None:
-                                        # Convert timezone-naive to timezone-aware (UTC)
-                                        processed_entry[field] = dt_value.replace(tzinfo=timezone.utc)
-                                    else:
-                                        # Already timezone-aware, keep as is
-                                        processed_entry[field] = dt_value
+                                    if dt_value.tzinfo is not None:
+                                        # Convert timezone-aware to timezone-naive (assume UTC)
+                                        processed_entry[field] = dt_value.replace(tzinfo=None)
+                                    # If already timezone-naive, keep as is
 
-                        # Ensure extracted_at is always set with timezone-aware datetime
+                        # Ensure extracted_at is always set with timezone-naive datetime
                         if 'extracted_at' not in processed_entry or processed_entry['extracted_at'] is None:
-                            processed_entry['extracted_at'] = datetime.now(timezone.utc)
+                            processed_entry['extracted_at'] = datetime.now(timezone.utc).replace(tzinfo=None)
 
-                        # Additional safety check: scan for any remaining datetime objects
+                        # Additional safety check: scan for any remaining timezone-aware datetime objects
                         for key, value in processed_entry.items():
-                            if isinstance(value, datetime) and value.tzinfo is None:
-                                self.logger.warning(f"Found timezone-naive datetime in field '{key}', converting to UTC")
-                                processed_entry[key] = value.replace(tzinfo=timezone.utc)
+                            if isinstance(value, datetime) and value.tzinfo is not None:
+                                self.logger.warning(f"Found timezone-aware datetime in field '{key}', converting to timezone-naive")
+                                processed_entry[key] = value.replace(tzinfo=None)
 
                         migration_entry = GalleryMigration(**processed_entry)
                         session.add(migration_entry)

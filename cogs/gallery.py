@@ -4,7 +4,7 @@ import os
 import asyncio
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 import aiohttp
@@ -1466,7 +1466,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         after = None
         if after_date:
             try:
-                after = datetime.strptime(after_date, "%Y-%m-%d")
+                after = datetime.strptime(after_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
             except ValueError:
                 await interaction.followup.send(
                     "❌ Invalid date format. Please use YYYY-MM-DD format.",
