@@ -291,13 +291,56 @@ class GalleryMigrationRepository:
             return False
 
     async def bulk_create_entries(self, entries: List[Dict[str, Any]]) -> int:
-        """Bulk create migration entries."""
+        """Bulk create migration entries, skipping duplicates."""
         created_count = 0
+        skipped_count = 0
         try:
             session = await self.session_factory()
             try:
+                # First, get all message_ids from the entries to check for existing ones
+                message_ids = [entry.get('message_id') for entry in entries if entry.get('message_id')]
+
+                # Query existing message_ids in a single batch query
+                if message_ids:
+                    existing_result = await session.execute(
+                        select(GalleryMigration.message_id).where(
+                            GalleryMigration.message_id.in_(message_ids)
+                        )
+                    )
+                    existing_message_ids = set(row[0] for row in existing_result.fetchall())
+                else:
+                    existing_message_ids = set()
+
+                self.logger.info(f"Found {len(existing_message_ids)} existing entries out of {len(entries)} total entries")
+
+                # Track message_ids processed in this batch to avoid duplicates within the same batch
+                processed_in_batch = set()
+
                 for entry_data in entries:
                     try:
+                        message_id = entry_data.get('message_id')
+
+                        # Skip if message_id is None or empty
+                        if not message_id:
+                            skipped_count += 1
+                            self.logger.debug(f"Skipping entry with missing message_id")
+                            continue
+
+                        # Skip if this message_id already exists in database
+                        if message_id in existing_message_ids:
+                            skipped_count += 1
+                            self.logger.debug(f"Skipping duplicate entry for message_id: {message_id} (exists in database)")
+                            continue
+
+                        # Skip if this message_id was already processed in this batch
+                        if message_id in processed_in_batch:
+                            skipped_count += 1
+                            self.logger.debug(f"Skipping duplicate entry for message_id: {message_id} (duplicate in batch)")
+                            continue
+
+                        # Mark this message_id as processed in this batch
+                        processed_in_batch.add(message_id)
+
                         # Create a copy to avoid modifying the original data
                         processed_entry = entry_data.copy()
 
@@ -339,7 +382,7 @@ class GalleryMigrationRepository:
                         continue
 
                 await session.commit()
-                self.logger.info(f"Bulk created {created_count} migration entries")
+                self.logger.info(f"Bulk created {created_count} migration entries, skipped {skipped_count} duplicates")
                 return created_count
             finally:
                 await session.close()
