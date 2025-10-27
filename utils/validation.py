@@ -1,35 +1,26 @@
-"""
-Input validation utilities for Twi Bot Shard.
+"""Input validation utilities for Twi Bot Shard.
 
 This module provides utilities for validating and sanitizing user inputs,
 including command parameters, database inputs, and common data patterns.
 """
 
-import re
 import html
 import json
 import logging
+import re
 import unicodedata
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum, auto
 from functools import wraps
+from re import Pattern
 from typing import (
     Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Pattern,
-    Set,
-    Tuple,
     TypeVar,
-    Union,
     cast,
 )
 
 import discord
-from discord import app_commands
-from discord.ext import commands
 
 from utils.exceptions import ValidationError
 
@@ -54,14 +45,13 @@ class ValidationLevel(Enum):
 def validate_string(
     value: Any,
     min_length: int = 0,
-    max_length: Optional[int] = None,
-    pattern: Optional[Pattern] = None,
+    max_length: int | None = None,
+    pattern: Pattern | None = None,
     strip: bool = True,
     allow_empty: bool = False,
-    error_message: Optional[str] = None,
+    error_message: str | None = None,
 ) -> str:
-    """
-    Validate a string value.
+    """Validate a string value.
 
     Args:
         value: The value to validate
@@ -117,12 +107,11 @@ def validate_string(
 
 def validate_integer(
     value: Any,
-    min_value: Optional[int] = None,
-    max_value: Optional[int] = None,
-    error_message: Optional[str] = None,
+    min_value: int | None = None,
+    max_value: int | None = None,
+    error_message: str | None = None,
 ) -> int:
-    """
-    Validate an integer value.
+    """Validate an integer value.
 
     Args:
         value: The value to validate
@@ -161,12 +150,11 @@ def validate_integer(
 
 def validate_float(
     value: Any,
-    min_value: Optional[float] = None,
-    max_value: Optional[float] = None,
-    error_message: Optional[str] = None,
+    min_value: float | None = None,
+    max_value: float | None = None,
+    error_message: str | None = None,
 ) -> float:
-    """
-    Validate a float value.
+    """Validate a float value.
 
     Args:
         value: The value to validate
@@ -203,9 +191,8 @@ def validate_float(
     return float_value
 
 
-def validate_boolean(value: Any, error_message: Optional[str] = None) -> bool:
-    """
-    Validate a boolean value.
+def validate_boolean(value: Any, error_message: str | None = None) -> bool:
+    """Validate a boolean value.
 
     Args:
         value: The value to validate
@@ -223,7 +210,7 @@ def validate_boolean(value: Any, error_message: Optional[str] = None) -> bool:
     if isinstance(value, bool):
         return value
 
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return bool(value)
 
     if isinstance(value, str):
@@ -240,13 +227,12 @@ def validate_boolean(value: Any, error_message: Optional[str] = None) -> bool:
 
 def validate_date(
     value: Any,
-    min_date: Optional[datetime] = None,
-    max_date: Optional[datetime] = None,
-    formats: List[str] = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"],
-    error_message: Optional[str] = None,
+    min_date: datetime | None = None,
+    max_date: datetime | None = None,
+    formats: list[str] = None,
+    error_message: str | None = None,
 ) -> datetime:
-    """
-    Validate a date value.
+    """Validate a date value.
 
     Args:
         value: The value to validate
@@ -261,6 +247,8 @@ def validate_date(
     Raises:
         ValidationError: If the value is not a valid date
     """
+    if formats is None:
+        formats = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"]
     if value is None:
         raise ValidationError(error_message or "Value cannot be None")
 
@@ -303,12 +291,11 @@ def validate_date(
 
 def validate_choice(
     value: Any,
-    choices: List[T],
+    choices: list[T],
     case_sensitive: bool = False,
-    error_message: Optional[str] = None,
+    error_message: str | None = None,
 ) -> T:
-    """
-    Validate that a value is one of the allowed choices.
+    """Validate that a value is one of the allowed choices.
 
     Args:
         value: The value to validate
@@ -348,9 +335,8 @@ def validate_choice(
 # Pattern validation functions
 
 
-def validate_email(value: Any, error_message: Optional[str] = None) -> str:
-    """
-    Validate an email address.
+def validate_email(value: Any, error_message: str | None = None) -> str:
+    """Validate an email address.
 
     Args:
         value: The value to validate
@@ -383,11 +369,10 @@ def validate_email(value: Any, error_message: Optional[str] = None) -> str:
 
 def validate_url(
     value: Any,
-    allowed_schemes: List[str] = ["http", "https"],
-    error_message: Optional[str] = None,
+    allowed_schemes: list[str] = None,
+    error_message: str | None = None,
 ) -> str:
-    """
-    Validate a URL.
+    """Validate a URL.
 
     Args:
         value: The value to validate
@@ -400,6 +385,8 @@ def validate_url(
     Raises:
         ValidationError: If the value is not a valid URL
     """
+    if allowed_schemes is None:
+        allowed_schemes = ["http", "https"]
     if value is None:
         raise ValidationError(error_message or "URL cannot be None")
 
@@ -433,9 +420,8 @@ def validate_url(
     return value
 
 
-def validate_discord_id(value: Any, error_message: Optional[str] = None) -> int:
-    """
-    Validate a Discord ID (user, channel, guild, etc.).
+def validate_discord_id(value: Any, error_message: str | None = None) -> int:
+    """Validate a Discord ID (user, channel, guild, etc.).
 
     Args:
         value: The value to validate
@@ -473,8 +459,7 @@ def validate_discord_id(value: Any, error_message: Optional[str] = None) -> int:
 def sanitize_string(
     value: str, level: ValidationLevel = ValidationLevel.MODERATE
 ) -> str:
-    """
-    Sanitize a string for safe use in database operations.
+    """Sanitize a string for safe use in database operations.
 
     Args:
         value: The string to sanitize
@@ -507,8 +492,7 @@ def sanitize_string(
 
 
 def sanitize_sql_identifier(value: str) -> str:
-    """
-    Sanitize a SQL identifier (table name, column name, etc.).
+    """Sanitize a SQL identifier (table name, column name, etc.).
 
     Args:
         value: The identifier to sanitize
@@ -536,8 +520,7 @@ def sanitize_sql_identifier(value: str) -> str:
 
 
 def sanitize_json(value: Any) -> str:
-    """
-    Sanitize a value for use in JSON.
+    """Sanitize a value for use in JSON.
 
     Args:
         value: The value to sanitize
@@ -560,9 +543,8 @@ def sanitize_json(value: Any) -> str:
 # Validation decorators
 
 
-def validate_command_params(**param_validators: Dict[str, Callable[[Any], Any]]):
-    """
-    Decorator for validating command parameters.
+def validate_command_params(**param_validators: dict[str, Callable[[Any], Any]]):
+    """Decorator for validating command parameters.
 
     Args:
         **param_validators: Mapping of parameter names to validator functions
@@ -595,9 +577,8 @@ def validate_command_params(**param_validators: Dict[str, Callable[[Any], Any]])
     return decorator
 
 
-def validate_interaction_params(**param_validators: Dict[str, Callable[[Any], Any]]):
-    """
-    Decorator for validating app command interaction parameters.
+def validate_interaction_params(**param_validators: dict[str, Callable[[Any], Any]]):
+    """Decorator for validating app command interaction parameters.
 
     Args:
         **param_validators: Mapping of parameter names to validator functions
@@ -631,8 +612,7 @@ def validate_interaction_params(**param_validators: Dict[str, Callable[[Any], An
 
 
 def create_validator(validator_func: Callable, *args, **kwargs) -> Callable[[Any], Any]:
-    """
-    Create a validator function with pre-configured parameters.
+    """Create a validator function with pre-configured parameters.
 
     Args:
         validator_func: The validator function to use
@@ -650,10 +630,9 @@ def create_validator(validator_func: Callable, *args, **kwargs) -> Callable[[Any
 
 
 def validate_batch(
-    values: Dict[str, Any], validators: Dict[str, Callable[[Any], Any]]
-) -> Dict[str, Any]:
-    """
-    Validate multiple values at once.
+    values: dict[str, Any], validators: dict[str, Callable[[Any], Any]]
+) -> dict[str, Any]:
+    """Validate multiple values at once.
 
     Args:
         values: Dictionary of values to validate

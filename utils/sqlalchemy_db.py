@@ -1,15 +1,11 @@
-"""
-SQLAlchemy database connection and session management.
-"""
+"""SQLAlchemy database connection and session management."""
 
 import ssl
 from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import config
-from models.base import Base
 
 
 # Create SSL context

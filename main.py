@@ -1,5 +1,4 @@
-"""
-Main entry point for the Twi Bot Shard application.
+"""Main entry point for the Twi Bot Shard application.
 
 This module initializes the Discord bot, sets up logging, establishes database connections,
 and manages the bot's lifecycle. It serves as the central orchestrator for all bot functionality.
@@ -10,40 +9,40 @@ container management, and repository access.
 """
 
 import asyncio
+import datetime
 import json
 import logging
 import logging.handlers
 import ssl
 import sys
+import time
 import traceback
-from itertools import cycle
 from collections.abc import Sequence
-from typing import TypeAlias, Dict, Type
-import datetime
+from itertools import cycle
+
 import asyncpg
 import discord
-from aiohttp import ClientSession
 from discord.ext import commands
-import time
 
 import config
-from utils.http_client import HTTPClient
-from utils.resource_monitor import ResourceMonitor
 from utils.error_handling import setup_global_exception_handler
+from utils.http_client import HTTPClient
 from utils.permissions import setup_permissions
+from utils.resource_monitor import ResourceMonitor
 from utils.secret_manager import setup_secret_manager
 
 # Define type aliases for complex types
-DiscordID: TypeAlias = int
-CommandName: TypeAlias = str
-from utils.db import Database
-from utils.sqlalchemy_db import async_session_maker
+type DiscordID = int
+type CommandName = str
 from sqlalchemy.ext.asyncio import AsyncSession
-from utils.service_container import ServiceContainer
-from utils.repository_factory import RepositoryFactory
-from models.tables.gallery import GalleryMementos
+
 from models.tables.creator_links import CreatorLink
+from models.tables.gallery import GalleryMementos
+from utils.db import Database
 from utils.repositories import register_repositories
+from utils.repository_factory import RepositoryFactory
+from utils.service_container import ServiceContainer
+from utils.sqlalchemy_db import async_session_maker
 
 status = cycle(
     [
@@ -63,8 +62,7 @@ status = cycle(
 
 
 class Cognita(commands.Bot):
-    """
-    Main bot class that extends discord.ext.commands.Bot with additional functionality.
+    """Main bot class that extends discord.ext.commands.Bot with additional functionality.
 
     This class manages the bot's lifecycle, including extension loading, database connections,
     service container management, and repository access. It serves as the central point
@@ -89,8 +87,7 @@ class Cognita(commands.Bot):
         http_client: HTTPClient,
         **kwargs,
     ) -> None:
-        """
-        Initialize the Cognita bot.
+        """Initialize the Cognita bot.
 
         Args:
             *args: Variable length argument list to pass to the parent class
@@ -115,9 +112,9 @@ class Cognita(commands.Bot):
         ]
 
         # Track loaded extensions
-        self.loaded_extensions: Dict[str, bool] = {
-            ext: False for ext in initial_extensions
-        }
+        self.loaded_extensions: dict[str, bool] = dict.fromkeys(
+            initial_extensions, False
+        )
 
         self.pg_con: asyncpg.Pool = db_pool  # Keep for backward compatibility
         self.db: Database = Database(db_pool)  # New database utility
@@ -128,7 +125,7 @@ class Cognita(commands.Bot):
         self.session_maker = async_session_maker  # SQLAlchemy session maker
 
         # Track startup time
-        self.startup_times: Dict[str, float] = {}
+        self.startup_times: dict[str, float] = {}
 
         # Initialize resource monitor with improved settings
         self.logger = logging.getLogger("bot")
@@ -157,8 +154,7 @@ class Cognita(commands.Bot):
         )
 
     async def get_db_session(self) -> AsyncSession:
-        """
-        Get a new SQLAlchemy database session.
+        """Get a new SQLAlchemy database session.
 
         Returns:
             AsyncSession: A new SQLAlchemy async session for database operations
@@ -166,8 +162,7 @@ class Cognita(commands.Bot):
         return self.session_maker()
 
     async def setup_hook(self) -> None:
-        """
-        Set up the bot before it starts running.
+        """Set up the bot before it starts running.
 
         This method is called automatically by discord.py before the bot starts.
         It performs the following tasks:
@@ -199,7 +194,7 @@ class Cognita(commands.Bot):
         init_tasks = []
 
         # Task 1: Initialize web_client for backward compatibility
-        async def init_web_client():
+        async def init_web_client() -> None:
             start_time = time.time()
             self.web_client = await self.http_client.get_session()
             self.startup_times["web_client_init"] = time.time() - start_time
@@ -210,7 +205,7 @@ class Cognita(commands.Bot):
         init_tasks.append(init_web_client())
 
         # Task 2: Start resource monitoring
-        async def init_resource_monitoring():
+        async def init_resource_monitoring() -> None:
             start_time = time.time()
             await self.resource_monitor.start_monitoring()
             self.startup_times["resource_monitoring_init"] = time.time() - start_time
@@ -283,7 +278,7 @@ class Cognita(commands.Bot):
         db_tasks = []
 
         # Database optimizations
-        async def init_db_optimizations():
+        async def init_db_optimizations() -> None:
             start_time = time.time()
             try:
                 # Use a longer timeout (10 minutes) for database optimizations
@@ -305,7 +300,7 @@ class Cognita(commands.Bot):
         db_tasks.append(init_db_optimizations())
 
         # Error telemetry
-        async def init_error_telemetry():
+        async def init_error_telemetry() -> None:
             start_time = time.time()
             try:
                 # Use a longer timeout (5 minutes) for error telemetry table initialization
@@ -357,13 +352,22 @@ class Cognita(commands.Bot):
 
         # Check if environment is production and run comprehensive save
         if config.ENVIRONMENT == config.Environment.PRODUCTION:
-            self.logger.info("Production environment detected - starting comprehensive save operation")
+            self.logger.info(
+                "Production environment detected - starting comprehensive save operation"
+            )
             try:
                 from cogs.stats_utils import perform_comprehensive_save
 
                 # Define a simple progress callback for logging
-                async def log_progress(guilds_processed, total_guilds, channels_processed, 
-                                     messages_saved, errors_encountered, elapsed_time, current_guild_name):
+                async def log_progress(
+                    guilds_processed,
+                    total_guilds,
+                    channels_processed,
+                    messages_saved,
+                    errors_encountered,
+                    elapsed_time,
+                    current_guild_name,
+                ) -> None:
                     self.logger.info(
                         f"Comprehensive save progress: {guilds_processed}/{total_guilds} guilds, "
                         f"{channels_processed} channels, {messages_saved} messages saved, "
@@ -372,7 +376,7 @@ class Cognita(commands.Bot):
                     )
 
                 # Define a completion callback for logging
-                async def log_completion(results):
+                async def log_completion(results) -> None:
                     self.logger.info(
                         f"Comprehensive save completed: {results['guilds_processed']} guilds processed, "
                         f"{results['channels_processed']} channels processed, "
@@ -383,10 +387,10 @@ class Cognita(commands.Bot):
 
                 # Run the comprehensive save operation
                 start_time = time.time()
-                results = await perform_comprehensive_save(
-                    self, 
+                await perform_comprehensive_save(
+                    self,
                     progress_callback=log_progress,
-                    completion_callback=log_completion
+                    completion_callback=log_completion,
                 )
                 comprehensive_save_time = time.time() - start_time
                 self.startup_times["comprehensive_save"] = comprehensive_save_time
@@ -404,8 +408,7 @@ class Cognita(commands.Bot):
                 )
 
     def register_repositories(self) -> None:
-        """
-        Register repositories for all database models.
+        """Register repositories for all database models.
 
         This method registers all repositories using the register_repositories function
         and then verifies that critical repositories are available by attempting to
@@ -422,8 +425,7 @@ class Cognita(commands.Bot):
         self.repo_factory.get_repository(CreatorLink)
 
     async def load_extensions(self) -> None:
-        """
-        Load critical extensions (cogs) at startup.
+        """Load critical extensions (cogs) at startup.
 
         This method attempts to load each critical extension and logs any errors that occur
         during the loading process. It does not stop if one extension fails to load.
@@ -463,8 +465,7 @@ class Cognita(commands.Bot):
             )
 
     async def load_extension_if_needed(self, extension: str) -> bool:
-        """
-        Load an extension if it's not already loaded.
+        """Load an extension if it's not already loaded.
 
         Args:
             extension: The extension to load
@@ -494,8 +495,7 @@ class Cognita(commands.Bot):
             return False
 
     def log_startup_time_summary(self) -> None:
-        """
-        Log a summary of startup times for performance analysis.
+        """Log a summary of startup times for performance analysis.
 
         This method creates a formatted summary of all startup time metrics
         and logs it at INFO level. The summary includes overall startup time
@@ -543,8 +543,7 @@ class Cognita(commands.Bot):
         asyncio.create_task(self._store_startup_times())
 
     async def _store_startup_times(self) -> None:
-        """
-        Store startup time metrics in the database for historical analysis.
+        """Store startup time metrics in the database for historical analysis.
 
         This method runs as a background task to avoid blocking the startup process.
         It stores the startup time metrics in a database table for later analysis.
@@ -589,8 +588,7 @@ class Cognita(commands.Bot):
             )
 
     def unsubscribe_stats_listeners(self) -> None:
-        """
-        Unsubscribe event listeners from the stats cog.
+        """Unsubscribe event listeners from the stats cog.
 
         This method removes specific event listeners from the stats cog to prevent
         duplicate event handling. This is necessary because the stats cog registers
@@ -608,8 +606,7 @@ class Cognita(commands.Bot):
         self.remove_listener(stats_cog.reaction_remove, "on_raw_reaction_remove")
 
     async def on_ready(self) -> None:
-        """
-        Event handler that is called when the bot is ready and connected to Discord.
+        """Event handler that is called when the bot is ready and connected to Discord.
 
         This method logs information about the bot's identity once it has successfully
         connected to Discord.
@@ -623,8 +620,7 @@ class Cognita(commands.Bot):
         interaction: discord.Interaction,
         command: discord.app_commands.Command | discord.app_commands.ContextMenu,
     ) -> None:
-        """
-        Event handler that is called when an application command completes successfully.
+        """Event handler that is called when an application command completes successfully.
 
         This method updates the command history in the database with information about
         the completed command, including its run time and completion status.
@@ -676,8 +672,7 @@ class Cognita(commands.Bot):
             )
 
     async def on_interaction(self, interaction: discord.Interaction) -> None:
-        """
-        Event handler that is called when an interaction is created.
+        """Event handler that is called when an interaction is created.
 
         This method records information about the interaction in the command_history table,
         including the user, guild, command name, and arguments. It also sets up tracking
@@ -749,8 +744,7 @@ class Cognita(commands.Bot):
             interaction.extras["id"] = None
 
     async def start_status_loop(self) -> None:
-        """
-        Start a background task that rotates the bot's status message.
+        """Start a background task that rotates the bot's status message.
 
         This method creates an infinite loop that changes the bot's status message
         every 10 seconds, cycling through the messages defined in the status cycle.
@@ -761,9 +755,8 @@ class Cognita(commands.Bot):
             await self.change_presence(activity=discord.Game(next(status)))
             await asyncio.sleep(10)
 
-    async def periodic_cleanup(self):
-        """
-        Perform periodic cleanup tasks to maintain bot health.
+    async def periodic_cleanup(self) -> None:
+        """Perform periodic cleanup tasks to maintain bot health.
         Now uses a smarter approach that doesn't interfere with active operations.
         """
         while not self.is_closed():
@@ -772,23 +765,32 @@ class Cognita(commands.Bot):
             try:
                 # Force garbage collection
                 import gc
+
                 collected = gc.collect()
                 self.logger.info(f"Periodic cleanup: collected {collected} objects")
 
                 # Only recreate the shared session if it's been idle
                 # The webhook operations now use fresh sessions, so this won't cause conflicts
-                if hasattr(self.http_client, '_session') and self.http_client._session:
+                if hasattr(self.http_client, "_session") and self.http_client._session:
                     # Check if the session has any active connections
                     connector = self.http_client._session.connector
-                    if connector and hasattr(connector, '_conns'):
-                        active_connections = sum(len(conns) for conns in connector._conns.values())
-                        if active_connections == 0:  # Only recreate if no active connections
+                    if connector and hasattr(connector, "_conns"):
+                        active_connections = sum(
+                            len(conns) for conns in connector._conns.values()
+                        )
+                        if (
+                            active_connections == 0
+                        ):  # Only recreate if no active connections
                             old_session = self.http_client._session
                             self.http_client._session = None
                             await old_session.close()
-                            self.logger.info("HTTP session recreated for cleanup (no active connections)")
+                            self.logger.info(
+                                "HTTP session recreated for cleanup (no active connections)"
+                            )
                         else:
-                            self.logger.debug(f"Skipping session recreation: {active_connections} active connections")
+                            self.logger.debug(
+                                f"Skipping session recreation: {active_connections} active connections"
+                            )
 
                 # Log current resource usage after cleanup
                 if hasattr(self, "resource_monitor"):
@@ -802,8 +804,7 @@ class Cognita(commands.Bot):
                 self.logger.error(f"Error during periodic cleanup: {e}")
 
     async def close(self) -> None:
-        """
-        Close the bot and clean up resources.
+        """Close the bot and clean up resources.
 
         This method is called when the bot is shutting down. It stops the resource monitoring,
         closes the HTTP client, and performs any other necessary cleanup before calling the
@@ -824,8 +825,7 @@ class Cognita(commands.Bot):
 
 
 async def main() -> None:
-    """
-    Main entry point for the application.
+    """Main entry point for the application.
 
     This function performs the following tasks:
     1. Sets up logging configuration
@@ -889,16 +889,16 @@ async def main() -> None:
 
     context = ssl.create_default_context()
     context.check_hostname = False
-    context.load_verify_locations(f"ssl-cert/server-ca.pem")
-    context.load_cert_chain(f"ssl-cert/client-cert.pem", f"ssl-cert/client-key.pem")
+    context.load_verify_locations("ssl-cert/server-ca.pem")
+    context.load_cert_chain("ssl-cert/client-cert.pem", "ssl-cert/client-key.pem")
 
     # Create HTTP client with connection pooling and aggressive cleanup
     http_client = HTTPClient(
-        timeout=30, 
+        timeout=30,
         max_connections=50,  # Reduce from 100
         max_keepalive_connections=10,  # Reduce from 30
         keepalive_timeout=30,  # Reduce from 60
-        logger=root_logger.getChild("http_client")
+        logger=root_logger.getChild("http_client"),
     )
 
     async with asyncpg.create_pool(
@@ -947,8 +947,12 @@ async def main() -> None:
             critical_cogs = cogs  # Load all cogs at startup in production
             root_logger.info("Production mode: Loading all cogs at startup")
         else:
-            critical_cogs = base_critical_cogs  # Use lazy loading in development/testing
-            root_logger.info("Development/Testing mode: Using lazy loading for non-critical cogs")
+            critical_cogs = (
+                base_critical_cogs  # Use lazy loading in development/testing
+            )
+            root_logger.info(
+                "Development/Testing mode: Using lazy loading for non-critical cogs"
+            )
 
         # Non-critical cogs will be loaded lazily when needed
         root_logger.info(f"Critical cogs: {', '.join(critical_cogs)}")
@@ -972,8 +976,7 @@ async def main() -> None:
             if config.kill_after > 0:
 
                 async def kill_bot_after_delay() -> None:
-                    """
-                    Background task that automatically kills the bot after a specified delay.
+                    """Background task that automatically kills the bot after a specified delay.
 
                     This function waits for the number of seconds specified in config.kill_after,
                     then logs a message and closes the bot. This is useful for testing and

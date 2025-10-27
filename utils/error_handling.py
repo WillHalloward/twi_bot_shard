@@ -1,71 +1,63 @@
-"""
-Error handling utilities for Cognita bot.
+"""Error handling utilities for Cognita bot.
 
 This module provides utilities for standardized error handling across the bot,
 including decorators for command handlers and functions for error telemetry.
 It also includes security-focused error handling to prevent information disclosure.
 """
 
-import functools
-import logging
-import traceback
 import datetime
+import functools
+import json
+import logging
 import re
 import sys
-import json
+import traceback
+from collections.abc import Callable, Coroutine
+from re import Pattern
 from typing import (
-    Callable,
-    TypeVar,
-    Optional,
     Any,
-    Coroutine,
-    Dict,
-    Type,
-    Union,
-    List,
-    Pattern,
-    Set,
+    TypeVar,
 )
 
 import discord
 from discord.ext import commands
 
 from utils.exceptions import (
+    APIError,
+    ChannelError,
     # Base exception
     CognitaError,
+    CommandCooldownError,
+    # Configuration errors
+    ConfigurationError,
+    ConnectionError,
+    # Database errors
+    DatabaseError,
+    # Discord-specific errors
+    DiscordError,
+    # External service errors
+    ExternalServiceError,
+    FormatError,
+    GuildError,
+    InvalidConfigurationError,
+    MessageError,
+    MissingConfigurationError,
+    OwnerOnlyError,
+    # Permission errors
+    PermissionError,
+    QueryError,
+    # Rate limiting errors
+    RateLimitError,
+    ResourceAlreadyExistsError,
+    ResourceInUseError,
+    # Resource errors
+    ResourceNotFoundError,
+    RolePermissionError,
+    ServiceUnavailableError,
+    TransactionError,
     # Input validation errors
     UserInputError,
     ValidationError,
-    FormatError,
-    # External service errors
-    ExternalServiceError,
-    APIError,
-    ServiceUnavailableError,
-    # Permission errors
-    PermissionError,
-    RolePermissionError,
-    OwnerOnlyError,
-    # Resource errors
-    ResourceNotFoundError,
-    ResourceAlreadyExistsError,
-    ResourceInUseError,
-    # Configuration errors
-    ConfigurationError,
-    MissingConfigurationError,
-    InvalidConfigurationError,
-    # Rate limiting errors
-    RateLimitError,
-    CommandCooldownError,
-    # Database errors
-    DatabaseError,
-    QueryError,
-    ConnectionError,
-    TransactionError,
-    # Discord-specific errors
-    DiscordError,
-    MessageError,
-    ChannelError,
-    GuildError,
 )
 
 T = TypeVar("T")
@@ -75,8 +67,7 @@ logger = logging.getLogger("error_handling")
 
 
 def _extract_command_params(interaction: discord.Interaction, command) -> dict:
-    """
-    Extract command parameters from interaction data.
+    """Extract command parameters from interaction data.
 
     Args:
         interaction: The Discord interaction
@@ -98,7 +89,7 @@ def _extract_command_params(interaction: discord.Interaction, command) -> dict:
 
 
 # Patterns for sensitive information that should be redacted
-SENSITIVE_PATTERNS: List[Pattern] = [
+SENSITIVE_PATTERNS: list[Pattern] = [
     # API keys and tokens
     re.compile(
         r'(api[_-]?key|token|secret|password|auth)[=:]\s*["\'`]?([a-zA-Z0-9_\-\.]{20,})["\'`]?',
@@ -120,7 +111,7 @@ SENSITIVE_PATTERNS: List[Pattern] = [
 ]
 
 # Error types that should have sanitized messages
-SENSITIVE_ERROR_TYPES: Set[Type[Exception]] = {
+SENSITIVE_ERROR_TYPES: set[type[Exception]] = {
     DatabaseError,
     QueryError,
     ConnectionError,
@@ -146,8 +137,7 @@ class ErrorSecurityLevel:
 
 
 def detect_sensitive_info(text: str) -> bool:
-    """
-    Detect if a string contains sensitive information.
+    """Detect if a string contains sensitive information.
 
     Args:
         text: The text to check
@@ -158,16 +148,11 @@ def detect_sensitive_info(text: str) -> bool:
     if not text:
         return False
 
-    for pattern in SENSITIVE_PATTERNS:
-        if pattern.search(text):
-            return True
-
-    return False
+    return any(pattern.search(text) for pattern in SENSITIVE_PATTERNS)
 
 
 def redact_sensitive_info(text: str) -> str:
-    """
-    Redact sensitive information from a string.
+    """Redact sensitive information from a string.
 
     Args:
         text: The text to redact
@@ -194,8 +179,7 @@ def redact_sensitive_info(text: str) -> str:
 def sanitize_error_message(
     error: Exception, security_level: int = ErrorSecurityLevel.NORMAL
 ) -> str:
-    """
-    Sanitize an error message to prevent information disclosure.
+    """Sanitize an error message to prevent information disclosure.
 
     Args:
         error: The exception to sanitize
@@ -217,7 +201,7 @@ def sanitize_error_message(
         security_level == ErrorSecurityLevel.SECURE
         or type(error) in SENSITIVE_ERROR_TYPES
     ):
-        return f"An error occurred. Please contact an administrator if this persists."
+        return "An error occurred. Please contact an administrator if this persists."
 
     # For normal level, check if the message contains sensitive information
     if detect_sensitive_info(error_message):
@@ -236,11 +220,10 @@ def get_detailed_error_context(
     error: Exception,
     command_name: str,
     user_id: int,
-    guild_id: Optional[int] = None,
-    channel_id: Optional[int] = None,
-) -> Dict[str, Any]:
-    """
-    Get detailed context information for an error for internal logging.
+    guild_id: int | None = None,
+    channel_id: int | None = None,
+) -> dict[str, Any]:
+    """Get detailed context information for an error for internal logging.
 
     Args:
         error: The exception that occurred
@@ -270,7 +253,7 @@ def get_detailed_error_context(
     # Add traceback for non-CognitaError exceptions, but exclude CommandOnCooldown
     if not isinstance(error, CognitaError) and not isinstance(
         error,
-        (commands.CommandOnCooldown, discord.app_commands.errors.CommandOnCooldown),
+        commands.CommandOnCooldown | discord.app_commands.errors.CommandOnCooldown,
     ):
         context["traceback"] = "".join(
             traceback.format_exception(type(error), error, error.__traceback__)
@@ -285,7 +268,7 @@ def get_detailed_error_context(
 
 # Error response configuration
 # Maps exception types to user-friendly messages and logging levels
-ERROR_RESPONSES: Dict[Type[Exception], Dict[str, Any]] = {
+ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
     # Input validation errors
     UserInputError: {
         "message": "Invalid input: {error.message}",
@@ -477,7 +460,7 @@ ERROR_RESPONSES: Dict[Type[Exception], Dict[str, Any]] = {
 
 def get_error_response(
     error: Exception, security_level: int = ErrorSecurityLevel.NORMAL
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get the appropriate error response configuration for an exception.
 
     Args:
@@ -518,8 +501,8 @@ async def track_error(
     command_name: str,
     user_id: int,
     error_message: str,
-    guild_id: Optional[int] = None,
-    channel_id: Optional[int] = None,
+    guild_id: int | None = None,
+    channel_id: int | None = None,
 ) -> int:
     """Record error in database for analysis.
 
@@ -564,8 +547,8 @@ def log_error(
     user_id: int,
     log_level: int = logging.ERROR,
     additional_context: str = "",
-    guild_id: Optional[int] = None,
-    channel_id: Optional[int] = None,
+    guild_id: int | None = None,
+    channel_id: int | None = None,
 ) -> None:
     """Log an error with standardized format.
 
@@ -628,7 +611,7 @@ def log_error(
         and not isinstance(error, CognitaError)
         and not isinstance(
             error,
-            (commands.CommandOnCooldown, discord.app_commands.errors.CommandOnCooldown),
+            commands.CommandOnCooldown | discord.app_commands.errors.CommandOnCooldown,
         )
     ):
         error_details = "".join(
@@ -804,7 +787,7 @@ async def handle_global_command_error(ctx: commands.Context, error: Exception) -
     # to avoid false positives when people write Spanish text with exclamation marks
     if isinstance(error, commands.CommandNotFound):
         # Check if the message starts with ! (admin command prefix)
-        if ctx.message.content.startswith('!'):
+        if ctx.message.content.startswith("!"):
             # Don't send error message for ! commands, just log and track
             log_error(
                 error=error,
@@ -1132,7 +1115,7 @@ def setup_global_exception_handler(bot: commands.Bot) -> None:
         await handle_global_app_command_error(interaction, error)
 
     # Set up global exception handler for uncaught exceptions
-    def global_exception_handler(exctype, value, traceback_obj):
+    def global_exception_handler(exctype, value, traceback_obj) -> None:
         logger.critical(f"Uncaught exception: {exctype.__name__}: {value}")
         logger.critical(
             "".join(traceback.format_exception(exctype, value, traceback_obj))

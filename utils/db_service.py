@@ -1,9 +1,8 @@
-"""
-Database service for SQLAlchemy ORM.
-"""
+"""Database service for SQLAlchemy ORM."""
 
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
-from sqlalchemy import select, update, delete
+from typing import Any, Generic, TypeVar
+
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.base import Base
@@ -14,7 +13,7 @@ T = TypeVar("T", bound=Base)
 class DatabaseService(Generic[T]):
     """Generic database service for CRUD operations."""
 
-    def __init__(self, model: Type[T]):
+    def __init__(self, model: type[T]) -> None:
         """Initialize the database service with a model class.
 
         Args:
@@ -38,7 +37,7 @@ class DatabaseService(Generic[T]):
         await session.refresh(obj)
         return obj
 
-    async def get_by_id(self, session: AsyncSession, id_value: Any) -> Optional[T]:
+    async def get_by_id(self, session: AsyncSession, id_value: Any) -> T | None:
         """Get a record by primary key.
 
         Args:
@@ -53,7 +52,7 @@ class DatabaseService(Generic[T]):
         result = await session.execute(stmt)
         return result.scalars().first()
 
-    async def get_all(self, session: AsyncSession) -> List[T]:
+    async def get_all(self, session: AsyncSession) -> list[T]:
         """Get all records.
 
         Args:
@@ -68,7 +67,7 @@ class DatabaseService(Generic[T]):
 
     async def get_by_field(
         self, session: AsyncSession, field_name: str, field_value: Any
-    ) -> List[T]:
+    ) -> list[T]:
         """Get records by field value.
 
         Args:
@@ -83,9 +82,7 @@ class DatabaseService(Generic[T]):
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
-    async def update(
-        self, session: AsyncSession, id_value: Any, **kwargs
-    ) -> Optional[T]:
+    async def update(self, session: AsyncSession, id_value: Any, **kwargs) -> T | None:
         """Update a record.
 
         Args:
@@ -118,7 +115,7 @@ class DatabaseService(Generic[T]):
         await session.commit()
         return result.rowcount > 0
 
-    async def execute_query(self, session: AsyncSession, query: Any) -> List[T]:
+    async def execute_query(self, session: AsyncSession, query: Any) -> list[T]:
         """Execute a custom query.
 
         Args:

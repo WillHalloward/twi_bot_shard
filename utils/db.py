@@ -1,5 +1,4 @@
-"""
-Database utility module for Cognita bot.
+"""Database utility module for Cognita bot.
 
 This module provides utility functions and classes for database operations,
 including transaction management, error handling, connection management,
@@ -9,8 +8,8 @@ and query caching.
 import asyncio
 import logging
 import time
-from collections.abc import Callable, Mapping, Sequence
-from typing import Any, TypeVar, TypeAlias, Optional, Coroutine, AsyncGenerator
+from collections.abc import AsyncGenerator, Callable, Sequence
+from typing import Any, TypeVar
 
 # Python 3.11+ has asyncio.timeout
 try:
@@ -24,8 +23,8 @@ import asyncpg
 from utils.query_cache import QueryCache, cached_query
 
 # Define type aliases for complex types
-QueryResult: TypeAlias = dict[str, Any]
-Record: TypeAlias = asyncpg.Record
+type QueryResult = dict[str, Any]
+type Record = asyncpg.Record
 
 T = TypeVar("T")
 
@@ -56,7 +55,7 @@ class DatabaseTransaction:
         ```
     """
 
-    def __init__(self, db):
+    def __init__(self, db) -> None:
         """Initialize the transaction context manager.
 
         Args:
@@ -92,7 +91,7 @@ class DatabaseTransaction:
 class Database:
     """Database utility class for managing database operations."""
 
-    def __init__(self, pool: asyncpg.Pool):
+    def __init__(self, pool: asyncpg.Pool) -> None:
         """Initialize the database utility with a connection pool.
 
         Args:
@@ -138,7 +137,7 @@ class Database:
             # The pool will automatically handle reconnection
 
     async def prepare_statement(self, name: str, query: str) -> Any:
-        """Prepare a statement and cache it for future use
+        """Prepare a statement and cache it for future use.
 
         Args:
             name: A unique name for the prepared statement.
@@ -149,7 +148,7 @@ class Database:
         """
 
         class PreparedStatementWrapper:
-            def __init__(self, db, stmt, query):
+            def __init__(self, db, stmt, query) -> None:
                 self.db = db
                 self.stmt = stmt
                 self.query = query
@@ -188,7 +187,7 @@ class Database:
         self,
         query: str,
         *args,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         retries: int = 3,
         retry_delay: float = 0.5,
         monitor: bool = True,
@@ -228,9 +227,7 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
-                    e, asyncpg.ConnectionDoesNotExistError
-                ):
+                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -290,7 +287,7 @@ class Database:
         self,
         query: str,
         *args,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         retries: int = 3,
         retry_delay: float = 0.5,
         monitor: bool = True,
@@ -326,9 +323,7 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
-                    e, asyncpg.ConnectionDoesNotExistError
-                ):
+                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -350,12 +345,12 @@ class Database:
         self,
         query: str,
         *args,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         retries: int = 3,
         retry_delay: float = 0.5,
         monitor: bool = True,
         use_cache: bool = True,  # Whether to use cache for this query
-    ) -> Optional[Record]:
+    ) -> Record | None:
         """Execute a query and return the first row.
 
         Args:
@@ -386,9 +381,7 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
-                    e, asyncpg.ConnectionDoesNotExistError
-                ):
+                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -411,7 +404,7 @@ class Database:
         query: str,
         *args,
         column: int = 0,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         retries: int = 3,
         retry_delay: float = 0.5,
         monitor: bool = True,
@@ -450,9 +443,7 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
-                    e, asyncpg.ConnectionDoesNotExistError
-                ):
+                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -481,7 +472,7 @@ class Database:
         """
 
         class TransactionWrapper:
-            def __init__(self, conn, transaction):
+            def __init__(self, conn, transaction) -> None:
                 self.conn = conn
                 self.transaction = transaction
 
@@ -523,9 +514,7 @@ class Database:
                             await conn.execute(query, *args)
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
-                    e, asyncpg.ConnectionDoesNotExistError
-                ):
+                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -542,7 +531,7 @@ class Database:
         self,
         query: str,
         args_list: Sequence[tuple],
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         retries: int = 3,
         retry_delay: float = 0.5,
         monitor: bool = True,
@@ -576,9 +565,7 @@ class Database:
 
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
-                    e, asyncpg.ConnectionDoesNotExistError
-                ):
+                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -603,7 +590,7 @@ class Database:
         self,
         table_name: str,
         records: Sequence[tuple],
-        columns: Optional[Sequence[str]] = None,
+        columns: Sequence[str] | None = None,
         retries: int = 3,
         retry_delay: float = 0.5,
         monitor: bool = True,
@@ -641,9 +628,7 @@ class Database:
 
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
-                    e, asyncpg.ConnectionDoesNotExistError
-                ):
+                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -682,7 +667,7 @@ class Database:
     async def execute_script(
         self,
         script_path: str,
-        timeout: Optional[float] = 300.0,  # Default 5 minutes timeout
+        timeout: float | None = 300.0,  # Default 5 minutes timeout
         retries: int = 3,
         retry_delay: float = 1.0,
         monitor: bool = True,
@@ -702,7 +687,7 @@ class Database:
             asyncio.TimeoutError: If the script execution times out.
         """
         try:
-            with open(script_path, "r") as f:
+            with open(script_path) as f:
                 script = f.read()
 
             start_time = time.time() if monitor else None
@@ -721,7 +706,7 @@ class Database:
 
                     self.logger.info(f"Successfully executed script: {script_path}")
                     return
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     if attempt < retries - 1:
                         self.logger.warning(
                             f"Script execution timed out after {timeout}s on attempt {attempt + 1}/{retries}, retrying..."
@@ -735,9 +720,7 @@ class Database:
                     )
                     raise
                 except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                    if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
-                        e, asyncpg.ConnectionDoesNotExistError
-                    ):
+                    if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
                         # These errors are retryable
                         if attempt < retries - 1:
                             self.logger.warning(
@@ -798,13 +781,11 @@ class Database:
                         self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
 
                 return result
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self.logger.error(f"Query timed out after {timeout_seconds}s: {query}")
                 raise
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
-                    e, asyncpg.ConnectionDoesNotExistError
-                ):
+                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -829,7 +810,7 @@ class Database:
         retries: int = 3,
         retry_delay: float = 0.5,
         monitor: bool = True,
-    ) -> Optional[Record]:
+    ) -> Record | None:
         """Execute a query with a timeout and return the first row.
 
         This method uses asyncio.timeout for more readable timeout handling.
@@ -862,13 +843,11 @@ class Database:
                         self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
 
                 return result
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self.logger.error(f"Query timed out after {timeout_seconds}s: {query}")
                 raise
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError) or isinstance(
-                    e, asyncpg.ConnectionDoesNotExistError
-                ):
+                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -924,7 +903,7 @@ class Database:
                         break
 
                     offset += page_size
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.logger.error(f"Pagination timed out after {timeout_seconds}s: {query}")
             raise
         except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:

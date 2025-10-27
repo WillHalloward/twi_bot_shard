@@ -1,5 +1,4 @@
-"""
-Configuration module for Twi Bot Shard.
+"""Configuration module for Twi Bot Shard.
 
 This module provides a centralized configuration system with validation
 and support for different environments (development, testing, production).
@@ -7,12 +6,13 @@ It includes secure handling of sensitive configuration values and comprehensive
 validation to ensure all required values are present and properly formatted.
 """
 
-import os
 import json
 import logging
+import os
 import sys
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union, Set
+from typing import Any, Dict, List, Optional, Set, Union
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
@@ -32,6 +32,7 @@ class LogFormat(str, Enum):
 
 # Load environment from .env file first
 from dotenv import load_dotenv
+
 load_dotenv()
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", Environment.DEVELOPMENT)
@@ -39,8 +40,7 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", Environment.DEVELOPMENT)
 
 # Base configuration model with validation
 class BotConfig(BaseModel):
-    """
-    Base configuration model with validation.
+    """Base configuration model with validation.
 
     This model defines all configuration settings for the bot, including required
     and optional values. It includes validators to ensure all required values are
@@ -70,82 +70,82 @@ class BotConfig(BaseModel):
     port: int = Field(5432, description="Database port")
 
     # API keys
-    google_api_key: Optional[str] = Field(
+    google_api_key: str | None = Field(
         None, description="Google API key", json_schema_extra={"sensitive": True}
     )
-    google_cse_id: Optional[str] = Field(
+    google_cse_id: str | None = Field(
         None, description="Google Custom Search Engine ID"
     )
-    client_id: Optional[str] = Field(None, description="Client ID")
-    client_secret: Optional[str] = Field(
+    client_id: str | None = Field(None, description="Client ID")
+    client_secret: str | None = Field(
         None, description="Client secret", json_schema_extra={"sensitive": True}
     )
-    openai_api_key: Optional[str] = Field(
+    openai_api_key: str | None = Field(
         None, description="OpenAI API key", json_schema_extra={"sensitive": True}
     )
 
     # Reddit settings
-    user_agent: Optional[str] = Field(None, description="Reddit user agent")
-    username: Optional[str] = Field(None, description="Reddit username")
-    password: Optional[str] = Field(
+    user_agent: str | None = Field(None, description="Reddit user agent")
+    username: str | None = Field(None, description="Reddit username")
+    password: str | None = Field(
         None, description="Reddit password", json_schema_extra={"sensitive": True}
     )
 
     # Webhook settings
-    webhook_testing_log: Optional[str] = Field(
+    webhook_testing_log: str | None = Field(
         None,
         description="Webhook for testing logs",
         json_schema_extra={"sensitive": True},
     )
-    webhook: Optional[str] = Field(
+    webhook: str | None = Field(
         None, description="Webhook URL", json_schema_extra={"sensitive": True}
     )
 
     # Twitter settings
-    twitter_api_key: Optional[str] = Field(
+    twitter_api_key: str | None = Field(
         None, description="Twitter API key", json_schema_extra={"sensitive": True}
     )
-    twitter_api_key_secret: Optional[str] = Field(
+    twitter_api_key_secret: str | None = Field(
         None,
         description="Twitter API key secret",
         json_schema_extra={"sensitive": True},
     )
-    twitter_bearer_token: Optional[str] = Field(
+    twitter_bearer_token: str | None = Field(
         None, description="Twitter bearer token", json_schema_extra={"sensitive": True}
     )
-    twitter_access_token: Optional[str] = Field(
+    twitter_access_token: str | None = Field(
         None, description="Twitter access token", json_schema_extra={"sensitive": True}
     )
-    twitter_access_token_secret: Optional[str] = Field(
+    twitter_access_token_secret: str | None = Field(
         None,
         description="Twitter access token secret",
         json_schema_extra={"sensitive": True},
     )
 
     # AO3 settings
-    ao3_username: Optional[str] = Field(None, description="AO3 username")
-    ao3_password: Optional[str] = Field(
+    ao3_username: str | None = Field(None, description="AO3 username")
+    ao3_password: str | None = Field(
         None, description="AO3 password", json_schema_extra={"sensitive": True}
     )
 
     # Secret encryption key
-    secret_encryption_key: Optional[str] = Field(
+    secret_encryption_key: str | None = Field(
         None,
         description="Encryption key for secrets",
         json_schema_extra={"sensitive": True},
     )
 
     # Complex structures
-    cookies: Dict[str, str] = Field(
+    cookies: dict[str, str] = Field(
         default_factory=dict, description="Cookies for HTTP requests"
     )
-    headers: Dict[str, str] = Field(
+    headers: dict[str, str] = Field(
         default_factory=dict, description="Headers for HTTP requests"
     )
 
     # Channel IDs and other hardcoded values
-    channel_ids: Dict[str, int] = Field(default_factory=dict, description="Channel IDs")
-    role_ids: Dict[str, int] = Field(default_factory=dict, description="Role IDs")
+    channel_ids: dict[str, int] = Field(default_factory=dict, description="Channel IDs")
+    role_ids: dict[str, int] = Field(default_factory=dict, description="Role IDs")
 
     # Special IDs
     bot_owner_id: int = Field(268608466690506753, description="Bot owner user ID")
@@ -154,7 +154,7 @@ class BotConfig(BaseModel):
     )
 
     # Special channel lists
-    password_allowed_channel_ids: List[int] = Field(
+    password_allowed_channel_ids: list[int] = Field(
         [
             620021401516113940,
             346842161704075265,
@@ -168,7 +168,7 @@ class BotConfig(BaseModel):
     )
 
     # Special role lists
-    special_role_ids: Dict[str, int] = Field(
+    special_role_ids: dict[str, int] = Field(
         {
             "acid_jars": 346842555448557568,
             "acid_flies": 346842589984718848,
@@ -186,7 +186,7 @@ class BotConfig(BaseModel):
     bot_channel_id: int = Field(361694671631548417, description="Bot channel ID")
 
     # Class variables to track configuration
-    _sensitive_fields: Set[str] = {
+    _sensitive_fields: set[str] = {
         "bot_token",
         "db_password",
         "google_api_key",
@@ -204,7 +204,7 @@ class BotConfig(BaseModel):
         "secret_encryption_key",
     }
 
-    _required_fields: Set[str] = {
+    _required_fields: set[str] = {
         "bot_token",
         "host",
         "db_user",
@@ -212,7 +212,7 @@ class BotConfig(BaseModel):
         "database",
     }
 
-    _optional_api_fields: Set[str] = {
+    _optional_api_fields: set[str] = {
         "google_api_key",
         "google_cse_id",
         "client_id",
@@ -244,8 +244,7 @@ class BotConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def check_api_keys_consistency(cls, values):
-        """
-        Validate that API keys are consistent (e.g., if one Twitter key is provided, all should be).
+        """Validate that API keys are consistent (e.g., if one Twitter key is provided, all should be).
 
         This validator ensures that if one part of a multi-part API credential is provided,
         all required parts are also provided.
@@ -303,25 +302,24 @@ class BotConfig(BaseModel):
         return values
 
     @classmethod
-    def get_sensitive_fields(cls) -> Set[str]:
+    def get_sensitive_fields(cls) -> set[str]:
         """Get the set of sensitive field names that should be handled securely."""
         return cls._sensitive_fields
 
     @classmethod
-    def get_required_fields(cls) -> Set[str]:
+    def get_required_fields(cls) -> set[str]:
         """Get the set of required field names."""
         return cls._required_fields
 
     @classmethod
-    def get_optional_api_fields(cls) -> Set[str]:
+    def get_optional_api_fields(cls) -> set[str]:
         """Get the set of optional API field names."""
         return cls._optional_api_fields
 
 
 # Load configuration from environment variables
 def load_from_env() -> BotConfig:
-    """
-    Load configuration from environment variables.
+    """Load configuration from environment variables.
 
     This function loads configuration values from environment variables, with support
     for loading from a .env file. It includes validation to ensure all required values

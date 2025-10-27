@@ -1,5 +1,4 @@
-"""
-Resource monitoring utility module.
+"""Resource monitoring utility module.
 
 This module provides utilities for monitoring resource usage, including memory usage,
 CPU usage, disk I/O, network I/O, and other metrics. It helps identify potential
@@ -7,24 +6,23 @@ performance issues and optimize resource usage.
 """
 
 import asyncio
+import contextlib
 import gc
 import logging
 import os
 import platform
-import sys
 import time
 import traceback
 import tracemalloc
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Any, Set
+from typing import Any
 
 import psutil
 
 
 class ResourceMonitor:
-    """
-    Resource monitoring utility class.
+    """Resource monitoring utility class.
 
     This class provides methods for monitoring resource usage, including memory usage,
     CPU usage, and other metrics. It can be used to track resource usage over time
@@ -41,10 +39,9 @@ class ResourceMonitor:
         enable_gc_monitoring: bool = False,
         enable_memory_leak_detection: bool = True,
         memory_leak_threshold: int = 52428800,  # 50 MB (increased from 10MB)
-        logger: Optional[logging.Logger] = None,
-    ):
-        """
-        Initialize the resource monitor.
+        logger: logging.Logger | None = None,
+    ) -> None:
+        """Initialize the resource monitor.
 
         Args:
             check_interval: Interval in seconds between resource checks.
@@ -70,7 +67,7 @@ class ResourceMonitor:
         # Initialize monitoring state
         self._monitoring_task = None
         self._process = psutil.Process(os.getpid())
-        self._stats_history: List[Dict[str, Any]] = []
+        self._stats_history: list[dict[str, Any]] = []
         self._max_history_size = 60  # Keep history for 60 intervals
 
         # Initialize I/O counters
@@ -90,9 +87,9 @@ class ResourceMonitor:
         # Initialize memory leak detection
         if self.enable_memory_leak_detection:
             tracemalloc.start()
-            self._memory_snapshots: List[Tuple[datetime, tracemalloc.Snapshot]] = []
-            self._memory_growth: Dict[str, int] = {}
-            self._potential_leaks: Set[str] = set()
+            self._memory_snapshots: list[tuple[datetime, tracemalloc.Snapshot]] = []
+            self._memory_growth: dict[str, int] = {}
+            self._potential_leaks: set[str] = set()
 
         # Initialize connection tracking
         self._connection_stats = {
@@ -102,29 +99,21 @@ class ResourceMonitor:
         }
 
     async def start_monitoring(self) -> None:
-        """
-        Start the resource monitoring background task.
-        """
+        """Start the resource monitoring background task."""
         if self._monitoring_task is None or self._monitoring_task.done():
             self._monitoring_task = asyncio.create_task(self._monitor_resources())
             self.logger.info("Resource monitoring started")
 
     async def stop_monitoring(self) -> None:
-        """
-        Stop the resource monitoring background task.
-        """
+        """Stop the resource monitoring background task."""
         if self._monitoring_task and not self._monitoring_task.done():
             self._monitoring_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._monitoring_task
-            except asyncio.CancelledError:
-                pass
             self.logger.info("Resource monitoring stopped")
 
     async def _monitor_resources(self) -> None:
-        """
-        Background task that periodically checks resource usage.
-        """
+        """Background task that periodically checks resource usage."""
         while True:
             try:
                 # Get current resource usage
@@ -183,7 +172,9 @@ class ResourceMonitor:
                         )
 
                 # Check for high connection count (adjusted for reduced HTTP client limits)
-                if stats["connection_count"] > 50:  # Adjusted threshold to match HTTP client limits
+                if (
+                    stats["connection_count"] > 50
+                ):  # Adjusted threshold to match HTTP client limits
                     self.logger.warning(
                         f"High connection count detected: {stats['connection_count']} connections"
                     )
@@ -229,9 +220,8 @@ class ResourceMonitor:
                 self.logger.error(traceback.format_exc())
                 await asyncio.sleep(self.check_interval)
 
-    def get_resource_stats(self) -> Dict[str, Any]:
-        """
-        Get current resource usage statistics.
+    def get_resource_stats(self) -> dict[str, Any]:
+        """Get current resource usage statistics.
 
         Returns:
             A dictionary with resource usage statistics.
@@ -394,31 +384,26 @@ class ResourceMonitor:
                 stats.update(
                     {
                         "memory_leak_candidates": list(self._potential_leaks),
-                        "memory_growth_top10": {
-                            k: v
-                            for k, v in sorted(
+                        "memory_growth_top10": dict(sorted(
                                 self._memory_growth.items(),
                                 key=lambda item: item[1],
                                 reverse=True,
-                            )[:10]
-                        },
+                            )[:10]),
                     }
                 )
 
         return stats
 
-    def get_stats_history(self) -> List[Dict[str, Any]]:
-        """
-        Get the history of resource usage statistics.
+    def get_stats_history(self) -> list[dict[str, Any]]:
+        """Get the history of resource usage statistics.
 
         Returns:
             A list of dictionaries with resource usage statistics.
         """
         return self._stats_history.copy()
 
-    def get_summary_stats(self) -> Dict[str, Any]:
-        """
-        Get summary statistics of resource usage.
+    def get_summary_stats(self) -> dict[str, Any]:
+        """Get summary statistics of resource usage.
 
         Returns:
             A dictionary with summary statistics.
@@ -443,9 +428,8 @@ class ResourceMonitor:
             * (self.check_interval / 60),
         }
 
-    def get_system_info(self) -> Dict[str, Any]:
-        """
-        Get system information.
+    def get_system_info(self) -> dict[str, Any]:
+        """Get system information.
 
         Returns:
             A dictionary with system information.

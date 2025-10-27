@@ -1,34 +1,32 @@
-"""
-Service container for dependency injection.
+"""Service container for dependency injection.
 
 This module provides a service container for managing dependencies in the Twi Bot Shard project.
 It allows for registering services and retrieving them when needed, promoting loose coupling
 and better testability.
 """
 
-from typing import Any, Callable, Dict, Optional, Type, TypeVar, cast
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
 
 T = TypeVar("T")
 
 
 class ServiceContainer:
-    """
-    A container for managing service dependencies.
+    """A container for managing service dependencies.
 
     This class provides methods for registering services and retrieving them.
     Services can be registered as instances, factories, or singletons.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize an empty service container."""
-        self._services: Dict[str, Any] = {}
-        self._factories: Dict[str, Callable[..., Any]] = {}
-        self._singletons: Dict[str, bool] = {}
-        self._singleton_instances: Dict[str, Any] = {}
+        self._services: dict[str, Any] = {}
+        self._factories: dict[str, Callable[..., Any]] = {}
+        self._singletons: dict[str, bool] = {}
+        self._singleton_instances: dict[str, Any] = {}
 
     def register(self, service_id: str, service: Any) -> None:
-        """
-        Register a service instance.
+        """Register a service instance.
 
         Args:
             service_id: The identifier for the service.
@@ -39,8 +37,7 @@ class ServiceContainer:
     def register_factory(
         self, service_id: str, factory: Callable[..., Any], singleton: bool = False
     ) -> None:
-        """
-        Register a service factory.
+        """Register a service factory.
 
         Args:
             service_id: The identifier for the service.
@@ -51,10 +48,9 @@ class ServiceContainer:
         self._singletons[service_id] = singleton
 
     def register_class(
-        self, service_id: str, cls: Type[T], singleton: bool = False
+        self, service_id: str, cls: type[T], singleton: bool = False
     ) -> None:
-        """
-        Register a service class.
+        """Register a service class.
 
         Args:
             service_id: The identifier for the service.
@@ -64,8 +60,7 @@ class ServiceContainer:
         self.register_factory(service_id, lambda: cls(), singleton)
 
     def get(self, service_id: str) -> Any:
-        """
-        Get a service by its identifier.
+        """Get a service by its identifier.
 
         Args:
             service_id: The identifier for the service.
@@ -100,9 +95,8 @@ class ServiceContainer:
 
         raise KeyError(f"Service '{service_id}' not found in container")
 
-    def get_typed(self, service_id: str, expected_type: Type[T]) -> T:
-        """
-        Get a service by its identifier and cast it to the expected type.
+    def get_typed(self, service_id: str, expected_type: type[T]) -> T:
+        """Get a service by its identifier and cast it to the expected type.
 
         Args:
             service_id: The identifier for the service.
@@ -123,8 +117,7 @@ class ServiceContainer:
         return cast(expected_type, service)
 
     def has(self, service_id: str) -> bool:
-        """
-        Check if a service is registered.
+        """Check if a service is registered.
 
         Args:
             service_id: The identifier for the service.

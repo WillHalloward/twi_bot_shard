@@ -1,5 +1,4 @@
-"""
-Secret management utilities for Twi Bot Shard.
+"""Secret management utilities for Twi Bot Shard.
 
 This module provides utilities for securely managing secrets and credentials,
 including encryption, validation, monitoring, and rotation policies.
@@ -10,10 +9,8 @@ import json
 import logging
 import os
 import re
-import time
-import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Union, Tuple, Set
+from typing import Any
 
 import discord
 from cryptography.fernet import Fernet
@@ -24,17 +21,15 @@ logger = logging.getLogger("secret_manager")
 
 
 class SecretManager:
-    """
-    Manager for securely handling secrets and credentials.
+    """Manager for securely handling secrets and credentials.
 
     This class provides methods for encrypting and decrypting sensitive values,
     validating secrets, monitoring for suspicious activity, and managing credential
     rotation policies.
     """
 
-    def __init__(self, bot, encryption_key: Optional[str] = None):
-        """
-        Initialize the secret manager.
+    def __init__(self, bot, encryption_key: str | None = None) -> None:
+        """Initialize the secret manager.
 
         Args:
             bot: The bot instance
@@ -64,7 +59,7 @@ class SecretManager:
         # Initialize credential metadata
         self._credential_metadata = {}
 
-    async def _init_db(self):
+    async def _init_db(self) -> None:
         """Initialize the database tables for secret management."""
         try:
             # Create credential_metadata table if it doesn't exist
@@ -103,12 +98,12 @@ class SecretManager:
             self.logger.error(f"Failed to initialize secret management tables: {e}")
             raise
 
-    async def setup(self):
+    async def setup(self) -> None:
         """Set up the secret manager."""
         await self._init_db()
         await self._load_credential_metadata()
 
-    async def _load_credential_metadata(self):
+    async def _load_credential_metadata(self) -> None:
         """Load credential metadata from the database."""
         try:
             records = await self.bot.db.fetch(
@@ -135,8 +130,7 @@ class SecretManager:
             self.logger.error(f"Failed to load credential metadata: {e}")
 
     def encrypt(self, value: str) -> str:
-        """
-        Encrypt a sensitive value.
+        """Encrypt a sensitive value.
 
         Args:
             value: The value to encrypt
@@ -154,8 +148,7 @@ class SecretManager:
         return base64.urlsafe_b64encode(encrypted).decode()
 
     def decrypt(self, encrypted_value: str) -> str:
-        """
-        Decrypt an encrypted value.
+        """Decrypt an encrypted value.
 
         Args:
             encrypted_value: The encrypted value as a base64-encoded string
@@ -176,10 +169,9 @@ class SecretManager:
         self,
         name: str,
         rotation_interval_days: int = 90,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Register a credential for tracking and rotation.
+        """Register a credential for tracking and rotation.
 
         Args:
             name: The name of the credential
@@ -254,10 +246,9 @@ class SecretManager:
             raise
 
     async def rotate_credential(
-        self, name: str, new_value: Optional[str] = None, user_id: Optional[int] = None
+        self, name: str, new_value: str | None = None, user_id: int | None = None
     ) -> None:
-        """
-        Mark a credential as rotated.
+        """Mark a credential as rotated.
 
         Args:
             name: The name of the credential
@@ -315,9 +306,8 @@ class SecretManager:
             self.logger.error(f"Failed to rotate credential {name}: {e}")
             raise
 
-    async def get_credentials_due_for_rotation(self) -> List[Dict[str, Any]]:
-        """
-        Get a list of credentials that are due for rotation.
+    async def get_credentials_due_for_rotation(self) -> list[dict[str, Any]]:
+        """Get a list of credentials that are due for rotation.
 
         Returns:
             A list of credential metadata dictionaries
@@ -357,16 +347,15 @@ class SecretManager:
 
     async def log_audit_event(
         self,
-        user_id: Optional[int],
+        user_id: int | None,
         action: str,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-        ip_address: Optional[str] = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        details: dict[str, Any] | None = None,
+        ip_address: str | None = None,
         success: bool = True,
     ) -> None:
-        """
-        Log an audit event.
+        """Log an audit event.
 
         Args:
             user_id: The ID of the user who performed the action
@@ -403,17 +392,16 @@ class SecretManager:
 
     async def get_audit_logs(
         self,
-        user_id: Optional[int] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        user_id: int | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
-        """
-        Get audit logs matching the specified criteria.
+    ) -> list[dict[str, Any]]:
+        """Get audit logs matching the specified criteria.
 
         Args:
             user_id: Filter by user ID
@@ -504,9 +492,8 @@ class SecretManager:
             self.logger.error(f"Failed to get audit logs: {e}")
             return []
 
-    def validate_secret(self, secret: str) -> Tuple[bool, List[str]]:
-        """
-        Validate a secret against security requirements.
+    def validate_secret(self, secret: str) -> tuple[bool, list[str]]:
+        """Validate a secret against security requirements.
 
         Args:
             secret: The secret to validate
@@ -553,17 +540,18 @@ class SecretManager:
     async def schedule_credential_rotation(
         self,
         name: str,
-        notification_days: List[int] = [30, 14, 7, 3, 1],
-        notification_channel_id: Optional[int] = None,
+        notification_days: list[int] = None,
+        notification_channel_id: int | None = None,
     ) -> None:
-        """
-        Schedule notifications for credential rotation.
+        """Schedule notifications for credential rotation.
 
         Args:
             name: The name of the credential
             notification_days: List of days before expiration to send notifications
             notification_channel_id: Discord channel ID to send notifications to
         """
+        if notification_days is None:
+            notification_days = [30, 14, 7, 3, 1]
         try:
             # Check if credential exists
             metadata = await self.bot.db.fetchrow(
@@ -578,7 +566,7 @@ class SecretManager:
             if not metadata:
                 raise ValueError(f"Credential {name} not registered")
 
-            next_rotation = metadata["next_rotation_at"]
+            metadata["next_rotation_at"]
             current_metadata = (
                 json.loads(metadata["metadata"]) if metadata["metadata"] else {}
             )
@@ -631,8 +619,7 @@ class SecretManager:
             raise
 
     async def check_pending_notifications(self) -> None:
-        """
-        Check for pending credential rotation notifications and send them.
+        """Check for pending credential rotation notifications and send them.
 
         This method should be called periodically, e.g., once a day.
         """
@@ -698,10 +685,9 @@ class SecretManager:
             self.logger.error(f"Failed to check pending notifications: {e}")
 
     async def notify_credential_rotation(
-        self, name: str, days_until_rotation: int, channel_id: Optional[int] = None
+        self, name: str, days_until_rotation: int, channel_id: int | None = None
     ) -> None:
-        """
-        Send a notification about an upcoming credential rotation.
+        """Send a notification about an upcoming credential rotation.
 
         Args:
             name: The name of the credential
@@ -795,9 +781,8 @@ class SecretManager:
         except Exception as e:
             self.logger.error(f"Failed to notify credential rotation for {name}: {e}")
 
-    async def check_credential_health(self, name: str) -> Dict[str, Any]:
-        """
-        Check the health and security of a credential.
+    async def check_credential_health(self, name: str) -> dict[str, Any]:
+        """Check the health and security of a credential.
 
         Args:
             name: The name of the credential
@@ -854,7 +839,7 @@ class SecretManager:
                 age_message = f"Credential is {days_since_creation} days old (recommended max: {max_age_days} days)"
             else:
                 age_status = "healthy"
-                age_message = f"Credential age is within recommended limits"
+                age_message = "Credential age is within recommended limits"
 
             # Compile results
             result = {
@@ -890,12 +875,11 @@ class SecretManager:
 
     async def export_audit_logs(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         format: str = "json",
     ) -> str:
-        """
-        Export audit logs for compliance purposes.
+        """Export audit logs for compliance purposes.
 
         Args:
             start_time: Start time for log export
@@ -950,9 +934,8 @@ class SecretManager:
         lookback_hours: int = 24,
         threshold_actions: int = 20,
         threshold_failures: int = 5,
-    ) -> List[Dict[str, Any]]:
-        """
-        Detect suspicious activity patterns in audit logs.
+    ) -> list[dict[str, Any]]:
+        """Detect suspicious activity patterns in audit logs.
 
         Args:
             lookback_hours: Hours to look back for suspicious activity
@@ -1101,8 +1084,7 @@ def init_secret_manager(bot, encryption_key=None):
 
 
 async def setup_secret_manager(bot, encryption_key=None):
-    """
-    Set up the secret manager.
+    """Set up the secret manager.
 
     This function initializes the secret manager and creates the necessary database tables.
     It should be called during bot startup.
@@ -1120,9 +1102,8 @@ async def setup_secret_manager(bot, encryption_key=None):
     return manager
 
 
-async def register_default_credentials(manager):
-    """
-    Register default credentials for tracking and rotation.
+async def register_default_credentials(manager) -> None:
+    """Register default credentials for tracking and rotation.
 
     Args:
         manager: The secret manager instance

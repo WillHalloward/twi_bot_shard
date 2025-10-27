@@ -1,5 +1,4 @@
-"""
-Permission utilities for Cognita bot.
+"""Permission utilities for Cognita bot.
 
 This module provides utilities for permission checks across the bot,
 including a comprehensive role-based access control system,
@@ -7,24 +6,23 @@ functions to check if a user has specific permissions,
 and channel-specific checks.
 """
 
-import logging
 import enum
 import json
-from typing import Dict, List, Optional, Set, Union, Any
+import logging
+from typing import Optional
 
 import discord
-from discord.ext import commands
 from discord import app_commands
-import config
+from discord.ext import commands
 
-from utils.exceptions import PermissionError, RolePermissionError, OwnerOnlyError
+import config
+from utils.exceptions import OwnerOnlyError, PermissionError, RolePermissionError
 
 logger = logging.getLogger("permissions")
 
 
 class PermissionLevel(enum.IntEnum):
-    """
-    Enum representing permission levels in the bot.
+    """Enum representing permission levels in the bot.
 
     Higher values represent higher permission levels.
     """
@@ -48,8 +46,7 @@ class PermissionLevel(enum.IntEnum):
 
 
 class Permission(enum.Enum):
-    """
-    Enum representing specific permissions in the bot.
+    """Enum representing specific permissions in the bot.
 
     Each permission has a name and a minimum required permission level.
     """
@@ -74,7 +71,7 @@ class Permission(enum.Enum):
     # Bot owner permissions
     MANAGE_BOT = ("manage_bot", PermissionLevel.OWNER)
 
-    def __init__(self, name: str, level: PermissionLevel):
+    def __init__(self, name: str, level: PermissionLevel) -> None:
         self.permission_name = name
         self.required_level = level
 
@@ -88,16 +85,14 @@ class Permission(enum.Enum):
 
 
 class PermissionManager:
-    """
-    Manager for handling permissions and role-based access control.
+    """Manager for handling permissions and role-based access control.
 
     This class provides methods for checking if users have specific permissions,
     managing permission roles, and handling permission-related database operations.
     """
 
-    def __init__(self, bot):
-        """
-        Initialize the permission manager.
+    def __init__(self, bot) -> None:
+        """Initialize the permission manager.
 
         Args:
             bot: The bot instance
@@ -106,7 +101,7 @@ class PermissionManager:
         self.logger = logging.getLogger("permissions.manager")
         self._cache = {}  # Cache for permission checks
 
-    async def _init_db(self):
+    async def _init_db(self) -> None:
         """Initialize the database tables for permissions."""
         try:
             # Create role_permissions table if it doesn't exist
@@ -145,10 +140,9 @@ class PermissionManager:
             raise
 
     async def get_user_permission_level(
-        self, guild_id: int, user_id: int, user_roles: List[int] = None
+        self, guild_id: int, user_id: int, user_roles: list[int] = None
     ) -> PermissionLevel:
-        """
-        Get the permission level for a user in a guild.
+        """Get the permission level for a user in a guild.
 
         Args:
             guild_id: The guild ID
@@ -217,11 +211,10 @@ class PermissionManager:
         self,
         guild_id: int,
         user_id: int,
-        permission: Union[Permission, str],
-        user_roles: List[int] = None,
+        permission: Permission | str,
+        user_roles: list[int] = None,
     ) -> bool:
-        """
-        Check if a user has a specific permission.
+        """Check if a user has a specific permission.
 
         Args:
             guild_id: The guild ID
@@ -299,8 +292,7 @@ class PermissionManager:
     async def set_role_permission_level(
         self, guild_id: int, role_id: int, level: PermissionLevel
     ) -> None:
-        """
-        Set the permission level for a role.
+        """Set the permission level for a role.
 
         Args:
             guild_id: The guild ID
@@ -352,8 +344,7 @@ class PermissionManager:
     async def set_user_permission_level(
         self, guild_id: int, user_id: int, level: PermissionLevel
     ) -> None:
-        """
-        Set the permission level for a user.
+        """Set the permission level for a user.
 
         Args:
             guild_id: The guild ID
@@ -408,12 +399,11 @@ class PermissionManager:
         self,
         guild_id: int,
         target_id: int,
-        permission: Union[Permission, str],
+        permission: Permission | str,
         value: bool,
         is_role: bool = False,
     ) -> None:
-        """
-        Set a specific permission override for a user or role.
+        """Set a specific permission override for a user or role.
 
         Args:
             guild_id: The guild ID
@@ -489,8 +479,7 @@ class PermissionManager:
             raise
 
     def _clear_guild_cache(self, guild_id: int) -> None:
-        """
-        Clear all cached permission data for a guild.
+        """Clear all cached permission data for a guild.
 
         Args:
             guild_id: The guild ID
@@ -507,11 +496,10 @@ class PermissionManager:
 
     async def check_permission(
         self,
-        ctx_or_interaction: Union[commands.Context, discord.Interaction],
-        permission: Union[Permission, str],
+        ctx_or_interaction: commands.Context | discord.Interaction,
+        permission: Permission | str,
     ) -> bool:
-        """
-        Check if the user has a specific permission.
+        """Check if the user has a specific permission.
 
         This function works with both Context objects (for traditional commands)
         and Interaction objects (for application commands).
@@ -585,9 +573,8 @@ def init_permission_manager(bot):
     return _permission_manager
 
 
-async def setup_permissions(bot):
-    """
-    Set up the permission system.
+async def setup_permissions(bot) -> None:
+    """Set up the permission system.
 
     This function initializes the permission manager and creates the necessary database tables.
     It should be called during bot startup.
@@ -625,8 +612,7 @@ async def setup_permissions(bot):
 
 
 async def admin_or_me_check(ctx_or_interaction):
-    """
-    Check if the user is an admin or the bot owner.
+    """Check if the user is an admin or the bot owner.
 
     This function works with both Context objects (for traditional commands)
     and Interaction objects (for application commands).
@@ -678,17 +664,11 @@ async def admin_or_me_check(ctx_or_interaction):
         else:
             # Fallback to the old hardcoded check if settings cog is not loaded
             role = discord.utils.get(guild.roles, id=346842813687922689)
-            if user.id == 268608466690506753:
-                return True
-            elif role in user.roles:
-                return True
-            else:
-                return False
+            return bool(user.id == 268608466690506753 or role in user.roles)
 
 
 def admin_or_me_check_wrapper(ctx):
-    """
-    Wrapper for async admin_or_me_check to use with @commands.check decorator.
+    """Wrapper for async admin_or_me_check to use with @commands.check decorator.
 
     Args:
         ctx: The command context
@@ -704,8 +684,7 @@ def admin_or_me_check_wrapper(ctx):
 
 
 def app_admin_or_me_check(interaction):
-    """
-    Wrapper for async admin_or_me_check to use with @app_commands.check decorator.
+    """Wrapper for async admin_or_me_check to use with @app_commands.check decorator.
 
     Args:
         interaction: The interaction object
@@ -717,8 +696,7 @@ def app_admin_or_me_check(interaction):
 
 
 async def moderator_check(ctx_or_interaction):
-    """
-    Check if the user is a moderator, admin, or the bot owner.
+    """Check if the user is a moderator, admin, or the bot owner.
 
     This function works with both Context objects (for traditional commands)
     and Interaction objects (for application commands).
@@ -756,8 +734,7 @@ async def moderator_check(ctx_or_interaction):
 
 
 def moderator_check_wrapper(ctx):
-    """
-    Wrapper for async moderator_check to use with @commands.check decorator.
+    """Wrapper for async moderator_check to use with @commands.check decorator.
 
     Args:
         ctx: The command context
@@ -773,8 +750,7 @@ def moderator_check_wrapper(ctx):
 
 
 def app_moderator_check(interaction):
-    """
-    Wrapper for async moderator_check to use with @app_commands.check decorator.
+    """Wrapper for async moderator_check to use with @app_commands.check decorator.
 
     Args:
         interaction: The interaction object
@@ -786,8 +762,7 @@ def app_moderator_check(interaction):
 
 
 async def is_bot_channel(interaction_or_ctx):
-    """
-    Check if the command is being used in the designated bot channel.
+    """Check if the command is being used in the designated bot channel.
 
     This function works with both Context objects (for traditional commands)
     and Interaction objects (for application commands).
@@ -799,7 +774,7 @@ async def is_bot_channel(interaction_or_ctx):
         bool: True if the command is being used in the bot channel, False otherwise
     """
     # Determine if we're dealing with a Context or an Interaction
-    is_interaction = isinstance(interaction_or_ctx, discord.Interaction)
+    isinstance(interaction_or_ctx, discord.Interaction)
 
     # Get the channel
     channel = interaction_or_ctx.channel
@@ -809,8 +784,7 @@ async def is_bot_channel(interaction_or_ctx):
 
 
 def is_bot_channel_wrapper(ctx):
-    """
-    Wrapper for is_bot_channel to use with @commands.check decorator.
+    """Wrapper for is_bot_channel to use with @commands.check decorator.
 
     Args:
         ctx: The command context
@@ -826,8 +800,7 @@ def is_bot_channel_wrapper(ctx):
 
 
 async def app_is_bot_channel(interaction):
-    """
-    Wrapper for async is_bot_channel to use with @app_commands.check decorator.
+    """Wrapper for async is_bot_channel to use with @app_commands.check decorator.
 
     Args:
         interaction: The interaction object
@@ -841,9 +814,8 @@ async def app_is_bot_channel(interaction):
 # Permission check decorators for easier use
 
 
-def has_permission(permission: Union[Permission, str]):
-    """
-    Decorator to check if a user has a specific permission.
+def has_permission(permission: Permission | str):
+    """Decorator to check if a user has a specific permission.
 
     This decorator works with both traditional commands and app commands.
 
@@ -869,8 +841,7 @@ def has_permission(permission: Union[Permission, str]):
 
 
 def has_permission_level(level: PermissionLevel):
-    """
-    Decorator to check if a user has a specific permission level.
+    """Decorator to check if a user has a specific permission level.
 
     This decorator works with both traditional commands and app commands.
 
@@ -881,7 +852,7 @@ def has_permission_level(level: PermissionLevel):
         A decorator that can be used with @commands.command or @app_commands.command
     """
 
-    async def predicate(ctx_or_interaction):
+    async def predicate(ctx_or_interaction) -> bool:
         # Determine if we're dealing with a Context or an Interaction
         is_interaction = isinstance(ctx_or_interaction, discord.Interaction)
 

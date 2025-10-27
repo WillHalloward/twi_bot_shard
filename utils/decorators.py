@@ -1,23 +1,20 @@
-"""
-Decorators for Twi Bot Shard.
+"""Decorators for Twi Bot Shard.
 
 This module provides decorators for cross-cutting concerns like
 logging, error handling, and permission checks.
 """
 
 import functools
-import inspect
-from typing import Any, Callable, Optional, TypeVar, cast, Union
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
 
-import discord
 from discord import app_commands
-from discord.ext import commands
 
 T = TypeVar("T")
 CommandT = TypeVar("CommandT", bound=Callable[..., Any])
 
 
-def log_command(command_name: Optional[str] = None) -> Callable[[CommandT], CommandT]:
+def log_command(command_name: str | None = None) -> Callable[[CommandT], CommandT]:
     """Decorator to log command usage.
 
     Args:
@@ -31,9 +28,7 @@ def log_command(command_name: Optional[str] = None) -> Callable[[CommandT], Comm
         cmd_name = command_name or func.__name__
 
         @functools.wraps(func)
-        async def wrapper(
-            self: Any, *args: Any, **kwargs: Any
-        ) -> Any:
+        async def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             # Extract the interaction/context from args
             ctx_or_interaction = args[0] if args else None
 
@@ -49,7 +44,7 @@ def log_command(command_name: Optional[str] = None) -> Callable[[CommandT], Comm
     return decorator
 
 
-def handle_errors(command_name: Optional[str] = None) -> Callable[[CommandT], CommandT]:
+def handle_errors(command_name: str | None = None) -> Callable[[CommandT], CommandT]:
     """Decorator to handle command errors.
 
     Args:

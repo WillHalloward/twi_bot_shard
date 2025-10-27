@@ -1,5 +1,4 @@
-"""
-HTTP client utility module.
+"""HTTP client utility module.
 
 This module provides a shared HTTP client for making HTTP requests,
 with connection pooling and other optimizations.
@@ -8,16 +7,15 @@ with connection pooling and other optimizations.
 import asyncio
 import logging
 import time
-from typing import Optional, Dict, Any, Union, List, Callable, Tuple, DefaultDict
 from collections import defaultdict
+from typing import Any
 
 import aiohttp
-from aiohttp import ClientSession, ClientResponse, ClientTimeout, TraceConfig
+from aiohttp import ClientResponse, ClientSession, ClientTimeout, TraceConfig
 
 
 class RateLimiter:
-    """
-    Rate limiter for HTTP requests.
+    """Rate limiter for HTTP requests.
 
     This class implements a token bucket rate limiter to prevent overwhelming
     external services with too many requests in a short period of time.
@@ -27,11 +25,10 @@ class RateLimiter:
         self,
         requests_per_second: float = 10.0,
         burst_size: int = 20,
-        per_domain_limits: Optional[Dict[str, Tuple[float, int]]] = None,
-        logger: Optional[logging.Logger] = None,
-    ):
-        """
-        Initialize the rate limiter.
+        per_domain_limits: dict[str, tuple[float, int]] | None = None,
+        logger: logging.Logger | None = None,
+    ) -> None:
+        """Initialize the rate limiter.
 
         Args:
             requests_per_second: Default number of requests allowed per second.
@@ -45,17 +42,16 @@ class RateLimiter:
         self.logger = logger or logging.getLogger("rate_limiter")
 
         # Token buckets for each domain: {domain: (tokens, last_refill_time)}
-        self._buckets: Dict[str, Tuple[float, float]] = {}
+        self._buckets: dict[str, tuple[float, float]] = {}
         self._lock = asyncio.Lock()
 
         # Queues for waiting requests when rate limited
-        self._waiting_requests: DefaultDict[str, List[asyncio.Future]] = defaultdict(
+        self._waiting_requests: defaultdict[str, list[asyncio.Future]] = defaultdict(
             list
         )
 
     async def acquire(self, domain: str) -> None:
-        """
-        Acquire a token for a request to the specified domain.
+        """Acquire a token for a request to the specified domain.
 
         This method will block until a token is available.
 
@@ -100,8 +96,7 @@ class RateLimiter:
         await future
 
     async def _release_token(self, domain: str, wait_time: float) -> None:
-        """
-        Release a token after the specified wait time.
+        """Release a token after the specified wait time.
 
         Args:
             domain: The domain to release a token for.
@@ -132,8 +127,7 @@ class RateLimiter:
 
 
 class CircuitBreaker:
-    """
-    Circuit breaker implementation for HTTP requests.
+    """Circuit breaker implementation for HTTP requests.
 
     This class implements the circuit breaker pattern to prevent repeated calls
     to failing endpoints, allowing them time to recover.
@@ -143,10 +137,9 @@ class CircuitBreaker:
         self,
         failure_threshold: int = 5,
         recovery_timeout: int = 30,
-        logger: Optional[logging.Logger] = None,
-    ):
-        """
-        Initialize the circuit breaker.
+        logger: logging.Logger | None = None,
+    ) -> None:
+        """Initialize the circuit breaker.
 
         Args:
             failure_threshold: Number of failures before opening the circuit.
@@ -156,13 +149,12 @@ class CircuitBreaker:
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
         self.logger = logger or logging.getLogger("circuit_breaker")
-        self._failures: Dict[str, int] = {}
-        self._last_failure_time: Dict[str, float] = {}
-        self._open_circuits: Dict[str, bool] = {}
+        self._failures: dict[str, int] = {}
+        self._last_failure_time: dict[str, float] = {}
+        self._open_circuits: dict[str, bool] = {}
 
     def is_open(self, endpoint: str) -> bool:
-        """
-        Check if the circuit is open for an endpoint.
+        """Check if the circuit is open for an endpoint.
 
         Args:
             endpoint: The endpoint to check.
@@ -187,8 +179,7 @@ class CircuitBreaker:
         return True
 
     def record_success(self, endpoint: str) -> None:
-        """
-        Record a successful request to an endpoint.
+        """Record a successful request to an endpoint.
 
         Args:
             endpoint: The endpoint that was successfully called.
@@ -197,8 +188,7 @@ class CircuitBreaker:
         self._open_circuits[endpoint] = False
 
     def record_failure(self, endpoint: str) -> None:
-        """
-        Record a failed request to an endpoint.
+        """Record a failed request to an endpoint.
 
         Args:
             endpoint: The endpoint that failed.
@@ -215,8 +205,7 @@ class CircuitBreaker:
 
 
 class HTTPClient:
-    """
-    HTTP client utility class with connection pooling.
+    """HTTP client utility class with connection pooling.
 
     This class provides a shared aiohttp ClientSession that can be reused
     across the application, improving performance by reusing connections.
@@ -235,13 +224,12 @@ class HTTPClient:
         keepalive_timeout: int = 60,
         retry_attempts: int = 3,
         retry_start_timeout: float = 0.1,
-        circuit_breaker: Optional[CircuitBreaker] = None,
-        rate_limiter: Optional[RateLimiter] = None,
+        circuit_breaker: CircuitBreaker | None = None,
+        rate_limiter: RateLimiter | None = None,
         max_concurrent_requests: int = 100,
-        logger: Optional[logging.Logger] = None,
-    ):
-        """
-        Initialize the HTTP client.
+        logger: logging.Logger | None = None,
+    ) -> None:
+        """Initialize the HTTP client.
 
         Args:
             timeout: Default timeout for requests in seconds.
@@ -265,7 +253,7 @@ class HTTPClient:
         self.rate_limiter = rate_limiter or RateLimiter(logger=logger)
         self.max_concurrent_requests = max_concurrent_requests
         self.logger = logger or logging.getLogger("http_client")
-        self._session: Optional[ClientSession] = None
+        self._session: ClientSession | None = None
         self._lock = asyncio.Lock()
         self._request_semaphore = asyncio.Semaphore(max_concurrent_requests)
         self._stats = {
@@ -282,8 +270,7 @@ class HTTPClient:
         }
 
     async def get_session(self) -> ClientSession:
-        """
-        Get the shared ClientSession, creating it if it doesn't exist.
+        """Get the shared ClientSession, creating it if it doesn't exist.
 
         Returns:
             The shared aiohttp ClientSession.
@@ -294,10 +281,10 @@ class HTTPClient:
                     # Create trace config for request timing
                     trace_config = TraceConfig()
 
-                    async def on_request_start(session, trace_config_ctx, params):
+                    async def on_request_start(session, trace_config_ctx, params) -> None:
                         trace_config_ctx.start = time.time()
 
-                    async def on_request_end(session, trace_config_ctx, params):
+                    async def on_request_end(session, trace_config_ctx, params) -> None:
                         if hasattr(trace_config_ctx, "start"):
                             duration = time.time() - trace_config_ctx.start
                             self._stats["request_times"].append(duration)
@@ -332,8 +319,7 @@ class HTTPClient:
         return self._session
 
     async def get_fresh_session(self) -> ClientSession:
-        """
-        Get a fresh ClientSession for operations that need guaranteed availability.
+        """Get a fresh ClientSession for operations that need guaranteed availability.
         This creates a new session each time to avoid race conditions with cleanup.
 
         Returns:
@@ -342,10 +328,10 @@ class HTTPClient:
         # Create trace config for request timing
         trace_config = TraceConfig()
 
-        async def on_request_start(session, trace_config_ctx, params):
+        async def on_request_start(session, trace_config_ctx, params) -> None:
             trace_config_ctx.start = time.time()
 
-        async def on_request_end(session, trace_config_ctx, params):
+        async def on_request_end(session, trace_config_ctx, params) -> None:
             if hasattr(trace_config_ctx, "start"):
                 duration = time.time() - trace_config_ctx.start
                 self._stats["request_times"].append(duration)
@@ -372,8 +358,7 @@ class HTTPClient:
         )
 
     async def get_session_with_retry(self, max_retries: int = 1) -> ClientSession:
-        """
-        Get session with automatic retry on session closed errors.
+        """Get session with automatic retry on session closed errors.
 
         This method provides a simple interface for other parts of the codebase
         that need resilience against session closure issues without the full
@@ -398,7 +383,9 @@ class HTTPClient:
                     raise aiohttp.ClientError("Session is closed or None")
             except Exception as e:
                 error_msg = str(e).lower()
-                if ("session is closed" in error_msg or "cannot reuse" in error_msg) and attempt < max_retries:
+                if (
+                    "session is closed" in error_msg or "cannot reuse" in error_msg
+                ) and attempt < max_retries:
                     self.logger.warning(
                         f"Session error on attempt {attempt + 1}/{max_retries + 1}: {e}, retrying..."
                     )
@@ -409,9 +396,7 @@ class HTTPClient:
                     raise
 
     async def close(self) -> None:
-        """
-        Close the shared ClientSession.
-        """
+        """Close the shared ClientSession."""
         if self._session and not self._session.closed:
             await self._session.close()
             self.logger.debug("Closed HTTP client session")
@@ -419,16 +404,15 @@ class HTTPClient:
     async def get(
         self,
         url: str,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[int] = None,
-        retry_for_statuses: List[int] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: int | None = None,
+        retry_for_statuses: list[int] = None,
         no_circuit_breaker: bool = False,
         no_rate_limit: bool = False,
         **kwargs,
     ) -> ClientResponse:
-        """
-        Make a GET request with retry, circuit breaker, and rate limiting support.
+        """Make a GET request with retry, circuit breaker, and rate limiting support.
 
         Args:
             url: URL to request.
@@ -460,7 +444,7 @@ class HTTPClient:
                     f"Backpressure applied for GET {url}, waiting for semaphore"
                 )
                 await self._request_semaphore.acquire()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # If we can't acquire immediately, count it and wait
             self._stats["backpressure_applied"] += 1
             self.logger.debug(
@@ -553,7 +537,7 @@ class HTTPClient:
 
                     return response
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     self._stats["timeouts"] += 1
                     self._stats["endpoints"][domain]["timeouts"] = (
                         self._stats["endpoints"][domain].get("timeouts", 0) + 1
@@ -585,11 +569,7 @@ class HTTPClient:
                     # Retry on certain exceptions if attempts remain
                     if retry_count < self.retry_attempts and isinstance(
                         e,
-                        (
-                            aiohttp.ClientConnectorError,
-                            aiohttp.ServerDisconnectedError,
-                            aiohttp.ClientOSError,
-                        ),
+                        aiohttp.ClientConnectorError | aiohttp.ServerDisconnectedError | aiohttp.ClientOSError,
                     ):
                         retry_count += 1
                         self._stats["retries"] += 1
@@ -610,17 +590,16 @@ class HTTPClient:
     async def post(
         self,
         url: str,
-        data: Optional[Any] = None,
-        json: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[int] = None,
-        retry_for_statuses: List[int] = None,
+        data: Any | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: int | None = None,
+        retry_for_statuses: list[int] = None,
         no_circuit_breaker: bool = False,
         no_rate_limit: bool = False,
         **kwargs,
     ) -> ClientResponse:
-        """
-        Make a POST request with retry, circuit breaker, and rate limiting support.
+        """Make a POST request with retry, circuit breaker, and rate limiting support.
 
         Args:
             url: URL to request.
@@ -653,7 +632,7 @@ class HTTPClient:
                     f"Backpressure applied for POST {url}, waiting for semaphore"
                 )
                 await self._request_semaphore.acquire()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # If we can't acquire immediately, count it and wait
             self._stats["backpressure_applied"] += 1
             self.logger.debug(
@@ -747,7 +726,7 @@ class HTTPClient:
 
                     return response
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     self._stats["timeouts"] += 1
                     self._stats["endpoints"][domain]["timeouts"] = (
                         self._stats["endpoints"][domain].get("timeouts", 0) + 1
@@ -779,11 +758,7 @@ class HTTPClient:
                     # Retry on certain exceptions if attempts remain
                     if retry_count < self.retry_attempts and isinstance(
                         e,
-                        (
-                            aiohttp.ClientConnectorError,
-                            aiohttp.ServerDisconnectedError,
-                            aiohttp.ClientOSError,
-                        ),
+                        aiohttp.ClientConnectorError | aiohttp.ServerDisconnectedError | aiohttp.ClientOSError,
                     ):
                         retry_count += 1
                         self._stats["retries"] += 1
@@ -805,15 +780,14 @@ class HTTPClient:
         self,
         url: str,
         file_path: str,
-        headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[int] = None,
+        headers: dict[str, str] | None = None,
+        timeout: int | None = None,
         chunk_size: int = 8192,
-        retry_for_statuses: List[int] = None,
+        retry_for_statuses: list[int] = None,
         no_circuit_breaker: bool = False,
         no_rate_limit: bool = False,
     ) -> bool:
-        """
-        Download a file from a URL with retry, circuit breaker, and rate limiting support.
+        """Download a file from a URL with retry, circuit breaker, and rate limiting support.
 
         Args:
             url: URL to download from.
@@ -845,7 +819,7 @@ class HTTPClient:
                     f"Backpressure applied for download {url}, waiting for semaphore"
                 )
                 await self._request_semaphore.acquire()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # If we can't acquire immediately, count it and wait
             self._stats["backpressure_applied"] += 1
             self.logger.debug(
@@ -942,7 +916,7 @@ class HTTPClient:
                         self.circuit_breaker.record_success(domain)
                         return True
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     self._stats["timeouts"] += 1
                     self._stats["endpoints"][domain]["timeouts"] = (
                         self._stats["endpoints"][domain].get("timeouts", 0) + 1
@@ -974,11 +948,7 @@ class HTTPClient:
                     # Retry on certain exceptions if attempts remain
                     if retry_count < self.retry_attempts and isinstance(
                         e,
-                        (
-                            aiohttp.ClientConnectorError,
-                            aiohttp.ServerDisconnectedError,
-                            aiohttp.ClientOSError,
-                        ),
+                        aiohttp.ClientConnectorError | aiohttp.ServerDisconnectedError | aiohttp.ClientOSError,
                     ):
                         retry_count += 1
                         self._stats["retries"] += 1
@@ -996,9 +966,8 @@ class HTTPClient:
             # Always release the semaphore
             self._request_semaphore.release()
 
-    def get_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics about the HTTP client.
+    def get_stats(self) -> dict[str, Any]:
+        """Get statistics about the HTTP client.
 
         Returns:
             A dictionary with statistics.
@@ -1018,9 +987,8 @@ class HTTPClient:
 
         return stats
 
-    def get_endpoint_stats(self, endpoint: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get statistics for a specific endpoint or all endpoints.
+    def get_endpoint_stats(self, endpoint: str | None = None) -> dict[str, Any]:
+        """Get statistics for a specific endpoint or all endpoints.
 
         Args:
             endpoint: The endpoint to get statistics for, or None for all endpoints.
@@ -1033,9 +1001,7 @@ class HTTPClient:
         return self._stats.get("endpoints", {}).copy()
 
     def reset_stats(self) -> None:
-        """
-        Reset statistics.
-        """
+        """Reset statistics."""
         self._stats = {
             "requests": 0,
             "errors": 0,

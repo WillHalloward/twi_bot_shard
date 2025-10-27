@@ -1,5 +1,4 @@
-"""
-Query caching module for database operations.
+"""Query caching module for database operations.
 
 This module provides a caching mechanism for database queries to improve
 performance for frequently accessed data.
@@ -8,18 +7,16 @@ performance for frequently accessed data.
 import asyncio
 import functools
 import logging
-import time
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, cast
-
-import asyncpg
+from typing import Any, TypeVar
 
 # Type variables for generic functions
 T = TypeVar("T")
-CacheKey = Tuple[str, Tuple[Any, ...]]  # (query, args)
-CacheValue = Tuple[Any, datetime]  # (result, expiry)
+CacheKey = tuple[str, tuple[Any, ...]]  # (query, args)
+CacheValue = tuple[Any, datetime]  # (result, expiry)
 
 
 @dataclass
@@ -52,8 +49,7 @@ class CacheStats:
 
 
 class QueryCache:
-    """
-    Cache for database query results.
+    """Cache for database query results.
 
     This class provides an LRU (Least Recently Used) cache for database query results
     with configurable TTL (Time To Live) and size limits.
@@ -63,10 +59,9 @@ class QueryCache:
         self,
         max_size: int = 1000,
         default_ttl: int = 60,
-        logger: Optional[logging.Logger] = None,
-    ):
-        """
-        Initialize the query cache.
+        logger: logging.Logger | None = None,
+    ) -> None:
+        """Initialize the query cache.
 
         Args:
             max_size: Maximum number of items to store in the cache.
@@ -78,8 +73,8 @@ class QueryCache:
         self._default_ttl = default_ttl
         self._stats = CacheStats()
         self._logger = logger or logging.getLogger("query_cache")
-        self._invalidation_patterns: Dict[str, List[str]] = {}
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._invalidation_patterns: dict[str, list[str]] = {}
+        self._cleanup_task: asyncio.Task | None = None
 
         # Start background task to clean expired entries (deferred until event loop is available)
         self._start_cleanup_task()
@@ -120,9 +115,8 @@ class QueryCache:
             del self._cache[key]
             self._stats.evictions += 1
 
-    def _make_key(self, query: str, args: Tuple[Any, ...]) -> CacheKey:
-        """
-        Create a cache key from a query and its arguments.
+    def _make_key(self, query: str, args: tuple[Any, ...]) -> CacheKey:
+        """Create a cache key from a query and its arguments.
 
         Args:
             query: The SQL query string.
@@ -148,9 +142,8 @@ class QueryCache:
         hashable_args = tuple(make_hashable(arg) for arg in args)
         return (query, hashable_args)
 
-    def get(self, query: str, args: Tuple[Any, ...]) -> Optional[Any]:
-        """
-        Get a value from the cache.
+    def get(self, query: str, args: tuple[Any, ...]) -> Any | None:
+        """Get a value from the cache.
 
         Args:
             query: The SQL query string.
@@ -181,10 +174,9 @@ class QueryCache:
         return None
 
     def set(
-        self, query: str, args: Tuple[Any, ...], value: Any, ttl: Optional[int] = None
+        self, query: str, args: tuple[Any, ...], value: Any, ttl: int | None = None
     ) -> None:
-        """
-        Store a value in the cache.
+        """Store a value in the cache.
 
         Args:
             query: The SQL query string.
@@ -213,8 +205,7 @@ class QueryCache:
         self._register_invalidation_patterns(query)
 
     def _register_invalidation_patterns(self, query: str) -> None:
-        """
-        Register a query for invalidation patterns.
+        """Register a query for invalidation patterns.
 
         This analyzes the query to determine which tables it depends on,
         so that when those tables are modified, this query can be invalidated.
@@ -243,9 +234,8 @@ class QueryCache:
             if query not in self._invalidation_patterns[table]:
                 self._invalidation_patterns[table].append(query)
 
-    def invalidate(self, query: str, args: Tuple[Any, ...]) -> None:
-        """
-        Invalidate a specific cached query.
+    def invalidate(self, query: str, args: tuple[Any, ...]) -> None:
+        """Invalidate a specific cached query.
 
         Args:
             query: The SQL query string.
@@ -257,8 +247,7 @@ class QueryCache:
             self._stats.invalidations += 1
 
     def invalidate_by_table(self, table_name: str) -> None:
-        """
-        Invalidate all cached queries that depend on a specific table.
+        """Invalidate all cached queries that depend on a specific table.
 
         Args:
             table_name: The name of the table that was modified.
@@ -269,7 +258,7 @@ class QueryCache:
         invalidated = 0
         for query in self._invalidation_patterns[table_name]:
             # Find all keys that match this query pattern
-            keys_to_remove = [key for key in self._cache.keys() if key[0] == query]
+            keys_to_remove = [key for key in self._cache if key[0] == query]
 
             for key in keys_to_remove:
                 del self._cache[key]
@@ -289,8 +278,7 @@ class QueryCache:
         self._logger.debug(f"Invalidated all {invalidated} cache entries")
 
     def get_stats(self) -> CacheStats:
-        """
-        Get cache performance statistics.
+        """Get cache performance statistics.
 
         Returns:
             A CacheStats object with current statistics.
@@ -312,10 +300,9 @@ class QueryCache:
 
 
 def cached_query(
-    ttl: Optional[int] = None, cache_instance: Optional[QueryCache] = None
+    ttl: int | None = None, cache_instance: QueryCache | None = None
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """
-    Decorator for caching query results.
+    """Decorator for caching query results.
 
     Args:
         ttl: Time-to-live in seconds, or None to use the default.
@@ -354,7 +341,6 @@ def cached_query(
                 del kwargs["use_cache"]
 
             # Check cache
-            cache_key = (query, query_args)
             cached_result = cache_instance.get(query, query_args)
 
             if cached_result is not None:

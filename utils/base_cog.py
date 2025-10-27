@@ -1,16 +1,14 @@
-"""
-Base cog class for Twi Bot Shard.
+"""Base cog class for Twi Bot Shard.
 
 This module provides a base class for cogs with common functionality,
 reducing code duplication across cogs.
 """
 
-import logging
-from typing import Any, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
 import discord
-from discord.ext import commands
 import structlog
+from discord.ext import commands
 
 from utils.repository_factory import RepositoryFactory
 
@@ -29,7 +27,7 @@ class BaseCog(commands.Cog):
         repo_factory: Repository factory for database access.
     """
 
-    def __init__(self, bot: commands.Bot, name: Optional[str] = None):
+    def __init__(self, bot: commands.Bot, name: str | None = None) -> None:
         """Initialize the cog.
 
         Args:
@@ -44,7 +42,7 @@ class BaseCog(commands.Cog):
         self.logger = structlog.get_logger(f"cogs.{cog_name}")
         self.repo_factory: RepositoryFactory = bot.repo_factory
 
-    def get_repository(self, model_class: Type[T]) -> Any:
+    def get_repository(self, model_class: type[T]) -> Any:
         """Get a repository for the given model class.
 
         Args:

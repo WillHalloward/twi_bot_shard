@@ -1,21 +1,20 @@
-"""
-Structured logging configuration for the bot.
+"""Structured logging configuration for the bot.
 
 This module sets up structured logging using the structlog library,
 providing more searchable and analyzable logs.
 """
 
+import contextvars
 import logging
 import logging.handlers
 import sys
 import time
 import uuid
-import contextvars
-from typing import Any, Dict, Optional, Callable, Iterator
+from typing import Any
 
 import structlog
-from structlog.stdlib import LoggerFactory
 from structlog.contextvars import merge_contextvars
+from structlog.stdlib import LoggerFactory
 
 import config
 
@@ -32,7 +31,7 @@ def generate_request_id() -> str:
     return str(uuid.uuid4())
 
 
-def get_request_id() -> Optional[str]:
+def get_request_id() -> str | None:
     """Get the current request ID.
 
     Returns:
@@ -41,7 +40,7 @@ def get_request_id() -> Optional[str]:
     return request_id_var.get()
 
 
-def set_request_id(request_id: Optional[str] = None) -> None:
+def set_request_id(request_id: str | None = None) -> None:
     """Set the current request ID.
 
     Args:
@@ -59,7 +58,7 @@ def clear_request_id() -> None:
 
 # Configure standard logging
 def configure_stdlib_logging(
-    log_level: int = logging.INFO, log_file: Optional[str] = None
+    log_level: int = logging.INFO, log_file: str | None = None
 ) -> None:
     """Configure standard logging.
 
@@ -137,8 +136,8 @@ def configure_structlog(
 # Initialize logging
 def init_logging(
     log_level: int = None,
-    log_file: Optional[str] = None,
-    log_format: Optional[str] = None,
+    log_file: str | None = None,
+    log_format: str | None = None,
 ) -> structlog.stdlib.BoundLogger:
     """Initialize logging with both stdlib and structlog.
 
@@ -201,8 +200,8 @@ class RequestContext:
         self,
         logger: structlog.stdlib.BoundLogger,
         operation_name: str,
-        request_id: Optional[str] = None,
-    ):
+        request_id: str | None = None,
+    ) -> None:
         """Initialize the request context.
 
         Args:
@@ -297,7 +296,7 @@ class TimingContext:
         ```
     """
 
-    def __init__(self, logger: structlog.stdlib.BoundLogger, operation_name: str):
+    def __init__(self, logger: structlog.stdlib.BoundLogger, operation_name: str) -> None:
         """Initialize the timing context.
 
         Args:

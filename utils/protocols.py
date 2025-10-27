@@ -1,22 +1,16 @@
-"""
-Protocol classes for defining interfaces in the application.
+"""Protocol classes for defining interfaces in the application.
 
 This module provides Protocol classes for defining interfaces for various
 components in the application, such as repositories and services.
 """
 
+from collections.abc import Sequence
 from typing import (
     Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
     Protocol,
-    Type,
     TypeVar,
     runtime_checkable,
 )
-from collections.abc import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,23 +29,21 @@ class DatabaseServiceProtocol(Protocol[T]):
         """Create a new record."""
         ...
 
-    async def get_by_id(self, session: AsyncSession, id_value: Any) -> Optional[T]:
+    async def get_by_id(self, session: AsyncSession, id_value: Any) -> T | None:
         """Get a record by primary key."""
         ...
 
-    async def get_all(self, session: AsyncSession) -> List[T]:
+    async def get_all(self, session: AsyncSession) -> list[T]:
         """Get all records."""
         ...
 
     async def get_by_field(
         self, session: AsyncSession, field_name: str, field_value: Any
-    ) -> List[T]:
+    ) -> list[T]:
         """Get records by field value."""
         ...
 
-    async def update(
-        self, session: AsyncSession, id_value: Any, **kwargs
-    ) -> Optional[T]:
+    async def update(self, session: AsyncSession, id_value: Any, **kwargs) -> T | None:
         """Update a record."""
         ...
 
@@ -59,7 +51,7 @@ class DatabaseServiceProtocol(Protocol[T]):
         """Delete a record."""
         ...
 
-    async def execute_query(self, session: AsyncSession, query: Any) -> List[T]:
+    async def execute_query(self, session: AsyncSession, query: Any) -> list[T]:
         """Execute a custom query."""
         ...
 
@@ -68,7 +60,7 @@ class DatabaseServiceProtocol(Protocol[T]):
 class RepositoryProtocol(Protocol[T, ID]):
     """Protocol for repositories."""
 
-    async def get_by_id(self, entity_id: ID) -> Optional[T]:
+    async def get_by_id(self, entity_id: ID) -> T | None:
         """Get an entity by its ID."""
         ...
 
@@ -109,7 +101,7 @@ class MessageRepositoryProtocol(RepositoryProtocol[T, ID], Protocol[T, ID]):
         """Get all messages by a user."""
         ...
 
-    async def save_message(self, message_data: Dict[str, Any]) -> T:
+    async def save_message(self, message_data: dict[str, Any]) -> T:
         """Save a message."""
         ...
 
@@ -123,12 +115,12 @@ class RepositoryFactoryProtocol(Protocol):
     """Protocol for repository factories."""
 
     def register_repository(
-        self, model_class: Type[T], repository_class: Type[Any]
+        self, model_class: type[T], repository_class: type[Any]
     ) -> None:
         """Register a repository class for a model."""
         ...
 
-    def get_repository(self, model_class: Type[T]) -> Any:
+    def get_repository(self, model_class: type[T]) -> Any:
         """Get a repository for a model."""
         ...
 
@@ -137,15 +129,15 @@ class RepositoryFactoryProtocol(Protocol):
 class GenericRepositoryProtocol(Protocol[T]):
     """Protocol for generic repositories."""
 
-    async def get_all(self) -> List[T]:
+    async def get_all(self) -> list[T]:
         """Get all records of the model."""
         ...
 
-    async def get_by_id(self, id_value: Any) -> Optional[T]:
+    async def get_by_id(self, id_value: Any) -> T | None:
         """Get a record by its ID."""
         ...
 
-    async def get_by_field(self, field_name: str, field_value: Any) -> List[T]:
+    async def get_by_field(self, field_name: str, field_value: Any) -> list[T]:
         """Get records by a field value."""
         ...
 
@@ -153,7 +145,7 @@ class GenericRepositoryProtocol(Protocol[T]):
         """Create a new record."""
         ...
 
-    async def update(self, id_value: Any, **kwargs) -> Optional[T]:
+    async def update(self, id_value: Any, **kwargs) -> T | None:
         """Update a record."""
         ...
 
