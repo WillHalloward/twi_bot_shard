@@ -1,11 +1,11 @@
-"""
-Repository for gallery migration operations.
-"""
+"""Repository for gallery migration operations."""
 
 import logging
-from typing import List, Optional, Dict, Any, Callable, Awaitable
-from datetime import datetime, timezone
-from sqlalchemy import select, update, delete
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any
+
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.tables.gallery_migration import GalleryMigration
@@ -14,7 +14,7 @@ from models.tables.gallery_migration import GalleryMigration
 class GalleryMigrationRepository:
     """Repository for managing gallery migration data."""
 
-    def __init__(self, session_factory: Callable[[], Awaitable[AsyncSession]]):
+    def __init__(self, session_factory: Callable[[], Awaitable[AsyncSession]]) -> None:
         self.session_factory = session_factory
         self.logger = logging.getLogger(__name__)
 
@@ -24,25 +24,24 @@ class GalleryMigrationRepository:
         channel_id: int,
         channel_name: str,
         guild_id: int,
-        title: Optional[str] = None,
-        images: Optional[List[str]] = None,
-        creator: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        jump_url: Optional[str] = None,
+        title: str | None = None,
+        images: list[str] | None = None,
+        creator: str | None = None,
+        tags: list[str] | None = None,
+        jump_url: str | None = None,
         author_id: int = 0,
         author_name: str = "",
         is_bot: bool = False,
-        created_at: Optional[datetime] = None,
-        target_forum: Optional[str] = None,
-        content_type: Optional[str] = None,
+        created_at: datetime | None = None,
+        target_forum: str | None = None,
+        content_type: str | None = None,
         has_attachments: bool = False,
         attachment_count: int = 0,
         needs_manual_review: bool = False,
-        raw_embed_data: Optional[Dict[str, Any]] = None,
-        raw_content: Optional[str] = None
-    ) -> Optional[GalleryMigration]:
-        """
-        Create a new gallery migration entry.
+        raw_embed_data: dict[str, Any] | None = None,
+        raw_content: str | None = None,
+    ) -> GalleryMigration | None:
+        """Create a new gallery migration entry.
 
         Args:
             message_id: Discord message ID
@@ -85,7 +84,7 @@ class GalleryMigrationRepository:
                     author_id=author_id,
                     author_name=author_name,
                     is_bot=is_bot,
-                    created_at=created_at or datetime.now(timezone.utc),
+                    created_at=created_at or datetime.now(UTC),
                     target_forum=target_forum,
                     content_type=content_type,
                     has_attachments=has_attachments,
@@ -93,14 +92,16 @@ class GalleryMigrationRepository:
                     needs_manual_review=needs_manual_review,
                     raw_embed_data=raw_embed_data,
                     raw_content=raw_content,
-                    extracted_at=datetime.now(timezone.utc)
+                    extracted_at=datetime.now(UTC),
                 )
 
                 session.add(migration_entry)
                 await session.commit()
                 await session.refresh(migration_entry)
 
-                self.logger.info(f"Created gallery migration entry for message {message_id}")
+                self.logger.info(
+                    f"Created gallery migration entry for message {message_id}"
+                )
                 return migration_entry
             finally:
                 await session.close()
@@ -109,28 +110,32 @@ class GalleryMigrationRepository:
             self.logger.error(f"Error creating gallery migration entry: {e}")
             return None
 
-    async def get_by_message_id(self, message_id: int) -> Optional[GalleryMigration]:
+    async def get_by_message_id(self, message_id: int) -> GalleryMigration | None:
         """Get migration entry by message ID."""
         try:
             session = await self.session_factory()
             try:
                 result = await session.execute(
-                    select(GalleryMigration).where(GalleryMigration.message_id == message_id)
+                    select(GalleryMigration).where(
+                        GalleryMigration.message_id == message_id
+                    )
                 )
                 return result.scalar_one_or_none()
             finally:
                 await session.close()
         except Exception as e:
-            self.logger.error(f"Error getting migration entry by message ID {message_id}: {e}")
+            self.logger.error(
+                f"Error getting migration entry by message ID {message_id}: {e}"
+            )
             return None
 
-    async def get_all_unmigrated(self) -> List[GalleryMigration]:
+    async def get_all_unmigrated(self) -> list[GalleryMigration]:
         """Get all unmigrated entries."""
         try:
             session = await self.session_factory()
             try:
                 result = await session.execute(
-                    select(GalleryMigration).where(GalleryMigration.migrated == False)
+                    select(GalleryMigration).where(not GalleryMigration.migrated)
                 )
                 return list(result.scalars().all())
             finally:
@@ -139,15 +144,15 @@ class GalleryMigrationRepository:
             self.logger.error(f"Error getting unmigrated entries: {e}")
             return []
 
-    async def get_entries_needing_review(self) -> List[GalleryMigration]:
+    async def get_entries_needing_review(self) -> list[GalleryMigration]:
         """Get entries that need manual review."""
         try:
             session = await self.session_factory()
             try:
                 result = await session.execute(
                     select(GalleryMigration).where(
-                        GalleryMigration.needs_manual_review == True,
-                        GalleryMigration.reviewed == False
+                        GalleryMigration.needs_manual_review,
+                        not GalleryMigration.reviewed,
                     )
                 )
                 return list(result.scalars().all())
@@ -158,10 +163,10 @@ class GalleryMigrationRepository:
             return []
 
     async def update_migration_status(
-        self, 
-        message_id: int, 
-        migrated: bool = True, 
-        migrated_at: Optional[datetime] = None
+        self,
+        message_id: int,
+        migrated: bool = True,
+        migrated_at: datetime | None = None,
     ) -> bool:
         """Update migration status for an entry."""
         try:
@@ -171,8 +176,7 @@ class GalleryMigrationRepository:
                     update(GalleryMigration)
                     .where(GalleryMigration.message_id == message_id)
                     .values(
-                        migrated=migrated,
-                        migrated_at=migrated_at or datetime.now(timezone.utc)
+                        migrated=migrated, migrated_at=migrated_at or datetime.now(UTC)
                     )
                 )
                 await session.commit()
@@ -184,11 +188,11 @@ class GalleryMigrationRepository:
             return False
 
     async def update_review_status(
-        self, 
-        message_id: int, 
+        self,
+        message_id: int,
         reviewed: bool = True,
-        reviewed_by: Optional[int] = None,
-        reviewed_at: Optional[datetime] = None
+        reviewed_by: int | None = None,
+        reviewed_at: datetime | None = None,
     ) -> bool:
         """Update review status for an entry."""
         try:
@@ -200,7 +204,7 @@ class GalleryMigrationRepository:
                     .values(
                         reviewed=reviewed,
                         reviewed_by=reviewed_by,
-                        reviewed_at=reviewed_at or datetime.now(timezone.utc)
+                        reviewed_at=reviewed_at or datetime.now(UTC),
                     )
                 )
                 await session.commit()
@@ -211,7 +215,7 @@ class GalleryMigrationRepository:
             self.logger.error(f"Error updating review status for {message_id}: {e}")
             return False
 
-    async def update_tags(self, message_id: int, tags: List[str]) -> bool:
+    async def update_tags(self, message_id: int, tags: list[str]) -> bool:
         """Update tags for an entry."""
         try:
             session = await self.session_factory()
@@ -229,7 +233,7 @@ class GalleryMigrationRepository:
             self.logger.error(f"Error updating tags for {message_id}: {e}")
             return False
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get migration statistics."""
         try:
             session = await self.session_factory()
@@ -240,22 +244,22 @@ class GalleryMigrationRepository:
 
                 # Migrated entries
                 migrated_result = await session.execute(
-                    select(GalleryMigration).where(GalleryMigration.migrated == True)
+                    select(GalleryMigration).where(GalleryMigration.migrated)
                 )
                 migrated_entries = len(list(migrated_result.scalars().all()))
 
                 # Entries needing review
                 review_result = await session.execute(
                     select(GalleryMigration).where(
-                        GalleryMigration.needs_manual_review == True,
-                        GalleryMigration.reviewed == False
+                        GalleryMigration.needs_manual_review,
+                        not GalleryMigration.reviewed,
                     )
                 )
                 review_entries = len(list(review_result.scalars().all()))
 
                 # Bot vs manual posts
                 bot_result = await session.execute(
-                    select(GalleryMigration).where(GalleryMigration.is_bot == True)
+                    select(GalleryMigration).where(GalleryMigration.is_bot)
                 )
                 bot_entries = len(list(bot_result.scalars().all()))
 
@@ -266,7 +270,11 @@ class GalleryMigrationRepository:
                     "needs_review": review_entries,
                     "bot_posts": bot_entries,
                     "manual_posts": total_entries - bot_entries,
-                    "migration_progress": (migrated_entries / total_entries * 100) if total_entries > 0 else 0
+                    "migration_progress": (
+                        (migrated_entries / total_entries * 100)
+                        if total_entries > 0
+                        else 0
+                    ),
                 }
             finally:
                 await session.close()
@@ -280,7 +288,9 @@ class GalleryMigrationRepository:
             session = await self.session_factory()
             try:
                 await session.execute(
-                    delete(GalleryMigration).where(GalleryMigration.message_id == message_id)
+                    delete(GalleryMigration).where(
+                        GalleryMigration.message_id == message_id
+                    )
                 )
                 await session.commit()
                 return True
@@ -290,7 +300,7 @@ class GalleryMigrationRepository:
             self.logger.error(f"Error deleting migration entry {message_id}: {e}")
             return False
 
-    async def bulk_create_entries(self, entries: List[Dict[str, Any]]) -> int:
+    async def bulk_create_entries(self, entries: list[dict[str, Any]]) -> int:
         """Bulk create migration entries, skipping duplicates."""
         created_count = 0
         skipped_count = 0
@@ -298,7 +308,11 @@ class GalleryMigrationRepository:
             session = await self.session_factory()
             try:
                 # First, get all message_ids from the entries to check for existing ones
-                message_ids = [entry.get('message_id') for entry in entries if entry.get('message_id')]
+                message_ids = [
+                    entry.get("message_id")
+                    for entry in entries
+                    if entry.get("message_id")
+                ]
 
                 # Query existing message_ids in a single batch query
                 if message_ids:
@@ -307,35 +321,43 @@ class GalleryMigrationRepository:
                             GalleryMigration.message_id.in_(message_ids)
                         )
                     )
-                    existing_message_ids = set(row[0] for row in existing_result.fetchall())
+                    existing_message_ids = {
+                        row[0] for row in existing_result.fetchall()
+                    }
                 else:
                     existing_message_ids = set()
 
-                self.logger.info(f"Found {len(existing_message_ids)} existing entries out of {len(entries)} total entries")
+                self.logger.info(
+                    f"Found {len(existing_message_ids)} existing entries out of {len(entries)} total entries"
+                )
 
                 # Track message_ids processed in this batch to avoid duplicates within the same batch
                 processed_in_batch = set()
 
                 for entry_data in entries:
                     try:
-                        message_id = entry_data.get('message_id')
+                        message_id = entry_data.get("message_id")
 
                         # Skip if message_id is None or empty
                         if not message_id:
                             skipped_count += 1
-                            self.logger.debug(f"Skipping entry with missing message_id")
+                            self.logger.debug("Skipping entry with missing message_id")
                             continue
 
                         # Skip if this message_id already exists in database
                         if message_id in existing_message_ids:
                             skipped_count += 1
-                            self.logger.debug(f"Skipping duplicate entry for message_id: {message_id} (exists in database)")
+                            self.logger.debug(
+                                f"Skipping duplicate entry for message_id: {message_id} (exists in database)"
+                            )
                             continue
 
                         # Skip if this message_id was already processed in this batch
                         if message_id in processed_in_batch:
                             skipped_count += 1
-                            self.logger.debug(f"Skipping duplicate entry for message_id: {message_id} (duplicate in batch)")
+                            self.logger.debug(
+                                f"Skipping duplicate entry for message_id: {message_id} (duplicate in batch)"
+                            )
                             continue
 
                         # Mark this message_id as processed in this batch
@@ -346,29 +368,43 @@ class GalleryMigrationRepository:
 
                         # List of ALL possible datetime fields in the model
                         datetime_fields = [
-                            'created_at', 'extracted_at', 'migrated_at', 
-                            'reviewed_at'
+                            "created_at",
+                            "extracted_at",
+                            "migrated_at",
+                            "reviewed_at",
                         ]
 
                         # Convert ALL datetime fields to timezone-naive for database insertion
                         # Database columns are TIMESTAMP WITHOUT TIME ZONE
                         for field in datetime_fields:
-                            if field in processed_entry and processed_entry[field] is not None:
+                            if (
+                                field in processed_entry
+                                and processed_entry[field] is not None
+                            ):
                                 dt_value = processed_entry[field]
                                 if isinstance(dt_value, datetime):
                                     if dt_value.tzinfo is not None:
                                         # Convert timezone-aware to timezone-naive (assume UTC)
-                                        processed_entry[field] = dt_value.replace(tzinfo=None)
+                                        processed_entry[field] = dt_value.replace(
+                                            tzinfo=None
+                                        )
                                     # If already timezone-naive, keep as is
 
                         # Ensure extracted_at is always set with timezone-naive datetime
-                        if 'extracted_at' not in processed_entry or processed_entry['extracted_at'] is None:
-                            processed_entry['extracted_at'] = datetime.now(timezone.utc).replace(tzinfo=None)
+                        if (
+                            "extracted_at" not in processed_entry
+                            or processed_entry["extracted_at"] is None
+                        ):
+                            processed_entry["extracted_at"] = datetime.now(UTC).replace(
+                                tzinfo=None
+                            )
 
                         # Additional safety check: scan for any remaining timezone-aware datetime objects
                         for key, value in processed_entry.items():
                             if isinstance(value, datetime) and value.tzinfo is not None:
-                                self.logger.warning(f"Found timezone-aware datetime in field '{key}', converting to timezone-naive")
+                                self.logger.warning(
+                                    f"Found timezone-aware datetime in field '{key}', converting to timezone-naive"
+                                )
                                 processed_entry[key] = value.replace(tzinfo=None)
 
                         migration_entry = GalleryMigration(**processed_entry)
@@ -376,13 +412,17 @@ class GalleryMigrationRepository:
                         created_count += 1
 
                     except Exception as e:
-                        self.logger.error(f"Error creating entry for message {entry_data.get('message_id')}: {e}")
+                        self.logger.error(
+                            f"Error creating entry for message {entry_data.get('message_id')}: {e}"
+                        )
                         # Log the problematic data for debugging
                         self.logger.error(f"Problematic entry data: {entry_data}")
                         continue
 
                 await session.commit()
-                self.logger.info(f"Bulk created {created_count} migration entries, skipped {skipped_count} duplicates")
+                self.logger.info(
+                    f"Bulk created {created_count} migration entries, skipped {skipped_count} duplicates"
+                )
                 return created_count
             finally:
                 await session.close()

@@ -1,24 +1,21 @@
-"""
-Repository pattern implementation for SQLAlchemy.
+"""Repository pattern implementation for SQLAlchemy.
 
 This module provides base repository classes and specific implementations
 for different entities in the application.
 """
 
 from collections.abc import Sequence
-from typing import TypeVar, Generic, Optional, Type, Any, TypeAlias
+from typing import Any, Generic, TypeVar
 
-from sqlalchemy import select, update, delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.expression import Select
+from sqlalchemy import delete, select, update
 
 # Type variables for generic repository
 T = TypeVar("T")
 ID = TypeVar("ID")
 
 # Type aliases
-EntityType: TypeAlias = Type[T]
-FilterDict: TypeAlias = dict[str, Any]
+type EntityType[T] = type[T]
+type FilterDict = dict[str, Any]
 
 
 class BaseRepository(Generic[T, ID]):
@@ -31,7 +28,7 @@ class BaseRepository(Generic[T, ID]):
         entity_type: The SQLAlchemy model class this repository manages.
     """
 
-    def __init__(self, session_maker, entity_type: EntityType):
+    def __init__(self, session_maker, entity_type: EntityType) -> None:
         """Initialize the repository.
 
         Args:
@@ -41,7 +38,7 @@ class BaseRepository(Generic[T, ID]):
         self.session_maker = session_maker
         self.entity_type = entity_type
 
-    async def get_by_id(self, entity_id: ID) -> Optional[T]:
+    async def get_by_id(self, entity_id: ID) -> T | None:
         """Get an entity by its ID.
 
         Args:

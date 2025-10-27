@@ -1,12 +1,12 @@
-"""
-Repository factory for creating repository instances.
+"""Repository factory for creating repository instances.
 
 This module provides a factory for creating repository instances for database access.
 It uses the service container to manage repository dependencies and ensures that
 repositories are created with the correct session factory.
 """
 
-from typing import Any, Callable, Dict, Type, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,8 +18,7 @@ T = TypeVar("T", bound=Base)
 
 
 class RepositoryFactory:
-    """
-    Factory for creating repository instances.
+    """Factory for creating repository instances.
 
     This class provides methods for registering and creating repository classes.
     It ensures that repositories are created with the correct session factory.
@@ -27,9 +26,8 @@ class RepositoryFactory:
 
     def __init__(
         self, container: ServiceContainer, session_factory: Callable[[], AsyncSession]
-    ):
-        """
-        Initialize the repository factory.
+    ) -> None:
+        """Initialize the repository factory.
 
         Args:
             container: The service container to use for managing repositories.
@@ -37,13 +35,12 @@ class RepositoryFactory:
         """
         self.container = container
         self.session_factory = session_factory
-        self._repository_classes: Dict[str, Type[Any]] = {}
+        self._repository_classes: dict[str, type[Any]] = {}
 
     def register_repository(
-        self, model_class: Type[T], repository_class: Type[Any]
+        self, model_class: type[T], repository_class: type[Any]
     ) -> None:
-        """
-        Register a repository class for a model.
+        """Register a repository class for a model.
 
         Args:
             model_class: The model class.
@@ -60,9 +57,8 @@ class RepositoryFactory:
             singleton=True,
         )
 
-    def get_repository(self, model_class: Type[T]) -> Any:
-        """
-        Get a repository for a model.
+    def get_repository(self, model_class: type[T]) -> Any:
+        """Get a repository for a model.
 
         Args:
             model_class: The model class.
@@ -88,18 +84,16 @@ class RepositoryFactory:
 
 
 class GenericRepository:
-    """
-    Generic repository for database access.
+    """Generic repository for database access.
 
     This class provides basic CRUD operations for a model using DatabaseService.
     It can be used as a fallback when no specific repository is registered.
     """
 
     def __init__(
-        self, model_class: Type[T], session_factory: Callable[[], AsyncSession]
-    ):
-        """
-        Initialize the generic repository.
+        self, model_class: type[T], session_factory: Callable[[], AsyncSession]
+    ) -> None:
+        """Initialize the generic repository.
 
         Args:
             model_class: The model class.

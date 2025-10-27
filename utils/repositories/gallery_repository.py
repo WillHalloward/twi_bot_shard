@@ -1,13 +1,9 @@
-"""
-Repository for gallery_mementos table.
+"""Repository for gallery_mementos table.
 
 This module provides a repository for accessing gallery_mementos data.
 """
 
-from typing import List, Optional
-
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.tables.gallery import GalleryMementos
 from utils.repository import BaseRepository
@@ -16,7 +12,7 @@ from utils.repository import BaseRepository
 class GalleryRepository(BaseRepository):
     """Repository for gallery_mementos table."""
 
-    def __init__(self, session_maker):
+    def __init__(self, session_maker) -> None:
         """Initialize the repository.
 
         Args:
@@ -24,7 +20,7 @@ class GalleryRepository(BaseRepository):
         """
         super().__init__(session_maker, GalleryMementos)
 
-    async def get_by_guild(self, guild_id: int) -> List[GalleryMementos]:
+    async def get_by_guild(self, guild_id: int) -> list[GalleryMementos]:
         """Get all gallery channels for a guild.
 
         Args:
@@ -39,7 +35,7 @@ class GalleryRepository(BaseRepository):
             result = await session.execute(stmt)
             return result.scalars().all()
 
-    async def get_by_channel_id(self, channel_id: int) -> Optional[GalleryMementos]:
+    async def get_by_channel_id(self, channel_id: int) -> GalleryMementos | None:
         """Get a gallery channel by its channel ID.
 
         Args:

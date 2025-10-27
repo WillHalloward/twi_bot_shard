@@ -1,14 +1,12 @@
-"""
-Repository for messages table.
+"""Repository for messages table.
 
 This module provides a repository for accessing messages data.
 """
 
-from typing import List, Optional, Dict, Any
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import select, delete, update, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select
 
 from models.tables.messages import Message
 from utils.repository import MessageRepository as BaseMessageRepository
@@ -17,7 +15,7 @@ from utils.repository import MessageRepository as BaseMessageRepository
 class MessageRepository(BaseMessageRepository):
     """Repository for messages table."""
 
-    def __init__(self, session_maker):
+    def __init__(self, session_maker) -> None:
         """Initialize the repository.
 
         Args:
@@ -25,7 +23,7 @@ class MessageRepository(BaseMessageRepository):
         """
         super().__init__(session_maker, Message)
 
-    async def save_messages(self, messages: List[Dict[str, Any]]) -> None:
+    async def save_messages(self, messages: list[dict[str, Any]]) -> None:
         """Save multiple messages.
 
         Args:
@@ -69,7 +67,7 @@ class MessageRepository(BaseMessageRepository):
 
     async def get_messages_by_date_range(
         self, start_date: datetime, end_date: datetime
-    ) -> List[Message]:
+    ) -> list[Message]:
         """Get messages within a date range.
 
         Args:
@@ -90,7 +88,7 @@ class MessageRepository(BaseMessageRepository):
             result = await session.execute(stmt)
             return result.scalars().all()
 
-    async def get_messages_by_server(self, server_id: int) -> List[Message]:
+    async def get_messages_by_server(self, server_id: int) -> list[Message]:
         """Get all messages in a server.
 
         Args:

@@ -1,13 +1,11 @@
-"""
-Repository for creator_links table.
+"""Repository for creator_links table.
 
 This module provides a repository for accessing creator_links data.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any
 
-from sqlalchemy import select, delete, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, select
 
 from models.tables.creator_links import CreatorLink
 from utils.repository import BaseRepository
@@ -16,7 +14,7 @@ from utils.repository import BaseRepository
 class CreatorLinkRepository(BaseRepository):
     """Repository for creator_links table."""
 
-    def __init__(self, session_maker):
+    def __init__(self, session_maker) -> None:
         """Initialize the repository.
 
         Args:
@@ -24,7 +22,7 @@ class CreatorLinkRepository(BaseRepository):
         """
         super().__init__(session_maker, CreatorLink)
 
-    async def get_by_user_id(self, user_id: int) -> List[CreatorLink]:
+    async def get_by_user_id(self, user_id: int) -> list[CreatorLink]:
         """Get all creator links for a user.
 
         Args:
@@ -45,7 +43,7 @@ class CreatorLinkRepository(BaseRepository):
 
     async def get_by_user_and_title(
         self, user_id: int, title: str
-    ) -> Optional[CreatorLink]:
+    ) -> CreatorLink | None:
         """Get a creator link by user ID and title.
 
         Args:
@@ -105,7 +103,7 @@ class CreatorLinkRepository(BaseRepository):
         nsfw: bool = False,
         weight: int = 0,
         feature: bool = True,
-    ) -> Optional[CreatorLink]:
+    ) -> CreatorLink | None:
         """Update a creator link.
 
         Args:
@@ -162,7 +160,7 @@ class CreatorLinkRepository(BaseRepository):
             await session.commit()
             return result.rowcount > 0
 
-    async def get_all_titles_and_users(self) -> List[Dict[str, Any]]:
+    async def get_all_titles_and_users(self) -> list[dict[str, Any]]:
         """Get all titles and user IDs.
 
         Returns:

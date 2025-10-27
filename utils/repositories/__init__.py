@@ -1,18 +1,16 @@
-"""
-Repository package initialization.
+"""Repository package initialization.
 
 This module initializes the repository package and registers all repositories
 with the repository factory.
 """
 
-from models.tables.gallery import GalleryMementos
 from models.tables.creator_links import CreatorLink
+from models.tables.gallery import GalleryMementos
 from models.tables.messages import Message
-
-from utils.repository_factory import RepositoryFactory
-from utils.repositories.gallery_repository import GalleryRepository
 from utils.repositories.creator_link_repository import CreatorLinkRepository
+from utils.repositories.gallery_repository import GalleryRepository
 from utils.repositories.message_repository import MessageRepository
+from utils.repository_factory import RepositoryFactory
 
 
 def register_repositories(factory: RepositoryFactory) -> None:
