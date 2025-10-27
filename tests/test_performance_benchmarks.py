@@ -7,43 +7,39 @@ including database queries, command processing, and external API calls.
 
 import asyncio
 import os
+import statistics
 import sys
 import time
-import statistics
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any, Callable
-from unittest.mock import AsyncMock, MagicMock, patch
+from collections.abc import Callable
+from typing import Any
+from unittest.mock import AsyncMock, patch
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Discord components
-import discord
-from discord.ext import commands
 
 # Import cogs for benchmarking
 from cogs.stats import StatsCogs
 from cogs.twi import TwiCog
 
 # Import test utilities
-from tests.fixtures import DatabaseFixture, TestDataFixture
 from tests.mock_factories import (
-    MockUserFactory,
-    MockMemberFactory,
-    MockGuildFactory,
     MockChannelFactory,
-    MockMessageFactory,
-    MockInteractionFactory,
     MockContextFactory,
+    MockGuildFactory,
+    MockInteractionFactory,
+    MockMemberFactory,
+    MockMessageFactory,
 )
-from tests.test_utils import TestSetup, TestTeardown, TestAssertions, TestHelpers
+from tests.test_utils import TestSetup, TestTeardown
 
 
 class PerformanceBenchmark:
     """Utility class for performance benchmarking."""
 
     @staticmethod
-    async def time_async_function(func: Callable, *args, **kwargs) -> Tuple[Any, float]:
+    async def time_async_function(func: Callable, *args, **kwargs) -> tuple[Any, float]:
         """Time an async function and return result and execution time."""
         start_time = time.perf_counter()
         result = await func(*args, **kwargs)
@@ -54,7 +50,7 @@ class PerformanceBenchmark:
     @staticmethod
     async def benchmark_async_function(
         func: Callable, iterations: int = 10, *args, **kwargs
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Benchmark an async function over multiple iterations."""
         times = []
 
@@ -75,7 +71,7 @@ class PerformanceBenchmark:
         }
 
     @staticmethod
-    def print_benchmark_results(operation_name: str, results: Dict[str, float]):
+    def print_benchmark_results(operation_name: str, results: dict[str, float]) -> None:
         """Print formatted benchmark results."""
         print(f"\n📊 {operation_name} Performance Benchmark:")
         print(f"  Iterations: {results['iterations']}")
@@ -87,7 +83,7 @@ class PerformanceBenchmark:
         print(f"  Total time: {results['total']:.4f}s")
 
 
-async def benchmark_database_operations():
+async def benchmark_database_operations() -> bool:
     """Benchmark database operations."""
     print("\n🔍 Benchmarking database operations...")
 
@@ -108,7 +104,7 @@ async def benchmark_database_operations():
     db.pool = mock_pool
 
     # Benchmark single insert operation
-    async def single_insert():
+    async def single_insert() -> None:
         async with db.pool.acquire() as conn:
             await conn.execute(
                 "INSERT INTO test_table (name) VALUES ($1)", "test_value"
@@ -120,7 +116,7 @@ async def benchmark_database_operations():
     PerformanceBenchmark.print_benchmark_results("Single Database Insert", results)
 
     # Benchmark bulk insert operation
-    async def bulk_insert():
+    async def bulk_insert() -> None:
         data = [("user1", "email1"), ("user2", "email2"), ("user3", "email3")] * 10
         async with db.pool.acquire() as conn:
             await conn.executemany(
@@ -135,7 +131,7 @@ async def benchmark_database_operations():
     )
 
     # Benchmark select operation
-    async def select_operation():
+    async def select_operation() -> None:
         async with db.pool.acquire() as conn:
             await conn.fetch("SELECT * FROM test_table WHERE name = $1", "test_value")
 
@@ -151,7 +147,7 @@ async def benchmark_database_operations():
     return True
 
 
-async def benchmark_stats_cog_operations():
+async def benchmark_stats_cog_operations() -> bool:
     """Benchmark StatsCogs operations."""
     print("\n🔍 Benchmarking StatsCogs operations...")
 
@@ -165,7 +161,7 @@ async def benchmark_stats_cog_operations():
     bot.db.fetchrow = AsyncMock(return_value={"total": 42})
 
     # Benchmark save_users operation
-    async def save_users_operation():
+    async def save_users_operation() -> None:
         ctx = MockContextFactory.create()
         members = [MockMemberFactory.create() for _ in range(10)]
         mock_guild = MockGuildFactory.create()
@@ -181,7 +177,7 @@ async def benchmark_stats_cog_operations():
     )
 
     # Benchmark save_servers operation
-    async def save_servers_operation():
+    async def save_servers_operation() -> None:
         ctx = MockContextFactory.create()
         mock_guilds = [MockGuildFactory.create() for _ in range(5)]
         bot.guilds = mock_guilds
@@ -195,7 +191,7 @@ async def benchmark_stats_cog_operations():
     )
 
     # Benchmark message_count command
-    async def message_count_operation():
+    async def message_count_operation() -> None:
         interaction = MockInteractionFactory.create()
         channel = MockChannelFactory.create_text_channel()
         await cog.message_count.callback(cog, interaction, channel, 24)
@@ -215,7 +211,7 @@ async def benchmark_stats_cog_operations():
     return True
 
 
-async def benchmark_twi_cog_operations():
+async def benchmark_twi_cog_operations() -> bool:
     """Benchmark TwiCog operations."""
     print("\n🔍 Benchmarking TwiCog operations...")
 
@@ -224,7 +220,7 @@ async def benchmark_twi_cog_operations():
     cog = await TestSetup.setup_cog(bot, TwiCog)
 
     # Benchmark Google search operation
-    async def google_search_operation():
+    async def google_search_operation() -> None:
         interaction = MockInteractionFactory.create()
         with patch("cogs.twi.google_search") as mock_search:
             mock_search.return_value = {
@@ -246,7 +242,7 @@ async def benchmark_twi_cog_operations():
     )
 
     # Benchmark password command
-    async def password_operation():
+    async def password_operation() -> None:
         interaction = MockInteractionFactory.create()
         mock_data = {
             "passwords": {"test": {"password": "test", "link": "https://example.com"}}
@@ -264,7 +260,7 @@ async def benchmark_twi_cog_operations():
     PerformanceBenchmark.print_benchmark_results("TwiCog password command", results)
 
     # Benchmark invis_text command
-    async def invis_text_operation():
+    async def invis_text_operation() -> None:
         interaction = MockInteractionFactory.create()
         with (
             patch("builtins.open"),
@@ -286,7 +282,7 @@ async def benchmark_twi_cog_operations():
     return True
 
 
-async def benchmark_message_processing():
+async def benchmark_message_processing() -> bool:
     """Benchmark message processing operations."""
     print("\n🔍 Benchmarking message processing...")
 
@@ -309,7 +305,7 @@ async def benchmark_message_processing():
     bot.db.transaction.return_value = mock_transaction
 
     # Benchmark single message processing
-    async def process_single_message():
+    async def process_single_message() -> None:
         message = MockMessageFactory.create()
         await cog.save_listener(message)
 
@@ -319,7 +315,7 @@ async def benchmark_message_processing():
     PerformanceBenchmark.print_benchmark_results("Single Message Processing", results)
 
     # Benchmark batch message processing
-    async def process_batch_messages():
+    async def process_batch_messages() -> None:
         messages = [MockMessageFactory.create() for _ in range(10)]
         for message in messages:
             await cog.save_listener(message)
@@ -339,7 +335,7 @@ async def benchmark_message_processing():
     return True
 
 
-async def benchmark_reaction_processing():
+async def benchmark_reaction_processing() -> bool:
     """Benchmark reaction processing operations."""
     print("\n🔍 Benchmarking reaction processing...")
 
@@ -351,7 +347,7 @@ async def benchmark_reaction_processing():
     bot.db.execute_many = AsyncMock()
 
     # Benchmark single reaction processing
-    async def process_single_reaction():
+    async def process_single_reaction() -> None:
         from tests.mock_factories import MockReactionFactory
 
         reaction = MockReactionFactory.create()
@@ -363,7 +359,7 @@ async def benchmark_reaction_processing():
     PerformanceBenchmark.print_benchmark_results("Single Reaction Processing", results)
 
     # Benchmark batch reaction processing
-    async def process_batch_reactions():
+    async def process_batch_reactions() -> None:
         from tests.mock_factories import MockReactionFactory
 
         reactions = [MockReactionFactory.create() for _ in range(10)]
@@ -385,12 +381,13 @@ async def benchmark_reaction_processing():
     return True
 
 
-async def benchmark_memory_usage():
+async def benchmark_memory_usage() -> bool:
     """Benchmark memory usage of critical operations."""
     print("\n🔍 Benchmarking memory usage...")
 
-    import psutil
     import gc
+
+    import psutil
 
     # Get initial memory usage
     process = psutil.Process()
@@ -406,11 +403,10 @@ async def benchmark_memory_usage():
 
     # Test memory usage with large data sets
     large_guild_count = 100
-    large_member_count = 1000
 
     # Create large dataset
     mock_guilds = []
-    for i in range(large_guild_count):
+    for _i in range(large_guild_count):
         guild = MockGuildFactory.create()
         guild.members = [
             MockMemberFactory.create() for _ in range(10)
@@ -433,7 +429,7 @@ async def benchmark_memory_usage():
 
     memory_used = memory_after - memory_before
 
-    print(f"\n💾 Memory Usage Benchmark:")
+    print("\n💾 Memory Usage Benchmark:")
     print(f"  Initial memory: {initial_memory:.2f} MB")
     print(f"  Before operation: {memory_before:.2f} MB")
     print(f"  After operation: {memory_after:.2f} MB")
@@ -450,7 +446,7 @@ async def benchmark_memory_usage():
     return True
 
 
-async def benchmark_concurrent_operations():
+async def benchmark_concurrent_operations() -> bool:
     """Benchmark concurrent operations performance."""
     print("\n🔍 Benchmarking concurrent operations...")
 
@@ -458,7 +454,7 @@ async def benchmark_concurrent_operations():
     bots = []
     cogs = []
 
-    for i in range(5):
+    for _i in range(5):
         bot = await TestSetup.create_test_bot()
         cog = await TestSetup.setup_cog(bot, StatsCogs)
         bot.db.execute = AsyncMock()
@@ -467,9 +463,9 @@ async def benchmark_concurrent_operations():
         cogs.append(cog)
 
     # Benchmark concurrent message processing
-    async def concurrent_message_processing():
+    async def concurrent_message_processing() -> None:
         tasks = []
-        for i, cog in enumerate(cogs):
+        for _i, cog in enumerate(cogs):
             message = MockMessageFactory.create()
             task = cog.save_listener(message)
             tasks.append(task)
@@ -484,9 +480,9 @@ async def benchmark_concurrent_operations():
     )
 
     # Benchmark concurrent database operations
-    async def concurrent_database_operations():
+    async def concurrent_database_operations() -> None:
         tasks = []
-        for i, cog in enumerate(cogs):
+        for _i, cog in enumerate(cogs):
             ctx = MockContextFactory.create()
             mock_guild = MockGuildFactory.create()
             mock_guild.members = [MockMemberFactory.create() for _ in range(5)]
@@ -504,7 +500,7 @@ async def benchmark_concurrent_operations():
     )
 
     # Clean up
-    for i, bot in enumerate(bots):
+    for _i, bot in enumerate(bots):
         await TestTeardown.teardown_cog(bot, "stats")
         await TestTeardown.teardown_bot(bot)
 
@@ -512,7 +508,7 @@ async def benchmark_concurrent_operations():
     return True
 
 
-async def benchmark_startup_performance():
+async def benchmark_startup_performance() -> bool:
     """Benchmark bot startup performance."""
     print("\n🔍 Benchmarking startup performance...")
 
@@ -526,9 +522,9 @@ async def benchmark_startup_performance():
     PerformanceBenchmark.print_benchmark_results("Bot Creation", results)
 
     # Benchmark cog loading
-    async def load_cog():
+    async def load_cog() -> None:
         bot = await TestSetup.create_test_bot()
-        cog = await TestSetup.setup_cog(bot, StatsCogs)
+        await TestSetup.setup_cog(bot, StatsCogs)
         await TestTeardown.teardown_cog(bot, "stats")
         await TestTeardown.teardown_bot(bot)
 
@@ -538,9 +534,9 @@ async def benchmark_startup_performance():
     PerformanceBenchmark.print_benchmark_results("Cog Loading (StatsCogs)", results)
 
     # Benchmark TwiCog loading
-    async def load_twi_cog():
+    async def load_twi_cog() -> None:
         bot = await TestSetup.create_test_bot()
-        cog = await TestSetup.setup_cog(bot, TwiCog)
+        await TestSetup.setup_cog(bot, TwiCog)
         await TestTeardown.teardown_cog(bot, "The Wandering Inn")
         await TestTeardown.teardown_bot(bot)
 
@@ -554,7 +550,7 @@ async def benchmark_startup_performance():
 
 
 # Main function to run all benchmarks
-async def main():
+async def main() -> None:
     """Run all performance benchmarks."""
     print("🚀 Running comprehensive performance benchmarks...")
     print("=" * 60)

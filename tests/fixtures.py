@@ -8,33 +8,30 @@ test environments, particularly for database testing.
 import asyncio
 import os
 import sys
-from typing import AsyncGenerator, Callable, Dict, List, Optional, Any
+from collections.abc import AsyncGenerator, Callable
+from typing import Any
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import SQLAlchemy components
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker
-
-# Import models
-from models.base import Base
 
 # Import all models to ensure they're registered with Base.metadata
 from models import *
 
+# Import models
+from models.base import Base
+from models.tables.commands import CommandHistory
+from models.tables.creator_links import CreatorLink
+from models.tables.gallery import GalleryMementos
+
 # Explicitly import all model classes to ensure they're registered
 from models.tables.servers import Server
-from models.tables.commands import CommandHistory
-from models.tables.gallery import GalleryMementos
-from models.tables.messages import Message
-from models.tables.reactions import Reaction
-from models.tables.join_leave import JoinLeave
-from models.tables.creator_links import CreatorLink
 
 # Import test utilities
-from tests.test_cogs import MockDatabase, MockAsyncSession, TestBot
 
 
 class DatabaseFixture:
@@ -45,7 +42,7 @@ class DatabaseFixture:
     as well as creating sessions for interacting with the database.
     """
 
-    def __init__(self, database_url: str = "sqlite+aiosqlite:///:memory:"):
+    def __init__(self, database_url: str = "sqlite+aiosqlite:///:memory:") -> None:
         """
         Initialize the database fixture.
 
@@ -53,8 +50,8 @@ class DatabaseFixture:
             database_url: The URL for the test database. Defaults to an in-memory SQLite database.
         """
         self.database_url = database_url
-        self.engine: Optional[AsyncEngine] = None
-        self.session_maker: Optional[Callable[..., AsyncSession]] = None
+        self.engine: AsyncEngine | None = None
+        self.session_maker: Callable[..., AsyncSession] | None = None
 
     async def setup(self) -> None:
         """
@@ -123,7 +120,7 @@ class TestDataFixture:
 
     __test__ = False  # Tell pytest this is not a test class
 
-    def __init__(self, db_fixture: DatabaseFixture):
+    def __init__(self, db_fixture: DatabaseFixture) -> None:
         """
         Initialize the test data fixture.
 
@@ -132,7 +129,7 @@ class TestDataFixture:
         """
         self.db_fixture = db_fixture
 
-    async def load_gallery_mementos(self, count: int = 3) -> List[Dict[str, Any]]:
+    async def load_gallery_mementos(self, count: int = 3) -> list[dict[str, Any]]:
         """
         Load test gallery mementos into the database.
 
@@ -142,7 +139,6 @@ class TestDataFixture:
         Returns:
             A list of dictionaries containing the created gallery mementos.
         """
-        from models.tables.gallery import GalleryMementos
 
         gallery_mementos = []
 
@@ -167,7 +163,7 @@ class TestDataFixture:
 
         return gallery_mementos
 
-    async def load_command_history(self, count: int = 3) -> List[Dict[str, Any]]:
+    async def load_command_history(self, count: int = 3) -> list[dict[str, Any]]:
         """
         Load test command history entries into the database.
 
@@ -177,8 +173,6 @@ class TestDataFixture:
         Returns:
             A list of dictionaries containing the created command history entries.
         """
-        from models.tables.commands import CommandHistory
-        from models.tables.servers import Server
         from datetime import datetime, timedelta
 
         command_history = []
@@ -228,7 +222,7 @@ class TestDataFixture:
 
         return command_history
 
-    async def load_creator_links(self, count: int = 3) -> List[Dict[str, Any]]:
+    async def load_creator_links(self, count: int = 3) -> list[dict[str, Any]]:
         """
         Load test creator links into the database.
 
@@ -238,7 +232,6 @@ class TestDataFixture:
         Returns:
             A list of dictionaries containing the created creator links.
         """
-        from models.tables.creator_links import CreatorLink
         from datetime import datetime, timedelta
 
         creator_links = []
@@ -311,7 +304,7 @@ async def create_test_data_fixture(
 
 
 # Example usage:
-async def example_usage():
+async def example_usage() -> None:
     """Example of how to use the fixtures."""
     async for db_fixture in create_db_fixture():
         async for test_data in create_test_data_fixture(db_fixture):

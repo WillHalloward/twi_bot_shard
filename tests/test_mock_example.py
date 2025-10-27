@@ -6,8 +6,9 @@ This module shows how to use pytest-mock to mock dependencies in tests.
 
 import os
 import sys
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -22,7 +23,7 @@ from utils.error_handling import log_error
 class MockDatabase:
     """Mock Database class for testing purposes."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the database with a mock pool."""
         self.pool = None
 
@@ -37,7 +38,7 @@ class MockDatabase:
             return await conn.execute(query, *args)
 
 
-def test_log_error_with_mock(mocker):
+def test_log_error_with_mock(mocker) -> None:
     """
     Test log_error function with mocked redact_sensitive_info.
 
@@ -63,7 +64,7 @@ def test_log_error_with_mock(mocker):
 
 
 @pytest.mark.asyncio
-async def test_database_execute_with_mock(mocker):
+async def test_database_execute_with_mock(mocker) -> None:
     """
     Test Database.execute method with mocked connection pool.
 
@@ -96,7 +97,7 @@ async def test_database_execute_with_mock(mocker):
     assert result == mock_result
 
 
-def test_spy_on_existing_method(mocker):
+def test_spy_on_existing_method(mocker) -> None:
     """
     Test using a spy on an existing method.
 
@@ -126,7 +127,7 @@ def test_spy_on_existing_method(mocker):
     assert spy.spy_return == 5
 
 
-def test_mock_context_manager(mocker):
+def test_mock_context_manager(mocker) -> None:
     """
     Test mocking a context manager.
 
@@ -139,7 +140,7 @@ def test_mock_context_manager(mocker):
     mocker.patch("builtins.open", mock_file)
 
     # Use the context manager
-    with open("test_file.txt", "r") as f:
+    with open("test_file.txt") as f:
         data = f.read()
 
     # Verify open was called with the expected arguments

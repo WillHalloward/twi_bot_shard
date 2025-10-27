@@ -8,38 +8,30 @@ various utility commands for server management and user interaction.
 import asyncio
 import os
 import sys
-from typing import Dict, List, Optional, Tuple, Any
-from unittest.mock import AsyncMock, MagicMock, patch
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Discord components
 import discord
-from discord.ext import commands
 
 # Import the cog to test
 from cogs.other import OtherCogs, user_info_function
 
 # Import test utilities
-from tests.fixtures import DatabaseFixture, TestDataFixture
 from tests.mock_factories import (
-    MockUserFactory,
-    MockMemberFactory,
-    MockGuildFactory,
     MockChannelFactory,
-    MockMessageFactory,
-    MockRoleFactory,
+    MockGuildFactory,
     MockInteractionFactory,
-    MockContextFactory,
+    MockMemberFactory,
+    MockRoleFactory,
 )
-from tests.test_utils import TestSetup, TestTeardown, TestAssertions, TestHelpers
-
+from tests.test_utils import TestSetup, TestTeardown
 
 # Test the standalone functions
 
 
-async def test_user_info_function():
+async def test_user_info_function() -> bool:
     """Test the user_info_function."""
     print("\nTesting user_info_function...")
 
@@ -73,7 +65,7 @@ async def test_user_info_function():
 # Test the OtherCogs class methods
 
 
-async def test_other_cog_initialization():
+async def test_other_cog_initialization() -> bool:
     """Test the initialization of the OtherCogs class."""
     print("\nTesting OtherCogs initialization...")
 
@@ -95,7 +87,7 @@ async def test_other_cog_initialization():
     return True
 
 
-async def test_ping_command():
+async def test_ping_command() -> bool:
     """Test the ping command."""
     print("\nTesting ping command...")
 
@@ -127,7 +119,7 @@ async def test_ping_command():
     return True
 
 
-async def test_av_command():
+async def test_av_command() -> bool:
     """Test the av (avatar) command."""
     print("\nTesting av command...")
 
@@ -166,7 +158,7 @@ async def test_av_command():
     return True
 
 
-async def test_info_user_command():
+async def test_info_user_command() -> bool:
     """Test the info_user command."""
     print("\nTesting info_user command...")
 
@@ -198,7 +190,7 @@ async def test_info_user_command():
     return True
 
 
-async def test_info_server_command():
+async def test_info_server_command() -> bool:
     """Test the info_server command."""
     print("\nTesting info_server command...")
 
@@ -236,7 +228,7 @@ async def test_info_server_command():
     return True
 
 
-async def test_roll_command():
+async def test_roll_command() -> bool:
     """Test the roll command."""
     print("\nTesting roll command...")
 
@@ -301,7 +293,7 @@ async def test_roll_command():
     return True
 
 
-async def test_say_command():
+async def test_say_command() -> bool:
     """Test the say command."""
     print("\nTesting say command...")
 
@@ -331,7 +323,7 @@ async def test_say_command():
 
 
 # Main function to run all tests
-async def main():
+async def main() -> None:
     """Run all unit tests for the OtherCogs class."""
     print("Running OtherCogs unit tests...")
 

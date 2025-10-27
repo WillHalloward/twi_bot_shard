@@ -8,15 +8,14 @@ certain properties for a wide range of inputs.
 
 import os
 import sys
-import re
-from typing import Any, Dict, List, Optional, Pattern, Tuple, Union
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Hypothesis for property-based testing
 try:
-    from hypothesis import given, assume, strategies as st, settings, HealthCheck
+    from hypothesis import HealthCheck, assume, given, settings
+    from hypothesis import strategies as st
     from hypothesis.strategies import SearchStrategy
 except ImportError:
     print("Hypothesis is not installed. Please install it with:")
@@ -25,12 +24,10 @@ except ImportError:
 
 # Import error handling functions
 from utils.error_handling import (
-    detect_sensitive_info,
-    redact_sensitive_info,
-    sanitize_error_message,
-    get_error_response,
-    ErrorSecurityLevel,
     SENSITIVE_PATTERNS,
+    ErrorSecurityLevel,
+    detect_sensitive_info,
+    get_error_response,
 )
 
 # Define strategies for generating test data

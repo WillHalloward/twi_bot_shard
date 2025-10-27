@@ -7,18 +7,20 @@ certain properties for a wide range of inputs.
 """
 
 import os
-import sys
 import re
+import sys
+from re import Pattern
+from typing import Any
+
 import pytest
-from datetime import datetime
-from typing import Any, List, Optional, Pattern, Tuple, Union
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Hypothesis for property-based testing
 try:
-    from hypothesis import given, assume, strategies as st, settings, HealthCheck
+    from hypothesis import HealthCheck, assume, given, settings
+    from hypothesis import strategies as st
     from hypothesis.strategies import SearchStrategy
 except ImportError:
     print("Hypothesis is not installed. Please install it with:")
@@ -27,17 +29,17 @@ except ImportError:
 
 # Import validation functions
 from utils.validation import (
-    validate_string,
-    validate_integer,
-    validate_float,
-    validate_boolean,
-    validate_email,
-    validate_url,
-    validate_discord_id,
-    sanitize_string,
-    sanitize_json,
-    ValidationLevel,
     ValidationError,
+    ValidationLevel,
+    sanitize_json,
+    sanitize_string,
+    validate_boolean,
+    validate_discord_id,
+    validate_email,
+    validate_float,
+    validate_integer,
+    validate_string,
+    validate_url,
 )
 
 # Define strategies for generating test data
@@ -216,7 +218,7 @@ def test_validate_string_properties(
         ),
     )
 )
-def test_validate_string_with_pattern(pattern_and_value: Tuple[Pattern, str]) -> None:
+def test_validate_string_with_pattern(pattern_and_value: tuple[Pattern, str]) -> None:
     """Test validate_string with pattern matching."""
     pattern, value = pattern_and_value
 
@@ -270,9 +272,9 @@ def test_validate_integer_properties(
         # If validation fails, check that it's for a valid reason
         if value is None:
             pass  # Expected failure for None
-        elif not isinstance(value, (int, str, float)):
+        elif not isinstance(value, int | str | float):
             pass  # Expected failure for non-numeric types
-        elif isinstance(value, (int, float)) and (
+        elif isinstance(value, int | float) and (
             value < min_value or value > max_value
         ):
             pass  # Expected failure for out-of-range values
@@ -325,9 +327,9 @@ def test_validate_float_properties(
         # If validation fails, check that it's for a valid reason
         if value is None:
             pass  # Expected failure for None
-        elif not isinstance(value, (int, float, str)):
+        elif not isinstance(value, int | float | str):
             pass  # Expected failure for non-numeric types
-        elif isinstance(value, (int, float)) and (
+        elif isinstance(value, int | float) and (
             value < min_value or value > max_value
         ):
             pass  # Expected failure for out-of-range values
@@ -344,7 +346,7 @@ def test_validate_float_properties(
         st.sampled_from([0, 1, "true", "false", "yes", "no", "y", "n", "on", "off"]),
     )
 )
-def test_validate_boolean_properties(value: Union[bool, int, str]) -> None:
+def test_validate_boolean_properties(value: bool | int | str) -> None:
     """Test properties of validate_boolean function."""
     result = validate_boolean(value)
 
@@ -490,7 +492,7 @@ def test_sanitize_json_properties(value: Any) -> None:
     parsed = json.loads(result)
 
     # Property 3: If input is a simple type, parsed result should equal input
-    if isinstance(value, (str, int, float, bool)):
+    if isinstance(value, str | int | float | bool):
         assert parsed == value
 
 

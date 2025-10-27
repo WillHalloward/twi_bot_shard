@@ -6,21 +6,22 @@ to verify that query cache functions in utils/query_cache.py maintain
 certain properties for a wide range of inputs.
 """
 
-import os
-import sys
 import asyncio
 import logging
-import pytest
+import os
+import sys
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple, Union
-from unittest.mock import MagicMock, patch
+from typing import Any
+
+import pytest
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Hypothesis for property-based testing
 try:
-    from hypothesis import given, assume, strategies as st, settings, HealthCheck
+    from hypothesis import HealthCheck, assume, given, settings
+    from hypothesis import strategies as st
     from hypothesis.strategies import SearchStrategy
 except ImportError:
     print("Hypothesis is not installed. Please install it with:")
@@ -28,7 +29,7 @@ except ImportError:
     sys.exit(1)
 
 # Import query cache components
-from utils.query_cache import QueryCache, CacheKey, CacheValue, CacheStats
+from utils.query_cache import CacheKey, CacheStats, CacheValue, QueryCache
 
 
 # Create a subclass of QueryCache that doesn't start the background task
@@ -41,15 +42,15 @@ class TestQueryCache(QueryCache):
         self,
         max_size: int = 1000,
         default_ttl: int = 60,
-        logger: Optional[logging.Logger] = None,
-    ):
+        logger: logging.Logger | None = None,
+    ) -> None:
         """Initialize the query cache without starting the background task."""
         self._cache: OrderedDict[CacheKey, CacheValue] = OrderedDict()
         self._max_size = max_size
         self._default_ttl = default_ttl
         self._stats = CacheStats()
         self._logger = logger or logging.getLogger("query_cache")
-        self._invalidation_patterns: Dict[str, List[str]] = {}
+        self._invalidation_patterns: dict[str, list[str]] = {}
 
 
 # Define strategies for generating test data
@@ -134,7 +135,7 @@ ttl_strategy = st.one_of(
     query=sql_query_strategy,
     args=query_args_strategy,
 )
-def test_make_key_properties(query: str, args: List[Any]) -> None:
+def test_make_key_properties(query: str, args: list[Any]) -> None:
     """Test properties of _make_key function."""
     # Create a TestQueryCache instance
     cache = TestQueryCache()
@@ -231,7 +232,7 @@ def test_register_invalidation_patterns_properties(query: str) -> None:
     ttl=ttl_strategy,
 )
 def test_get_set_properties(
-    query: str, args: List[Any], value: Any, ttl: Optional[int]
+    query: str, args: list[Any], value: Any, ttl: int | None
 ) -> None:
     """Test properties of get and set functions."""
 
@@ -295,7 +296,7 @@ def test_get_set_properties(
     args=query_args_strategy,
     value=cache_value_strategy,
 )
-def test_invalidate_properties(query: str, args: List[Any], value: Any) -> None:
+def test_invalidate_properties(query: str, args: list[Any], value: Any) -> None:
     """Test properties of invalidate function."""
 
     # Create a synchronous version of QueryCache for testing
@@ -369,7 +370,7 @@ def test_invalidate_properties(query: str, args: List[Any], value: Any) -> None:
     value=cache_value_strategy,
 )
 def test_invalidate_by_table_properties(
-    table: str, query: str, args: List[Any], value: Any
+    table: str, query: str, args: list[Any], value: Any
 ) -> None:
     """Test properties of invalidate_by_table function."""
 

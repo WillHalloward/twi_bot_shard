@@ -14,15 +14,14 @@ maintain functionality even when dependencies are unreliable.
 """
 
 import asyncio
-import time
-import random
-import psutil
 import os
+import random
 import sys
-from concurrent.futures import ThreadPoolExecutor
-from typing import List, Dict, Any, Optional, Callable
-from unittest.mock import AsyncMock, MagicMock, patch, Mock
-from contextlib import asynccontextmanager
+import time
+from typing import Any, Never
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import psutil
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -37,39 +36,38 @@ logging.basicConfig(
 )
 
 # Import config normally
-import config
 
 import discord
 from discord.ext import commands
 
-# Import test utilities
-from tests.mock_factories import (
-    MockUserFactory,
-    MockGuildFactory,
-    MockChannelFactory,
-    MockMessageFactory,
-    MockInteractionFactory,
-)
+from cogs.other import OtherCogs
 
 # Import cogs for testing
 from cogs.stats import StatsCogs
-from cogs.other import OtherCogs
 from cogs.twi import TwiCog
+
+# Import test utilities
+from tests.mock_factories import (
+    MockChannelFactory,
+    MockGuildFactory,
+    MockInteractionFactory,
+    MockUserFactory,
+)
 
 
 class ChaosTestMetrics:
     """Class to track and analyze chaos test metrics."""
 
-    def __init__(self):
-        self.failure_scenarios: List[str] = []
-        self.recovery_times: List[float] = []
-        self.error_counts: Dict[str, int] = {}
-        self.success_counts: Dict[str, int] = {}
-        self.degradation_events: List[Dict[str, Any]] = []
+    def __init__(self) -> None:
+        self.failure_scenarios: list[str] = []
+        self.recovery_times: list[float] = []
+        self.error_counts: dict[str, int] = {}
+        self.success_counts: dict[str, int] = {}
+        self.degradation_events: list[dict[str, Any]] = []
         self.start_time: float = 0
         self.end_time: float = 0
 
-    def start_test(self):
+    def start_test(self) -> None:
         """Start tracking chaos test metrics."""
         self.start_time = time.time()
         self.failure_scenarios.clear()
@@ -78,29 +76,29 @@ class ChaosTestMetrics:
         self.success_counts.clear()
         self.degradation_events.clear()
 
-    def end_test(self):
+    def end_test(self) -> None:
         """End tracking chaos test metrics."""
         self.end_time = time.time()
 
-    def record_failure_scenario(self, scenario: str):
+    def record_failure_scenario(self, scenario: str) -> None:
         """Record a failure scenario being tested."""
         self.failure_scenarios.append(scenario)
 
-    def record_recovery_time(self, recovery_time: float):
+    def record_recovery_time(self, recovery_time: float) -> None:
         """Record time taken to recover from a failure."""
         self.recovery_times.append(recovery_time)
 
-    def record_error(self, scenario: str):
+    def record_error(self, scenario: str) -> None:
         """Record an error for a specific scenario."""
         self.error_counts[scenario] = self.error_counts.get(scenario, 0) + 1
 
-    def record_success(self, scenario: str):
+    def record_success(self, scenario: str) -> None:
         """Record a success for a specific scenario."""
         self.success_counts[scenario] = self.success_counts.get(scenario, 0) + 1
 
     def record_degradation_event(
-        self, event_type: str, severity: str, details: Dict[str, Any]
-    ):
+        self, event_type: str, severity: str, details: dict[str, Any]
+    ) -> None:
         """Record a graceful degradation event."""
         self.degradation_events.append(
             {
@@ -111,7 +109,7 @@ class ChaosTestMetrics:
             }
         )
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get a summary of chaos test metrics."""
         total_time = self.end_time - self.start_time
 
@@ -156,7 +154,7 @@ class ChaosInjector:
     async def database_failure(duration: float = 1.0):
         """Simulate database connection failure."""
 
-        async def failing_execute(*args, **kwargs):
+        async def failing_execute(*args, **kwargs) -> Never:
             await asyncio.sleep(0.1)  # Simulate timeout
             raise Exception("Database connection failed")
 
@@ -166,7 +164,7 @@ class ChaosInjector:
     async def network_failure(duration: float = 1.0):
         """Simulate network failure for external APIs."""
 
-        async def failing_request(*args, **kwargs):
+        async def failing_request(*args, **kwargs) -> Never:
             await asyncio.sleep(0.1)  # Simulate timeout
             raise Exception("Network connection failed")
 
@@ -183,7 +181,7 @@ class ChaosInjector:
     async def slow_response(delay: float = 5.0):
         """Simulate slow response times."""
 
-        async def slow_function(*args, **kwargs):
+        async def slow_function(*args, **kwargs) -> str:
             await asyncio.sleep(delay)
             return "Slow response"
 
@@ -193,7 +191,7 @@ class ChaosInjector:
     async def intermittent_failure(failure_rate: float = 0.5):
         """Simulate intermittent failures."""
 
-        async def intermittent_function(*args, **kwargs):
+        async def intermittent_function(*args, **kwargs) -> str:
             if random.random() < failure_rate:
                 raise Exception("Intermittent failure")
             return "Success"
@@ -204,7 +202,7 @@ class ChaosInjector:
 class ChaosEngineeringTests:
     """Main chaos engineering test suite."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.metrics = ChaosTestMetrics()
         self.injector = ChaosInjector()
         self.logger = logging.getLogger("chaos_tests")
@@ -457,7 +455,7 @@ class ChaosEngineeringTests:
             other_cog = OtherCogs(bot)
 
             # Create intermittent failure function
-            intermittent_func = await self.injector.intermittent_failure(
+            await self.injector.intermittent_failure(
                 failure_rate=0.3
             )
 
@@ -467,7 +465,7 @@ class ChaosEngineeringTests:
             start_time = time.time()
 
             # Run multiple operations to test intermittent failures
-            for i in range(10):
+            for _i in range(10):
                 try:
                     ctx = MagicMock()
                     ctx.send = AsyncMock()
@@ -520,7 +518,7 @@ class ChaosEngineeringTests:
             other_cog = OtherCogs(bot)
 
             # Mock slow database responses
-            async def slow_execute(*args, **kwargs):
+            async def slow_execute(*args, **kwargs) -> None:
                 await asyncio.sleep(2.0)  # 2 second delay
                 return None
 
@@ -554,7 +552,7 @@ class ChaosEngineeringTests:
 
                 return True
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self.logger.warning("Command timed out - this may be expected behavior")
                 self.metrics.record_success(scenario)  # Timeout handling is good
                 return True
@@ -569,7 +567,7 @@ class ChaosEngineeringTests:
             self.metrics.record_error(scenario)
             return False
 
-    async def run_all_chaos_tests(self) -> Dict[str, Any]:
+    async def run_all_chaos_tests(self) -> dict[str, Any]:
         """Run all chaos engineering tests and return results."""
         self.logger.info("Starting chaos engineering test suite...")
         self.metrics.start_test()
@@ -606,7 +604,7 @@ class ChaosEngineeringTests:
         return summary
 
 
-async def main():
+async def main() -> bool | None:
     """Main function to run chaos engineering tests."""
     chaos_tests = ChaosEngineeringTests()
 

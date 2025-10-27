@@ -6,30 +6,27 @@ are syntactically correct and can be executed without errors.
 """
 
 import ast
-import os
 import re
 import unittest
 from pathlib import Path
-from typing import Dict, List, Tuple
-import pytest
 
 
 class DocumentationCodeTest(unittest.TestCase):
     """Test case for validating code examples in documentation."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up the test case."""
         self.docs_dir = Path(__file__).parent.parent / "docs"
         self.code_blocks = {}  # type: Dict[str, List[Tuple[str, str]]]
         self.extract_code_blocks()
 
-    def extract_code_blocks(self):
+    def extract_code_blocks(self) -> None:
         """Extract code blocks from all markdown files in the docs directory."""
         for file_path in self.docs_dir.glob("*.md"):
             relative_path = file_path.relative_to(Path(__file__).parent.parent)
             self.code_blocks[str(relative_path)] = []
 
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             # Find all code blocks with language specifier
@@ -42,7 +39,7 @@ class DocumentationCodeTest(unittest.TestCase):
                 self.code_blocks[str(relative_path)].append((language, code))
 
     @unittest.skip("Temporarily skipped due to syntax errors in documentation")
-    def test_python_code_syntax(self):
+    def test_python_code_syntax(self) -> None:
         """Test that Python code examples have valid syntax."""
         for file_path, blocks in self.code_blocks.items():
             for i, (language, code) in enumerate(blocks):
@@ -55,7 +52,7 @@ class DocumentationCodeTest(unittest.TestCase):
                         )
 
     @unittest.skip("Temporarily skipped due to unmatched quotes in documentation")
-    def test_bash_code_syntax(self):
+    def test_bash_code_syntax(self) -> None:
         """Test that bash code examples have valid syntax."""
         for file_path, blocks in self.code_blocks.items():
             for i, (language, code) in enumerate(blocks):
@@ -78,7 +75,7 @@ class DocumentationCodeTest(unittest.TestCase):
                             f"Unmatched double quotes in bash code block #{i+1} in {file_path}"
                         )
 
-    def test_yaml_code_syntax(self):
+    def test_yaml_code_syntax(self) -> None:
         """Test that YAML code examples have valid syntax."""
         try:
             import yaml
@@ -95,7 +92,7 @@ class DocumentationCodeTest(unittest.TestCase):
         except ImportError:
             self.skipTest("yaml module not available")
 
-    def test_json_code_syntax(self):
+    def test_json_code_syntax(self) -> None:
         """Test that JSON code examples have valid syntax."""
         import json
 
@@ -109,7 +106,7 @@ class DocumentationCodeTest(unittest.TestCase):
                             f"JSON syntax error in code block #{i+1} in {file_path}: {e}"
                         )
 
-    def test_sql_code_syntax(self):
+    def test_sql_code_syntax(self) -> None:
         """Basic test for SQL code examples."""
         for file_path, blocks in self.code_blocks.items():
             for i, (language, code) in enumerate(blocks):
@@ -131,7 +128,7 @@ class DocumentationCodeTest(unittest.TestCase):
     @unittest.skip(
         "Temporarily skipped due to execution errors in documentation examples"
     )
-    def test_executable_python_examples(self):
+    def test_executable_python_examples(self) -> None:
         """Test that executable Python examples can be executed without errors."""
         for file_path, blocks in self.code_blocks.items():
             for i, (language, code) in enumerate(blocks):

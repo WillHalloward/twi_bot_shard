@@ -7,33 +7,34 @@ This script imports all SQLAlchemy models and tests basic functionality.
 import asyncio
 import os
 import sys
+from datetime import datetime, timedelta
+
 import pytest
 import pytest_asyncio
-from datetime import datetime, timedelta
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import SQLAlchemy components
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.orm import sessionmaker, Mapped, mapped_column
+
 from sqlalchemy import (
-    Column,
-    Integer,
-    BigInteger,
-    String,
-    ForeignKey,
-    Table,
-    MetaData,
-    text,
-    Boolean,
-    DateTime,
     JSON,
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
     Interval,
+    MetaData,
     PrimaryKeyConstraint,
+    String,
+    Table,
+    text,
 )
-from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.future import select
+from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
 
 # Create an in-memory SQLite database for testing
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -89,16 +90,16 @@ class CommandHistory(ModelBase):
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.user_id"), nullable=False
     )
-    end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    command_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    channel_id: Mapped[Optional[int]] = mapped_column(
+    end_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    command_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    channel_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("channels.id"), nullable=True
     )
-    guild_id: Mapped[Optional[int]] = mapped_column(
+    guild_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("servers.server_id"), nullable=True
     )
-    args: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    run_time: Mapped[Optional[timedelta]] = mapped_column(Interval, nullable=True)
+    args: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    run_time: Mapped[timedelta | None] = mapped_column(Interval, nullable=True)
     start_date: Mapped[datetime] = mapped_column(
         DateTime, insert_default=datetime.now, nullable=False
     )
@@ -157,7 +158,7 @@ async def create_test_engine():
 
 
 @pytest.mark.asyncio
-async def test_gallery_mementos(session):
+async def test_gallery_mementos(session) -> bool:
     """Test GalleryMementos model."""
     print("\nTesting GalleryMementos model...")
 
@@ -187,7 +188,7 @@ async def test_gallery_mementos(session):
 
 
 @pytest.mark.asyncio
-async def test_command_history(session):
+async def test_command_history(session) -> bool:
     """Test CommandHistory model."""
     print("\nTesting CommandHistory model...")
 
@@ -229,7 +230,7 @@ async def test_command_history(session):
 
 
 @pytest.mark.asyncio
-async def test_creator_links(session):
+async def test_creator_links(session) -> bool:
     """Test CreatorLink model."""
     print("\nTesting CreatorLink model...")
 
@@ -288,7 +289,7 @@ async def session():
 
 
 @pytest.mark.asyncio
-async def test_all_models(session):
+async def test_all_models(session) -> None:
     """Test all models together."""
     # Run tests
     await test_gallery_mementos(session)
@@ -296,7 +297,7 @@ async def test_all_models(session):
     await test_creator_links(session)
 
 
-async def main():
+async def main() -> None:
     """Run all tests manually."""
     print("Testing SQLAlchemy models...")
 

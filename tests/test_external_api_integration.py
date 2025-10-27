@@ -13,8 +13,8 @@ errors, and edge cases while maintaining proper error handling and user feedback
 import asyncio
 import os
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any
+from typing import Any, Never
+from unittest.mock import MagicMock, patch
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -29,22 +29,19 @@ logging.basicConfig(
 )
 
 # Import config normally
-import config
 
-import discord
-from discord.ext import commands
 
 # Import the cogs we want to test
-from cogs.twi import TwiCog
 from cogs.gallery import GalleryCog
 from cogs.other import OtherCogs
+from cogs.twi import TwiCog
 
 # Import test utilities
 from tests.mock_factories import (
-    MockUserFactory,
-    MockGuildFactory,
     MockChannelFactory,
+    MockGuildFactory,
     MockInteractionFactory,
+    MockUserFactory,
 )
 
 
@@ -53,7 +50,7 @@ class TestGoogleSearchIntegration:
 
     def mock_google_search_success(
         self, query: str, api_key: str, cse_id: str, **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Mock successful Google search response."""
         return {
             "items": [
@@ -74,11 +71,11 @@ class TestGoogleSearchIntegration:
 
     def mock_google_search_empty(
         self, query: str, api_key: str, cse_id: str, **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Mock empty Google search response."""
         return {"items": []}
 
-    def mock_google_search_error(self, query: str, api_key: str, cse_id: str, **kwargs):
+    def mock_google_search_error(self, query: str, api_key: str, cse_id: str, **kwargs) -> Never:
         """Mock Google search API error."""
         from googleapiclient.errors import HttpError
 
@@ -87,7 +84,7 @@ class TestGoogleSearchIntegration:
             content=b'{"error": {"code": 403, "message": "Daily Limit Exceeded"}}',
         )
 
-    async def test_google_search_success(self):
+    async def test_google_search_success(self) -> bool | None:
         """Test successful Google search integration."""
         # Create mock bot and cog
         bot = MagicMock()
@@ -112,7 +109,7 @@ class TestGoogleSearchIntegration:
                 print(f"❌ Google Search success test failed: {e}")
                 return False
 
-    async def test_google_search_empty_results(self):
+    async def test_google_search_empty_results(self) -> bool | None:
         """Test Google search with empty results."""
         # Create mock bot and cog
         bot = MagicMock()
@@ -137,7 +134,7 @@ class TestGoogleSearchIntegration:
                 print(f"❌ Google Search empty results test failed: {e}")
                 return False
 
-    async def test_google_search_api_error(self):
+    async def test_google_search_api_error(self) -> bool | None:
         """Test Google search API error handling."""
         # Create mock bot and cog
         bot = MagicMock()
@@ -166,12 +163,12 @@ class TestGoogleSearchIntegration:
 class TestTwitterAPIIntegration:
     """Test Twitter API integration."""
 
-    async def test_twitter_url_detection(self):
+    async def test_twitter_url_detection(self) -> bool | None:
         """Test Twitter URL pattern detection."""
         # Create mock bot and cog
         bot = MagicMock()
         bot.db = MagicMock()
-        cog = GalleryCog(bot)
+        GalleryCog(bot)
 
         # Test various Twitter URL formats
         test_urls = [
@@ -184,8 +181,9 @@ class TestTwitterAPIIntegration:
 
         try:
             # Import the pattern from the cog
-            from cogs.gallery import twitter_pattern
             import re
+
+            from cogs.gallery import twitter_pattern
 
             for url in test_urls:
                 if re.search(twitter_pattern, url):
@@ -200,7 +198,7 @@ class TestTwitterAPIIntegration:
             print(f"❌ Twitter URL detection test failed: {e}")
             return False
 
-    async def test_twitter_repost_functionality(self):
+    async def test_twitter_repost_functionality(self) -> bool | None:
         """Test Twitter repost functionality."""
         # Create mock bot and cog
         bot = MagicMock()
@@ -264,12 +262,12 @@ class TestAO3APIIntegration:
         mock_work.status = "Complete"
         return mock_work
 
-    async def test_ao3_url_detection(self):
+    async def test_ao3_url_detection(self) -> bool | None:
         """Test AO3 URL pattern detection."""
         # Create mock bot and cog
         bot = MagicMock()
         bot.db = MagicMock()
-        cog = GalleryCog(bot)
+        GalleryCog(bot)
 
         # Test various AO3 URL formats
         test_urls = [
@@ -280,8 +278,9 @@ class TestAO3APIIntegration:
 
         try:
             # Import the pattern from the cog
-            from cogs.gallery import ao3_pattern
             import re
+
+            from cogs.gallery import ao3_pattern
 
             for url in test_urls:
                 if re.search(ao3_pattern, url):
@@ -296,7 +295,7 @@ class TestAO3APIIntegration:
             print(f"❌ AO3 URL detection test failed: {e}")
             return False
 
-    async def test_ao3_work_retrieval(self):
+    async def test_ao3_work_retrieval(self) -> bool | None:
         """Test AO3 work information retrieval."""
         # Create mock bot and cog
         bot = MagicMock()
@@ -323,7 +322,7 @@ class TestAO3APIIntegration:
                 print(f"❌ AO3 work retrieval test failed: {e}")
                 return False
 
-    async def test_ao3_authentication_error(self):
+    async def test_ao3_authentication_error(self) -> bool | None:
         """Test AO3 authentication error handling."""
         # Create mock bot and cog
         bot = MagicMock()
@@ -350,7 +349,7 @@ class TestAO3APIIntegration:
                 print(f"❌ AO3 authentication error test failed: {e}")
                 return False
 
-    async def test_ao3_repost_functionality(self):
+    async def test_ao3_repost_functionality(self) -> bool | None:
         """Test AO3 repost functionality."""
         # Create mock bot and cog
         bot = MagicMock()
@@ -430,7 +429,7 @@ async def run_all_external_api_tests():
     return sum(results) == len(results)
 
 
-async def main():
+async def main() -> bool | None:
     """Main test execution function."""
     try:
         success = await run_all_external_api_tests()

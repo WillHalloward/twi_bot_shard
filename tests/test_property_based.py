@@ -6,11 +6,10 @@ to verify that certain properties hold for a wide range of inputs.
 """
 
 import asyncio
-import inspect
 import os
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 # Add the project root to the Python path
@@ -18,7 +17,8 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Hypothesis for property-based testing
 try:
-    from hypothesis import given, strategies as st
+    from hypothesis import given
+    from hypothesis import strategies as st
     from hypothesis.strategies import SearchStrategy
 except ImportError:
     print("Hypothesis is not installed. Please install it with:")
@@ -26,27 +26,23 @@ except ImportError:
     sys.exit(1)
 
 # Import Discord components
-import discord
-from discord.ext import commands
 
 # Import project components
-from utils.decorators import (
-    log_command,
-    handle_errors,
-    require_bot_channel,
-    require_admin,
-)
-from utils.permissions import admin_or_me_check, is_bot_channel
-from utils.error_handling import get_error_response, log_error
-
 # Import test utilities
+from typing import Never
+
 from tests.mock_factories import (
-    MockUserFactory,
-    MockGuildFactory,
     MockChannelFactory,
-    MockInteractionFactory,
     MockContextFactory,
+    MockGuildFactory,
+    MockUserFactory,
 )
+from utils.decorators import (
+    handle_errors,
+    log_command,
+)
+from utils.error_handling import get_error_response, log_error
+from utils.permissions import admin_or_me_check, is_bot_channel
 
 # Define strategies for generating test data
 
@@ -104,7 +100,7 @@ def test_log_command_preserves_function_metadata(command_name: str) -> None:
     """Test that log_command preserves function metadata."""
 
     # Define a test function
-    async def test_func(self, ctx):
+    async def test_func(self, ctx) -> str:
         """Test function docstring."""
         return "test"
 
@@ -124,7 +120,7 @@ def test_handle_errors_preserves_function_metadata(command_name: str) -> None:
     """Test that handle_errors preserves function metadata."""
 
     # Define a test function
-    async def test_func(self, ctx):
+    async def test_func(self, ctx) -> str:
         """Test function docstring."""
         return "test"
 
@@ -163,7 +159,7 @@ async def test_log_command_calls_log_command_usage(
 
     # Define a test function
     @log_command(command_name)
-    async def test_func(self, ctx):
+    async def test_func(self, ctx) -> str:
         return "test"
 
     # Call the decorated function
@@ -198,7 +194,7 @@ async def test_handle_errors_catches_exceptions(
 
     # Define a test function that raises an exception
     @handle_errors(command_name)
-    async def test_func(self, ctx):
+    async def test_func(self, ctx) -> Never:
         raise error
 
     # Call the decorated function
@@ -250,7 +246,7 @@ async def test_is_bot_channel_returns_boolean(channel_id: int) -> None:
     ctx = MockContextFactory.create(channel=channel)
 
     # Patch the config module directly
-    with patch.object(config, 'bot_channel_id', channel_id):
+    with patch.object(config, "bot_channel_id", channel_id):
         # Call the function (is_bot_channel is async)
         result = await is_bot_channel(ctx)
 
@@ -261,7 +257,7 @@ async def test_is_bot_channel_returns_boolean(channel_id: int) -> None:
         assert result is True
 
     # Patch with a different value
-    with patch.object(config, 'bot_channel_id', channel_id + 1):
+    with patch.object(config, "bot_channel_id", channel_id + 1):
         # Call the function (is_bot_channel is async)
         result = await is_bot_channel(ctx)
 
@@ -309,7 +305,7 @@ def test_log_error_does_not_raise_exceptions(
     try:
         log_error(error, command_name, user_id, log_level)
     except Exception as e:
-        assert False, f"log_error raised an exception: {e}"
+        raise AssertionError(f"log_error raised an exception: {e}")
 
 
 # Main function to run the tests

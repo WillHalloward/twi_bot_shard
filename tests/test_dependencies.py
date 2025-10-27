@@ -1,9 +1,10 @@
-import sys
 import importlib
+import sys
+
 import pytest
 
 
-def check_import(module_name):
+def check_import(module_name) -> bool | None:
     """Helper function to check if a module can be imported."""
     try:
         importlib.import_module(module_name)
@@ -31,12 +32,12 @@ def check_import(module_name):
         "sqlalchemy",  # Added missing dependency
     ],
 )
-def test_import(module_name):
+def test_import(module_name) -> None:
     """Test that all required dependencies can be imported."""
     assert check_import(module_name), f"Failed to import {module_name}"
 
 
-def main():
+def main() -> None:
     dependencies = [
         "aiohttp",
         "discord",

@@ -6,10 +6,9 @@ It's useful for testing after making updates to ensure all changes work.
 """
 
 import asyncio
+import logging
 import os
 import sys
-import logging
-from typing import Dict, List, Tuple
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -19,7 +18,6 @@ import discord
 from discord.ext import commands
 
 # Import config (but don't use the token)
-import config
 
 # Set up logging
 logging.basicConfig(
@@ -34,7 +32,7 @@ logger = logging.getLogger("test_cogs")
 class MockScalars:
     """Mock for SQLAlchemy's Result.scalars() method."""
 
-    def __init__(self, items=None):
+    def __init__(self, items=None) -> None:
         self.items = items or []
 
     def all(self):
@@ -49,7 +47,7 @@ class MockScalars:
 class MockResult:
     """Mock for SQLAlchemy's Result object."""
 
-    def __init__(self, items=None):
+    def __init__(self, items=None) -> None:
         self.items = items or []
 
     def scalars(self):
@@ -68,11 +66,11 @@ class MockResult:
 class MockDatabase:
     """Mock Database class for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger("mock_database")
         self.pool = None
 
-    async def execute(self, query, *args, **kwargs):
+    async def execute(self, query, *args, **kwargs) -> None:
         """Mock execute method."""
         return None
 
@@ -80,19 +78,19 @@ class MockDatabase:
         """Mock fetch method."""
         return []
 
-    async def fetchrow(self, query, *args, **kwargs):
+    async def fetchrow(self, query, *args, **kwargs) -> None:
         """Mock fetchrow method."""
         return None
 
-    async def fetchval(self, query, *args, **kwargs):
+    async def fetchval(self, query, *args, **kwargs) -> None:
         """Mock fetchval method."""
         return None
 
-    async def execute_script(self, script_path, **kwargs):
+    async def execute_script(self, script_path, **kwargs) -> None:
         """Mock execute_script method."""
         return None
 
-    async def execute_many(self, query, data, **kwargs):
+    async def execute_many(self, query, data, **kwargs) -> None:
         """Mock execute_many method."""
         return None
 
@@ -113,7 +111,7 @@ class MockDatabase:
         mock_transaction.__aexit__ = AsyncMock()
         return mock_transaction
 
-    async def refresh_materialized_views(self):
+    async def refresh_materialized_views(self) -> None:
         """Mock refresh_materialized_views method."""
         return None
 
@@ -127,15 +125,15 @@ class MockAsyncSession:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    async def commit(self):
+    async def commit(self) -> None:
         """Mock commit method."""
         pass
 
-    async def rollback(self):
+    async def rollback(self) -> None:
         """Mock rollback method."""
         pass
 
-    async def close(self):
+    async def close(self) -> None:
         """Mock close method."""
         pass
 
@@ -147,11 +145,11 @@ class MockAsyncSession:
         """Mock fetch method."""
         return []
 
-    async def fetchrow(self, query, *args, **kwargs):
+    async def fetchrow(self, query, *args, **kwargs) -> None:
         """Mock fetchrow method."""
         return None
 
-    async def fetchval(self, query, *args, **kwargs):
+    async def fetchval(self, query, *args, **kwargs) -> None:
         """Mock fetchval method."""
         return None
 
@@ -160,7 +158,7 @@ class MockAsyncSession:
 class TestBot(commands.Bot):
     __test__ = False  # Tell pytest this is not a test class
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Initialize with minimal settings
         intents = discord.Intents.default()
         super().__init__(
@@ -239,7 +237,7 @@ class TestBot(commands.Bot):
         return self._guilds
 
     @guilds.setter
-    def guilds(self, value):
+    def guilds(self, value) -> None:
         """Setter for guilds property."""
         self._guilds = value
 
@@ -247,12 +245,12 @@ class TestBot(commands.Bot):
         # Override to do nothing
         pass
 
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         # Override to do nothing
         pass
 
 
-async def test_load_cogs() -> Tuple[List[str], Dict[str, Exception]]:
+async def test_load_cogs() -> tuple[list[str], dict[str, Exception]]:
     """
     Test loading all cogs.
 
@@ -319,7 +317,7 @@ async def test_load_cogs() -> Tuple[List[str], Dict[str, Exception]]:
     return successful_cogs, failed_cogs
 
 
-async def main():
+async def main() -> bool:
     """Run the test."""
     logger.info("Testing cog loading...")
 

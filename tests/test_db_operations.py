@@ -9,27 +9,23 @@ and the repository pattern.
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Import SQLAlchemy components
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 
-# Import models
-from models.base import Base
-from models.tables.gallery import GalleryMementos
 from models.tables.commands import CommandHistory
 from models.tables.creator_links import CreatorLink
 
+# Import models
+from models.tables.gallery import GalleryMementos
+
 # Import database utilities
 from utils.db_service import DatabaseService
-from utils.repository_factory import RepositoryFactory, GenericRepository
+from utils.repository_factory import GenericRepository, RepositoryFactory
 from utils.service_container import ServiceContainer
 
 # Create an in-memory SQLite database for testing
@@ -167,7 +163,7 @@ async def create_mock_session():
     return session
 
 
-async def test_db_service_crud():
+async def test_db_service_crud() -> None:
     """Test CRUD operations using DatabaseService."""
     print("\nTesting DatabaseService CRUD operations...")
 
@@ -204,7 +200,7 @@ async def test_db_service_crud():
     print("✅ DatabaseService CRUD operations test passed")
 
 
-async def test_repository_pattern():
+async def test_repository_pattern() -> None:
     """Test the repository pattern."""
     print("\nTesting repository pattern...")
 
@@ -248,7 +244,7 @@ async def test_repository_pattern():
     print("✅ Repository pattern test passed")
 
 
-async def test_transaction_management():
+async def test_transaction_management() -> None:
     """Test transaction management."""
     print("\nTesting transaction management...")
 
@@ -302,7 +298,7 @@ async def test_transaction_management():
     print("✅ Transaction management test passed")
 
 
-async def test_error_handling():
+async def test_error_handling() -> None:
     """Test error handling and retries."""
     print("\nTesting error handling and retries...")
 
@@ -314,7 +310,7 @@ async def test_error_handling():
 
     # Create a database service with retry logic
     class RetryService:
-        async def execute_with_retry(self, session, max_retries=3):
+        async def execute_with_retry(self, session, max_retries=3) -> bool:
             retries = 0
             while retries < max_retries:
                 try:
@@ -337,7 +333,7 @@ async def test_error_handling():
     print("✅ Error handling and retries test passed")
 
 
-async def test_repository_factory():
+async def test_repository_factory() -> None:
     """Test the repository factory pattern."""
     print("\nTesting repository factory pattern...")
 
@@ -376,7 +372,7 @@ async def test_repository_factory():
     print("✅ Repository factory pattern test passed")
 
 
-async def main():
+async def main() -> None:
     """Run all tests."""
     print("Testing database operations...")
 

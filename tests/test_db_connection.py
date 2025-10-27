@@ -7,25 +7,22 @@ This script tests if the database connection can be established.
 import asyncio
 import os
 import sys
-import logging
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 # Import SQLAlchemy components
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.future import select
-from sqlalchemy.orm import sessionmaker
 
 # Import models
-from models.base import Base
 
 # Use PostgreSQL for testing - this is just for demonstration
 # In a real test, you would use a test database or mock
 TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost/postgres"
 
 
-async def test_db_connection():
+async def test_db_connection() -> bool | None:
     """Test database connection."""
     print("Testing database connection...")
 
@@ -51,7 +48,7 @@ async def test_db_connection():
             await engine.dispose()
 
 
-async def main():
+async def main() -> None:
     """Run the test."""
     result = await test_db_connection()
 

@@ -8,8 +8,7 @@ for collecting and storing statistics about Discord servers, users, and events.
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Add the project root to the Python path
@@ -17,31 +16,27 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Discord components
 import discord
-from discord.ext import commands
 
 # Import the cog to test
 from cogs.stats import StatsCogs
 from cogs.stats_utils import save_message, save_reaction
 
 # Import test utilities
-from tests.fixtures import DatabaseFixture, TestDataFixture
 from tests.mock_factories import (
-    MockUserFactory,
-    MockMemberFactory,
-    MockGuildFactory,
     MockChannelFactory,
+    MockContextFactory,
+    MockGuildFactory,
+    MockInteractionFactory,
+    MockMemberFactory,
     MockMessageFactory,
     MockReactionFactory,
-    MockInteractionFactory,
-    MockContextFactory,
 )
-from tests.test_utils import TestSetup, TestTeardown, TestAssertions, TestHelpers
-
+from tests.test_utils import TestSetup, TestTeardown
 
 # Test the standalone functions
 
 
-async def test_save_message():
+async def test_save_message() -> bool:
     """Test the save_message method."""
     print("\nTesting save_message method...")
 
@@ -49,7 +44,7 @@ async def test_save_message():
     bot = await TestSetup.create_test_bot()
 
     # Create the StatsCogs
-    cog = await TestSetup.setup_cog(bot, StatsCogs)
+    await TestSetup.setup_cog(bot, StatsCogs)
 
     # Create mock objects
     message = MockMessageFactory.create()
@@ -74,7 +69,7 @@ async def test_save_message():
     return True
 
 
-async def test_save_reaction():
+async def test_save_reaction() -> bool:
     """Test the save_reaction method."""
     print("\nTesting save_reaction method...")
 
@@ -82,7 +77,7 @@ async def test_save_reaction():
     bot = await TestSetup.create_test_bot()
 
     # Create the StatsCogs
-    cog = await TestSetup.setup_cog(bot, StatsCogs)
+    await TestSetup.setup_cog(bot, StatsCogs)
 
     # Create mock objects
     reaction = MockReactionFactory.create()
@@ -107,7 +102,7 @@ async def test_save_reaction():
 # Test the StatsCogs class methods
 
 
-async def test_stats_cog_initialization():
+async def test_stats_cog_initialization() -> bool:
     """Test the initialization of the StatsCogs class."""
     print("\nTesting StatsCogs initialization...")
 
@@ -129,7 +124,7 @@ async def test_stats_cog_initialization():
     return True
 
 
-async def test_save_users():
+async def test_save_users() -> bool:
     """Test the save_users method."""
     print("\nTesting save_users method...")
 
@@ -172,7 +167,7 @@ async def test_save_users():
     return True
 
 
-async def test_save_servers():
+async def test_save_servers() -> bool:
     """Test the save_servers method."""
     print("\nTesting save_servers method...")
 
@@ -208,7 +203,7 @@ async def test_save_servers():
     return True
 
 
-async def test_save_channels():
+async def test_save_channels() -> bool:
     """Test the save_channels method."""
     print("\nTesting save_channels method...")
 
@@ -251,7 +246,7 @@ async def test_save_channels():
     return True
 
 
-async def test_message_count_command():
+async def test_message_count_command() -> bool:
     """Test the message_count command."""
     print("\nTesting message_count command...")
 
@@ -305,7 +300,7 @@ async def test_message_count_command():
     return True
 
 
-async def test_save_emotes():
+async def test_save_emotes() -> bool:
     """Test the save_emotes method."""
     print("\nTesting save_emotes method...")
 
@@ -353,7 +348,7 @@ async def test_save_emotes():
     return True
 
 
-async def test_save_categories():
+async def test_save_categories() -> bool:
     """Test the save_categories method."""
     print("\nTesting save_categories method...")
 
@@ -397,7 +392,7 @@ async def test_save_categories():
     return True
 
 
-async def test_save_threads():
+async def test_save_threads() -> bool:
     """Test the save_threads method."""
     print("\nTesting save_threads method...")
 
@@ -445,7 +440,7 @@ async def test_save_threads():
     return True
 
 
-async def test_save_roles():
+async def test_save_roles() -> bool:
     """Test the save_roles method."""
     print("\nTesting save_roles method...")
 
@@ -496,7 +491,7 @@ async def test_save_roles():
     return True
 
 
-async def test_event_listeners():
+async def test_event_listeners() -> bool:
     """Test various event listener methods."""
     print("\nTesting event listener methods...")
 
@@ -565,7 +560,7 @@ async def test_event_listeners():
     return True
 
 
-async def test_database_transaction_operations():
+async def test_database_transaction_operations() -> bool:
     """Test database transaction operations."""
     print("\nTesting database transaction operations...")
 
@@ -600,7 +595,7 @@ async def test_database_transaction_operations():
     return True
 
 
-async def test_error_handling():
+async def test_error_handling() -> bool:
     """Test error handling in StatsCogs methods."""
     print("\nTesting error handling...")
 
@@ -620,7 +615,7 @@ async def test_error_handling():
         # Should not raise an exception due to error handling
     except Exception as e:
         # If an exception is raised, it should be a handled exception
-        assert "Database error" in str(e) or isinstance(e, (DatabaseError, QueryError))
+        assert "Database error" in str(e) or isinstance(e, DatabaseError | QueryError)
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "stats")
@@ -630,7 +625,7 @@ async def test_error_handling():
     return True
 
 
-async def test_stats_loop_task():
+async def test_stats_loop_task() -> bool:
     """Test the stats_loop background task."""
     print("\nTesting stats_loop task...")
 
@@ -655,7 +650,7 @@ async def test_stats_loop_task():
     return True
 
 
-async def test_edge_cases():
+async def test_edge_cases() -> bool:
     """Test edge cases and boundary conditions."""
     print("\nTesting edge cases...")
 
@@ -678,7 +673,7 @@ async def test_edge_cases():
     message.author = None
 
     # Should handle None author gracefully
-    with patch("cogs.stats_utils.save_message") as mock_save:
+    with patch("cogs.stats_utils.save_message"):
         await cog.save_listener(message)
         # Should still attempt to save or handle gracefully
 
@@ -691,7 +686,7 @@ async def test_edge_cases():
 
 
 # Main function to run all tests
-async def main():
+async def main() -> None:
     """Run all unit tests for the StatsCogs class."""
     print("Running comprehensive StatsCogs unit tests...")
 

@@ -2,12 +2,11 @@ import asyncio
 import logging
 import os
 import sys
-import time
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
-from utils.http_client import HTTPClient, CircuitBreaker
+from utils.http_client import HTTPClient
 from utils.resource_monitor import ResourceMonitor
 
 # Configure logging
@@ -17,7 +16,7 @@ logging.basicConfig(
 logger = logging.getLogger("test_resource_optimization")
 
 
-async def test_http_client():
+async def test_http_client() -> None:
     """Test the enhanced HTTP client with connection pooling and circuit breaker."""
     logger.info("Testing HTTP client with connection pooling and circuit breaker")
 
@@ -70,7 +69,7 @@ async def test_http_client():
         await http_client.close()
 
 
-async def test_resource_monitor():
+async def test_resource_monitor() -> None:
     """Test the enhanced resource monitor."""
     logger.info("Testing resource monitor")
 
@@ -113,7 +112,7 @@ async def test_resource_monitor():
         await resource_monitor.stop_monitoring()
 
 
-async def main():
+async def main() -> None:
     """Run all tests."""
     logger.info("Starting resource optimization tests")
 

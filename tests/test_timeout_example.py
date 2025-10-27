@@ -4,10 +4,11 @@ Example tests demonstrating the use of pytest-timeout.
 This module shows how to use pytest-timeout to prevent tests from hanging indefinitely.
 """
 
+import asyncio
 import os
 import sys
 import time
-import asyncio
+
 import pytest
 
 # Add the project root to the Python path
@@ -15,7 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 
 @pytest.mark.timeout(1)
-def test_function_completes_within_timeout():
+def test_function_completes_within_timeout() -> None:
     """
     Test that completes within the specified timeout.
 
@@ -30,7 +31,7 @@ def test_function_completes_within_timeout():
 
 
 @pytest.mark.timeout(1)
-def test_function_exceeds_timeout():
+def test_function_exceeds_timeout() -> None:
     """
     Test that exceeds the specified timeout.
 
@@ -44,12 +45,12 @@ def test_function_exceeds_timeout():
     time.sleep(2)
 
     # This assertion will never be reached because of the timeout
-    assert False
+    raise AssertionError()
 
 
 @pytest.mark.asyncio
 @pytest.mark.timeout(1)
-async def test_async_function_completes_within_timeout():
+async def test_async_function_completes_within_timeout() -> None:
     """
     Test that an async function completes within the specified timeout.
 
@@ -64,7 +65,7 @@ async def test_async_function_completes_within_timeout():
 
 @pytest.mark.asyncio
 @pytest.mark.timeout(1)
-async def test_async_function_exceeds_timeout():
+async def test_async_function_exceeds_timeout() -> None:
     """
     Test that an async function exceeds the specified timeout.
 
@@ -77,11 +78,11 @@ async def test_async_function_exceeds_timeout():
     await asyncio.sleep(2)
 
     # This assertion will never be reached because of the timeout
-    assert False
+    raise AssertionError()
 
 
 # Method-level timeout
-def test_method_level_timeout():
+def test_method_level_timeout() -> None:
     """
     Test with a method-level timeout.
 
@@ -104,19 +105,19 @@ class TestClassWithTimeout:
     This class demonstrates how to set a timeout for all test methods in a class.
     """
 
-    def test_first_method(self):
+    def test_first_method(self) -> None:
         """First test method that completes within the timeout."""
         time.sleep(1)
         assert True
 
-    def test_second_method(self):
+    def test_second_method(self) -> None:
         """Second test method that completes within the timeout."""
         time.sleep(1.5)
         assert True
 
 
 # Using timeout fixture
-def test_with_timeout_fixture(request):
+def test_with_timeout_fixture(request) -> None:
     """
     Test using a timeout fixture.
 
@@ -135,7 +136,7 @@ def test_with_timeout_fixture(request):
 
 # Example of setting different timeout methods
 @pytest.mark.timeout(1, method="thread")
-def test_with_thread_timeout():
+def test_with_thread_timeout() -> None:
     """
     Test with a thread timeout method.
 

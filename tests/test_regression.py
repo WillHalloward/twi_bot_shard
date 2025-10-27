@@ -9,40 +9,30 @@ import asyncio
 import json
 import os
 import sys
-from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
-import discord
-from discord import app_commands
-from discord.ext import commands
 from sqlalchemy import select
 
-# Import project components
-import config
-from cogs.twi import TwiCog
 from cogs.gallery import GalleryCog
-from models.tables.gallery import GalleryMementos
-from models.tables.creator_links import CreatorLink
+
+# Import project components
+from cogs.twi import TwiCog
 
 # Import test utilities
-from tests.fixtures import DatabaseFixture, TestDataFixture
 from tests.mock_factories import (
-    MockUserFactory,
-    MockGuildFactory,
     MockChannelFactory,
-    MockMessageFactory,
+    MockGuildFactory,
     MockInteractionFactory,
-    MockContextFactory,
 )
-from tests.test_utils import TestSetup, TestTeardown, TestAssertions, TestHelpers
+from tests.test_utils import TestSetup, TestTeardown
 
 # Test TwiCog commands
 
 
-async def test_wiki_command():
+async def test_wiki_command() -> bool:
     """Test the wiki command."""
     print("\nTesting wiki command...")
 
@@ -139,7 +129,7 @@ async def test_wiki_command():
     return True
 
 
-async def test_find_command():
+async def test_find_command() -> bool:
     """Test the find command."""
     print("\nTesting find command...")
 
@@ -221,7 +211,9 @@ async def test_find_command():
     # Set up the mock chain for no results
     mock_service_no_results.cse.return_value = mock_cse_no_results
     mock_cse_no_results.list.return_value = mock_list_no_results
-    mock_list_no_results.execute.return_value = {"searchInformation": {"totalResults": "0"}}
+    mock_list_no_results.execute.return_value = {
+        "searchInformation": {"totalResults": "0"}
+    }
 
     with (
         patch("cogs.twi.build", return_value=mock_service_no_results),
@@ -249,7 +241,7 @@ async def test_find_command():
     return True
 
 
-async def test_invis_text_command():
+async def test_invis_text_command() -> bool:
     """Test the invis_text command."""
     print("\nTesting invis_text command...")
 
@@ -336,7 +328,7 @@ async def test_invis_text_command():
     return True
 
 
-async def test_password_command():
+async def test_password_command() -> bool:
     """Test the password command."""
     print("\nTesting password command...")
 
@@ -362,7 +354,7 @@ async def test_password_command():
     # Test in an allowed channel - patch both the config module and the cogs.twi import
     with (
         patch("config.password_allowed_channel_ids", [test_channel_id]),
-        patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id])
+        patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id]),
     ):
         # Call the command's callback directly
         await cog.password.callback(cog, interaction)
@@ -392,7 +384,7 @@ async def test_password_command():
     # Test in a non-allowed channel - patch both the config module and the cogs.twi import
     with (
         patch("config.password_allowed_channel_ids", [test_channel_id + 1]),
-        patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id + 1])
+        patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id + 1]),
     ):
         # Call the command's callback directly
         await cog.password.callback(cog, interaction)
@@ -426,7 +418,7 @@ async def test_password_command():
     return True
 
 
-async def test_colored_text_command():
+async def test_colored_text_command() -> bool:
     """Test the colored_text command."""
     print("\nTesting colored_text command...")
 
@@ -461,7 +453,7 @@ async def test_colored_text_command():
 # Test GalleryCog functionality
 
 
-async def test_set_repost_command():
+async def test_set_repost_command() -> bool:
     """Test the set_repost command."""
     print("\nTesting set_repost command...")
 
@@ -505,7 +497,9 @@ async def test_set_repost_command():
     # The command sends an embed, not a text message
     assert kwargs.get("embed") is not None
     embed = kwargs.get("embed")
-    assert f"Successfully added {channel.mention} to repost channels" in embed.description
+    assert (
+        f"Successfully added {channel.mention} to repost channels" in embed.description
+    )
     assert kwargs.get("ephemeral") is True
 
     # Verify that the repository methods were called
@@ -536,7 +530,10 @@ async def test_set_repost_command():
     # The command sends an embed, not a text message
     assert kwargs.get("embed") is not None
     embed = kwargs.get("embed")
-    assert f"Successfully removed {channel.mention} from repost channels" in embed.description
+    assert (
+        f"Successfully removed {channel.mention} from repost channels"
+        in embed.description
+    )
     assert kwargs.get("ephemeral") is True
 
     # Verify that the repository methods were called
@@ -556,7 +553,7 @@ async def test_set_repost_command():
 # Test database operations
 
 
-async def test_database_operations():
+async def test_database_operations() -> bool:
     """Test database operations."""
     print("\nTesting database operations...")
 
@@ -607,7 +604,7 @@ async def test_database_operations():
 # Test bot lifecycle
 
 
-async def test_bot_lifecycle():
+async def test_bot_lifecycle() -> bool:
     """Test bot lifecycle."""
     print("\nTesting bot lifecycle...")
 
@@ -620,7 +617,7 @@ async def test_bot_lifecycle():
     assert bot.repo_factory is not None
 
     # Test loading a cog
-    cog = await TestSetup.setup_cog(bot, TwiCog)
+    await TestSetup.setup_cog(bot, TwiCog)
     assert bot.get_cog("The Wandering Inn") is not None
 
     # Test unloading a cog
@@ -635,7 +632,7 @@ async def test_bot_lifecycle():
 
 
 # Main function to run all tests
-async def main():
+async def main() -> None:
     """Run all regression tests."""
     print("Running regression tests...")
 

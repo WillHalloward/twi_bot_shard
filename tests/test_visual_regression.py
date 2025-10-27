@@ -14,13 +14,11 @@ maintain visual consistency across different scenarios.
 """
 
 import asyncio
+import hashlib
 import os
 import sys
-import hashlib
-import tempfile
 from io import BytesIO
-from typing import List, Dict, Any, Tuple, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -35,23 +33,21 @@ logging.basicConfig(
 )
 
 # Import config normally
-import config
 
 import discord
-from discord.ext import commands
-
-# Import test utilities
-from tests.mock_factories import (
-    MockUserFactory,
-    MockGuildFactory,
-    MockChannelFactory,
-    MockMessageFactory,
-    MockInteractionFactory,
-)
 
 # Import cogs for testing
 from cogs.gallery import GalleryCog
 from cogs.other import OtherCogs
+
+# Import test utilities
+from tests.mock_factories import (
+    MockChannelFactory,
+    MockGuildFactory,
+    MockInteractionFactory,
+    MockMessageFactory,
+    MockUserFactory,
+)
 
 # Try to import PIL for image processing tests
 try:
@@ -136,16 +132,14 @@ class ImageTestUtils:
         try:
             image_data.seek(0)
             with Image.open(image_data) as img:
-                if expected_format and img.format != expected_format:
-                    return False
-                return True
+                return not (expected_format and img.format != expected_format)
         except Exception:
             return False
         finally:
             image_data.seek(0)
 
     @staticmethod
-    def get_image_dimensions(image_data: BytesIO) -> Tuple[int, int]:
+    def get_image_dimensions(image_data: BytesIO) -> tuple[int, int]:
         """Get image dimensions."""
         if not PIL_AVAILABLE:
             return (100, 100)  # Default dimensions
@@ -170,7 +164,7 @@ class MockAttachment:
         size: int,
         url: str,
         data: BytesIO = None,
-    ):
+    ) -> None:
         self.filename = filename
         self.content_type = content_type
         self.size = size
@@ -296,7 +290,7 @@ class GalleryVisualTests:
             bot.db.execute = AsyncMock()
             bot.db.fetch = AsyncMock(return_value=[])
 
-            cog = GalleryCog(bot)
+            GalleryCog(bot)
 
             # Create mock message with image attachment
             user = MockUserFactory.create()
@@ -313,7 +307,7 @@ class GalleryVisualTests:
                 data=image_data,
             )
 
-            message = MockMessageFactory.create(
+            MockMessageFactory.create(
                 content="Test gallery image",
                 author=user,
                 channel=channel,
@@ -565,12 +559,12 @@ async def run_all_visual_regression_tests():
     total_tests = len(results)
     success_rate = (passed_tests / total_tests * 100) if total_tests > 0 else 0
 
-    print(f"\n📈 Test Results Summary:")
+    print("\n📈 Test Results Summary:")
     for test_name, result in results.items():
         status = "✅ PASS" if result else "❌ FAIL"
         print(f"   {status} {test_name.replace('_', ' ').title()}")
 
-    print(f"\n🎯 Overall Results:")
+    print("\n🎯 Overall Results:")
     print(f"   📊 Tests Passed: {passed_tests}/{total_tests}")
     print(f"   📈 Success Rate: {success_rate:.1f}%")
 
@@ -593,7 +587,7 @@ async def run_all_visual_regression_tests():
     return success_rate >= 75
 
 
-async def main():
+async def main() -> bool | None:
     """Main visual regression testing execution function."""
     try:
         success = await run_all_visual_regression_tests()

@@ -7,29 +7,27 @@ This script tests the decorator functions in utils/decorators.py.
 import asyncio
 import os
 import sys
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-import discord
-from discord import app_commands
-from discord.ext import commands
 
 # Import decorators
+from typing import Never
+
 from utils.decorators import (
-    log_command,
     handle_errors,
-    require_bot_channel,
-    require_admin,
+    log_command,
 )
 
 
 class MockCog:
     """Mock cog class for testing decorators."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.log_command_usage = AsyncMock()
         self.handle_error = AsyncMock()
 
@@ -37,7 +35,7 @@ class MockCog:
 class MockContext:
     """Mock context class for testing traditional commands."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.channel = MagicMock()
         self.author = MagicMock()
         self.guild = MagicMock()
@@ -47,7 +45,7 @@ class MockContext:
 class MockInteraction:
     """Mock interaction class for testing app commands."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.channel = MagicMock()
         self.user = MagicMock()
         self.guild = MagicMock()
@@ -56,7 +54,7 @@ class MockInteraction:
 
 
 @pytest.mark.asyncio
-async def test_log_command():
+async def test_log_command() -> bool:
     """Test the log_command decorator."""
     print("\nTesting log_command decorator...")
 
@@ -66,7 +64,7 @@ async def test_log_command():
 
     # Create a decorated function
     @log_command()
-    async def test_func(self, ctx):
+    async def test_func(self, ctx) -> str:
         return "success"
 
     # Call the decorated function
@@ -80,7 +78,7 @@ async def test_log_command():
 
     # Test with a custom command name
     @log_command(command_name="custom_name")
-    async def test_func2(self, ctx):
+    async def test_func2(self, ctx) -> str:
         return "success"
 
     # Call the decorated function
@@ -94,7 +92,7 @@ async def test_log_command():
 
 
 @pytest.mark.asyncio
-async def test_handle_errors():
+async def test_handle_errors() -> bool:
     """Test the handle_errors decorator."""
     print("\nTesting handle_errors decorator...")
 
@@ -104,7 +102,7 @@ async def test_handle_errors():
 
     # Create a decorated function that succeeds
     @handle_errors()
-    async def test_success(self, ctx):
+    async def test_success(self, ctx) -> str:
         return "success"
 
     # Call the decorated function
@@ -118,7 +116,7 @@ async def test_handle_errors():
 
     # Create a decorated function that raises an exception
     @handle_errors()
-    async def test_error(self, ctx):
+    async def test_error(self, ctx) -> Never:
         raise ValueError("test error")
 
     # Call the decorated function
@@ -129,7 +127,7 @@ async def test_handle_errors():
 
     # Test with a custom command name
     @handle_errors(command_name="custom_name")
-    async def test_error2(self, ctx):
+    async def test_error2(self, ctx) -> Never:
         raise ValueError("test error")
 
     # Call the decorated function
@@ -148,7 +146,7 @@ async def test_handle_errors():
 
 
 @pytest.mark.asyncio
-async def test_require_bot_channel():
+async def test_require_bot_channel() -> bool:
     """Test the require_bot_channel decorator."""
     print("\nTesting require_bot_channel decorator...")
 
@@ -156,26 +154,26 @@ async def test_require_bot_channel():
     # based on whether it's a traditional command or an app command
 
     # Mock the required functions and modules
-    mock_is_bot_channel = MagicMock(return_value=True)
+    MagicMock(return_value=True)
     mock_is_bot_channel_wrapper = MagicMock(return_value=lambda f: f)
     mock_app_check = MagicMock(return_value=lambda f: f)
 
     # Test with a traditional command
-    async def test_traditional(self, ctx):
+    async def test_traditional(self, ctx) -> str:
         return "success"
 
     # Apply the traditional command check
-    traditional_result = mock_is_bot_channel_wrapper(test_traditional)
+    mock_is_bot_channel_wrapper(test_traditional)
 
     # Test with an app command
-    async def test_app_command(self, interaction):
+    async def test_app_command(self, interaction) -> str:
         return "success"
 
     # Set the attribute to simulate an app command
-    setattr(test_app_command, "__discord_app_commands_is_command__", True)
+    test_app_command.__discord_app_commands_is_command__ = True
 
     # Apply the app command check
-    app_result = mock_app_check(test_app_command)
+    mock_app_check(test_app_command)
 
     # Verify that both checks were called exactly once
     mock_is_bot_channel_wrapper.assert_called_once_with(test_traditional)
@@ -186,7 +184,7 @@ async def test_require_bot_channel():
 
 
 @pytest.mark.asyncio
-async def test_require_admin():
+async def test_require_admin() -> bool:
     """Test the require_admin decorator."""
     print("\nTesting require_admin decorator...")
 
@@ -194,26 +192,26 @@ async def test_require_admin():
     # based on whether it's a traditional command or an app command
 
     # Mock the required functions and modules
-    mock_admin_check = MagicMock(return_value=True)
+    MagicMock(return_value=True)
     mock_admin_check_wrapper = MagicMock(return_value=lambda f: f)
     mock_app_check = MagicMock(return_value=lambda f: f)
 
     # Test with a traditional command
-    async def test_traditional(self, ctx):
+    async def test_traditional(self, ctx) -> str:
         return "success"
 
     # Apply the traditional command check
-    traditional_result = mock_admin_check_wrapper(test_traditional)
+    mock_admin_check_wrapper(test_traditional)
 
     # Test with an app command
-    async def test_app_command(self, interaction):
+    async def test_app_command(self, interaction) -> str:
         return "success"
 
     # Set the attribute to simulate an app command
-    setattr(test_app_command, "__discord_app_commands_is_command__", True)
+    test_app_command.__discord_app_commands_is_command__ = True
 
     # Apply the app command check
-    app_result = mock_app_check(test_app_command)
+    mock_app_check(test_app_command)
 
     # Verify that both checks were called exactly once
     mock_admin_check_wrapper.assert_called_once_with(test_traditional)
@@ -223,7 +221,7 @@ async def test_require_admin():
     return True
 
 
-async def main():
+async def main() -> bool | None:
     """Run all tests."""
     print("Testing decorator utilities...")
 

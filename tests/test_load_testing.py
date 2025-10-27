@@ -13,14 +13,14 @@ performance bottlenecks before they impact users.
 """
 
 import asyncio
-import time
-import statistics
-import psutil
 import os
+import statistics
 import sys
-from concurrent.futures import ThreadPoolExecutor
-from typing import List, Dict, Any, Tuple
-from unittest.mock import AsyncMock, MagicMock, patch
+import time
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
+
+import psutil
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -35,38 +35,33 @@ logging.basicConfig(
 )
 
 # Import config normally
-import config
 
-import discord
-from discord.ext import commands
 
 # Import test utilities
-from tests.mock_factories import (
-    MockUserFactory,
-    MockGuildFactory,
-    MockChannelFactory,
-    MockMessageFactory,
-    MockInteractionFactory,
-)
-
 # Import cogs for testing
-from cogs.stats import StatsCogs
 from cogs.other import OtherCogs
+from tests.mock_factories import (
+    MockChannelFactory,
+    MockGuildFactory,
+    MockInteractionFactory,
+    MockMessageFactory,
+    MockUserFactory,
+)
 
 
 class LoadTestMetrics:
     """Class to track and analyze load test metrics."""
 
-    def __init__(self):
-        self.response_times: List[float] = []
-        self.memory_usage: List[float] = []
-        self.cpu_usage: List[float] = []
+    def __init__(self) -> None:
+        self.response_times: list[float] = []
+        self.memory_usage: list[float] = []
+        self.cpu_usage: list[float] = []
         self.error_count: int = 0
         self.success_count: int = 0
         self.start_time: float = 0
         self.end_time: float = 0
 
-    def start_test(self):
+    def start_test(self) -> None:
         """Start tracking test metrics."""
         self.start_time = time.time()
         self.response_times.clear()
@@ -75,29 +70,29 @@ class LoadTestMetrics:
         self.error_count = 0
         self.success_count = 0
 
-    def end_test(self):
+    def end_test(self) -> None:
         """End tracking test metrics."""
         self.end_time = time.time()
 
-    def record_response_time(self, response_time: float):
+    def record_response_time(self, response_time: float) -> None:
         """Record a response time measurement."""
         self.response_times.append(response_time)
 
-    def record_success(self):
+    def record_success(self) -> None:
         """Record a successful operation."""
         self.success_count += 1
 
-    def record_error(self):
+    def record_error(self) -> None:
         """Record a failed operation."""
         self.error_count += 1
 
-    def record_system_metrics(self):
+    def record_system_metrics(self) -> None:
         """Record current system metrics."""
         process = psutil.Process(os.getpid())
         self.memory_usage.append(process.memory_info().rss / 1024 / 1024)  # MB
         self.cpu_usage.append(process.cpu_percent())
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get a summary of test metrics."""
         total_time = self.end_time - self.start_time
         total_operations = self.success_count + self.error_count
@@ -151,7 +146,7 @@ class LoadTestMetrics:
 
         return summary
 
-    def _percentile(self, data: List[float], percentile: int) -> float:
+    def _percentile(self, data: list[float], percentile: int) -> float:
         """Calculate percentile of data."""
         sorted_data = sorted(data)
         index = int(len(sorted_data) * percentile / 100)
@@ -161,7 +156,7 @@ class LoadTestMetrics:
 class MessageProcessingLoadTest:
     """Load test for message processing capabilities."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.metrics = LoadTestMetrics()
 
     async def simulate_message_processing(
@@ -219,7 +214,7 @@ class MessageProcessingLoadTest:
         self.metrics.end_test()
         return self.metrics
 
-    async def _process_single_message(self, bot, message):
+    async def _process_single_message(self, bot, message) -> None:
         """Simulate processing a single message."""
         # Simulate database operations
         await bot.db.execute(
@@ -236,7 +231,7 @@ class MessageProcessingLoadTest:
 class CommandExecutionLoadTest:
     """Load test for concurrent command execution."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.metrics = LoadTestMetrics()
 
     async def simulate_concurrent_commands(
@@ -299,21 +294,21 @@ class CommandExecutionLoadTest:
         self.metrics.end_test()
         return self.metrics
 
-    async def _simulate_ping_command(self, cog, interaction):
+    async def _simulate_ping_command(self, cog, interaction) -> None:
         """Simulate ping command execution."""
         try:
             await cog.ping(interaction)
         except Exception:
             pass  # Expected due to mocking
 
-    async def _simulate_info_command(self, cog, interaction):
+    async def _simulate_info_command(self, cog, interaction) -> None:
         """Simulate info command execution."""
         try:
             await cog.info_user(interaction, interaction.user)
         except Exception:
             pass  # Expected due to mocking
 
-    async def _simulate_avatar_command(self, cog, interaction):
+    async def _simulate_avatar_command(self, cog, interaction) -> None:
         """Simulate avatar command execution."""
         try:
             await cog.av(interaction, interaction.user)
@@ -324,7 +319,7 @@ class CommandExecutionLoadTest:
 class DatabaseLoadTest:
     """Load test for database operations."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.metrics = LoadTestMetrics()
 
     async def simulate_database_load(
@@ -340,7 +335,7 @@ class DatabaseLoadTest:
         mock_db.fetchval = AsyncMock(return_value=42)
 
         # Add realistic delays to simulate database operations
-        async def mock_execute_with_delay(*args, **kwargs):
+        async def mock_execute_with_delay(*args, **kwargs) -> None:
             await asyncio.sleep(0.002)  # 2ms delay
             return None
 
@@ -389,7 +384,7 @@ class DatabaseLoadTest:
         self.metrics.end_test()
         return self.metrics
 
-    async def _simulate_insert_operation(self, db, operation_id):
+    async def _simulate_insert_operation(self, db, operation_id) -> None:
         """Simulate database insert operation."""
         await db.execute(
             "INSERT INTO test_table(id, data) VALUES($1, $2)",
@@ -397,11 +392,11 @@ class DatabaseLoadTest:
             f"test_data_{operation_id}",
         )
 
-    async def _simulate_select_operation(self, db, operation_id):
+    async def _simulate_select_operation(self, db, operation_id) -> None:
         """Simulate database select operation."""
         await db.fetch("SELECT * FROM test_table WHERE id = $1", operation_id)
 
-    async def _simulate_update_operation(self, db, operation_id):
+    async def _simulate_update_operation(self, db, operation_id) -> None:
         """Simulate database update operation."""
         await db.execute(
             "UPDATE test_table SET data = $1 WHERE id = $2",
@@ -409,7 +404,7 @@ class DatabaseLoadTest:
             operation_id,
         )
 
-    async def _simulate_delete_operation(self, db, operation_id):
+    async def _simulate_delete_operation(self, db, operation_id) -> None:
         """Simulate database delete operation."""
         await db.execute("DELETE FROM test_table WHERE id = $1", operation_id)
 
@@ -466,7 +461,7 @@ async def run_all_load_tests():
             print(f"   🖥️  Peak CPU Usage: {summary['max_cpu_percent']:.1f}%")
 
     # Overall assessment
-    print(f"\n🎯 OVERALL ASSESSMENT:")
+    print("\n🎯 OVERALL ASSESSMENT:")
     total_operations = sum(r.success_count + r.error_count for r in results.values())
     total_errors = sum(r.error_count for r in results.values())
     overall_success_rate = (
@@ -494,7 +489,7 @@ async def run_all_load_tests():
     return overall_success_rate >= 90
 
 
-async def main():
+async def main() -> bool | None:
     """Main load testing execution function."""
     try:
         success = await run_all_load_tests()

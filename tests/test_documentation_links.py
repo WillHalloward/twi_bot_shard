@@ -8,17 +8,15 @@ It checks both internal links (between documentation files) and external links (
 import os
 import re
 import unittest
-from pathlib import Path
-from typing import Dict, List, Set, Tuple
 import urllib.parse
 import urllib.request
-import pytest
+from pathlib import Path
 
 
 class DocumentationLinkTest(unittest.TestCase):
     """Test case for validating links in documentation."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up the test case."""
         self.docs_dir = Path(__file__).parent.parent / "docs"
         self.internal_links = {}  # type: Dict[str, List[Tuple[str, str]]]
@@ -27,14 +25,14 @@ class DocumentationLinkTest(unittest.TestCase):
         self.extract_links()
         self.extract_anchors()
 
-    def extract_links(self):
+    def extract_links(self) -> None:
         """Extract links from all markdown files in the docs directory."""
         for file_path in self.docs_dir.glob("*.md"):
             relative_path = str(file_path.relative_to(Path(__file__).parent.parent))
             self.internal_links[relative_path] = []
             self.external_links[relative_path] = []
 
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             # Find all markdown links [text](url)
@@ -52,13 +50,13 @@ class DocumentationLinkTest(unittest.TestCase):
                     # Internal link
                     self.internal_links[relative_path].append((link_text, link_url))
 
-    def extract_anchors(self):
+    def extract_anchors(self) -> None:
         """Extract anchor definitions from all markdown files in the docs directory."""
         for file_path in self.docs_dir.glob("*.md"):
             relative_path = str(file_path.relative_to(Path(__file__).parent.parent))
             self.anchor_definitions[relative_path] = set()
 
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             # Find all heading definitions (# Heading)
@@ -66,7 +64,7 @@ class DocumentationLinkTest(unittest.TestCase):
             matches = re.finditer(heading_pattern, content, re.MULTILINE)
 
             for match in matches:
-                heading_level = len(match.group(1))
+                len(match.group(1))
                 heading_text = match.group(2).strip()
 
                 # Convert heading to anchor (lowercase, replace spaces with hyphens, remove punctuation)
@@ -77,7 +75,7 @@ class DocumentationLinkTest(unittest.TestCase):
                 self.anchor_definitions[relative_path].add(anchor)
 
     @unittest.skip("Temporarily skipped due to broken internal links in documentation")
-    def test_internal_file_links(self):
+    def test_internal_file_links(self) -> None:
         """Test that internal file links point to existing files."""
         for file_path, links in self.internal_links.items():
             for link_text, link_url in links:
@@ -90,7 +88,6 @@ class DocumentationLinkTest(unittest.TestCase):
                     link_file, anchor = link_url.split("#", 1)
                 else:
                     link_file = link_url
-                    anchor = None
 
                 # Skip empty links
                 if not link_file:
@@ -112,7 +109,7 @@ class DocumentationLinkTest(unittest.TestCase):
                 )
 
     @unittest.skip("Temporarily skipped due to missing anchors in documentation")
-    def test_internal_anchor_links(self):
+    def test_internal_anchor_links(self) -> None:
         """Test that internal anchor links point to existing anchors."""
         for file_path, links in self.internal_links.items():
             for link_text, link_url in links:
@@ -160,7 +157,7 @@ class DocumentationLinkTest(unittest.TestCase):
                     f"Broken anchor link in {file_path}: [{link_text}]({link_url}) - Anchor not found",
                 )
 
-    def test_external_links_format(self):
+    def test_external_links_format(self) -> None:
         """Test that external links have valid format."""
         for file_path, links in self.external_links.items():
             for link_url in links:
@@ -173,7 +170,7 @@ class DocumentationLinkTest(unittest.TestCase):
                 except Exception as e:
                     self.fail(f"Error parsing URL {link_url} in {file_path}: {e}")
 
-    def test_external_links_accessibility(self):
+    def test_external_links_accessibility(self) -> None:
         """Test that external links are accessible (optional, may be slow)."""
         # Skip this test by default as it can be slow and may fail due to network issues
         if not os.environ.get("CHECK_EXTERNAL_LINKS", ""):

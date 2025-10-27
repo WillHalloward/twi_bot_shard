@@ -6,11 +6,12 @@ and prevent test interference when running the full test suite.
 """
 
 import asyncio
+import contextlib
 import gc
 import logging
 import sys
-from typing import Generator
-from unittest.mock import patch, _patch
+from collections.abc import Generator
+from unittest.mock import _patch
 
 import pytest
 
@@ -24,29 +25,27 @@ def clean_imports() -> Generator[None, None, None]:
     to prevent interference from cached module state.
     """
     # Store original import state
-    original_modules = dict(sys.modules)
+    dict(sys.modules)
 
     yield
 
     # Clean up modules that might have been modified during the test
     modules_to_clean = [
-        'config',
-        'cogs.twi', 
-        'utils.permissions',
-        'cogs.patreon_poll',
-        'cogs.stats',
-        'cogs.gallery',
-        'utils.db',
+        "config",
+        "cogs.twi",
+        "utils.permissions",
+        "cogs.patreon_poll",
+        "cogs.stats",
+        "cogs.gallery",
+        "utils.db",
     ]
 
     for module_name in modules_to_clean:
         if module_name in sys.modules:
             # Always remove from cache to force reload on next import
             # This ensures fresh module state for each test
-            try:
+            with contextlib.suppress(KeyError):
                 del sys.modules[module_name]
-            except KeyError:
-                pass
 
     # Force garbage collection
     gc.collect()
@@ -74,10 +73,9 @@ def clean_mocks() -> Generator[None, None, None]:
     Clean up all active mocks between tests to prevent state pollution.
     """
     # Store active patches before test
-    initial_patches = []
     try:
-        if hasattr(_patch, '_active_patches'):
-            initial_patches = list(_patch._active_patches)
+        if hasattr(_patch, "_active_patches"):
+            list(_patch._active_patches)
     except (AttributeError, ImportError):
         pass
 
@@ -86,7 +84,7 @@ def clean_mocks() -> Generator[None, None, None]:
     # Stop all active patches that were created during the test
     try:
         # Access the internal patch registry and stop all patches
-        if hasattr(_patch, '_active_patches'):
+        if hasattr(_patch, "_active_patches"):
             current_patches = list(_patch._active_patches)
             for patcher in current_patches:
                 try:
@@ -104,9 +102,10 @@ def clean_mocks() -> Generator[None, None, None]:
 
     # Additional cleanup: reset any module-level mocks
     import unittest.mock
+
     try:
         # Reset the mock registry
-        if hasattr(unittest.mock, '_mock_registry'):
+        if hasattr(unittest.mock, "_mock_registry"):
             unittest.mock._mock_registry.clear()
     except (AttributeError, ImportError):
         pass

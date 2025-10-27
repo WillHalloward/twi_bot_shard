@@ -15,15 +15,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 import discord
-from discord import app_commands
-from discord.ext import commands
 
 # Import the cogs we want to test
 from cogs.twi import TwiCog
+from tests.mock_factories import MockInteractionFactory
 
 # Import test utilities
-from tests.test_cogs import MockDatabase, MockAsyncSession, TestBot
-from tests.mock_factories import MockInteractionFactory
+from tests.test_cogs import TestBot
 from tests.test_utils import TestSetup, TestTeardown
 
 
@@ -31,7 +29,7 @@ from tests.test_utils import TestSetup, TestTeardown
 class MockUser:
     """Mock user class for testing."""
 
-    def __init__(self, user_id=123456789, name="TestUser", discriminator="1234"):
+    def __init__(self, user_id=123456789, name="TestUser", discriminator="1234") -> None:
         self.id = user_id
         self.name = name
         self.discriminator = discriminator
@@ -44,7 +42,7 @@ class MockUser:
 class MockGuild:
     """Mock guild class for testing."""
 
-    def __init__(self, guild_id=987654321, name="TestGuild"):
+    def __init__(self, guild_id=987654321, name="TestGuild") -> None:
         self.id = guild_id
         self.name = name
         self.roles = []
@@ -56,7 +54,7 @@ class MockGuild:
 class MockChannel:
     """Mock channel class for testing."""
 
-    def __init__(self, channel_id=111222333, name="test-channel"):
+    def __init__(self, channel_id=111222333, name="test-channel") -> None:
         self.id = channel_id
         self.name = name
         self.type = discord.ChannelType.text
@@ -68,19 +66,19 @@ class MockChannel:
 class MockResponse:
     """Mock response class for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.send_message = AsyncMock()
         self.defer = AsyncMock()
         self.edit_message = AsyncMock()
 
-    def is_done(self):
+    def is_done(self) -> bool:
         return False
 
 
 class MockInteraction:
     """Mock interaction class for testing."""
 
-    def __init__(self, user_id=123456789, guild_id=987654321, channel_id=111222333):
+    def __init__(self, user_id=123456789, guild_id=987654321, channel_id=111222333) -> None:
         self.user = MockUser(user_id)
         self.guild = MockGuild(guild_id)
         self.channel = MockChannel(channel_id)
@@ -98,7 +96,7 @@ class MockInteraction:
 class MockClientSession:
     """Mock aiohttp.ClientSession for testing."""
 
-    def __init__(self, responses=None):
+    def __init__(self, responses=None) -> None:
         self.responses = responses or {}
 
     async def __aenter__(self):
@@ -139,7 +137,7 @@ def mock_google_search(query, api_key, cse_id, **kwargs):
 
 
 # Test functions
-async def test_wiki_command():
+async def test_wiki_command() -> bool:
     """Test the wiki command."""
     print("\nTesting wiki command...")
 
@@ -240,7 +238,7 @@ async def test_wiki_command():
     return True
 
 
-async def test_find_command():
+async def test_find_command() -> bool:
     """Test the find command."""
     print("\nTesting find command...")
 
@@ -300,7 +298,7 @@ async def test_find_command():
     return True
 
 
-async def test_invis_text_command():
+async def test_invis_text_command() -> bool:
     """Test the invis_text command."""
     print("\nTesting invis_text command...")
 
@@ -383,7 +381,7 @@ async def test_invis_text_command():
     return True
 
 
-async def main():
+async def main() -> bool | None:
     """Run all tests."""
     print("Testing critical bot commands...")
 

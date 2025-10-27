@@ -17,32 +17,30 @@ sys.modules["config"] = MagicMock()
 sys.modules["config"].bot_channel_id = 111222333
 sys.modules["config"].logfile = "test"
 
-import discord
-from discord.ext import commands
 
 # Import permissions utilities
 from utils.permissions import (
     admin_or_me_check,
     admin_or_me_check_wrapper,
     app_admin_or_me_check,
-    is_bot_channel,
-    is_bot_channel_wrapper,
     app_is_bot_channel,
     init_permission_manager,
+    is_bot_channel,
+    is_bot_channel_wrapper,
 )
 
 
 class MockRole:
     """Mock role class for testing."""
 
-    def __init__(self, role_id):
+    def __init__(self, role_id) -> None:
         self.id = role_id
 
 
 class MockUser:
     """Mock user class for testing."""
 
-    def __init__(self, user_id, roles=None):
+    def __init__(self, user_id, roles=None) -> None:
         self.id = user_id
         self.roles = roles or []
 
@@ -50,7 +48,7 @@ class MockUser:
 class MockGuild:
     """Mock guild class for testing."""
 
-    def __init__(self, guild_id):
+    def __init__(self, guild_id) -> None:
         self.id = guild_id
         self.roles = []
 
@@ -58,14 +56,14 @@ class MockGuild:
 class MockChannel:
     """Mock channel class for testing."""
 
-    def __init__(self, channel_id):
+    def __init__(self, channel_id) -> None:
         self.id = channel_id
 
 
 class MockContext:
     """Mock context class for testing traditional commands."""
 
-    def __init__(self, user_id, guild_id, channel_id, roles=None):
+    def __init__(self, user_id, guild_id, channel_id, roles=None) -> None:
         self.message = MagicMock()
         self.message.author = MockUser(user_id, roles)
         self.guild = MockGuild(guild_id)
@@ -76,7 +74,7 @@ class MockContext:
 class MockInteraction:
     """Mock interaction class for testing app commands."""
 
-    def __init__(self, user_id, guild_id, channel_id, roles=None):
+    def __init__(self, user_id, guild_id, channel_id, roles=None) -> None:
         self.user = MockUser(user_id, roles)
         self.guild = MockGuild(guild_id)
         self.channel = MockChannel(channel_id)
@@ -93,11 +91,11 @@ class MockInteraction:
 class MockSettingsCog:
     """Mock settings cog for testing."""
 
-    def __init__(self, is_admin_result=True):
+    def __init__(self, is_admin_result=True) -> None:
         self.is_admin = AsyncMock(return_value=is_admin_result)
 
 
-async def test_admin_or_me_check():
+async def test_admin_or_me_check() -> bool:
     """Test the admin_or_me_check function."""
     print("\nTesting admin_or_me_check function...")
 
@@ -182,7 +180,7 @@ async def test_admin_or_me_check():
     return True
 
 
-async def test_admin_check_wrappers():
+async def test_admin_check_wrappers() -> bool:
     """Test the admin check wrapper functions."""
     print("\nTesting admin check wrapper functions...")
 
@@ -223,7 +221,7 @@ async def test_admin_check_wrappers():
     return True
 
 
-async def test_is_bot_channel():
+async def test_is_bot_channel() -> bool:
     """Test the is_bot_channel function."""
     print("\nTesting is_bot_channel function...")
 
@@ -231,7 +229,7 @@ async def test_is_bot_channel():
     import config
 
     # Patch the config.bot_channel_id directly
-    with patch.object(config, 'bot_channel_id', 111222333):
+    with patch.object(config, "bot_channel_id", 111222333):
         # Test with context in bot channel
         ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=111222333)
 
@@ -259,7 +257,7 @@ async def test_is_bot_channel():
     return True
 
 
-async def test_bot_channel_wrappers():
+async def test_bot_channel_wrappers() -> bool:
     """Test the bot channel wrapper functions."""
     print("\nTesting bot channel wrapper functions...")
 
@@ -267,7 +265,7 @@ async def test_bot_channel_wrappers():
     import config
 
     # Test is_bot_channel_wrapper
-    with patch.object(config, 'bot_channel_id', 111222333):
+    with patch.object(config, "bot_channel_id", 111222333):
         # Create a context
         ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=111222333)
 
@@ -295,7 +293,7 @@ async def test_bot_channel_wrappers():
     return True
 
 
-async def main():
+async def main() -> bool | None:
     """Run all tests."""
     print("Testing permission utilities...")
 

@@ -7,11 +7,10 @@ after operations.
 """
 
 import asyncio
-import json
 import os
 import sys
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -23,13 +22,13 @@ sys.modules["config"].NEW_USER_CHANNEL = 123456789
 sys.modules["config"].logfile = "test"
 
 import discord
-from discord import app_commands
 from discord.ext import commands
+
+from cogs.gallery import GalleryCog, RepostMenu
+from cogs.mods import ModCogs
 
 # Import the cogs we want to test
 from cogs.stats import StatsCogs
-from cogs.gallery import GalleryCog, RepostMenu
-from cogs.mods import ModCogs
 
 
 # Define simplified versions of save_message and save_reaction for testing
@@ -92,26 +91,22 @@ async def save_reaction(reaction, db):
 
 
 # Import test utilities
-from tests.mock_factories import (
-    MockUserFactory,
-    MockMemberFactory,
-    MockGuildFactory,
-    MockChannelFactory,
-    MockMessageFactory,
-    MockInteractionFactory,
-    MockContextFactory,
-)
-
 # Import database models
-from models.tables.gallery import GalleryMementos
-from models.tables.creator_links import CreatorLink
+from tests.mock_factories import (
+    MockChannelFactory,
+    MockGuildFactory,
+    MockInteractionFactory,
+    MockMemberFactory,
+    MockMessageFactory,
+    MockUserFactory,
+)
 
 
 # Test database class
 class MockDatabase:
     """Mock database class for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Create a mock connection
         self.connection = MagicMock()
         self.connection.transaction = MagicMock()
@@ -144,7 +139,7 @@ class TestBot(commands.Bot):
 
     __test__ = False  # Tell pytest this is not a test class
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             command_prefix="!", intents=discord.Intents.all(), help_command=None
         )
@@ -174,7 +169,6 @@ class TestBot(commands.Bot):
         self.container.register_factory("db_session", self.session_maker)
 
         # Initialize repository factory
-        from utils.repository_factory import RepositoryFactory
 
         self.repo_factory = MagicMock()
         self.repo_factory.get_repository = MagicMock(return_value=MagicMock())
@@ -206,7 +200,7 @@ class TestBot(commands.Bot):
 
 
 # Test functions
-async def test_save_message():
+async def test_save_message() -> bool:
     """Test saving a message to the database."""
     print("\nTesting save_message function...")
 
@@ -241,7 +235,7 @@ async def test_save_message():
     return True
 
 
-async def test_save_reaction():
+async def test_save_reaction() -> bool:
     """Test saving a reaction to the database."""
     print("\nTesting save_reaction function...")
 
@@ -286,7 +280,7 @@ async def test_save_reaction():
     return True
 
 
-async def test_message_count_command():
+async def test_message_count_command() -> bool:
     """Test the message_count command."""
     print("\nTesting message_count command...")
 
@@ -340,7 +334,7 @@ async def test_message_count_command():
     return True
 
 
-async def test_repost_attachment():
+async def test_repost_attachment() -> bool:
     """Test reposting an attachment to a different channel.
 
     Note: This test uses a simplified version of the repost_attachment method
@@ -414,7 +408,7 @@ async def test_repost_attachment():
     # Patch the repost_attachment method to skip the wait and directly process the channel selection
     original_repost_attachment = GalleryCog.repost_attachment
 
-    async def mock_repost_attachment(self, interaction, message):
+    async def mock_repost_attachment(self, interaction, message) -> None:
         supported = any(
             attachment.content_type.startswith(media_type)
             for attachment in message.attachments
@@ -429,7 +423,7 @@ async def test_repost_attachment():
             menu.description_item = "Test Description"
             menu.channel_select.append_option(
                 discord.SelectOption(
-                    label=f"#test-channel", value=str(target_channel.id)
+                    label="#test-channel", value=str(target_channel.id)
                 )
             )
             type(menu.channel_select).values = PropertyMock(
@@ -450,7 +444,7 @@ async def test_repost_attachment():
             )
 
             # Continue with the rest of the method
-            query_r = await self.creator_links_repo.get_by_user_id(message.author.id)
+            await self.creator_links_repo.get_by_user_id(message.author.id)
 
             # Process attachments and send to the channel
             for attachment in message.attachments:
@@ -546,7 +540,7 @@ async def test_repost_attachment():
     return True
 
 
-async def test_find_links():
+async def test_find_links() -> bool:
     """Test finding links in messages."""
     print("\nTesting find_links method...")
 
@@ -601,7 +595,7 @@ async def test_find_links():
     return True
 
 
-async def test_filter_new_users():
+async def test_filter_new_users() -> bool:
     """Test filtering new users."""
     print("\nTesting filter_new_users method...")
 
@@ -662,7 +656,7 @@ async def test_filter_new_users():
     return True
 
 
-async def main():
+async def main() -> bool | None:
     """Run all tests."""
     print("Testing critical bot workflows...")
 

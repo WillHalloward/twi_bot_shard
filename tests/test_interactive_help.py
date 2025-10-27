@@ -8,37 +8,28 @@ an interactive help system for the bot's commands.
 import asyncio
 import os
 import sys
-from typing import Dict, List, Optional, Tuple, Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Discord components
 import discord
-from discord.ext import commands
 
 # Import the cog to test
-from cogs.interactive_help import InteractiveHelp, HelpView
+from cogs.interactive_help import HelpView, InteractiveHelp
 
 # Import test utilities
-from tests.fixtures import DatabaseFixture, TestDataFixture
 from tests.mock_factories import (
-    MockUserFactory,
-    MockMemberFactory,
-    MockGuildFactory,
-    MockChannelFactory,
-    MockMessageFactory,
-    MockInteractionFactory,
     MockContextFactory,
+    MockInteractionFactory,
 )
-from tests.test_utils import TestSetup, TestTeardown, TestAssertions, TestHelpers
-
+from tests.test_utils import TestSetup, TestTeardown
 
 # Test the HelpView class and its components
 
 
-async def test_help_view_initialization():
+async def test_help_view_initialization() -> bool:
     """Test the initialization of the HelpView class."""
     print("\nTesting HelpView initialization...")
 
@@ -77,7 +68,7 @@ async def test_help_view_initialization():
     return True
 
 
-async def test_category_select():
+async def test_category_select() -> bool:
     """Test the CategorySelect component."""
     print("\nTesting CategorySelect component...")
 
@@ -126,7 +117,7 @@ async def test_category_select():
 # Test the InteractiveHelp class methods
 
 
-async def test_interactive_help_initialization():
+async def test_interactive_help_initialization() -> bool:
     """Test the initialization of the InteractiveHelp class."""
     print("\nTesting InteractiveHelp initialization...")
 
@@ -135,11 +126,11 @@ async def test_interactive_help_initialization():
 
     # Add some commands to the bot
     @bot.command(name="ping", help="Checks the bot's latency")
-    async def ping(ctx):
+    async def ping(ctx) -> None:
         await ctx.send("Pong!")
 
     @bot.command(name="echo", help="Echoes your message", category="Utility")
-    async def echo(ctx, *, message):
+    async def echo(ctx, *, message) -> None:
         await ctx.send(message)
 
     # Create the InteractiveHelp cog
@@ -160,7 +151,7 @@ async def test_interactive_help_initialization():
     return True
 
 
-async def test_get_commands_for_category():
+async def test_get_commands_for_category() -> bool:
     """Test the get_commands_for_category method."""
     print("\nTesting get_commands_for_category method...")
 
@@ -185,7 +176,7 @@ async def test_get_commands_for_category():
     return True
 
 
-async def test_help_command():
+async def test_help_command() -> bool:
     """Test the help_command method."""
     print("\nTesting help_command method...")
 
@@ -194,11 +185,11 @@ async def test_help_command():
 
     # Add some commands to the bot
     @bot.command(name="ping", help="Checks the bot's latency")
-    async def ping(ctx):
+    async def ping(ctx) -> None:
         await ctx.send("Pong!")
 
     @bot.command(name="echo", help="Echoes your message", category="Utility")
-    async def echo(ctx, *, message):
+    async def echo(ctx, *, message) -> None:
         await ctx.send(message)
 
     # Create the InteractiveHelp cog
@@ -239,7 +230,7 @@ async def test_help_command():
     return True
 
 
-async def test_help_slash():
+async def test_help_slash() -> bool:
     """Test the help_slash method."""
     print("\nTesting help_slash method...")
 
@@ -248,11 +239,11 @@ async def test_help_slash():
 
     # Add some commands to the bot
     @bot.command(name="ping", help="Checks the bot's latency")
-    async def ping(ctx):
+    async def ping(ctx) -> None:
         await ctx.send("Pong!")
 
     @bot.command(name="echo", help="Echoes your message", category="Utility")
-    async def echo(ctx, *, message):
+    async def echo(ctx, *, message) -> None:
         await ctx.send(message)
 
     # Create the InteractiveHelp cog
@@ -291,7 +282,7 @@ async def test_help_slash():
 
 
 # Main function to run all tests
-async def main():
+async def main() -> None:
     """Run all unit tests for the InteractiveHelp class."""
     print("Running InteractiveHelp unit tests...")
 

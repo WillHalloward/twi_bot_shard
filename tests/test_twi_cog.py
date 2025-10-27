@@ -9,37 +9,26 @@ password management, and text processing.
 import asyncio
 import os
 import sys
-from typing import Dict, List, Optional, Tuple, Any
-from unittest.mock import AsyncMock, MagicMock, patch, mock_open
+from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Discord components
-import discord
-from discord.ext import commands
 
 # Import the cog to test
 from cogs.twi import TwiCog
 
 # Import test utilities
-from tests.fixtures import DatabaseFixture, TestDataFixture
 from tests.mock_factories import (
-    MockUserFactory,
-    MockMemberFactory,
-    MockGuildFactory,
-    MockChannelFactory,
-    MockMessageFactory,
     MockInteractionFactory,
-    MockContextFactory,
 )
-from tests.test_utils import TestSetup, TestTeardown, TestAssertions, TestHelpers
-
+from tests.test_utils import TestSetup, TestTeardown
 
 # Test the standalone functions
 
 
-async def test_google_search_function():
+async def test_google_search_function() -> bool:
     """Test the google_search function."""
     print("\nTesting google_search function...")
 
@@ -64,7 +53,7 @@ async def test_google_search_function():
         ]
     }
 
-    with patch('cogs.twi.build', return_value=mock_service):
+    with patch("cogs.twi.build", return_value=mock_service):
         # Call the function
         result = google_search("test query", "fake_api_key", "fake_cse_id")
 
@@ -84,7 +73,7 @@ async def test_google_search_function():
 # Test the TwiCog class methods
 
 
-async def test_twi_cog_initialization():
+async def test_twi_cog_initialization() -> bool:
     """Test the initialization of the TwiCog class."""
     print("\nTesting TwiCog initialization...")
 
@@ -106,7 +95,7 @@ async def test_twi_cog_initialization():
     return True
 
 
-async def test_cog_load():
+async def test_cog_load() -> bool:
     """Test the cog_load method."""
     print("\nTesting cog_load method...")
 
@@ -132,7 +121,7 @@ async def test_cog_load():
     return True
 
 
-async def test_password_command():
+async def test_password_command() -> bool:
     """Test the password command."""
     print("\nTesting password command...")
 
@@ -177,15 +166,16 @@ async def test_password_command():
     return True
 
 
-async def test_wiki_command():
+async def test_wiki_command() -> bool:
     """Test the wiki command."""
     print("\nTesting wiki command...")
 
     # Force reload the cogs.twi module to ensure fresh state
-    import sys
     import importlib
-    if 'cogs.twi' in sys.modules:
-        importlib.reload(sys.modules['cogs.twi'])
+    import sys
+
+    if "cogs.twi" in sys.modules:
+        importlib.reload(sys.modules["cogs.twi"])
 
     # Re-import after reload
     from cogs.twi import TwiCog
@@ -224,15 +214,16 @@ async def test_wiki_command():
     return True
 
 
-async def test_find_command():
+async def test_find_command() -> bool:
     """Test the find command."""
     print("\nTesting find command...")
 
     # Force reload the cogs.twi module to ensure fresh state
-    import sys
     import importlib
-    if 'cogs.twi' in sys.modules:
-        importlib.reload(sys.modules['cogs.twi'])
+    import sys
+
+    if "cogs.twi" in sys.modules:
+        importlib.reload(sys.modules["cogs.twi"])
 
     # Re-import after reload
     from cogs.twi import TwiCog
@@ -256,7 +247,7 @@ async def test_find_command():
                     "link": "https://wanderinginn.com/test",
                     "snippet": "Test search content",
                 }
-            ]
+            ],
         }
 
     # Mock the Google search function and permissions
@@ -281,7 +272,7 @@ async def test_find_command():
     return True
 
 
-async def test_invis_text_command():
+async def test_invis_text_command() -> bool:
     """Test the invis_text command."""
     print("\nTesting invis_text command...")
 
@@ -312,7 +303,7 @@ async def test_invis_text_command():
     return True
 
 
-async def test_colored_text_command():
+async def test_colored_text_command() -> bool:
     """Test the colored_text command."""
     print("\nTesting colored_text command...")
 
@@ -348,7 +339,7 @@ async def test_colored_text_command():
     return True
 
 
-async def test_update_password_command():
+async def test_update_password_command() -> bool:
     """Test the update_password command."""
     print("\nTesting update_password command...")
 
@@ -388,7 +379,7 @@ async def test_update_password_command():
     return True
 
 
-async def test_error_handling():
+async def test_error_handling() -> bool:
     """Test error handling in TwiCog methods."""
     print("\nTesting error handling...")
 
@@ -427,7 +418,7 @@ async def test_error_handling():
     return True
 
 
-async def test_edge_cases():
+async def test_edge_cases() -> bool:
     """Test edge cases and boundary conditions."""
     print("\nTesting edge cases...")
 
@@ -465,7 +456,7 @@ async def test_edge_cases():
     return True
 
 
-async def test_autocomplete_functionality():
+async def test_autocomplete_functionality() -> bool:
     """Test autocomplete functionality."""
     print("\nTesting autocomplete functionality...")
 
@@ -479,16 +470,15 @@ async def test_autocomplete_functionality():
     interaction = MockInteractionFactory.create()
 
     # Mock file operations for autocomplete
-    with patch("os.path.exists", return_value=True):
-        with patch(
-            "os.listdir",
-            return_value=["chapter1.txt", "chapter2.txt", "test_chapter.txt"],
-        ):
-            # Call the autocomplete method
-            choices = await cog.invis_text_autocomplete(interaction, "test")
+    with patch("os.path.exists", return_value=True), patch(
+        "os.listdir",
+        return_value=["chapter1.txt", "chapter2.txt", "test_chapter.txt"],
+    ):
+        # Call the autocomplete method
+        choices = await cog.invis_text_autocomplete(interaction, "test")
 
-            # Verify that choices were returned
-            assert isinstance(choices, list)
+        # Verify that choices were returned
+        assert isinstance(choices, list)
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
@@ -498,7 +488,7 @@ async def test_autocomplete_functionality():
     return True
 
 
-async def test_button_class():
+async def test_button_class() -> bool:
     """Test the Button UI class."""
     print("\nTesting Button UI class...")
 
@@ -524,7 +514,7 @@ async def test_button_class():
 
 
 # Main function to run all tests
-async def main():
+async def main() -> None:
     """Run all unit tests for the TwiCog class."""
     print("Running comprehensive TwiCog unit tests...")
 

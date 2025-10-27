@@ -6,19 +6,20 @@ to verify that secret manager functions in utils/secret_manager.py maintain
 certain properties for a wide range of inputs.
 """
 
+import base64
 import os
 import sys
-import base64
+from unittest.mock import MagicMock
+
 import pytest
-from typing import Any, Dict, List, Optional, Tuple, Union
-from unittest.mock import MagicMock, patch
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Hypothesis for property-based testing
 try:
-    from hypothesis import given, assume, strategies as st, settings, HealthCheck
+    from hypothesis import HealthCheck, assume, given, settings
+    from hypothesis import strategies as st
     from hypothesis.strategies import SearchStrategy
 except ImportError:
     print("Hypothesis is not installed. Please install it with:")
@@ -26,9 +27,6 @@ except ImportError:
     sys.exit(1)
 
 # Import cryptography components for testing
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 # Import secret manager components
 from utils.secret_manager import SecretManager
@@ -138,7 +136,7 @@ def test_encrypt_decrypt_properties(encryption_key: str, value: str) -> None:
     try:
         base64.urlsafe_b64decode(encrypted.encode())
     except Exception as e:
-        assert False, f"Encrypted value is not base64-decodable: {e}"
+        raise AssertionError(f"Encrypted value is not base64-decodable: {e}")
 
     # Decrypt the value
     decrypted = manager.decrypt(encrypted)

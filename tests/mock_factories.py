@@ -7,13 +7,11 @@ It uses Faker to generate realistic test data.
 """
 
 import asyncio
-import json
 import os
-import sys
 import random
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Union
-from unittest.mock import AsyncMock, MagicMock, patch
+import sys
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -27,7 +25,6 @@ except ImportError:
     sys.exit(1)
 
 import discord
-from discord import app_commands
 from discord.ext import commands
 
 # Create a Faker instance
@@ -53,9 +50,9 @@ class MockUserFactory:
         user_id: int = None,
         name: str = None,
         discriminator: str = None,
-        display_name: Optional[str] = None,
+        display_name: str | None = None,
         bot: bool = False,
-        avatar: Optional[str] = None,
+        avatar: str | None = None,
     ) -> discord.User:
         """
         Create a mock Discord user.
@@ -83,10 +80,7 @@ class MockUserFactory:
 
         if display_name is None:
             # 30% chance to have a different display name
-            if random.random() < 0.3:
-                display_name = fake.name()
-            else:
-                display_name = name
+            display_name = fake.name() if random.random() < 0.3 else name
 
         if avatar is None and random.random() < 0.7:  # 70% chance to have an avatar
             avatar = fake.image_url()
@@ -117,13 +111,13 @@ class MockMemberFactory:
         user_id: int = None,
         name: str = None,
         discriminator: str = None,
-        display_name: Optional[str] = None,
+        display_name: str | None = None,
         bot: bool = False,
         guild_id: int = None,
-        roles: Optional[List[discord.Role]] = None,
-        joined_at: Optional[Any] = None,
-        nick: Optional[str] = None,
-        avatar: Optional[str] = None,
+        roles: list[discord.Role] | None = None,
+        joined_at: Any | None = None,
+        nick: str | None = None,
+        avatar: str | None = None,
     ) -> discord.Member:
         """
         Create a mock Discord guild member.
@@ -223,10 +217,10 @@ class MockGuildFactory:
         guild_id: int = None,
         name: str = None,
         owner_id: int = None,
-        roles: Optional[List[discord.Role]] = None,
-        members: Optional[List[discord.Member]] = None,
-        channels: Optional[List[discord.abc.GuildChannel]] = None,
-        emojis: Optional[List[discord.Emoji]] = None,
+        roles: list[discord.Role] | None = None,
+        members: list[discord.Member] | None = None,
+        channels: list[discord.abc.GuildChannel] | None = None,
+        emojis: list[discord.Emoji] | None = None,
     ) -> discord.Guild:
         """
         Create a mock Discord guild.
@@ -326,12 +320,12 @@ class MockChannelFactory:
     def create_text_channel(
         channel_id: int = None,
         name: str = None,
-        guild: Optional[discord.Guild] = None,
+        guild: discord.Guild | None = None,
         position: int = None,
-        topic: Optional[str] = None,
+        topic: str | None = None,
         nsfw: bool = None,
         slowmode_delay: int = None,
-        category: Optional[discord.CategoryChannel] = None,
+        category: discord.CategoryChannel | None = None,
     ) -> discord.TextChannel:
         """
         Create a mock Discord text channel.
@@ -448,11 +442,11 @@ class MockChannelFactory:
     def create_voice_channel(
         channel_id: int = 444555666,
         name: str = "test-voice",
-        guild: Optional[discord.Guild] = None,
+        guild: discord.Guild | None = None,
         position: int = 0,
         user_limit: int = 0,
         bitrate: int = 64000,
-        category: Optional[discord.CategoryChannel] = None,
+        category: discord.CategoryChannel | None = None,
     ) -> discord.VoiceChannel:
         """
         Create a mock Discord voice channel.
@@ -490,7 +484,7 @@ class MockChannelFactory:
     def create_category_channel(
         channel_id: int = 777888999,
         name: str = "Test Category",
-        guild: Optional[discord.Guild] = None,
+        guild: discord.Guild | None = None,
         position: int = 0,
     ) -> discord.CategoryChannel:
         """
@@ -526,16 +520,16 @@ class MockMessageFactory:
     def create(
         message_id: int = None,
         content: str = None,
-        author: Optional[Union[discord.User, discord.Member]] = None,
-        channel: Optional[discord.abc.Messageable] = None,
-        guild: Optional[discord.Guild] = None,
-        attachments: Optional[List[discord.Attachment]] = None,
-        embeds: Optional[List[discord.Embed]] = None,
-        reactions: Optional[List[discord.Reaction]] = None,
-        mentions: Optional[List[discord.User]] = None,
+        author: discord.User | discord.Member | None = None,
+        channel: discord.abc.Messageable | None = None,
+        guild: discord.Guild | None = None,
+        attachments: list[discord.Attachment] | None = None,
+        embeds: list[discord.Embed] | None = None,
+        reactions: list[discord.Reaction] | None = None,
+        mentions: list[discord.User] | None = None,
         mention_everyone: bool = None,
         pinned: bool = None,
-        created_at: Optional[Any] = None,
+        created_at: Any | None = None,
     ) -> discord.Message:
         """
         Create a mock Discord message.
@@ -655,7 +649,7 @@ class MockRoleFactory:
         permissions: discord.Permissions = None,
         managed: bool = None,
         mentionable: bool = None,
-        guild: Optional[discord.Guild] = None,
+        guild: discord.Guild | None = None,
     ) -> discord.Role:
         """
         Create a mock Discord role.
@@ -762,11 +756,11 @@ class MockReactionFactory:
 
     @staticmethod
     def create(
-        emoji: Union[str, discord.Emoji, discord.PartialEmoji] = None,
+        emoji: str | discord.Emoji | discord.PartialEmoji = None,
         count: int = None,
-        message: Optional[discord.Message] = None,
+        message: discord.Message | None = None,
         me: bool = None,
-        users: Optional[List[Union[discord.User, discord.Member]]] = None,
+        users: list[discord.User | discord.Member] | None = None,
     ) -> discord.Reaction:
         """
         Create a mock Discord reaction.
@@ -857,12 +851,12 @@ class MockReactionFactory:
 
         # Add is_custom_emoji method
         reaction.is_custom_emoji = MagicMock(
-            return_value=isinstance(emoji, (discord.Emoji, discord.PartialEmoji))
+            return_value=isinstance(emoji, discord.Emoji | discord.PartialEmoji)
         )
 
         # Create an async iterator for users who reacted
         class AsyncUserIterator:
-            def __init__(self, users_list):
+            def __init__(self, users_list) -> None:
                 self.users_list = users_list
                 self.index = 0
 
@@ -894,9 +888,9 @@ class MockInteractionFactory:
     @staticmethod
     def create(
         interaction_id: int = None,
-        user: Optional[Union[discord.User, discord.Member]] = None,
-        guild: Optional[discord.Guild] = None,
-        channel: Optional[discord.abc.Messageable] = None,
+        user: discord.User | discord.Member | None = None,
+        guild: discord.Guild | None = None,
+        channel: discord.abc.Messageable | None = None,
         command_name: str = None,
         command_type: int = 1,  # 1 = chat_input (slash command)
     ) -> discord.Interaction:
@@ -1004,11 +998,11 @@ class MockContextFactory:
 
     @staticmethod
     def create(
-        message: Optional[discord.Message] = None,
-        author: Optional[Union[discord.User, discord.Member]] = None,
-        guild: Optional[discord.Guild] = None,
-        channel: Optional[discord.abc.Messageable] = None,
-        bot: Optional[commands.Bot] = None,
+        message: discord.Message | None = None,
+        author: discord.User | discord.Member | None = None,
+        guild: discord.Guild | None = None,
+        channel: discord.abc.Messageable | None = None,
+        bot: commands.Bot | None = None,
         prefix: str = None,
         command_name: str = None,
     ) -> commands.Context:
@@ -1124,7 +1118,7 @@ class MockContextFactory:
 
 
 # Example usage
-async def example_usage():
+async def example_usage() -> None:
     """Example of how to use the mock factories."""
     print("\n=== Basic Usage with Default Values ===")
 

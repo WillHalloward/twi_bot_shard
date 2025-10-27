@@ -7,10 +7,9 @@ test data, and cleaning up after tests.
 """
 
 import asyncio
-import logging
 import os
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -25,15 +24,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Import project components
 from tests.fixtures import DatabaseFixture, TestDataFixture
 from tests.mock_factories import (
-    MockUserFactory,
-    MockMemberFactory,
-    MockGuildFactory,
     MockChannelFactory,
-    MockMessageFactory,
-    MockInteractionFactory,
     MockContextFactory,
+    MockGuildFactory,
+    MockInteractionFactory,
+    MockMessageFactory,
+    MockUserFactory,
 )
-from tests.test_cogs import TestBot, MockDatabase, MockAsyncSession
+from tests.test_cogs import TestBot
 
 
 class TestSetup:
@@ -64,8 +62,9 @@ class TestSetup:
         Returns:
             A Database instance with a mock pool for testing.
         """
-        from utils.db import Database
         from unittest.mock import AsyncMock
+
+        from utils.db import Database
 
         # Create a mock pool
         mock_pool = AsyncMock()
@@ -76,7 +75,7 @@ class TestSetup:
         return db
 
     @staticmethod
-    async def setup_database() -> Tuple[DatabaseFixture, TestDataFixture]:
+    async def setup_database() -> tuple[DatabaseFixture, TestDataFixture]:
         """
         Set up a test database and load test data.
 
@@ -89,7 +88,7 @@ class TestSetup:
         return db_fixture, test_data
 
     @staticmethod
-    async def setup_discord_mocks() -> Dict[str, Any]:
+    async def setup_discord_mocks() -> dict[str, Any]:
         """
         Set up mock Discord objects for testing.
 
@@ -115,7 +114,7 @@ class TestSetup:
         }
 
     @staticmethod
-    async def setup_cog(bot: TestBot, cog_class: Type[commands.Cog]) -> commands.Cog:
+    async def setup_cog(bot: TestBot, cog_class: type[commands.Cog]) -> commands.Cog:
         """
         Set up a cog for testing.
 
@@ -246,9 +245,9 @@ class TestHelpers:
     async def simulate_message(
         bot: TestBot,
         content: str,
-        author: Optional[Union[discord.User, discord.Member]] = None,
-        channel: Optional[discord.abc.Messageable] = None,
-        guild: Optional[discord.Guild] = None,
+        author: discord.User | discord.Member | None = None,
+        channel: discord.abc.Messageable | None = None,
+        guild: discord.Guild | None = None,
     ) -> discord.Message:
         """
         Simulate a message being sent.
@@ -289,9 +288,9 @@ class TestHelpers:
         bot: TestBot,
         command_name: str,
         *args: Any,
-        author: Optional[Union[discord.User, discord.Member]] = None,
-        channel: Optional[discord.abc.Messageable] = None,
-        guild: Optional[discord.Guild] = None,
+        author: discord.User | discord.Member | None = None,
+        channel: discord.abc.Messageable | None = None,
+        guild: discord.Guild | None = None,
         prefix: str = "!",
     ) -> commands.Context:
         """
@@ -345,10 +344,10 @@ class TestHelpers:
     async def simulate_interaction(
         bot: TestBot,
         command_name: str,
-        options: Optional[Dict[str, Any]] = None,
-        user: Optional[Union[discord.User, discord.Member]] = None,
-        channel: Optional[discord.abc.Messageable] = None,
-        guild: Optional[discord.Guild] = None,
+        options: dict[str, Any] | None = None,
+        user: discord.User | discord.Member | None = None,
+        channel: discord.abc.Messageable | None = None,
+        guild: discord.Guild | None = None,
     ) -> discord.Interaction:
         """
         Simulate a slash command interaction.
@@ -407,7 +406,7 @@ class TestHelpers:
 
 
 # Example usage
-async def example_usage():
+async def example_usage() -> None:
     """Example of how to use the test utilities."""
     # Set up a test environment
     bot = await TestSetup.create_test_bot()
@@ -416,13 +415,13 @@ async def example_usage():
 
     try:
         # Load some test data
-        gallery_mementos = await test_data.load_gallery_mementos()
-        command_history = await test_data.load_command_history()
+        await test_data.load_gallery_mementos()
+        await test_data.load_command_history()
 
         # Set up a cog for testing
         from cogs.gallery import GalleryCog
 
-        cog = await TestSetup.setup_cog(bot, GalleryCog)
+        await TestSetup.setup_cog(bot, GalleryCog)
 
         # Simulate a command
         ctx = await TestHelpers.simulate_command(
