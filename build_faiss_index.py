@@ -1,8 +1,9 @@
-import openai
+import json
+
 import faiss
 import numpy as np
-import json
 from openai import OpenAI
+
 import config
 
 SCHEMA_FILE = "schema_descriptions.txt"
@@ -12,7 +13,7 @@ EMBEDDING_MODEL = "text-embedding-3-small"
 
 
 def load_schema_chunks() -> list[str]:
-    with open(SCHEMA_FILE, "r", encoding="utf-8") as f:
+    with open(SCHEMA_FILE, encoding="utf-8") as f:
         raw = f.read()
     return [chunk.strip() for chunk in raw.split("\n\n") if chunk.strip()]
 
@@ -32,16 +33,16 @@ def build_faiss_index(vectors: list[list[float]]) -> faiss.IndexFlatL2:
     return index
 
 
-def save_index(index: faiss.IndexFlatL2, filename: str):
+def save_index(index: faiss.IndexFlatL2, filename: str) -> None:
     faiss.write_index(index, filename)
 
 
-def save_lookup(mapping: dict[int, str], filename: str):
+def save_lookup(mapping: dict[int, str], filename: str) -> None:
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(mapping, f, indent=2)
 
 
-def main():
+def main() -> None:
     print("🔄 Loading schema...")
     schema_chunks = load_schema_chunks()
 
@@ -55,7 +56,7 @@ def main():
     save_index(index, INDEX_FILE)
 
     print(f"💾 Saving schema lookup to {LOOKUP_FILE}")
-    lookup = {i: chunk for i, chunk in enumerate(schema_chunks)}
+    lookup = dict(enumerate(schema_chunks))
     save_lookup(lookup, LOOKUP_FILE)
 
     print("✅ Done! You can now query the schema with FAISS.")

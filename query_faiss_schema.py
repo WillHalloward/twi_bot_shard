@@ -1,9 +1,11 @@
 # generate_sql_from_question.py
 
+import json
+
 import faiss
 import numpy as np
-import json
 from openai import OpenAI
+
 import config
 
 # Config
@@ -25,7 +27,7 @@ def query_faiss(
     question: str, index_file: str, lookup_file: str, k: int = TOP_K
 ) -> list[str]:
     index = faiss.read_index(index_file)
-    with open(lookup_file, "r", encoding="utf-8") as f:
+    with open(lookup_file, encoding="utf-8") as f:
         lookup = json.load(f)
     query_vec = np.array([get_embedding(question)], dtype="float32")
     _, indices = index.search(query_vec, k)
@@ -117,7 +119,7 @@ def extract_sql_from_response(text: str) -> str:
     return "COGNITA_NO_QUERY_POSSIBLE"
 
 
-def main():
+def main() -> None:
     question = input("🔍 Ask your database: ").strip()
 
     print("🔗 Searching schema...")

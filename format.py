@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-"""
-Format script for the Twi Bot Shard project.
+"""Format script for the Twi Bot Shard project.
 
 This script runs Black on the project to format code according to the project's style guidelines.
 """

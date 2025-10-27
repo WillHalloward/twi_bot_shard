@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-"""
-Lint script for the Twi Bot Shard project.
+"""Lint script for the Twi Bot Shard project.
 
 This script runs ruff on the project to check for code style issues.
 """

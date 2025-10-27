@@ -1,5 +1,4 @@
-"""
-Script to apply additional database optimizations.
+"""Script to apply additional database optimizations.
 
 This script applies the optimizations defined in database/additional_optimizations.sql
 and refreshes the materialized views.
@@ -22,11 +21,12 @@ logging.basicConfig(
 
 # Import required modules
 import asyncpg
+
 import config
 from utils.db import Database
 
 
-async def main():
+async def main() -> bool | None:
     """Apply database optimizations and print results."""
     logger = logging.getLogger("optimizations")
     logger.info("Starting database optimization process")

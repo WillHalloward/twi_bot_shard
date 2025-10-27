@@ -1,15 +1,16 @@
 import asyncio
 import logging
 import ssl
-import traceback
 import sys
+import traceback
 
 import asyncpg
+
 import config
 from utils.db import Database
 
 
-async def run_optimizations():
+async def run_optimizations() -> None:
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,

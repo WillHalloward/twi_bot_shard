@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-"""
-Setup script for pre-commit hooks.
+"""Setup script for pre-commit hooks.
 
 This script installs pre-commit and sets up the git hooks for the project.
 """
@@ -22,8 +21,7 @@ def main():
         subprocess.run(
             ["pre-commit", "--version"],
             check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
         )
         print("pre-commit is already installed.")
     except (subprocess.CalledProcessError, FileNotFoundError):
