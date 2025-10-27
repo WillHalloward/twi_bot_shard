@@ -1,16 +1,13 @@
-"""
-SQLAlchemy model for gallery_mementos table.
-"""
+"""SQLAlchemy model for gallery_mementos table."""
 
-from sqlalchemy import String, Integer, BigInteger
+from sqlalchemy import BigInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
 
 
 class GalleryMementos(Base):
-    """
-    Model for gallery_mementos table.
+    """Model for gallery_mementos table.
 
     This table stores information about channels where gallery content can be reposted.
     """

@@ -1,26 +1,22 @@
-"""
-SQLAlchemy model for reactions table.
-"""
+"""SQLAlchemy model for reactions table."""
 
 from datetime import datetime
-from typing import Optional
+
 from sqlalchemy import (
-    String,
-    Integer,
-    DateTime,
     BigInteger,
-    ForeignKey,
     Boolean,
+    DateTime,
+    Integer,
+    String,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
 
 
 class Reaction(Base):
-    """
-    Model for reactions table.
+    """Model for reactions table.
 
     This table stores information about reactions to Discord messages.
     """
@@ -30,13 +26,13 @@ class Reaction(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     message_id: Mapped[int] = mapped_column(BigInteger, index=True)
     user_id: Mapped[int] = mapped_column(BigInteger, index=True)
-    unicode_emoji: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    emoji_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    animated: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
-    emoji_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    unicode_emoji: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    emoji_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    animated: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    emoji_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     date: Mapped[datetime] = mapped_column(DateTime, index=True)
-    is_custom_emoji: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    is_custom_emoji: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     removed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Define __table_args__ to create composite indexes and unique constraints

@@ -1,25 +1,22 @@
-"""
-SQLAlchemy model for creator_links table.
-"""
+"""SQLAlchemy model for creator_links table."""
 
 from datetime import datetime
+
 from sqlalchemy import (
-    String,
-    Integer,
-    Boolean,
     BigInteger,
-    ForeignKey,
+    Boolean,
     DateTime,
+    Integer,
     PrimaryKeyConstraint,
+    String,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
 
 
 class CreatorLink(Base):
-    """
-    Model for creator_links table.
+    """Model for creator_links table.
 
     This table stores links to creator content for Discord users.
     """

@@ -1,27 +1,24 @@
-"""
-SQLAlchemy model for command_history table.
-"""
+"""SQLAlchemy model for command_history table."""
 
 from datetime import datetime, timedelta
-from typing import Optional
+
 from sqlalchemy import (
-    String,
-    Boolean,
-    Integer,
-    DateTime,
     JSON,
     BigInteger,
+    Boolean,
+    DateTime,
     ForeignKey,
+    Integer,
     Interval,
+    String,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
 
 
 class CommandHistory(Base):
-    """
-    Model for command_history table.
+    """Model for command_history table.
 
     This table stores information about command executions.
     """
@@ -32,14 +29,14 @@ class CommandHistory(Base):
 
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
-    end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    command_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    channel_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    guild_id: Mapped[Optional[int]] = mapped_column(
+    end_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    command_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    guild_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("servers.server_id"), nullable=True
     )
-    args: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    run_time: Mapped[Optional[timedelta]] = mapped_column(Interval, nullable=True)
+    args: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    run_time: Mapped[timedelta | None] = mapped_column(Interval, nullable=True)
 
     start_date: Mapped[datetime] = mapped_column(
         DateTime, insert_default=datetime.now, nullable=False
