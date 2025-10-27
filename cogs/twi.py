@@ -1,5 +1,4 @@
-"""
-The Wandering Inn cog for the Twi Bot Shard.
+"""The Wandering Inn cog for the Twi Bot Shard.
 
 This module provides commands related to The Wandering Inn web serial, including
 password retrieval for Patreon supporters, wiki searches, invisible text lookup,
@@ -9,38 +8,29 @@ and other TWI-specific functionality.
 import datetime
 import json
 import logging
-import os
-from typing import List
-from PIL import Image, ImageSequence
-import aiohttp
+
 import discord
 from discord import app_commands
 from discord.ext import commands
 from googleapiclient.discovery import build
-from os import remove
+
 import config
 from cogs.patreon_poll import fetch
-from utils.permissions import (
-    admin_or_me_check,
-    admin_or_me_check_wrapper,
-    app_admin_or_me_check,
-    is_bot_channel,
-    is_bot_channel_wrapper,
-    app_is_bot_channel,
-)
-from utils.error_handling import handle_command_errors, handle_interaction_errors
+from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
-    ValidationError,
-    ResourceNotFoundError,
-    ExternalServiceError,
     DatabaseError,
+    ExternalServiceError,
     PermissionError,
+    ValidationError,
+)
+from utils.permissions import (
+    app_admin_or_me_check,
+    app_is_bot_channel,
 )
 
 
 def google_search(search_term, api_key, cse_id, **kwargs):
-    """
-    Perform a Google Custom Search using the provided API credentials.
+    """Perform a Google Custom Search using the provided API credentials.
 
     Args:
         search_term (str): The search query to execute
@@ -57,8 +47,7 @@ def google_search(search_term, api_key, cse_id, **kwargs):
 
 
 class TwiCog(commands.Cog, name="The Wandering Inn"):
-    """
-    Cog providing commands related to The Wandering Inn web serial.
+    """Cog providing commands related to The Wandering Inn web serial.
 
     This cog includes commands for retrieving Patreon passwords, searching the TWI wiki,
     finding content within the story, and accessing special text features like invisible text
@@ -70,21 +59,19 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         last_run: Timestamp of the last time the password command was run publicly
     """
 
-    def __init__(self, bot):
-        """
-        Initialize the TwiCog.
+    def __init__(self, bot) -> None:
+        """Initialize the TwiCog.
 
         Args:
             bot: The bot instance to which this cog is attached
         """
         self.bot = bot
-        self.logger = logging.getLogger('cogs.twi')
+        self.logger = logging.getLogger("cogs.twi")
         self.invis_text_cache = None
         self.last_run = datetime.datetime.now() - datetime.timedelta(minutes=10)
 
     async def cog_load(self) -> None:
-        """
-        Load initial data when the cog is added to the bot.
+        """Load initial data when the cog is added to the bot.
 
         This method is called automatically when the cog is loaded.
         It populates the invisible text cache for use in autocomplete.
@@ -95,16 +82,14 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
 
     # button class for linking people to the chapter
     class Button(discord.ui.Button):
-        """
-        A simple link button for directing users to a chapter.
+        """A simple link button for directing users to a chapter.
 
         This button is used in various commands to provide a direct link
         to the relevant chapter on The Wandering Inn website.
         """
 
-        def __init__(self, url):
-            """
-            Initialize the button with a URL.
+        def __init__(self, url) -> None:
+            """Initialize the button with a URL.
 
             Args:
                 url (str): The URL to link to
@@ -116,9 +101,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         description="Gives the password for the latest chapter for patreons or instructions for non patreons.",
     )
     @handle_interaction_errors
-    async def password(self, interaction: discord.Interaction):
-        """
-        Provide the current Patreon password or instructions on how to get it.
+    async def password(self, interaction: discord.Interaction) -> None:
+        """Provide the current Patreon password or instructions on how to get it.
 
         If used in an allowed channel, this command provides the current password
         for accessing Patreon-exclusive content. If used elsewhere, it provides
@@ -259,9 +243,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         description="Information for patreons on how to connect their patreon account to discord.",
     )
     @handle_interaction_errors
-    async def connect_discord(self, interaction: discord.Interaction):
-        """
-        Provide instructions on connecting Patreon and Discord accounts.
+    async def connect_discord(self, interaction: discord.Interaction) -> None:
+        """Provide instructions on connecting Patreon and Discord accounts.
 
         This command sends a link to Patreon's official documentation on
         how to link Discord and Patreon accounts to receive role benefits.
@@ -278,9 +261,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         description="Searches the The Wandering Inn wiki for a matching article.",
     )
     @handle_interaction_errors
-    async def wiki(self, interaction: discord.Interaction, query: str):
-        """
-        Search The Wandering Inn wiki for articles matching the query.
+    async def wiki(self, interaction: discord.Interaction, query: str) -> None:
+        """Search The Wandering Inn wiki for articles matching the query.
 
         This command queries the TWI wiki API and returns matching articles
         with links. If available, it also includes a thumbnail image from
@@ -469,9 +451,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     )
     @app_commands.check(app_is_bot_channel)
     @handle_interaction_errors
-    async def find(self, interaction: discord.Interaction, query: str):
-        """
-        Search wanderinginn.com using Google Custom Search.
+    async def find(self, interaction: discord.Interaction, query: str) -> None:
+        """Search wanderinginn.com using Google Custom Search.
 
         This command performs a Google search restricted to the Wandering Inn
         website and returns the results with snippets and links. Due to the
@@ -627,9 +608,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         name="invistext", description="Gives a list of all the invisible text in TWI."
     )
     @handle_interaction_errors
-    async def invis_text(self, interaction: discord.Interaction, chapter: str = None):
-        """
-        Retrieve invisible text from The Wandering Inn chapters.
+    async def invis_text(self, interaction: discord.Interaction, chapter: str = None) -> None:
+        """Retrieve invisible text from The Wandering Inn chapters.
 
         This command either lists all chapters containing invisible text
         or provides the specific invisible text from a requested chapter.
@@ -847,9 +827,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         self,
         interaction,
         current: str,
-    ) -> List[app_commands.Choice[str]]:
-        """
-        Provide autocomplete suggestions for chapter names with invisible text.
+    ) -> list[app_commands.Choice[str]]:
+        """Provide autocomplete suggestions for chapter names with invisible text.
 
         This method filters the cached chapter titles based on the user's current input
         and returns matching options for the autocomplete dropdown.
@@ -874,9 +853,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         name="coloredtext", description="List of all the different colored texts in twi"
     )
     @handle_interaction_errors
-    async def colored_text(self, interaction: discord.Interaction):
-        """
-        Display a comprehensive list of colored text used in The Wandering Inn.
+    async def colored_text(self, interaction: discord.Interaction) -> None:
+        """Display a comprehensive list of colored text used in The Wandering Inn.
 
         This command creates an embed with information about all the different
         colored text used in the web serial, including their hex codes, visual
@@ -1008,9 +986,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     @handle_interaction_errors
     async def update_password(
         self, interaction: discord.Interaction, password: str, link: str
-    ):
-        """
-        Update the Patreon password and chapter link in the database.
+    ) -> None:
+        """Update the Patreon password and chapter link in the database.
 
         This admin-only command updates the password and link that are provided
         by the /password command. It records the user who made the update and
@@ -1146,9 +1123,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     # for access to the TWI_Patreon subreddit
 
 
-async def setup(bot):
-    """
-    Set up the TwiCog.
+async def setup(bot) -> None:
+    """Set up the TwiCog.
 
     This function is called automatically by the bot when loading the extension.
 

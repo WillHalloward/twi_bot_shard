@@ -1,28 +1,25 @@
-import logging
 import discord
+import structlog
 from discord import app_commands
 from discord.ext import commands
-from typing import Optional
-import structlog
 
 import config
 from utils.error_handling import handle_interaction_errors
-from utils.logging import RequestContext, TimingContext
 
 
 class SettingsCog(commands.Cog, name="Settings"):
-    """Cog for managing server-specific settings"""
+    """Cog for managing server-specific settings."""
 
-    def __init__(self, bot):
+    def __init__(self, bot) -> None:
         self.bot = bot
         self.logger = structlog.get_logger("cogs.settings")
 
-    async def cog_load(self):
+    async def cog_load(self) -> None:
         """Called when the cog is loaded."""
         await self._init_db()
 
-    async def _init_db(self):
-        """Initialize the database table for server settings"""
+    async def _init_db(self) -> None:
+        """Initialize the database table for server settings."""
         try:
             await self.bot.db.execute(
                 """
@@ -49,8 +46,8 @@ class SettingsCog(commands.Cog, name="Settings"):
     @handle_interaction_errors
     async def set_admin_role(
         self, interaction: discord.Interaction, role: discord.Role
-    ):
-        """Set the admin role for the server"""
+    ) -> None:
+        """Set the admin role for the server."""
         if not interaction.guild:
             await interaction.response.send_message(
                 "This command can only be used in a server.", ephemeral=True
@@ -92,8 +89,7 @@ class SettingsCog(commands.Cog, name="Settings"):
             )
 
             await interaction.response.send_message(
-                f"Admin role set to {role.mention} for this server.",
-                ephemeral=True
+                f"Admin role set to {role.mention} for this server.", ephemeral=True
             )
         except Exception as e:
             self.logger.error(
@@ -111,8 +107,8 @@ class SettingsCog(commands.Cog, name="Settings"):
         name="get_admin_role", description="Get the current admin role for this server"
     )
     @handle_interaction_errors
-    async def get_admin_role(self, interaction: discord.Interaction):
-        """Get the current admin role for the server"""
+    async def get_admin_role(self, interaction: discord.Interaction) -> None:
+        """Get the current admin role for the server."""
         if not interaction.guild:
             await interaction.response.send_message(
                 "This command can only be used in a server.", ephemeral=True
@@ -154,8 +150,7 @@ class SettingsCog(commands.Cog, name="Settings"):
 
     @staticmethod
     async def is_admin(bot, guild_id: int, user_id: int, user_roles=None) -> bool:
-        """
-        Check if a user has the admin role or is the bot owner
+        """Check if a user has the admin role or is the bot owner.
 
         Args:
             bot: The bot instance
@@ -209,5 +204,5 @@ class SettingsCog(commands.Cog, name="Settings"):
             return False
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     await bot.add_cog(SettingsCog(bot))

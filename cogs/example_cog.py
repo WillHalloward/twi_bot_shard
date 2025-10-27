@@ -1,15 +1,11 @@
-"""
-Example cog demonstrating best practices for database operations.
+"""Example cog demonstrating best practices for database operations.
 
 This cog shows how to use the Database utility class for various database operations,
 including error handling, transactions, and query optimization.
 """
 
-import logging
-from typing import List, Optional
-import structlog
-
 import discord
+import structlog
 from discord import app_commands
 from discord.ext import commands
 
@@ -17,14 +13,14 @@ from discord.ext import commands
 class ExampleCog(commands.Cog, name="Example"):
     """Example cog demonstrating best practices for database operations."""
 
-    def __init__(self, bot):
+    def __init__(self, bot) -> None:
         """Initialize the cog with a reference to the bot."""
         self.bot = bot
         self.logger = structlog.get_logger("cogs.example")
 
     @commands.command(name="example_transaction")
     @commands.is_owner()
-    async def example_transaction(self, ctx):
+    async def example_transaction(self, ctx) -> None:
         """Example command demonstrating transaction usage."""
         # Define the queries to execute in a transaction
         queries = [
@@ -51,7 +47,7 @@ class ExampleCog(commands.Cog, name="Example"):
             await ctx.send(f"Transaction failed: {e}")
 
     @app_commands.command(name="example_fetch")
-    async def example_fetch(self, interaction: discord.Interaction, limit: int = 10):
+    async def example_fetch(self, interaction: discord.Interaction, limit: int = 10) -> None:
         """Example command demonstrating fetch operations with error handling."""
         try:
             # Fetch data with retry logic built in
@@ -72,14 +68,14 @@ class ExampleCog(commands.Cog, name="Example"):
         except Exception as e:
             self.logger.error(f"Error fetching data: {e}")
             await interaction.response.send_message(
-                f"An error occurred while fetching data. Please try again later.",
+                "An error occurred while fetching data. Please try again later.",
                 ephemeral=True,
             )
 
     @app_commands.command(name="example_update")
     async def example_update(
         self, interaction: discord.Interaction, name: str, value: int
-    ):
+    ) -> None:
         """Example command demonstrating update operations with error handling."""
         try:
             # First, check if the record exists
@@ -104,12 +100,12 @@ class ExampleCog(commands.Cog, name="Example"):
         except Exception as e:
             self.logger.error(f"Error updating data: {e}")
             await interaction.response.send_message(
-                f"An error occurred while updating data. Please try again later.",
+                "An error occurred while updating data. Please try again later.",
                 ephemeral=True,
             )
 
     @commands.Cog.listener("on_message")
-    async def example_listener(self, message):
+    async def example_listener(self, message) -> None:
         """Example event listener demonstrating database operations in event handlers."""
         # Skip bot messages
         if message.author.bot:
@@ -150,6 +146,6 @@ class ExampleCog(commands.Cog, name="Example"):
                 self.logger.error(f"Error processing message in example_listener: {e}")
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     """Add the cog to the bot."""
     await bot.add_cog(ExampleCog(bot))

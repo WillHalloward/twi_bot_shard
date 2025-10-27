@@ -1,11 +1,9 @@
-"""
-Command methods for the stats system.
+"""Command methods for the stats system.
 
 This module contains all the command methods for saving different types of data
 to the database. These commands are typically owner-only and used for data management.
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -14,9 +12,9 @@ import discord
 from discord.ext import commands
 
 from utils.error_handling import handle_command_errors
-from utils.exceptions import DatabaseError, QueryError, ValidationError
-from utils.permissions import admin_or_me_check_wrapper
-from .stats_utils import save_message, perform_comprehensive_save
+from utils.exceptions import DatabaseError, QueryError
+
+from .stats_utils import perform_comprehensive_save, save_message
 
 if TYPE_CHECKING:
     from discord.ext.commands import Context
@@ -29,8 +27,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def save_users(self, ctx: "Context") -> None:
-        """
-        Save all guild members to the database.
+        """Save all guild members to the database.
 
         This command processes all members from all guilds the bot is in,
         adding new users to the users table and updating server memberships.
@@ -145,7 +142,7 @@ class StatsCommandsMixin:
             # Re-raise database errors as-is
             raise
         except Exception as e:
-            raise QueryError(f"Unexpected error during user saving process") from e
+            raise QueryError("Unexpected error during user saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -159,8 +156,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def save_servers(self, ctx: "Context") -> None:
-        """
-        Save all guild information to the database.
+        """Save all guild information to the database.
 
         This command processes all guilds the bot is in,
         adding new servers to the servers table.
@@ -213,7 +209,7 @@ class StatsCommandsMixin:
             # Re-raise database errors as-is
             raise
         except Exception as e:
-            raise QueryError(f"Unexpected error during server saving process") from e
+            raise QueryError("Unexpected error during server saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -227,8 +223,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def save_channels(self, ctx: "Context") -> None:
-        """
-        Save all text channels to the database.
+        """Save all text channels to the database.
 
         This command processes all text channels from all guilds the bot is in,
         adding new channels to the channels table.
@@ -304,7 +299,7 @@ class StatsCommandsMixin:
             # Re-raise database errors as-is
             raise
         except Exception as e:
-            raise QueryError(f"Unexpected error during channel saving process") from e
+            raise QueryError("Unexpected error during channel saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -319,8 +314,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def save_categories(self, ctx: "Context") -> None:
-        """
-        Save all channel categories to the database.
+        """Save all channel categories to the database.
 
         This command processes all channel categories from all guilds the bot is in,
         adding new categories to the categories table.
@@ -394,7 +388,7 @@ class StatsCommandsMixin:
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(f"Unexpected error during category saving process") from e
+            raise QueryError("Unexpected error during category saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -409,8 +403,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def save_threads(self, ctx: "Context") -> None:
-        """
-        Save all threads to the database.
+        """Save all threads to the database.
 
         This command processes all threads from all guilds the bot is in,
         adding new threads to the threads table.
@@ -490,7 +483,7 @@ class StatsCommandsMixin:
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(f"Unexpected error during thread saving process") from e
+            raise QueryError("Unexpected error during thread saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -505,8 +498,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def save_emotes(self, ctx: "Context") -> None:
-        """
-        Save all custom emotes to the database.
+        """Save all custom emotes to the database.
 
         This command processes all custom emotes from all guilds the bot is in,
         adding new emotes to the emotes table.
@@ -588,7 +580,7 @@ class StatsCommandsMixin:
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(f"Unexpected error during emote saving process") from e
+            raise QueryError("Unexpected error during emote saving process") from e
 
         # Send comprehensive completion message
         completion_message = (
@@ -619,8 +611,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def save_roles(self, ctx: "Context") -> None:
-        """
-        Save all roles and role memberships to the database.
+        """Save all roles and role memberships to the database.
 
         This command processes all roles from all guilds the bot is in,
         adding new roles to the roles table and updating role memberships.
@@ -728,7 +719,7 @@ class StatsCommandsMixin:
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(f"Unexpected error during role saving process") from e
+            raise QueryError("Unexpected error during role saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -745,8 +736,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def update_role_color(self, ctx: "Context") -> None:
-        """
-        Update role colors in the database.
+        """Update role colors in the database.
 
         This command updates the color field for all roles in the database
         to match their current Discord color values.
@@ -817,9 +807,7 @@ class StatsCommandsMixin:
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(
-                f"Unexpected error during role color update process"
-            ) from e
+            raise QueryError("Unexpected error during role color update process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -833,8 +821,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def save_users_from_join_leave(self, ctx: "Context") -> None:
-        """
-        Save users from join/leave records to the users table.
+        """Save users from join/leave records to the users table.
 
         This command processes users from the join_leave table and adds them
         to the users table if they don't already exist.
@@ -904,7 +891,7 @@ class StatsCommandsMixin:
             raise DatabaseError("Failed to fetch users from join_leave table") from e
         except Exception as e:
             raise QueryError(
-                f"Unexpected error during join_leave user saving process"
+                "Unexpected error during join_leave user saving process"
             ) from e
 
         # Send comprehensive completion message
@@ -919,8 +906,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def save_users_from_messages(self, ctx: "Context") -> None:
-        """
-        Save users from message reactions to the users table.
+        """Save users from message reactions to the users table.
 
         This command finds reactions to messages that aren't in the messages table
         and attempts to fetch those messages to save user information.
@@ -1024,7 +1010,7 @@ class StatsCommandsMixin:
             ) from e
         except Exception as e:
             raise QueryError(
-                f"Unexpected error during message user saving process"
+                "Unexpected error during message user saving process"
             ) from e
 
         # Send comprehensive completion message
@@ -1039,8 +1025,7 @@ class StatsCommandsMixin:
     @commands.is_owner()
     @handle_command_errors
     async def save(self, ctx: "Context") -> None:
-        """
-        Perform a comprehensive save of all message history from accessible channels and threads.
+        """Perform a comprehensive save of all message history from accessible channels and threads.
 
         This is a long-running command that processes all guilds, channels, and threads
         the bot has access to, saving message history to the database.
@@ -1071,8 +1056,15 @@ class StatsCommandsMixin:
         )
 
         # Define progress callback for UI updates
-        async def progress_callback(guilds_processed, total_guilds, channels_processed, 
-                                  messages_saved, errors_encountered, elapsed_time, current_guild_name):
+        async def progress_callback(
+            guilds_processed,
+            total_guilds,
+            channels_processed,
+            messages_saved,
+            errors_encountered,
+            elapsed_time,
+            current_guild_name,
+        ) -> None:
             try:
                 await progress_msg.edit(
                     content=f"🔄 **Message save operation in progress**\n"
@@ -1088,7 +1080,7 @@ class StatsCommandsMixin:
                 pass
 
         # Define completion callback for final UI update and owner notification
-        async def completion_callback(results):
+        async def completion_callback(results) -> None:
             try:
                 await progress_msg.edit(
                     content=f"✅ **Comprehensive save operation completed!**\n"
@@ -1127,27 +1119,27 @@ class StatsCommandsMixin:
                         "Could not find bot owner to send completion notification"
                     )
             except Exception as e:
-                self.logger.error(f"Failed to send completion notification to owner: {e}")
-
+                self.logger.error(
+                    f"Failed to send completion notification to owner: {e}"
+                )
 
         # Call the standalone save function with callbacks
         try:
-            results = await perform_comprehensive_save(
+            await perform_comprehensive_save(
                 self.bot,
                 progress_callback=progress_callback,
-                completion_callback=completion_callback
+                completion_callback=completion_callback,
             )
         except Exception as e:
             raise QueryError(
-                f"Unexpected error during comprehensive save operation"
+                "Unexpected error during comprehensive save operation"
             ) from e
 
     @commands.command(name="save_recent", hidden=True)
     @commands.is_owner()
     @handle_command_errors
     async def save_recent(self, ctx: "Context", days: int = 30) -> None:
-        """
-        Fetch all messages from the last x days and ensure they are in the database.
+        """Fetch all messages from the last x days and ensure they are in the database.
 
         This command fetches messages from the specified number of days and saves any
         missing messages to fill gaps in the message history.
@@ -1198,7 +1190,7 @@ class StatsCommandsMixin:
 
         try:
             for guild in self.bot.guilds:
-                guild_start_time = datetime.now()
+                datetime.now()
                 self.logger.info(f"Processing guild: {guild.name} ({guild.id})")
 
                 try:
@@ -1211,7 +1203,9 @@ class StatsCommandsMixin:
 
                     for channel in accessible_channels:
                         try:
-                            self.logger.debug(f"Processing channel: {channel.name} ({channel.id})")
+                            self.logger.debug(
+                                f"Processing channel: {channel.name} ({channel.id})"
+                            )
 
                             # Get existing message IDs from database for this channel and date range
                             existing_message_ids = set()
@@ -1224,9 +1218,11 @@ class StatsCommandsMixin:
                                 """,
                                 channel.id,
                                 start_date,
-                                end_date
+                                end_date,
                             )
-                            existing_message_ids = {row['message_id'] for row in existing_messages}
+                            existing_message_ids = {
+                                row["message_id"] for row in existing_messages
+                            }
 
                             # Fetch messages from Discord for the date range
                             discord_messages = []
@@ -1234,13 +1230,14 @@ class StatsCommandsMixin:
                                 limit=None,
                                 after=start_date,
                                 before=end_date,
-                                oldest_first=True
+                                oldest_first=True,
                             ):
                                 discord_messages.append(message)
 
                             # Find missing messages (exist in Discord but not in database)
                             missing_messages = [
-                                msg for msg in discord_messages 
+                                msg
+                                for msg in discord_messages
                                 if msg.id not in existing_message_ids
                             ]
 
@@ -1250,7 +1247,9 @@ class StatsCommandsMixin:
                                     await save_message(self.bot, message)
                                     messages_saved += 1
                                 except Exception as e:
-                                    self.logger.error(f"Error saving message {message.id}: {e}")
+                                    self.logger.error(
+                                        f"Error saving message {message.id}: {e}"
+                                    )
                                     errors_encountered += 1
 
                             channels_processed += 1
@@ -1273,7 +1272,9 @@ class StatsCommandsMixin:
                                     pass  # Continue if we can't edit the message
 
                         except Exception as e:
-                            self.logger.error(f"Error processing channel {channel.name}: {e}")
+                            self.logger.error(
+                                f"Error processing channel {channel.name}: {e}"
+                            )
                             errors_encountered += 1
 
                     guilds_processed += 1
@@ -1311,9 +1312,11 @@ class StatsCommandsMixin:
                     )
                     self.logger.info("Completion notification sent to bot owner")
             except Exception as e:
-                self.logger.error(f"Failed to send completion notification to owner: {e}")
+                self.logger.error(
+                    f"Failed to send completion notification to owner: {e}"
+                )
 
         except Exception as e:
             raise QueryError(
-                f"Unexpected error during recent message save operation"
+                "Unexpected error during recent message save operation"
             ) from e

@@ -1,5 +1,4 @@
-"""
-Refactored Stats Cog for Discord Bot.
+"""Refactored Stats Cog for Discord Bot.
 
 This module provides comprehensive statistics tracking and reporting functionality
 for Discord servers. It has been refactored from a monolithic 2639-line file into
@@ -21,12 +20,12 @@ Architecture:
 - StatsUtils: Utility functions for data processing
 """
 
-import logging
 from typing import TYPE_CHECKING
+
 import structlog
+from discord.ext import commands
 
 import config
-from discord.ext import commands
 
 from .stats_commands import StatsCommandsMixin
 from .stats_listeners import StatsListenersMixin
@@ -45,8 +44,7 @@ class StatsCogs(
     commands.Cog,
     name="stats",
 ):
-    """
-    Comprehensive statistics tracking cog for Discord servers.
+    """Comprehensive statistics tracking cog for Discord servers.
 
     This cog provides extensive functionality for tracking and analyzing
     Discord server activity, including messages, users, reactions, and more.
@@ -68,8 +66,7 @@ class StatsCogs(
     """
 
     def __init__(self, bot: "Bot") -> None:
-        """
-        Initialize the Stats cog.
+        """Initialize the Stats cog.
 
         Args:
             bot: The Discord bot instance
@@ -85,8 +82,7 @@ class StatsCogs(
             self.logger.info("stats_loop_disabled", reason="test_mode")
 
     async def cog_unload(self) -> None:
-        """
-        Cleanup when the cog is unloaded.
+        """Cleanup when the cog is unloaded.
 
         Stops the background stats loop to prevent resource leaks.
         """
@@ -95,8 +91,7 @@ class StatsCogs(
             self.logger.info("stats_loop_stopped")
 
     async def cog_load(self) -> None:
-        """
-        Setup when the cog is loaded.
+        """Setup when the cog is loaded.
 
         Performs any necessary initialization after the cog is added to the bot.
         """
@@ -104,8 +99,7 @@ class StatsCogs(
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        """
-        Event listener for when the bot is ready.
+        """Event listener for when the bot is ready.
 
         Logs that the stats cog is ready and operational.
         """
@@ -113,8 +107,7 @@ class StatsCogs(
 
 
 async def setup(bot: "Bot") -> None:
-    """
-    Setup function to add the cog to the bot.
+    """Setup function to add the cog to the bot.
 
     Args:
         bot: The Discord bot instance

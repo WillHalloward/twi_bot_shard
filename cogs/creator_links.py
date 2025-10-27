@@ -1,24 +1,21 @@
-import logging
-from typing import List, Optional
-
 import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 from utils.error_handling import handle_interaction_errors
-from utils.validation import validate_url
 from utils.exceptions import (
     DatabaseError,
     QueryError,
-    ValidationError,
-    ResourceNotFoundError,
     ResourceAlreadyExistsError,
+    ResourceNotFoundError,
+    ValidationError,
 )
+from utils.validation import validate_url
 
 
 class CreatorLinks(commands.Cog, name="Creator"):
-    def __init__(self, bot):
+    def __init__(self, bot) -> None:
         self.links_cache = None
         self.bot = bot
 
@@ -38,9 +35,8 @@ class CreatorLinks(commands.Cog, name="Creator"):
     @handle_interaction_errors
     async def creator_link_get(
         self, interaction: discord.Interaction, creator: discord.User = None
-    ):
-        """
-        Retrieve and display a creator's links.
+    ) -> None:
+        """Retrieve and display a creator's links.
 
         Args:
             interaction: The Discord interaction object
@@ -63,7 +59,7 @@ class CreatorLinks(commands.Cog, name="Creator"):
                 f"Failed to retrieve creator links for user {creator.id}"
             ) from e
         except Exception as e:
-            raise QueryError(f"Unexpected error during creator links query") from e
+            raise QueryError("Unexpected error during creator links query") from e
 
         if query_r:
             embed = discord.Embed(
@@ -103,9 +99,8 @@ class CreatorLinks(commands.Cog, name="Creator"):
         nsfw: bool = False,
         weight: int = 0,
         feature: bool = True,
-    ):
-        """
-        Add a new link to the user's creator links.
+    ) -> None:
+        """Add a new link to the user's creator links.
 
         Args:
             interaction: The Discord interaction object
@@ -168,16 +163,15 @@ class CreatorLinks(commands.Cog, name="Creator"):
                 f"Failed to add creator link '{title}' for user {interaction.user.id}"
             ) from e
         except Exception as e:
-            raise DatabaseError(f"Unexpected error while adding creator link") from e
+            raise DatabaseError("Unexpected error while adding creator link") from e
 
     @creator_link.command(
         name="remove",
         description="Removes a link from your creator links.",
     )
     @handle_interaction_errors
-    async def creator_link_remove(self, interaction: discord.Interaction, title: str):
-        """
-        Remove a link from the user's creator links.
+    async def creator_link_remove(self, interaction: discord.Interaction, title: str) -> None:
+        """Remove a link from the user's creator links.
 
         Args:
             interaction: The Discord interaction object
@@ -228,7 +222,7 @@ class CreatorLinks(commands.Cog, name="Creator"):
                 f"Failed to remove creator link '{title}' for user {interaction.user.id}"
             ) from e
         except Exception as e:
-            raise DatabaseError(f"Unexpected error while removing creator link") from e
+            raise DatabaseError("Unexpected error while removing creator link") from e
 
     @creator_link.command(
         name="edit",
@@ -243,9 +237,8 @@ class CreatorLinks(commands.Cog, name="Creator"):
         nsfw: bool = False,
         weight: int = 0,
         feature: bool = True,
-    ):
-        """
-        Edit an existing link in the user's creator links.
+    ) -> None:
+        """Edit an existing link in the user's creator links.
 
         Args:
             interaction: The Discord interaction object
@@ -296,7 +289,7 @@ class CreatorLinks(commands.Cog, name="Creator"):
                 )
 
             # Update the link
-            result = await self.bot.db.execute(
+            await self.bot.db.execute(
                 "UPDATE creator_links SET link = $1, nsfw = $2, weight = $3, feature = $4, last_changed = now() WHERE user_id = $5 AND lower(title) = lower($6)",
                 validated_link,
                 nsfw,
@@ -318,8 +311,8 @@ class CreatorLinks(commands.Cog, name="Creator"):
                 f"Failed to edit creator link '{title}' for user {interaction.user.id}"
             ) from e
         except Exception as e:
-            raise DatabaseError(f"Unexpected error while editing creator link") from e
+            raise DatabaseError("Unexpected error while editing creator link") from e
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     await bot.add_cog(CreatorLinks(bot))

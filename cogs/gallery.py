@@ -1,36 +1,29 @@
+import asyncio
+import contextlib
+import csv
+import io
 import logging
 import mimetypes
 import os
-import asyncio
-import csv
-import io
-from datetime import datetime, timezone
-from typing import Literal
-
-import aiohttp
-import discord
-from discord import app_commands
-from discord.ext import commands
 import re
-import gallery_dl
-from sqlalchemy import select
-import AO3
+from datetime import UTC, datetime
 
-from models.tables.gallery import GalleryMementos
-from models.tables.gallery_migration import GalleryMigration
+import AO3
+import discord
+import gallery_dl
+from discord import app_commands
+
 from models.tables.creator_links import CreatorLink
-from utils.db_service import DatabaseService
+from models.tables.gallery import GalleryMementos
 from utils.base_cog import BaseCog
-from utils.repositories.gallery_migration_repository import GalleryMigrationRepository
+from utils.decorators import log_command
+from utils.error_handling import handle_interaction_errors
 from utils.gallery_data_extractor import GalleryDataExtractor
 from utils.permissions import (
-    admin_or_me_check,
-    admin_or_me_check_wrapper,
     app_admin_or_me_check,
 )
-from utils.error_handling import handle_interaction_errors
-from utils.decorators import log_command
-from utils.validation import validate_interaction_params, validate_string
+from utils.repositories.gallery_migration_repository import GalleryMigrationRepository
+from utils.validation import validate_interaction_params
 
 ao3_pattern = r"https?://archiveofourown\.org/\S+"
 twitter_pattern = (
@@ -221,7 +214,7 @@ class ButtonView(discord.ui.View):
 
 
 class GalleryCog(BaseCog, name="Gallery & Mementos"):
-    def __init__(self, bot):
+    def __init__(self, bot) -> None:
         super().__init__(bot)
         self.bot = bot
         self.repost_cache = None
@@ -242,7 +235,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         self.bot.tree.add_command(self.repost_context_menu)
 
     async def cog_unload(self) -> None:
-        self.bot.tree.remove_command(self.repost_context_menu.name, type=self.repost_context_menu.type)
+        self.bot.tree.remove_command(
+            self.repost_context_menu.name, type=self.repost_context_menu.type
+        )
 
     async def cog_load(self) -> None:
         # Use repository to load gallery mementos
@@ -263,8 +258,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
     async def repost(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
-        """
-        Analyze a message and provide options to repost its content to configured channels.
+        """Analyze a message and provide options to repost its content to configured channels.
 
         Args:
             interaction: The Discord interaction
@@ -509,8 +503,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
     async def repost_attachment(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
-        """
-        Repost message attachments to a selected channel.
+        """Repost message attachments to a selected channel.
 
         Args:
             interaction: The Discord interaction
@@ -1000,10 +993,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         tweet = gallery_dl.job.DownloadJob(url)
         tweet_content = None
         for x in tweet.extractor:
-            if x[0] == 2:
-                if x[1] is not None:
-                    tweet_content = x[1]
-                    break
+            if x[0] == 2 and x[1] is not None:
+                tweet_content = x[1]
+                break
         if tweet_content is not None:
             content = tweet_content["content"]
             tweet_id = tweet_content["tweet_id"]
@@ -1037,7 +1029,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 query_r = await self.creator_links_repo.get_by_user_id(
                     message.author.id
                 )
-                for image in sorted(os.listdir(f"temp_files")):
+                for image in sorted(os.listdir("temp_files")):
                     if image.startswith(str(tweet_id)) and not image.endswith(".mp4"):
                         file = discord.File(f"temp_files/{image}")
                         embed = discord.Embed(
@@ -1084,7 +1076,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                     await interaction.response.send_message(
                         "I could not find any images to repost", ephemeral=True
                     )
-                for file in os.listdir(f"temp_files"):
+                for file in os.listdir("temp_files"):
                     os.remove(f"temp_files/{file}")
             else:
                 await interaction.delete_original_response()
@@ -1106,7 +1098,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         menu = RepostMenu(
             jump_url=message.jump_url,
             mention=message.author.mention,
-            title=f"",
+            title="",
             description_item=message.content,
         )
         for channel in self.repost_cache:
@@ -1155,7 +1147,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         menu = RepostMenu(
             jump_url=message.jump_url,
             mention=message.author.mention,
-            title=f"Discord File",
+            title="Discord File",
         )
         for channel in self.repost_cache:
             if channel.guild_id == interaction.guild_id:
@@ -1268,9 +1260,8 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
     )
     async def set_repost(
         self, interaction: discord.Interaction, channel: discord.TextChannel
-    ):
-        """
-        Add or remove a channel from the repost channels list.
+    ) -> None:
+        """Add or remove a channel from the repost channels list.
 
         Args:
             interaction: The Discord interaction
@@ -1436,15 +1427,14 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
     @handle_interaction_errors
     @log_command("extract_gallery_data")
     async def extract_gallery_data(
-        self, 
+        self,
         interaction: discord.Interaction,
         channel: discord.TextChannel,
         after_date: str = None,
         chunk_size: int = 500,
-        store_in_db: bool = True
-    ):
-        """
-        Extract gallery migration data with the 5 key fields and store in database.
+        store_in_db: bool = True,
+    ) -> None:
+        """Extract gallery migration data with the 5 key fields and store in database.
 
         Args:
             interaction: The Discord interaction
@@ -1459,18 +1449,18 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             chunk_size = 1000
             await interaction.followup.send(
                 "⚠️ Chunk size reduced to 1000 messages to prevent timeout.",
-                ephemeral=True
+                ephemeral=True,
             )
 
         # Parse after_date if provided
         after = None
         if after_date:
             try:
-                after = datetime.strptime(after_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                after = datetime.strptime(after_date, "%Y-%m-%d").replace(tzinfo=UTC)
             except ValueError:
                 await interaction.followup.send(
                     "❌ Invalid date format. Please use YYYY-MM-DD format.",
-                    ephemeral=True
+                    ephemeral=True,
                 )
                 return
 
@@ -1488,12 +1478,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             async for _ in channel.history(limit=None, after=after):
                 total_messages += 1
                 if total_messages % 1000 == 0:  # Update every 1000 messages counted
-                    try:
+                    with contextlib.suppress(Exception):
                         await interaction.edit_original_response(
                             content=f"🔍 Counting messages... Found {total_messages} so far"
                         )
-                    except:
-                        pass
 
             await interaction.edit_original_response(
                 content=f"📊 Found {total_messages} total messages. Starting extraction..."
@@ -1507,8 +1495,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 # Process chunk when it reaches the specified size
                 if len(current_chunk) >= chunk_size:
                     chunk_count += 1
-                    chunk_data, chunk_db_data, chunk_errors = await self._process_gallery_chunk(
-                        current_chunk, chunk_count, channel.name
+                    chunk_data, chunk_db_data, chunk_errors = (
+                        await self._process_gallery_chunk(
+                            current_chunk, chunk_count, channel.name
+                        )
                     )
                     extracted_entries.extend(chunk_data)
                     db_entries.extend(chunk_db_data)
@@ -1521,17 +1511,15 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                     estimated_total = elapsed_time * (total_messages / total_processed)
                     remaining_time = estimated_total - elapsed_time
 
-                    try:
+                    with contextlib.suppress(Exception):
                         await interaction.edit_original_response(
                             content=f"🔄 Processing chunk {chunk_count}...\n"
-                                   f"📈 Progress: {total_processed}/{total_messages} ({progress_percent:.1f}%)\n"
-                                   f"⏱️ Elapsed: {str(elapsed_time).split('.')[0]}\n"
-                                   f"⏳ Estimated remaining: {str(remaining_time).split('.')[0]}\n"
-                                   f"📋 Entries extracted: {len(extracted_entries)}\n"
-                                   f"❌ Errors: {len(errors)}"
+                            f"📈 Progress: {total_processed}/{total_messages} ({progress_percent:.1f}%)\n"
+                            f"⏱️ Elapsed: {str(elapsed_time).split('.')[0]}\n"
+                            f"⏳ Estimated remaining: {str(remaining_time).split('.')[0]}\n"
+                            f"📋 Entries extracted: {len(extracted_entries)}\n"
+                            f"❌ Errors: {len(errors)}"
                         )
-                    except:
-                        pass
 
                     current_chunk = []
 
@@ -1541,8 +1529,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             # Process remaining messages in the last chunk
             if current_chunk:
                 chunk_count += 1
-                chunk_data, chunk_db_data, chunk_errors = await self._process_gallery_chunk(
-                    current_chunk, chunk_count, channel.name
+                chunk_data, chunk_db_data, chunk_errors = (
+                    await self._process_gallery_chunk(
+                        current_chunk, chunk_count, channel.name
+                    )
                 )
                 extracted_entries.extend(chunk_data)
                 db_entries.extend(chunk_db_data)
@@ -1556,7 +1546,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                     await interaction.edit_original_response(
                         content=f"💾 Storing {len(db_entries)} entries in database..."
                     )
-                    stored_count = await self.migration_repo.bulk_create_entries(db_entries)
+                    stored_count = await self.migration_repo.bulk_create_entries(
+                        db_entries
+                    )
                 except Exception as e:
                     self.logger.error(f"Error storing entries in database: {e}")
                     errors.append(f"Database storage error: {str(e)}")
@@ -1573,18 +1565,26 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             await interaction.followup.send(
                 f"❌ Error during extraction: {str(e)}\n"
                 f"Processed {total_processed} messages before error.",
-                ephemeral=True
+                ephemeral=True,
             )
             return
 
         # Generate final report and file
         await self._generate_extraction_report(
-            interaction, extracted_entries, channel, total_processed, 
-            start_time, after_date, chunk_count, stored_count, errors, store_in_db
+            interaction,
+            extracted_entries,
+            channel,
+            total_processed,
+            start_time,
+            after_date,
+            chunk_count,
+            stored_count,
+            errors,
+            store_in_db,
         )
 
     async def _process_gallery_chunk(self, messages, chunk_number, channel_name):
-        """Process a chunk of messages and extract gallery migration data"""
+        """Process a chunk of messages and extract gallery migration data."""
         extracted_data = []
         db_data = []
         errors = []
@@ -1598,22 +1598,30 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
 
                 # Create a simplified entry for CSV export
                 csv_entry = {
-                    'message_id': message.id,
-                    'chunk_number': chunk_number,
-                    'title': db_entry['title'],
-                    'images': '; '.join(filter(None, db_entry['images'])) if db_entry['images'] else '',
-                    'creator': db_entry['creator'],
-                    'tags': '; '.join(filter(None, db_entry['tags'])) if db_entry['tags'] else '',
-                    'jump_url': db_entry['jump_url'],
-                    'author': message.author.name,
-                    'author_id': message.author.id,
-                    'is_bot': message.author.bot,
-                    'created_at': message.created_at.isoformat(),
-                    'target_forum': db_entry['target_forum'],
-                    'content_type': db_entry['content_type'],
-                    'needs_manual_review': db_entry['needs_manual_review'],
-                    'has_attachments': db_entry['has_attachments'],
-                    'attachment_count': db_entry['attachment_count']
+                    "message_id": message.id,
+                    "chunk_number": chunk_number,
+                    "title": db_entry["title"],
+                    "images": (
+                        "; ".join(filter(None, db_entry["images"]))
+                        if db_entry["images"]
+                        else ""
+                    ),
+                    "creator": db_entry["creator"],
+                    "tags": (
+                        "; ".join(filter(None, db_entry["tags"]))
+                        if db_entry["tags"]
+                        else ""
+                    ),
+                    "jump_url": db_entry["jump_url"],
+                    "author": message.author.name,
+                    "author_id": message.author.id,
+                    "is_bot": message.author.bot,
+                    "created_at": message.created_at.isoformat(),
+                    "target_forum": db_entry["target_forum"],
+                    "content_type": db_entry["content_type"],
+                    "needs_manual_review": db_entry["needs_manual_review"],
+                    "has_attachments": db_entry["has_attachments"],
+                    "attachment_count": db_entry["attachment_count"],
                 }
 
                 extracted_data.append(csv_entry)
@@ -1626,9 +1634,20 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
 
         return extracted_data, db_data, errors
 
-    async def _generate_extraction_report(self, interaction, extracted_data, channel, total_processed, start_time, after_date, chunk_count, stored_count, errors, store_in_db):
-        """Generate and send the final extraction report"""
-
+    async def _generate_extraction_report(
+        self,
+        interaction,
+        extracted_data,
+        channel,
+        total_processed,
+        start_time,
+        after_date,
+        chunk_count,
+        stored_count,
+        errors,
+        store_in_db,
+    ) -> None:
+        """Generate and send the final extraction report."""
         # Create CSV output
         output_buffer = io.StringIO()
         if extracted_data:
@@ -1641,101 +1660,105 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
 
         # Calculate statistics
         total_time = datetime.now() - start_time
-        bot_entries = len([e for e in extracted_data if e['is_bot']])
-        manual_entries = len([e for e in extracted_data if not e['is_bot']])
-        needs_review = len([e for e in extracted_data if e['needs_manual_review']])
+        bot_entries = len([e for e in extracted_data if e["is_bot"]])
+        manual_entries = len([e for e in extracted_data if not e["is_bot"]])
+        needs_review = len([e for e in extracted_data if e["needs_manual_review"]])
 
         # Count entries by target forum
-        sfw_entries = len([e for e in extracted_data if e['target_forum'] == 'sfw'])
-        nsfw_entries = len([e for e in extracted_data if e['target_forum'] == 'nsfw'])
+        sfw_entries = len([e for e in extracted_data if e["target_forum"] == "sfw"])
+        nsfw_entries = len([e for e in extracted_data if e["target_forum"] == "nsfw"])
 
         # Count entries with each field populated
-        with_title = len([e for e in extracted_data if e['title']])
-        with_images = len([e for e in extracted_data if e['images']])
-        with_creator = len([e for e in extracted_data if e['creator']])
-        with_tags = len([e for e in extracted_data if e['tags']])
+        with_title = len([e for e in extracted_data if e["title"]])
+        with_images = len([e for e in extracted_data if e["images"]])
+        with_creator = len([e for e in extracted_data if e["creator"]])
+        with_tags = len([e for e in extracted_data if e["tags"]])
 
         # Send as file with comprehensive report
         file = discord.File(
-            io.StringIO(output), 
-            filename=f"gallery_extraction_{channel.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            io.StringIO(output),
+            filename=f"gallery_extraction_{channel.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         )
 
         embed_report = discord.Embed(
             title="📊 Gallery Data Extraction Complete",
-            color=discord.Color.green() if not errors else discord.Color.orange()
+            color=discord.Color.green() if not errors else discord.Color.orange(),
         )
 
         embed_report.add_field(
             name="📈 Processing Stats",
             value=f"• Messages processed: {total_processed:,}\n"
-                  f"• Entries extracted: {len(extracted_data):,}\n"
-                  f"• Chunks processed: {chunk_count}\n"
-                  f"• Total time: {str(total_time).split('.')[0]}",
-            inline=False
+            f"• Entries extracted: {len(extracted_data):,}\n"
+            f"• Chunks processed: {chunk_count}\n"
+            f"• Total time: {str(total_time).split('.')[0]}",
+            inline=False,
         )
 
         embed_report.add_field(
             name="🤖 Content Breakdown",
-            value=f"• Bot posts: {bot_entries:,}\n"
-                  f"• Manual posts: {manual_entries:,}\n"
-                  f"• Bot percentage: {(bot_entries/len(extracted_data)*100):.1f}%" if extracted_data else "• No entries found",
-            inline=False
+            value=(
+                f"• Bot posts: {bot_entries:,}\n"
+                f"• Manual posts: {manual_entries:,}\n"
+                f"• Bot percentage: {(bot_entries/len(extracted_data)*100):.1f}%"
+                if extracted_data
+                else "• No entries found"
+            ),
+            inline=False,
         )
 
         embed_report.add_field(
             name="🏷️ Data Quality",
             value=f"• With title: {with_title:,}\n"
-                  f"• With images: {with_images:,}\n"
-                  f"• With creator: {with_creator:,}\n"
-                  f"• With tags: {with_tags:,}\n"
-                  f"• Needs review: {needs_review:,}",
-            inline=False
+            f"• With images: {with_images:,}\n"
+            f"• With creator: {with_creator:,}\n"
+            f"• With tags: {with_tags:,}\n"
+            f"• Needs review: {needs_review:,}",
+            inline=False,
         )
 
         embed_report.add_field(
             name="🎯 Forum Classification",
             value=f"• SFW entries: {sfw_entries:,}\n"
-                  f"• NSFW entries: {nsfw_entries:,}",
-            inline=False
+            f"• NSFW entries: {nsfw_entries:,}",
+            inline=False,
         )
 
         if store_in_db:
             embed_report.add_field(
                 name="💾 Database Storage",
-                value=f"• Entries stored: {stored_count:,}\n"
-                      f"• Storage success: {(stored_count/len(extracted_data)*100):.1f}%" if extracted_data else "• No entries to store",
-                inline=False
+                value=(
+                    f"• Entries stored: {stored_count:,}\n"
+                    f"• Storage success: {(stored_count/len(extracted_data)*100):.1f}%"
+                    if extracted_data
+                    else "• No entries to store"
+                ),
+                inline=False,
             )
 
         if errors:
             embed_report.add_field(
                 name="❌ Errors",
                 value=f"• Error count: {len(errors)}\n"
-                      f"• First few errors:\n" + "\n".join(errors[:3]),
-                inline=False
+                f"• First few errors:\n" + "\n".join(errors[:3]),
+                inline=False,
             )
 
         embed_report.add_field(
             name="⚙️ Parameters",
             value=f"• Channel: {channel.mention}\n"
-                  f"• Date filter: {after_date or 'None'}\n"
-                  f"• Database storage: {'Enabled' if store_in_db else 'Disabled'}\n"
-                  f"• File size: {len(output):,} characters",
-            inline=False
+            f"• Date filter: {after_date or 'None'}\n"
+            f"• Database storage: {'Enabled' if store_in_db else 'Disabled'}\n"
+            f"• File size: {len(output):,} characters",
+            inline=False,
         )
 
-        await interaction.followup.send(
-            embed=embed_report,
-            file=file,
-            ephemeral=True
-        )
+        await interaction.followup.send(embed=embed_report, file=file, ephemeral=True)
 
     @app_commands.command(name="gallery_migration_stats")
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("gallery_migration_stats")
-    async def gallery_migration_stats(self, interaction: discord.Interaction):
+    async def gallery_migration_stats(self, interaction: discord.Interaction) -> None:
         """View gallery migration statistics."""
         await interaction.response.defer(ephemeral=True)
 
@@ -1745,37 +1768,44 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             if not stats:
                 await interaction.followup.send(
                     "❌ No migration data found or error retrieving statistics.",
-                    ephemeral=True
+                    ephemeral=True,
                 )
                 return
 
             embed = discord.Embed(
-                title="📊 Gallery Migration Statistics",
-                color=discord.Color.blue()
+                title="📊 Gallery Migration Statistics", color=discord.Color.blue()
             )
 
             embed.add_field(
                 name="📈 Overall Progress",
                 value=f"• Total entries: {stats['total_entries']:,}\n"
-                      f"• Migrated: {stats['migrated_entries']:,}\n"
-                      f"• Pending: {stats['pending_migration']:,}\n"
-                      f"• Progress: {stats['migration_progress']:.1f}%",
-                inline=False
+                f"• Migrated: {stats['migrated_entries']:,}\n"
+                f"• Pending: {stats['pending_migration']:,}\n"
+                f"• Progress: {stats['migration_progress']:.1f}%",
+                inline=False,
             )
 
             embed.add_field(
                 name="🔍 Review Status",
-                value=f"• Needs review: {stats['needs_review']:,}\n"
-                      f"• Review percentage: {(stats['needs_review']/stats['total_entries']*100):.1f}%" if stats['total_entries'] > 0 else "• No entries",
-                inline=False
+                value=(
+                    f"• Needs review: {stats['needs_review']:,}\n"
+                    f"• Review percentage: {(stats['needs_review']/stats['total_entries']*100):.1f}%"
+                    if stats["total_entries"] > 0
+                    else "• No entries"
+                ),
+                inline=False,
             )
 
             embed.add_field(
                 name="🤖 Content Source",
-                value=f"• Bot posts: {stats['bot_posts']:,}\n"
-                      f"• Manual posts: {stats['manual_posts']:,}\n"
-                      f"• Bot percentage: {(stats['bot_posts']/stats['total_entries']*100):.1f}%" if stats['total_entries'] > 0 else "• No entries",
-                inline=False
+                value=(
+                    f"• Bot posts: {stats['bot_posts']:,}\n"
+                    f"• Manual posts: {stats['manual_posts']:,}\n"
+                    f"• Bot percentage: {(stats['bot_posts']/stats['total_entries']*100):.1f}%"
+                    if stats["total_entries"] > 0
+                    else "• No entries"
+                ),
+                inline=False,
             )
 
             await interaction.followup.send(embed=embed, ephemeral=True)
@@ -1783,8 +1813,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         except Exception as e:
             self.logger.error(f"Error getting migration statistics: {e}")
             await interaction.followup.send(
-                "❌ Error retrieving migration statistics.",
-                ephemeral=True
+                "❌ Error retrieving migration statistics.", ephemeral=True
             )
 
     @app_commands.command(name="review_gallery_entries")
@@ -1792,18 +1821,15 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
     @handle_interaction_errors
     @log_command("review_gallery_entries")
     async def review_gallery_entries(
-        self, 
-        interaction: discord.Interaction,
-        limit: int = 10
-    ):
+        self, interaction: discord.Interaction, limit: int = 10
+    ) -> None:
         """View entries that need manual review."""
         await interaction.response.defer(ephemeral=True)
 
         if limit > 50:
             limit = 50
             await interaction.followup.send(
-                "⚠️ Limit reduced to 50 entries to prevent timeout.",
-                ephemeral=True
+                "⚠️ Limit reduced to 50 entries to prevent timeout.", ephemeral=True
             )
 
         try:
@@ -1811,8 +1837,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
 
             if not entries:
                 await interaction.followup.send(
-                    "✅ No entries need manual review!",
-                    ephemeral=True
+                    "✅ No entries need manual review!", ephemeral=True
                 )
                 return
 
@@ -1822,67 +1847,72 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             # Create CSV output for review
             output_buffer = io.StringIO()
             fieldnames = [
-                'message_id', 'title', 'images', 'creator', 'tags', 'jump_url',
-                'author_name', 'is_bot', 'created_at', 'target_forum', 'content_type'
+                "message_id",
+                "title",
+                "images",
+                "creator",
+                "tags",
+                "jump_url",
+                "author_name",
+                "is_bot",
+                "created_at",
+                "target_forum",
+                "content_type",
             ]
             writer = csv.DictWriter(output_buffer, fieldnames=fieldnames)
             writer.writeheader()
 
             for entry in display_entries:
-                writer.writerow({
-                    'message_id': entry.message_id,
-                    'title': entry.title,
-                    'images': '; '.join(entry.images) if entry.images else '',
-                    'creator': entry.creator,
-                    'tags': '; '.join(entry.tags) if entry.tags else '',
-                    'jump_url': entry.jump_url,
-                    'author_name': entry.author_name,
-                    'is_bot': entry.is_bot,
-                    'created_at': entry.created_at.isoformat(),
-                    'target_forum': entry.target_forum,
-                    'content_type': entry.content_type
-                })
+                writer.writerow(
+                    {
+                        "message_id": entry.message_id,
+                        "title": entry.title,
+                        "images": "; ".join(entry.images) if entry.images else "",
+                        "creator": entry.creator,
+                        "tags": "; ".join(entry.tags) if entry.tags else "",
+                        "jump_url": entry.jump_url,
+                        "author_name": entry.author_name,
+                        "is_bot": entry.is_bot,
+                        "created_at": entry.created_at.isoformat(),
+                        "target_forum": entry.target_forum,
+                        "content_type": entry.content_type,
+                    }
+                )
 
             output = output_buffer.getvalue()
 
             file = discord.File(
                 io.StringIO(output),
-                filename=f"review_entries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                filename=f"review_entries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             )
 
             embed = discord.Embed(
-                title="🔍 Entries Needing Manual Review",
-                color=discord.Color.orange()
+                title="🔍 Entries Needing Manual Review", color=discord.Color.orange()
             )
 
             embed.add_field(
                 name="📊 Review Summary",
                 value=f"• Total needing review: {len(entries):,}\n"
-                      f"• Showing: {len(display_entries)}\n"
-                      f"• Bot posts: {len([e for e in display_entries if e.is_bot])}\n"
-                      f"• Manual posts: {len([e for e in display_entries if not e.is_bot])}",
-                inline=False
+                f"• Showing: {len(display_entries)}\n"
+                f"• Bot posts: {len([e for e in display_entries if e.is_bot])}\n"
+                f"• Manual posts: {len([e for e in display_entries if not e.is_bot])}",
+                inline=False,
             )
 
             embed.add_field(
                 name="📝 Next Steps",
                 value="1. Review the CSV file\n"
-                      "2. Use `/update_gallery_tags` to update tags\n"
-                      "3. Use `/mark_entry_reviewed` when complete",
-                inline=False
+                "2. Use `/update_gallery_tags` to update tags\n"
+                "3. Use `/mark_entry_reviewed` when complete",
+                inline=False,
             )
 
-            await interaction.followup.send(
-                embed=embed,
-                file=file,
-                ephemeral=True
-            )
+            await interaction.followup.send(embed=embed, file=file, ephemeral=True)
 
         except Exception as e:
             self.logger.error(f"Error getting entries for review: {e}")
             await interaction.followup.send(
-                "❌ Error retrieving entries for review.",
-                ephemeral=True
+                "❌ Error retrieving entries for review.", ephemeral=True
             )
 
     @app_commands.command(name="update_gallery_tags")
@@ -1890,13 +1920,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
     @handle_interaction_errors
     @log_command("update_gallery_tags")
     async def update_gallery_tags(
-        self,
-        interaction: discord.Interaction,
-        message_id: str,
-        tags: str
-    ):
-        """
-        Update tags for a gallery migration entry.
+        self, interaction: discord.Interaction, message_id: str, tags: str
+    ) -> None:
+        """Update tags for a gallery migration entry.
 
         Args:
             message_id: The Discord message ID
@@ -1908,13 +1934,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             msg_id = int(message_id)
         except ValueError:
             await interaction.followup.send(
-                "❌ Invalid message ID. Please provide a valid number.",
-                ephemeral=True
+                "❌ Invalid message ID. Please provide a valid number.", ephemeral=True
             )
             return
 
         # Parse and validate tags
-        tag_list = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
         available_tags = self.data_extractor.AVAILABLE_TAGS
 
         invalid_tags = [tag for tag in tag_list if tag not in available_tags]
@@ -1922,7 +1947,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             await interaction.followup.send(
                 f"❌ Invalid tags: {', '.join(invalid_tags)}\n"
                 f"Available tags: {', '.join(available_tags)}",
-                ephemeral=True
+                ephemeral=True,
             )
             return
 
@@ -1933,32 +1958,26 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 await interaction.followup.send(
                     f"✅ Updated tags for message {msg_id}:\n"
                     f"Tags: {', '.join(tag_list)}",
-                    ephemeral=True
+                    ephemeral=True,
                 )
             else:
                 await interaction.followup.send(
                     f"❌ Failed to update tags for message {msg_id}. Entry may not exist.",
-                    ephemeral=True
+                    ephemeral=True,
                 )
 
         except Exception as e:
             self.logger.error(f"Error updating tags for {msg_id}: {e}")
-            await interaction.followup.send(
-                "❌ Error updating tags.",
-                ephemeral=True
-            )
+            await interaction.followup.send("❌ Error updating tags.", ephemeral=True)
 
     @app_commands.command(name="mark_entry_reviewed")
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("mark_entry_reviewed")
     async def mark_entry_reviewed(
-        self,
-        interaction: discord.Interaction,
-        message_id: str
-    ):
-        """
-        Mark a gallery migration entry as reviewed.
+        self, interaction: discord.Interaction, message_id: str
+    ) -> None:
+        """Mark a gallery migration entry as reviewed.
 
         Args:
             message_id: The Discord message ID
@@ -1969,36 +1988,31 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             msg_id = int(message_id)
         except ValueError:
             await interaction.followup.send(
-                "❌ Invalid message ID. Please provide a valid number.",
-                ephemeral=True
+                "❌ Invalid message ID. Please provide a valid number.", ephemeral=True
             )
             return
 
         try:
             success = await self.migration_repo.update_review_status(
-                msg_id, 
-                reviewed=True,
-                reviewed_by=interaction.user.id
+                msg_id, reviewed=True, reviewed_by=interaction.user.id
             )
 
             if success:
                 await interaction.followup.send(
-                    f"✅ Marked message {msg_id} as reviewed.",
-                    ephemeral=True
+                    f"✅ Marked message {msg_id} as reviewed.", ephemeral=True
                 )
             else:
                 await interaction.followup.send(
                     f"❌ Failed to mark message {msg_id} as reviewed. Entry may not exist.",
-                    ephemeral=True
+                    ephemeral=True,
                 )
 
         except Exception as e:
             self.logger.error(f"Error marking entry {msg_id} as reviewed: {e}")
             await interaction.followup.send(
-                "❌ Error marking entry as reviewed.",
-                ephemeral=True
+                "❌ Error marking entry as reviewed.", ephemeral=True
             )
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     await bot.add_cog(GalleryCog(bot))

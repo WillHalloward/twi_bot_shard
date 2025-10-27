@@ -5,16 +5,10 @@ from datetime import datetime, timedelta
 import asyncpg
 import discord
 from discord import app_commands
-from discord.ext import commands
-from discord.ext import tasks
+from discord.ext import commands, tasks
 from discord.ext.commands import Cog
 
 import config
-from utils.permissions import (
-    admin_or_me_check,
-    admin_or_me_check_wrapper,
-    app_admin_or_me_check,
-)
 from utils.error_handling import handle_command_errors, handle_interaction_errors
 from utils.exceptions import (
     DatabaseError,
@@ -23,7 +17,7 @@ from utils.exceptions import (
 )
 
 
-async def save_reaction(self, reaction: discord.Reaction):
+async def save_reaction(self, reaction: discord.Reaction) -> None:
     try:
         # Get all users who reacted
         users = [user async for user in reaction.users()]
@@ -120,7 +114,7 @@ async def save_reaction(self, reaction: discord.Reaction):
         logging.error(f"Failed to batch insert reactions into db: {e}")
 
 
-async def save_message(self, message):
+async def save_message(self, message) -> None:
     # Prepare data for batch operations
     mentions = []
     for mention in message.mentions:
@@ -258,7 +252,7 @@ async def save_message(self, message):
 
 class StatsCogs(commands.Cog, name="stats"):
 
-    def __init__(self, bot):
+    def __init__(self, bot) -> None:
         self.bot = bot
         self.logger = logging.getLogger("cogs.stats")
         if config.logfile != "test":
@@ -267,9 +261,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="save_users", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def save_users(self, ctx):
-        """
-        Save all guild members to the database.
+    async def save_users(self, ctx) -> None:
+        """Save all guild members to the database.
 
         This command processes all members from all guilds the bot is in,
         adding new users to the users table and updating server memberships.
@@ -381,7 +374,7 @@ class StatsCogs(commands.Cog, name="stats"):
             # Re-raise database errors as-is
             raise
         except Exception as e:
-            raise QueryError(f"Unexpected error during user saving process") from e
+            raise QueryError("Unexpected error during user saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -394,9 +387,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="save_servers", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def save_servers(self, ctx):
-        """
-        Save all guild information to the database.
+    async def save_servers(self, ctx) -> None:
+        """Save all guild information to the database.
 
         This command processes all guilds the bot is in,
         adding new servers to the servers table.
@@ -446,7 +438,7 @@ class StatsCogs(commands.Cog, name="stats"):
             # Re-raise database errors as-is
             raise
         except Exception as e:
-            raise QueryError(f"Unexpected error during server saving process") from e
+            raise QueryError("Unexpected error during server saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -459,9 +451,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="save_channels", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def save_channels(self, ctx):
-        """
-        Save all text channels to the database.
+    async def save_channels(self, ctx) -> None:
+        """Save all text channels to the database.
 
         This command processes all text channels from all guilds the bot is in,
         adding new channels to the channels table.
@@ -534,7 +525,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(f"Unexpected error during channel saving process") from e
+            raise QueryError("Unexpected error during channel saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -548,9 +539,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="save_emotes", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def save_emotes(self, ctx):
-        """
-        Save all custom emotes to the database.
+    async def save_emotes(self, ctx) -> None:
+        """Save all custom emotes to the database.
 
         This command processes all custom emotes from all guilds the bot is in,
         adding new emotes to the emotes table.
@@ -629,7 +619,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(f"Unexpected error during emote saving process") from e
+            raise QueryError("Unexpected error during emote saving process") from e
 
         # Send comprehensive completion message
         completion_message = (
@@ -659,9 +649,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="save_categories", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def save_categories(self, ctx):
-        """
-        Save all channel categories to the database.
+    async def save_categories(self, ctx) -> None:
+        """Save all channel categories to the database.
 
         This command processes all channel categories from all guilds the bot is in,
         adding new categories to the categories table.
@@ -732,7 +721,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(f"Unexpected error during category saving process") from e
+            raise QueryError("Unexpected error during category saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -746,9 +735,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="save_threads", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def save_threads(self, ctx):
-        """
-        Save all threads to the database.
+    async def save_threads(self, ctx) -> None:
+        """Save all threads to the database.
 
         This command processes all threads from all guilds the bot is in,
         adding new threads to the threads table.
@@ -825,7 +813,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(f"Unexpected error during thread saving process") from e
+            raise QueryError("Unexpected error during thread saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -839,9 +827,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="save_roles", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def save_roles(self, ctx):
-        """
-        Save all roles and role memberships to the database.
+    async def save_roles(self, ctx) -> None:
+        """Save all roles and role memberships to the database.
 
         This command processes all roles from all guilds the bot is in,
         adding new roles to the roles table and updating role memberships.
@@ -946,7 +933,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(f"Unexpected error during role saving process") from e
+            raise QueryError("Unexpected error during role saving process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -962,9 +949,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="update_role_color", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def update_role_color(self, ctx):
-        """
-        Update role colors in the database.
+    async def update_role_color(self, ctx) -> None:
+        """Update role colors in the database.
 
         This command updates the color field for all roles in the database
         to match their current Discord color values.
@@ -1032,9 +1018,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 guilds_processed += 1
 
         except Exception as e:
-            raise QueryError(
-                f"Unexpected error during role color update process"
-            ) from e
+            raise QueryError("Unexpected error during role color update process") from e
 
         # Send comprehensive completion message
         await ctx.send(
@@ -1047,9 +1031,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="save_users_from_join_leave", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def save_users_from_join_leave(self, ctx):
-        """
-        Save users from join/leave records to the users table.
+    async def save_users_from_join_leave(self, ctx) -> None:
+        """Save users from join/leave records to the users table.
 
         This command processes users from the join_leave table and adds them
         to the users table if they don't already exist.
@@ -1116,7 +1099,7 @@ class StatsCogs(commands.Cog, name="stats"):
             raise DatabaseError("Failed to fetch users from join_leave table") from e
         except Exception as e:
             raise QueryError(
-                f"Unexpected error during join_leave user saving process"
+                "Unexpected error during join_leave user saving process"
             ) from e
 
         # Send comprehensive completion message
@@ -1130,9 +1113,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="save_channels_from_messages", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def save_users_from_messages(self, ctx):
-        """
-        Save users from message reactions to the users table.
+    async def save_users_from_messages(self, ctx) -> None:
+        """Save users from message reactions to the users table.
 
         This command finds reactions to messages that aren't in the messages table
         and attempts to fetch those messages to save user information.
@@ -1233,7 +1215,7 @@ class StatsCogs(commands.Cog, name="stats"):
             ) from e
         except Exception as e:
             raise QueryError(
-                f"Unexpected error during message user saving process"
+                "Unexpected error during message user saving process"
             ) from e
 
         # Send comprehensive completion message
@@ -1247,9 +1229,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @commands.command(name="save", hidden=True)
     @commands.is_owner()
     @handle_command_errors
-    async def save(self, ctx):
-        """
-        Perform a comprehensive save of all message history from accessible channels and threads.
+    async def save(self, ctx) -> None:
+        """Perform a comprehensive save of all message history from accessible channels and threads.
 
         This is a long-running command that processes all guilds, channels, and threads
         the bot has access to, saving message history to the database. It also enables
@@ -1551,7 +1532,7 @@ class StatsCogs(commands.Cog, name="stats"):
 
         except Exception as e:
             self.logger.error(f"Critical error during save operation: {e}")
-            raise DatabaseError(f"Save operation failed with critical error") from e
+            raise DatabaseError("Save operation failed with critical error") from e
 
         # Save operation completed
         total_duration = datetime.now() - start_time
@@ -1633,7 +1614,7 @@ class StatsCogs(commands.Cog, name="stats"):
             self.logger.error(f"Failed to send completion notification to owner: {e}")
 
     @Cog.listener("on_message")
-    async def save_listener(self, message):
+    async def save_listener(self, message) -> None:
         if not isinstance(message.channel, discord.channel.DMChannel):
             try:
                 await save_message(self, message)
@@ -1641,7 +1622,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 logging.error(f"Error: {e} on message save")
 
     @Cog.listener("on_raw_message_edit")
-    async def message_edited(self, message):
+    async def message_edited(self, message) -> None:
         try:
             if (
                 "content" in message.data
@@ -1674,7 +1655,7 @@ class StatsCogs(commands.Cog, name="stats"):
             logging.exception(f"message_edited - {message.data}")
 
     @Cog.listener("on_raw_message_delete")
-    async def message_deleted(self, message):
+    async def message_deleted(self, message) -> None:
 
         await self.bot.db.execute(
             "UPDATE public.messages SET deleted = true WHERE message_id = $1",
@@ -1682,7 +1663,7 @@ class StatsCogs(commands.Cog, name="stats"):
         )
 
     @Cog.listener("on_raw_reaction_add")
-    async def reaction_add(self, reaction):
+    async def reaction_add(self, reaction) -> None:
         try:
             current_time = datetime.now().replace(tzinfo=None)
 
@@ -1743,7 +1724,7 @@ class StatsCogs(commands.Cog, name="stats"):
             logging.exception(f"Error: {e} on reaction add")
 
     @Cog.listener("on_raw_reaction_remove")
-    async def reaction_remove(self, reaction):
+    async def reaction_remove(self, reaction) -> None:
         try:
             # Use transaction for consistency
             async with await self.bot.db.transaction():
@@ -1787,7 +1768,7 @@ class StatsCogs(commands.Cog, name="stats"):
             logging.error(f"Error: {e} on reaction remove")
 
     @Cog.listener("on_member_join")
-    async def member_join(self, member):
+    async def member_join(self, member) -> None:
         await self.bot.db.execute(
             "INSERT INTO join_leave VALUES($1,$2,$3,$4,$5,$6)",
             member.id,
@@ -1819,7 +1800,7 @@ class StatsCogs(commands.Cog, name="stats"):
             await channel.send(f"{e}")
 
     @Cog.listener("on_member_remove")
-    async def member_remove(self, member):
+    async def member_remove(self, member) -> None:
         await self.bot.db.execute(
             "DELETE FROM server_membership WHERE user_id = $1 AND server_id = $2",
             member.id,
@@ -1841,7 +1822,7 @@ class StatsCogs(commands.Cog, name="stats"):
         )
 
     @Cog.listener("on_member_update")
-    async def member_roles_update(self, before, after):
+    async def member_roles_update(self, before, after) -> None:
         if before.roles != after.roles:
             if len(before.roles) < len(after.roles):
                 gained = set(after.roles) - set(before.roles)
@@ -1894,7 +1875,7 @@ class StatsCogs(commands.Cog, name="stats"):
                     after.remove_roles(pink_role)
 
     @Cog.listener("on_user_update")
-    async def user_update(self, before, after):
+    async def user_update(self, before, after) -> None:
         if before.name != after.name:
             try:
                 await self.bot.db.execute(
@@ -1916,7 +1897,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 logging.error(f"Error {e}")
 
     @Cog.listener("on_guild_channel_create")
-    async def guild_channel_create(self, channel):
+    async def guild_channel_create(self, channel) -> None:
         if channel.type == discord.ChannelType.text:
             try:
                 await self.bot.db.execute(
@@ -1949,7 +1930,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 logging.error(f"{e}")
 
     @Cog.listener("on_guild_channel_delete")
-    async def guild_channel_delete(self, channel):
+    async def guild_channel_delete(self, channel) -> None:
         await self.bot.db.execute(
             "UPDATE channels set deleted = TRUE where id = $1", channel.id
         )
@@ -1967,7 +1948,7 @@ class StatsCogs(commands.Cog, name="stats"):
         )
 
     @Cog.listener("on_thread_create")
-    async def thread_created(self, thread):
+    async def thread_created(self, thread) -> None:
         logging.info(f"A new thread has been created: {thread}")
         try:
             await self.bot.db.execute(
@@ -2005,7 +1986,7 @@ class StatsCogs(commands.Cog, name="stats"):
             logging.error(f"{e}")
 
     @Cog.listener("on_thread_delete")
-    async def thread_deleted(self, thread):
+    async def thread_deleted(self, thread) -> None:
         await self.bot.db.execute(
             "UPDATE threads SET deleted = $2 WHERE id = $1", thread.id, True
         )
@@ -2024,7 +2005,7 @@ class StatsCogs(commands.Cog, name="stats"):
         )
 
     @Cog.listener("on_thread_update")
-    async def thread_update(self, before, after):
+    async def thread_update(self, before, after) -> None:
         if before.slowmode_delay != after.slowmode_delay:
             await self.bot.db.execute(
                 "UPDATE threads set slowmode_delay = $1 where id = $2",
@@ -2127,7 +2108,7 @@ class StatsCogs(commands.Cog, name="stats"):
             )
 
     @Cog.listener("on_thread_member_join")
-    async def thread_member_join(self, threadmember):
+    async def thread_member_join(self, threadmember) -> None:
         await self.bot.db.execute(
             "INSERT INTO thread_membership(user_id, thread_id) VALUES($1,$2)",
             threadmember.id,
@@ -2135,7 +2116,7 @@ class StatsCogs(commands.Cog, name="stats"):
         )
 
     @Cog.listener("on_thread_member_remove")
-    async def thread_member_leave(self, threadmember):
+    async def thread_member_leave(self, threadmember) -> None:
         await self.bot.db.execute(
             "DELETE FROM thread_membership WHERE user_id = $1 and thread_id = $2",
             threadmember.id,
@@ -2143,7 +2124,7 @@ class StatsCogs(commands.Cog, name="stats"):
         )
 
     @Cog.listener("on_guild_channel_update")
-    async def guild_channel_update(self, before, after):
+    async def guild_channel_update(self, before, after) -> None:
         if before.name != after.name:
             await self.bot.db.execute(
                 "UPDATE channels set name = $1 where id = $2", after.name, after.id
@@ -2217,7 +2198,7 @@ class StatsCogs(commands.Cog, name="stats"):
             )
 
     @Cog.listener("on_guild_update")
-    async def guild_update(self, before, after):
+    async def guild_update(self, before, after) -> None:
         if before.name != after.name:
             await self.bot.db.execute(
                 "UPDATE servers set server_name = $1 WHERE server_id = $2",
@@ -2235,7 +2216,7 @@ class StatsCogs(commands.Cog, name="stats"):
             )
 
     @Cog.listener("on_guild_emojis_update")
-    async def guild_emoji_update(self, guild, before, after):
+    async def guild_emoji_update(self, guild, before, after) -> None:
         print(f"change detected {guild}, {before}, {after}")
 
         before_dict = {emoji.id: emoji for emoji in before}
@@ -2274,7 +2255,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 return
 
     @Cog.listener("on_guild_role_create")
-    async def guild_role_create(self, role):
+    async def guild_role_create(self, role) -> None:
         await self.bot.db.execute(
             "INSERT INTO "
             "roles(id, name, color, created_at, hoisted, managed, position, guild_id) "
@@ -2290,7 +2271,7 @@ class StatsCogs(commands.Cog, name="stats"):
         )
 
     @Cog.listener("on_guild_role_delete")
-    async def guild_role_delete(self, role):
+    async def guild_role_delete(self, role) -> None:
         await self.bot.db.execute(
             "UPDATE roles set deleted = TRUE where id = $1", role.id
         )
@@ -2299,7 +2280,7 @@ class StatsCogs(commands.Cog, name="stats"):
         )
 
     @Cog.listener("on_guild_role_update")
-    async def guild_role_update(self, before, after):
+    async def guild_role_update(self, before, after) -> None:
         if before.name != after.name:
             await self.bot.db.execute(
                 "UPDATE roles set name = $1 where id = $2", after.name, after.id
@@ -2354,7 +2335,7 @@ class StatsCogs(commands.Cog, name="stats"):
             )
 
     @Cog.listener("on_voice_state_update")
-    async def voice_state_update(self, member, before, after):
+    async def voice_state_update(self, member, before, after) -> None:
         if before.afk != after.afk:
             await self.bot.db.execute(
                 "INSERT INTO updates(updated_table, action, before, after, date, primary_key) VALUES($1,$2,$3,$4,$5,$6)",
@@ -2447,7 +2428,7 @@ class StatsCogs(commands.Cog, name="stats"):
             )
 
     @tasks.loop(hours=24)
-    async def stats_loop(self):
+    async def stats_loop(self) -> None:
         logging.info("Starting daily server activity stats gathering")
         message = ""
 
@@ -2479,7 +2460,7 @@ class StatsCogs(commands.Cog, name="stats"):
                     f"No messages found in guild 346842016480755724 during the last {datetime.now() - timedelta(hours=24)} - {datetime.now()}"
                 )
             else:
-                logging.error(f"I couldn't find the owner")
+                logging.error("I couldn't find the owner")
         else:
             logging.debug(f"Found results {messages_result}")
             length = len(str(messages_result[0]["total"])) + 1
@@ -2540,9 +2521,8 @@ class StatsCogs(commands.Cog, name="stats"):
     @handle_interaction_errors
     async def message_count(
         self, interaction: discord.Interaction, channel: discord.TextChannel, hours: int
-    ):
-        """
-        Retrieve message count from a specific channel within a time range.
+    ) -> None:
+        """Retrieve message count from a specific channel within a time range.
 
         Args:
             interaction: The Discord interaction object
@@ -2631,8 +2611,8 @@ class StatsCogs(commands.Cog, name="stats"):
                 f"Failed to retrieve message count for channel {channel.name}"
             ) from e
         except Exception as e:
-            raise QueryError(f"Unexpected error during message count query") from e
+            raise QueryError("Unexpected error during message count query") from e
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     await bot.add_cog(StatsCogs(bot))

@@ -1,5 +1,4 @@
-"""
-Background tasks for the stats system.
+"""Background tasks for the stats system.
 
 This module contains background tasks that run periodically to generate
 reports and perform maintenance operations for the stats system.
@@ -13,7 +12,7 @@ from typing import TYPE_CHECKING
 from discord.ext import tasks
 
 if TYPE_CHECKING:
-    from discord.ext.commands import Bot
+    pass
 
 
 class StatsTasksMixin:
@@ -21,8 +20,7 @@ class StatsTasksMixin:
 
     @tasks.loop(hours=24)
     async def stats_loop(self) -> None:
-        """
-        Daily background task to gather and post server activity statistics.
+        """Daily background task to gather and post server activity statistics.
 
         This task runs every 24 hours to:
         - Refresh materialized views for performance
@@ -116,45 +114,73 @@ class StatsTasksMixin:
             max_count = 0
 
             for result in messages_result:
-                category = result['category']
-                channel_name = result['channel_name']
-                thread_name = result['thread_name']
-                count = result['message_count']
-                channel_type = result['channel_type']
-                parent_channel_name = result['parent_channel_name']
+                category = result["category"]
+                channel_name = result["channel_name"]
+                thread_name = result["thread_name"]
+                count = result["message_count"]
+                channel_type = result["channel_type"]
+                parent_channel_name = result["parent_channel_name"]
 
                 max_count = max(max_count, count)
 
                 if category not in category_data:
-                    category_data[category] = {'total': 0, 'channels': {}}
+                    category_data[category] = {"total": 0, "channels": {}}
 
-                category_data[category]['total'] += count
+                category_data[category]["total"] += count
 
-                if channel_type == 'thread':
+                if channel_type == "thread":
                     # Use parent_channel_name to find the correct parent channel
-                    if parent_channel_name not in category_data[category]['channels']:
+                    if parent_channel_name not in category_data[category]["channels"]:
                         # Create parent channel entry if it doesn't exist
-                        category_data[category]['channels'][parent_channel_name] = {'count': 0, 'threads': {}}
+                        category_data[category]["channels"][parent_channel_name] = {
+                            "count": 0,
+                            "threads": {},
+                        }
 
                     # Add thread to parent channel
-                    if 'threads' not in category_data[category]['channels'][parent_channel_name]:
-                        category_data[category]['channels'][parent_channel_name]['threads'] = {}
-                    category_data[category]['channels'][parent_channel_name]['threads'][thread_name] = count
+                    if (
+                        "threads"
+                        not in category_data[category]["channels"][parent_channel_name]
+                    ):
+                        category_data[category]["channels"][parent_channel_name][
+                            "threads"
+                        ] = {}
+                    category_data[category]["channels"][parent_channel_name]["threads"][
+                        thread_name
+                    ] = count
                 else:
                     # Regular channel
-                    if channel_name not in category_data[category]['channels']:
-                        category_data[category]['channels'][channel_name] = {'count': count}
+                    if channel_name not in category_data[category]["channels"]:
+                        category_data[category]["channels"][channel_name] = {
+                            "count": count
+                        }
                     else:
-                        category_data[category]['channels'][channel_name]['count'] = count
+                        category_data[category]["channels"][channel_name][
+                            "count"
+                        ] = count
 
             # Calculate formatting width
-            length = len(str(max(max_count, max(cat_data['total'] for cat_data in category_data.values())))) + 1
+            length = (
+                len(
+                    str(
+                        max(
+                            max_count,
+                            max(
+                                cat_data["total"] for cat_data in category_data.values()
+                            ),
+                        )
+                    )
+                )
+                + 1
+            )
 
             message += "==== Stats last 24 hours ====\n"
             message += "==== Messages stats ====\n\n"
 
             # Sort categories by total message count
-            sorted_categories = sorted(category_data.items(), key=lambda x: x[1]['total'], reverse=True)
+            sorted_categories = sorted(
+                category_data.items(), key=lambda x: x[1]["total"], reverse=True
+            )
 
             for category, cat_data in sorted_categories:
                 try:
@@ -163,16 +189,26 @@ class StatsTasksMixin:
                     message += f"{emoji} {category} ({cat_data['total']:,} messages)\n"
 
                     # Sort channels by message count
-                    sorted_channels = sorted(cat_data['channels'].items(), key=lambda x: x[1].get('count', 0), reverse=True)
+                    sorted_channels = sorted(
+                        cat_data["channels"].items(),
+                        key=lambda x: x[1].get("count", 0),
+                        reverse=True,
+                    )
 
                     for channel_name, channel_data in sorted_channels:
-                        channel_count = channel_data.get('count', 0)
+                        channel_count = channel_data.get("count", 0)
                         if channel_count > 0:
-                            message += f"    #{channel_name:<25} {channel_count:>{length-4}}\n"
+                            message += (
+                                f"    #{channel_name:<25} {channel_count:>{length-4}}\n"
+                            )
 
                         # Add threads if they exist
-                        if 'threads' in channel_data:
-                            sorted_threads = sorted(channel_data['threads'].items(), key=lambda x: x[1], reverse=True)
+                        if "threads" in channel_data:
+                            sorted_threads = sorted(
+                                channel_data["threads"].items(),
+                                key=lambda x: x[1],
+                                reverse=True,
+                            )
                             for thread_name, thread_count in sorted_threads:
                                 message += f"        🧵 {thread_name:<21} {thread_count:>{length-8}}\n"
 
@@ -196,7 +232,7 @@ class StatsTasksMixin:
             WHERE server_id = 346842016480755724
             AND date >= $1
             """,
-            twenty_four_hours_ago
+            twenty_four_hours_ago,
         )
         logging.debug(f"Found stats {user_join_leave_results}")
 
@@ -237,8 +273,7 @@ class StatsTasksMixin:
 
     @stats_loop.before_loop
     async def before_stats_loop(self) -> None:
-        """
-        Preparation task that runs before the stats loop starts.
+        """Preparation task that runs before the stats loop starts.
 
         Ensures the bot is ready before starting the background task.
         """
@@ -247,8 +282,7 @@ class StatsTasksMixin:
 
     @stats_loop.error
     async def stats_loop_error(self, error: Exception) -> None:
-        """
-        Error handler for the stats loop task.
+        """Error handler for the stats loop task.
 
         Args:
             error: The exception that occurred in the stats loop

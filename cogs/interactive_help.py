@@ -1,14 +1,10 @@
-"""
-Interactive help system for Twi Bot Shard.
+"""Interactive help system for Twi Bot Shard.
 
 This module provides an interactive help system using Discord's buttons and select menus.
 """
 
-import logging
-from typing import Dict, List, Optional, Union
-import structlog
-
 import discord
+import structlog
 from discord import app_commands
 from discord.ext import commands
 
@@ -18,9 +14,8 @@ from utils.error_handling import handle_command_errors, handle_interaction_error
 class HelpView(discord.ui.View):
     """Interactive help view with buttons and select menus."""
 
-    def __init__(self, cog: "InteractiveHelp", timeout: int = 60):
-        """
-        Initialize the help view.
+    def __init__(self, cog: "InteractiveHelp", timeout: int = 60) -> None:
+        """Initialize the help view.
 
         Args:
             cog: The InteractiveHelp cog instance
@@ -37,9 +32,8 @@ class HelpView(discord.ui.View):
     class CategorySelect(discord.ui.Select):
         """Select menu for command categories."""
 
-        def __init__(self, cog: "InteractiveHelp"):
-            """
-            Initialize the category select menu.
+        def __init__(self, cog: "InteractiveHelp") -> None:
+            """Initialize the category select menu.
 
             Args:
                 cog: The InteractiveHelp cog instance
@@ -84,9 +78,8 @@ class HelpView(discord.ui.View):
                 options=options,
             )
 
-        async def callback(self, interaction: discord.Interaction):
-            """
-            Handle category selection.
+        async def callback(self, interaction: discord.Interaction) -> None:
+            """Handle category selection.
 
             Args:
                 interaction: The interaction that triggered this callback
@@ -115,7 +108,7 @@ class HelpView(discord.ui.View):
             # Create the embed
             embed = discord.Embed(
                 title=f"{category} Commands",
-                description=f"Select a command to view detailed help.",
+                description="Select a command to view detailed help.",
                 color=discord.Color.blue(),
             )
 
@@ -129,9 +122,8 @@ class HelpView(discord.ui.View):
     class CommandSelect(discord.ui.Select):
         """Select menu for commands within a category."""
 
-        def __init__(self, cog: "InteractiveHelp", commands: List[Dict], category: str):
-            """
-            Initialize the command select menu.
+        def __init__(self, cog: "InteractiveHelp", commands: list[dict], category: str) -> None:
+            """Initialize the command select menu.
 
             Args:
                 cog: The InteractiveHelp cog instance
@@ -160,9 +152,8 @@ class HelpView(discord.ui.View):
                 options=options,
             )
 
-        async def callback(self, interaction: discord.Interaction):
-            """
-            Handle command selection.
+        async def callback(self, interaction: discord.Interaction) -> None:
+            """Handle command selection.
 
             Args:
                 interaction: The interaction that triggered this callback
@@ -226,9 +217,8 @@ class HelpView(discord.ui.View):
     class BackButton(discord.ui.Button):
         """Button to go back to category view."""
 
-        def __init__(self, cog: "InteractiveHelp", category: str):
-            """
-            Initialize the back button.
+        def __init__(self, cog: "InteractiveHelp", category: str) -> None:
+            """Initialize the back button.
 
             Args:
                 cog: The InteractiveHelp cog instance
@@ -241,9 +231,8 @@ class HelpView(discord.ui.View):
                 style=discord.ButtonStyle.secondary, label="Back to Category", emoji="⬅️"
             )
 
-        async def callback(self, interaction: discord.Interaction):
-            """
-            Handle button click.
+        async def callback(self, interaction: discord.Interaction) -> None:
+            """Handle button click.
 
             Args:
                 interaction: The interaction that triggered this callback
@@ -259,7 +248,7 @@ class HelpView(discord.ui.View):
             # Create the embed
             embed = discord.Embed(
                 title=f"{self.category} Commands",
-                description=f"Select a command to view detailed help.",
+                description="Select a command to view detailed help.",
                 color=discord.Color.blue(),
             )
 
@@ -279,9 +268,8 @@ class HelpView(discord.ui.View):
 class InteractiveHelp(commands.Cog):
     """Interactive help system using Discord's UI components."""
 
-    def __init__(self, bot):
-        """
-        Initialize the interactive help cog.
+    def __init__(self, bot) -> None:
+        """Initialize the interactive help cog.
 
         Args:
             bot: The bot instance
@@ -518,14 +506,21 @@ class InteractiveHelp(commands.Cog):
                     "syntax": "/stats channel <channel> [days]",
                     "short_description": "View channel statistics",
                     "description": "Displays comprehensive channel activity statistics for the specified time period.",
-                    "examples": ["/stats channel #general", "/stats channel #general 14"],
+                    "examples": [
+                        "/stats channel #general",
+                        "/stats channel #general 14",
+                    ],
                 },
                 {
                     "name": "stats user",
                     "syntax": "/stats user [user] [days]",
                     "short_description": "View user statistics",
                     "description": "Displays comprehensive user activity statistics for the specified time period.",
-                    "examples": ["/stats user", "/stats user @Username", "/stats user @Username 14"],
+                    "examples": [
+                        "/stats user",
+                        "/stats user @Username",
+                        "/stats user @Username 14",
+                    ],
                 },
                 {
                     "name": "stats role",
@@ -539,14 +534,20 @@ class InteractiveHelp(commands.Cog):
                     "syntax": "/stats category <category> [days]",
                     "short_description": "View category statistics",
                     "description": "Displays comprehensive statistics for all channels in a category for the specified time period.",
-                    "examples": ["/stats category General", "/stats category Gaming 14"],
+                    "examples": [
+                        "/stats category General",
+                        "/stats category Gaming 14",
+                    ],
                 },
                 {
                     "name": "stats thread",
                     "syntax": "/stats thread <thread> [days]",
                     "short_description": "View thread statistics",
                     "description": "Displays comprehensive thread activity statistics for the specified time period.",
-                    "examples": ["/stats thread ThreadName", "/stats thread ThreadName 7"],
+                    "examples": [
+                        "/stats thread ThreadName",
+                        "/stats thread ThreadName 7",
+                    ],
                 },
                 {
                     "name": "stats commands",
@@ -606,9 +607,8 @@ class InteractiveHelp(commands.Cog):
         }
         self.commands_by_category = self.commands_db
 
-    def get_commands_for_category(self, category: str) -> List[Dict]:
-        """
-        Get commands for a specific category.
+    def get_commands_for_category(self, category: str) -> list[dict]:
+        """Get commands for a specific category.
 
         Args:
             category: The category name
@@ -620,9 +620,8 @@ class InteractiveHelp(commands.Cog):
 
     @commands.command(name="help")
     @handle_command_errors
-    async def help_command(self, ctx, *, command_name: Optional[str] = None):
-        """
-        Show help for commands.
+    async def help_command(self, ctx, *, command_name: str | None = None) -> None:
+        """Show help for commands.
 
         Args:
             ctx: The command context
@@ -672,7 +671,7 @@ class InteractiveHelp(commands.Cog):
                 color=discord.Color.blue(),
             )
 
-            for category in self.commands_db.keys():
+            for category in self.commands_db:
                 cmd_count = len(self.commands_db[category])
                 embed.add_field(
                     name=category, value=f"{cmd_count} commands", inline=True
@@ -685,10 +684,9 @@ class InteractiveHelp(commands.Cog):
     @app_commands.describe(command="The command to get help for")
     @handle_interaction_errors
     async def help_slash(
-        self, interaction: discord.Interaction, command: Optional[str] = None
-    ):
-        """
-        Show help for commands.
+        self, interaction: discord.Interaction, command: str | None = None
+    ) -> None:
+        """Show help for commands.
 
         Args:
             interaction: The interaction
@@ -738,7 +736,7 @@ class InteractiveHelp(commands.Cog):
                 color=discord.Color.blue(),
             )
 
-            for category in self.commands_db.keys():
+            for category in self.commands_db:
                 cmd_count = len(self.commands_db[category])
                 embed.add_field(
                     name=category, value=f"{cmd_count} commands", inline=True
@@ -748,9 +746,8 @@ class InteractiveHelp(commands.Cog):
             await interaction.response.send_message(embed=embed, view=view)
 
 
-async def setup(bot):
-    """
-    Set up the interactive help cog.
+async def setup(bot) -> None:
+    """Set up the interactive help cog.
 
     Args:
         bot: The bot instance

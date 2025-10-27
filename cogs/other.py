@@ -1,5 +1,4 @@
-"""
-Utility commands cog for the Twi Bot Shard.
+"""Utility commands cog for the Twi Bot Shard.
 
 This module provides a variety of utility commands for server management, user information,
 role management, and other miscellaneous functionality. It includes commands for user info,
@@ -8,28 +7,23 @@ server info, role management, quotes, dice rolling, and more.
 
 # Import standard library modules first
 import logging
-import os
+import random
 import re
 import time
-import random
-from datetime import datetime
+from datetime import UTC
 from itertools import groupby
-from os.path import exists
-from typing import List
-import structlog
 
 # Import third-party modules in a specific order
 # Discord-related imports
 import discord
+import structlog
 from discord import app_commands
 from discord.ext import commands
 
 # Other third-party imports
-from openpyxl import load_workbook, Workbook
 
 # Import AO3 last to avoid potential import deadlocks
 # Adding a small delay before AO3 import to prevent deadlocks
-import time
 
 time.sleep(0.1)  # 100ms delay to avoid potential race conditions
 import AO3
@@ -38,14 +32,11 @@ import config
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
     DatabaseError,
-    QueryError,
-    ValidationError,
-    PermissionError,
     ExternalServiceError,
+    PermissionError,
+    ValidationError,
 )
 from utils.permissions import (
-    admin_or_me_check,
-    admin_or_me_check_wrapper,
     app_admin_or_me_check,
 )
 
@@ -57,9 +48,8 @@ except Exception as e:
     logging.error(f"AO3 login error: {e}")
 
 
-async def user_info_function(interaction: discord.Interaction, member: discord.Member):
-    """
-    Create and send an embed with detailed information about a Discord user.
+async def user_info_function(interaction: discord.Interaction, member: discord.Member) -> None:
+    """Create and send an embed with detailed information about a Discord user.
 
     This function creates an embed containing comprehensive information about a user,
     including their account creation date, server join date, ID, color, roles, and
@@ -93,7 +83,7 @@ async def user_info_function(interaction: discord.Interaction, member: discord.M
             else discord.Color(0x3CD63D)
         )
         embed = discord.Embed(
-            title=f"👤 User Information",
+            title="👤 User Information",
             description=f"**{member.display_name}**\n{member.mention}",
             color=user_color,
             timestamp=discord.utils.utcnow(),
@@ -269,8 +259,7 @@ async def user_info_function(interaction: discord.Interaction, member: discord.M
 
 
 class OtherCogs(commands.Cog, name="Other"):
-    """
-    Cog providing various utility commands for server management and user interaction.
+    """Cog providing various utility commands for server management and user interaction.
 
     This cog includes commands for user information, server information, role management,
     quotes, dice rolling, and other utility functions. It also provides context menu
@@ -284,8 +273,7 @@ class OtherCogs(commands.Cog, name="Other"):
     """
 
     def __init__(self, bot: commands.Bot) -> None:
-        """
-        Initialize the OtherCogs cog.
+        """Initialize the OtherCogs cog.
 
         Args:
             bot: The bot instance to which this cog is attached
@@ -309,8 +297,7 @@ class OtherCogs(commands.Cog, name="Other"):
         self.bot.tree.add_command(self.info_user_context)
 
     async def cog_load(self) -> None:
-        """
-        Load initial data when the cog is added to the bot.
+        """Load initial data when the cog is added to the bot.
 
         This method is called automatically when the cog is loaded.
         It populates the quote cache, category cache, and pin cache
@@ -332,8 +319,7 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     @handle_interaction_errors
     async def ping(self, interaction: discord.Interaction) -> None:
-        """
-        Display the bot's current latency to Discord.
+        """Display the bot's current latency to Discord.
 
         This command calculates and displays the bot's WebSocket latency to Discord
         in milliseconds, which can be useful for diagnosing connection issues.
@@ -405,7 +391,7 @@ class OtherCogs(commands.Cog, name="Other"):
             )
 
             embed.add_field(
-                name="Bot Status", value=f"🤖 **Online**\n*Ready to serve*", inline=True
+                name="Bot Status", value="🤖 **Online**\n*Ready to serve*", inline=True
             )
 
             embed.set_footer(text="Latency measured to Discord's servers")
@@ -434,8 +420,7 @@ class OtherCogs(commands.Cog, name="Other"):
     async def av(
         self, interaction: discord.Interaction, member: discord.Member = None
     ) -> None:
-        """
-        Display the full-size avatar of a user.
+        """Display the full-size avatar of a user.
 
         This command creates an embed containing the full-size version of a user's
         avatar, which can be useful for viewing avatars in higher resolution.
@@ -575,8 +560,7 @@ class OtherCogs(commands.Cog, name="Other"):
     async def info_user(
         self, interaction: discord.Interaction, member: discord.Member = None
     ) -> None:
-        """
-        Display detailed information about a Discord user.
+        """Display detailed information about a Discord user.
 
         This command shows comprehensive information about a user, including their account
         creation date, server join date, ID, color, roles, permissions, and status.
@@ -609,8 +593,7 @@ class OtherCogs(commands.Cog, name="Other"):
     async def info_user_context(
         self, interaction: discord.Interaction, member: discord.Member
     ) -> None:
-        """
-        Context menu command to display detailed information about a Discord user.
+        """Context menu command to display detailed information about a Discord user.
 
         This context menu command shows the same comprehensive information as the /info user command,
         but can be accessed by right-clicking on a user. Provides enhanced formatting and
@@ -645,8 +628,7 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     @handle_interaction_errors
     async def info_server(self, interaction: discord.Interaction) -> None:
-        """
-        Display detailed information about the current Discord server.
+        """Display detailed information about the current Discord server.
 
         This command shows comprehensive information about the server, including
         its creation date, owner, member count, role count, emoji counts, channels,
@@ -873,8 +855,7 @@ class OtherCogs(commands.Cog, name="Other"):
     async def info_role(
         self, interaction: discord.Interaction, role: discord.Role
     ) -> None:
-        """
-        Display detailed information about a Discord role.
+        """Display detailed information about a Discord role.
 
         This command shows comprehensive information about a role, including its color,
         creation date, whether it's hoisted (displayed separately), permissions,
@@ -1094,9 +1075,13 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     @commands.is_owner()
     @handle_interaction_errors
-    async def say(self, interaction: discord.Interaction, say: str, channel: discord.TextChannel = None) -> None:
-        """
-        Make the bot repeat a message in the current channel or a specified channel.
+    async def say(
+        self,
+        interaction: discord.Interaction,
+        say: str,
+        channel: discord.TextChannel = None,
+    ) -> None:
+        """Make the bot repeat a message in the current channel or a specified channel.
 
         This owner-only command makes the bot send a message with the specified content
         in the current channel (if no channel is specified) or in the specified channel.
@@ -1191,13 +1176,21 @@ class OtherCogs(commands.Cog, name="Other"):
                 bot_member = target_channel.guild.get_member(interaction.client.user.id)
                 if not bot_member:
                     raise PermissionError(
-                        message="❌ Bot is not a member of the target channel's server" if channel else "❌ Bot member not found in guild"
+                        message=(
+                            "❌ Bot is not a member of the target channel's server"
+                            if channel
+                            else "❌ Bot member not found in guild"
+                        )
                     )
 
                 channel_perms = target_channel.permissions_for(bot_member)
                 if not channel_perms.send_messages:
                     raise PermissionError(
-                        message=f"❌ Bot lacks permission to send messages in {target_channel.mention}" if channel else "❌ Bot lacks permission to send messages in this channel"
+                        message=(
+                            f"❌ Bot lacks permission to send messages in {target_channel.mention}"
+                            if channel
+                            else "❌ Bot lacks permission to send messages in this channel"
+                        )
                     )
 
                 if channel and not channel_perms.view_channel:
@@ -1209,7 +1202,9 @@ class OtherCogs(commands.Cog, name="Other"):
                     word in say.lower() for word in ["http", "www", ".com", ".org"]
                 ):
                     logging.warning(
-                        f"OTHER SAY WARNING: Bot lacks embed permissions in target channel but message contains links" if channel else f"OTHER SAY WARNING: Bot lacks embed permissions but message contains links"
+                        "OTHER SAY WARNING: Bot lacks embed permissions in target channel but message contains links"
+                        if channel
+                        else "OTHER SAY WARNING: Bot lacks embed permissions but message contains links"
                     )
 
             # Additional channel-specific checks (only if a specific channel was provided)
@@ -1217,7 +1212,9 @@ class OtherCogs(commands.Cog, name="Other"):
                 try:
                     # Check if channel is accessible
                     (
-                        await target_channel.fetch_message(target_channel.last_message_id)
+                        await target_channel.fetch_message(
+                            target_channel.last_message_id
+                        )
                         if target_channel.last_message_id
                         else None
                     )
@@ -1289,8 +1286,7 @@ class OtherCogs(commands.Cog, name="Other"):
     async def on_member_update(
         self, before: discord.Member, after: discord.Member
     ) -> None:
-        """
-        Event handler for when a member's roles are updated.
+        """Event handler for when a member's roles are updated.
 
         This listener detects when a member gains a special role and sends a themed
         announcement message to the inn general channel. Each special role has a
@@ -1317,36 +1313,36 @@ class OtherCogs(commands.Cog, name="Other"):
                 # Acid jar
                 if gained.id == config.special_role_ids["acid_jars"]:
                     embed = discord.Embed(
-                        title=f"Hey be careful over there!",
+                        title="Hey be careful over there!",
                         description=f"Those {gained.mention} will melt your hands off {after.mention}!",
                     )
                 # Acid Flies
                 elif gained.id == config.special_role_ids["acid_flies"]:
                     embed = discord.Embed(
-                        title=f"Make some room at the tables!",
+                        title="Make some room at the tables!",
                         description=f"{after.mention} just ordered a bowl of {gained.mention}!",
                     )
                 # Frying Pans
                 elif gained.id == config.special_role_ids["frying_pans"]:
                     embed = discord.Embed(
-                        title=f"Someone ordered a frying pan!",
+                        title="Someone ordered a frying pan!",
                         description=f"Hope {after.mention} can dodge!",
                     )
                 # Enchanted Soup
                 elif gained.id == config.special_role_ids["enchanted_soup"]:
                     embed = discord.Embed(
-                        title=f"Hey get down from there Mrsha!",
+                        title="Hey get down from there Mrsha!",
                         description=f"Looks like {after.mention} will have to order a new serving of {gained.mention} because Mrsha just ate theirs!",
                     )
                 # Barefoot Clients
                 elif gained.id == config.special_role_ids["barefoot_clients"]:
                     embed = discord.Embed(
-                        title=f"Make way!",
+                        title="Make way!",
                         description=f"{gained.mention} {after.mention} coming through!",
                     )
                 else:
                     embed = discord.Embed(
-                        title=f"Make some room in the inn!",
+                        title="Make some room in the inn!",
                         description=f"{after.mention} just joined the ranks of {gained.mention}!",
                     )
                 embed.set_thumbnail(url=after.display_avatar.url)
@@ -1356,9 +1352,8 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @quote.command(name="add", description="Adds a quote to the list of quotes")
     @handle_interaction_errors
-    async def quote_add(self, interaction: discord.Interaction, quote: str):
-        """
-        Add a new quote to the database.
+    async def quote_add(self, interaction: discord.Interaction, quote: str) -> None:
+        """Add a new quote to the database.
 
         This command adds a new quote to the database, recording the author's name,
         ID, and the current timestamp. It also updates the quote cache for autocomplete.
@@ -1488,9 +1483,8 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @quote.command(name="find", description="Searches for a quote")
     @handle_interaction_errors
-    async def quote_find(self, interaction: discord.Interaction, search: str):
-        """
-        Search for quotes containing specific words.
+    async def quote_find(self, interaction: discord.Interaction, search: str) -> None:
+        """Search for quotes containing specific words.
 
         This command searches the quotes database for quotes containing the specified
         search terms. It uses PostgreSQL's full-text search capabilities for efficient
@@ -1638,9 +1632,8 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @quote.command(name="delete", description="Delete a quote")
     @handle_interaction_errors
-    async def quote_delete(self, interaction: discord.Interaction, delete: int):
-        """
-        Delete a quote from the database by its index.
+    async def quote_delete(self, interaction: discord.Interaction, delete: int) -> None:
+        """Delete a quote from the database by its index.
 
         This command removes a quote from the database based on its row number.
         It also updates the quote cache for autocomplete after deletion.
@@ -1820,9 +1813,8 @@ class OtherCogs(commands.Cog, name="Other"):
     @quote_delete.autocomplete("delete")
     async def quote_delete_autocomplete(
         self, interaction: discord.Interaction, current: int
-    ) -> List[app_commands.Choice[int]]:
-        """
-        Provide autocomplete suggestions for the quote delete command.
+    ) -> list[app_commands.Choice[int]]:
+        """Provide autocomplete suggestions for the quote delete command.
 
         This method filters the cached quotes based on the user's current input
         and returns matching options for the autocomplete dropdown.
@@ -1851,9 +1843,8 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Posts a quote a random quote or a quote with the given index",
     )
     @handle_interaction_errors
-    async def quote_get(self, interaction: discord.Interaction, index: int = None):
-        """
-        Retrieve and display a quote from the database.
+    async def quote_get(self, interaction: discord.Interaction, index: int = None) -> None:
+        """Retrieve and display a quote from the database.
 
         This command retrieves either a random quote or a specific quote by its
         row number. If no index is provided, a random quote is selected.
@@ -2016,9 +2007,8 @@ class OtherCogs(commands.Cog, name="Other"):
         self,
         interaction,
         current: int,
-    ) -> List[app_commands.Choice[int]]:
-        """
-        Provide autocomplete suggestions for the quote get command.
+    ) -> list[app_commands.Choice[int]]:
+        """Provide autocomplete suggestions for the quote get command.
 
         This method filters the cached quotes based on the user's current input
         and returns matching options for the autocomplete dropdown.
@@ -2044,9 +2034,8 @@ class OtherCogs(commands.Cog, name="Other"):
 
     @quote.command(name="who", description="Posts who added a quote")
     @handle_interaction_errors
-    async def quote_who(self, interaction: discord.Interaction, index: int):
-        """
-        Display information about who added a specific quote.
+    async def quote_who(self, interaction: discord.Interaction, index: int) -> None:
+        """Display information about who added a specific quote.
 
         This command retrieves metadata about a quote, including the username
         and ID of the user who added it, and when it was added.
@@ -2138,7 +2127,7 @@ class OtherCogs(commands.Cog, name="Other"):
             if quote_author and quote_author != "Unknown":
                 author_info += f"**Username:** {quote_author}\n"
             else:
-                author_info += f"**Username:** *Unknown*\n"
+                author_info += "**Username:** *Unknown*\n"
 
             if quote_author_id:
                 author_info += f"**User ID:** {quote_author_id}\n"
@@ -2148,13 +2137,13 @@ class OtherCogs(commands.Cog, name="Other"):
                         member = interaction.guild.get_member(quote_author_id)
                         if member:
                             author_info += f"**Current Name:** {member.display_name}\n"
-                            author_info += f"**Status:** Active member\n"
+                            author_info += "**Status:** Active member\n"
                         else:
-                            author_info += f"**Status:** No longer in server\n"
+                            author_info += "**Status:** No longer in server\n"
                 except Exception:
                     pass
             else:
-                author_info += f"**User ID:** *Unknown*\n"
+                author_info += "**User ID:** *Unknown*\n"
 
             embed.add_field(
                 name="👤 Author Details", value=author_info.strip(), inline=True
@@ -2168,19 +2157,19 @@ class OtherCogs(commands.Cog, name="Other"):
                     time_info += f"**Added:** {formatted_time}\n"
 
                     # Calculate how long ago
-                    from datetime import datetime, timezone
+                    from datetime import datetime
 
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     if quote_time.tzinfo is None:
-                        quote_time = quote_time.replace(tzinfo=timezone.utc)
+                        quote_time = quote_time.replace(tzinfo=UTC)
 
                     time_diff = now - quote_time
                     days = time_diff.days
 
                     if days == 0:
-                        time_info += f"**Age:** Today\n"
+                        time_info += "**Age:** Today\n"
                     elif days == 1:
-                        time_info += f"**Age:** 1 day ago\n"
+                        time_info += "**Age:** 1 day ago\n"
                     elif days < 30:
                         time_info += f"**Age:** {days} days ago\n"
                     elif days < 365:
@@ -2200,7 +2189,7 @@ class OtherCogs(commands.Cog, name="Other"):
                     )
                     time_info += f"**Added:** {quote_time}\n"
             else:
-                time_info += f"**Added:** *Unknown*\n"
+                time_info += "**Added:** *Unknown*\n"
 
             embed.add_field(
                 name="📅 Timestamp Info", value=time_info.strip(), inline=True
@@ -2237,9 +2226,8 @@ class OtherCogs(commands.Cog, name="Other"):
         self,
         interaction,
         current: int,
-    ) -> List[app_commands.Choice[int]]:
-        """
-        Provide autocomplete suggestions for the quote who command.
+    ) -> list[app_commands.Choice[int]]:
+        """Provide autocomplete suggestions for the quote who command.
 
         This method filters the cached quotes based on the user's current input
         and returns matching options for the autocomplete dropdown.
@@ -2268,9 +2256,8 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Posts all the roles in the server you can assign yourself",
     )
     @handle_interaction_errors
-    async def role_list(self, interaction: discord.Interaction):
-        """
-        Display a list of all self-assignable roles in the server.
+    async def role_list(self, interaction: discord.Interaction) -> None:
+        """Display a list of all self-assignable roles in the server.
 
         This command creates an embed containing all roles that users can assign
         to themselves using the /role command. Roles are grouped by category and
@@ -2380,7 +2367,6 @@ class OtherCogs(commands.Cog, name="Other"):
 
             # Group roles by category and build embed fields
             try:
-                available_roles = 0
 
                 for key, group in groupby(
                     roles, key=lambda k: k["category"] or "Uncategorized"
@@ -2474,9 +2460,8 @@ class OtherCogs(commands.Cog, name="Other"):
     @handle_interaction_errors
     async def update_role_weight(
         self, interaction: discord.Interaction, role: discord.role.Role, new_weight: int
-    ):
-        """
-        Change the weight of a role in the role list.
+    ) -> None:
+        """Change the weight of a role in the role list.
 
         This admin-only command updates the weight of a role, which affects its
         position in the role list when displayed with the /roles command.
@@ -2637,9 +2622,8 @@ class OtherCogs(commands.Cog, name="Other"):
         category: str = "Uncategorized",
         auto_replace: bool = False,
         required_roles: str = None,
-    ):
-        """
-        Add a role to the self-assignable roles list.
+    ) -> None:
+        """Add a role to the self-assignable roles list.
 
         This admin-only command makes a role self-assignable by users with the /role command.
         It allows specifying a category for organization, whether the role should automatically
@@ -2790,9 +2774,8 @@ class OtherCogs(commands.Cog, name="Other"):
         self,
         interaction: discord.Interaction,
         current: str,
-    ) -> List[app_commands.Choice[str]]:
-        """
-        Provide autocomplete suggestions for role categories.
+    ) -> list[app_commands.Choice[str]]:
+        """Provide autocomplete suggestions for role categories.
 
         This method filters the cached role categories based on the user's current input
         and returns matching options for the autocomplete dropdown.
@@ -2815,9 +2798,8 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
-    async def role_remove(self, interaction: discord.Interaction, role: discord.Role):
-        """
-        Remove a role from the self-assignable roles list.
+    async def role_remove(self, interaction: discord.Interaction, role: discord.Role) -> None:
+        """Remove a role from the self-assignable roles list.
 
         This admin-only command removes a role from the self-assignable roles list,
         preventing users from assigning it to themselves with the /role command.
@@ -2918,9 +2900,8 @@ class OtherCogs(commands.Cog, name="Other"):
         name="role", description="Adds or removes a role from yourself"
     )
     @handle_interaction_errors
-    async def role(self, interaction: discord.Interaction, role: discord.Role):
-        """
-        Add or remove a self-assignable role from yourself.
+    async def role(self, interaction: discord.Interaction, role: discord.Role) -> None:
+        """Add or remove a self-assignable role from yourself.
 
         This command toggles a self-assignable role on the user who runs it.
         If the user already has the role, it will be removed. If they don't have it,
@@ -3124,9 +3105,8 @@ class OtherCogs(commands.Cog, name="Other"):
         dice: int = 20,
         amount: int = 1,
         modifier: int = 0,
-    ):
-        """
-        Roll dice and display the results.
+    ) -> None:
+        """Roll dice and display the results.
 
         This command simulates rolling dice with a specified number of sides,
         amount of dice, and an optional modifier added to the total.
@@ -3281,8 +3261,7 @@ class OtherCogs(commands.Cog, name="Other"):
     @app_commands.command(name="ao3", description="Posts information about a ao3 work")
     @handle_interaction_errors
     async def ao3(self, interaction: discord.Interaction, ao3_url: str) -> None:
-        """
-        Display detailed information about an Archive of Our Own (AO3) work.
+        """Display detailed information about an Archive of Our Own (AO3) work.
 
         This command retrieves and displays comprehensive information about a fanfiction
         work from AO3, including the title, author, summary, ratings, tags, statistics,
@@ -3540,8 +3519,7 @@ class OtherCogs(commands.Cog, name="Other"):
     async def pin(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
-        """
-        Context menu command to pin a message in allowed channels.
+        """Context menu command to pin a message in allowed channels.
 
         This command allows users to pin messages in channels that have been
         designated as allowing pins. It checks if the channel is in the pin_cache
@@ -3676,8 +3654,7 @@ class OtherCogs(commands.Cog, name="Other"):
     async def set_pin_channels(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
-        """
-        Toggle whether the pin command can be used in a specific channel.
+        """Toggle whether the pin command can be used in a specific channel.
 
         This admin-only command toggles whether users can use the pin context menu
         command in a specific channel. If the channel is already in the allowed list,
@@ -3817,8 +3794,7 @@ class OtherCogs(commands.Cog, name="Other"):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """
-    Set up the OtherCogs cog.
+    """Set up the OtherCogs cog.
 
     This function is called automatically by the bot when loading the extension.
 

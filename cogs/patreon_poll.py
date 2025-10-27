@@ -1,5 +1,4 @@
-"""
-Patreon Poll Management Cog
+"""Patreon Poll Management Cog.
 
 This module provides comprehensive functionality for managing and displaying Patreon polls
 within a Discord bot. It includes commands for fetching polls from the Patreon API,
@@ -39,31 +38,23 @@ Version: Enhanced with comprehensive logging and documentation
 """
 
 import json
-import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from operator import itemgetter
 
-import aiohttp
 import discord
+import structlog
 from discord import app_commands
 from discord.ext import commands
-import structlog
 
 import config
-from utils.permissions import (
-    admin_or_me_check,
-    admin_or_me_check_wrapper,
-    app_admin_or_me_check,
-    is_bot_channel,
-    is_bot_channel_wrapper,
-    app_is_bot_channel,
-)
 from utils.logging import RequestContext, TimingContext
+from utils.permissions import (
+    is_bot_channel,
+)
 
 
 async def fetch(session, url, cookies=None, headers=None):
-    """
-    Fetch data from a URL using the provided session.
+    """Fetch data from a URL using the provided session.
 
     Args:
         session: The aiohttp ClientSession to use
@@ -82,8 +73,7 @@ async def fetch(session, url, cookies=None, headers=None):
 
 
 async def get_poll(bot):
-    """
-    Fetch and process polls from Patreon API with comprehensive logging and statistics.
+    """Fetch and process polls from Patreon API with comprehensive logging and statistics.
 
     Args:
         bot: The Discord bot instance
@@ -175,7 +165,9 @@ async def get_poll(bot):
                                 async with TimingContext(
                                     logger, "fetch_poll_details"
                                 ) as timing_ctx:
-                                    session = await bot.http_client.get_session_with_retry()
+                                    session = (
+                                        await bot.http_client.get_session_with_retry()
+                                    )
                                     html = await fetch(
                                         session,
                                         posts["relationships"]["poll"]["links"][
@@ -208,7 +200,7 @@ async def get_poll(bot):
                                 # Determine if poll is expired
                                 is_expired = (
                                     closes_at_converted is None
-                                    or closes_at_converted < datetime.now(timezone.utc)
+                                    or closes_at_converted < datetime.now(UTC)
                                 )
 
                                 # Insert poll record
@@ -336,8 +328,7 @@ async def get_poll(bot):
 
 
 async def check_and_update_expired_polls(bot, polls):
-    """
-    Check if any polls have expired and update them in the database.
+    """Check if any polls have expired and update them in the database.
 
     This function checks polls that are marked as not expired in the database
     but have actually expired based on their expire_date. It fetches the latest
@@ -357,7 +348,7 @@ async def check_and_update_expired_polls(bot, polls):
         # Check if poll has an expire_date and if it has passed
         if (
             poll["expire_date"] is not None
-            and poll["expire_date"] < datetime.now(timezone.utc)
+            and poll["expire_date"] < datetime.now(UTC)
             and not poll["expired"]
         ):
 
@@ -449,9 +440,8 @@ async def check_and_update_expired_polls(bot, polls):
     return updated_polls
 
 
-async def p_poll(polls, interaction, bot):
-    """
-    Display poll information in a Discord embed format.
+async def p_poll(polls, interaction, bot) -> None:
+    """Display poll information in a Discord embed format.
 
     This function processes poll data and creates a formatted Discord embed
     showing poll options, vote counts, and timing information.
@@ -537,13 +527,13 @@ async def p_poll(polls, interaction, bot):
                     discord.Color.red() if poll["expired"] else discord.Color(0x3CD63D)
                 ),
                 description="📊 Poll Results" if poll["expired"] else "📊 Active Poll",
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
 
             # Add timing information
             if poll["expire_date"] is not None:
-                time_left = poll["expire_date"] - datetime.now(timezone.utc)
-                hours = int(((time_left.total_seconds() // 3600) % 24))
+                time_left = poll["expire_date"] - datetime.now(UTC)
+                hours = int((time_left.total_seconds() // 3600) % 24)
                 embed.set_footer(
                     text=f"Poll started at {poll['start_date'].strftime('%Y-%m-%d %H:%M:%S %Z')} "
                     f"and {'closed' if poll['expired'] else 'closes'} at "
@@ -597,7 +587,7 @@ async def p_poll(polls, interaction, bot):
             title="❌ Error Displaying Poll",
             description="Sorry, there was an error displaying the poll. Please try again later.",
             color=discord.Color.red(),
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
 
         try:
@@ -615,8 +605,7 @@ async def p_poll(polls, interaction, bot):
 
 
 async def search_poll(bot, query: str):
-    """
-    Search for polls containing the specified query in their options.
+    """Search for polls containing the specified query in their options.
 
     This function performs a full-text search on poll options using PostgreSQL's
     text search capabilities and returns formatted results in a Discord embed.
@@ -653,7 +642,7 @@ async def search_poll(bot, query: str):
             title="🔍 Poll Search Results",
             color=discord.Color(0x3CD63D) if search_results else discord.Color.orange(),
             description=f"Query: **{query}**",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
 
         if not search_results:
@@ -666,7 +655,7 @@ async def search_poll(bot, query: str):
             logger.info("poll_search_no_results", query=query)
         else:
             # Process each search result
-            for i, result in enumerate(search_results):
+            for _i, result in enumerate(search_results):
                 try:
                     # Fetch poll details for each result
                     poll_details = await bot.db.fetchrow(
@@ -718,15 +707,14 @@ async def search_poll(bot, query: str):
             title="❌ Search Error",
             description=f"An error occurred while searching for polls with query: **{query}**\n\nPlease try again later.",
             color=discord.Color.red(),
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
 
         return error_embed
 
 
 class PollCog(commands.Cog, name="Poll"):
-    """
-    A Discord cog for managing and displaying Patreon polls.
+    """A Discord cog for managing and displaying Patreon polls.
 
     This cog provides commands for:
     - Displaying active or specific polls
@@ -738,9 +726,8 @@ class PollCog(commands.Cog, name="Poll"):
     and provides rich Discord embeds for user interaction.
     """
 
-    def __init__(self, bot):
-        """
-        Initialize the PollCog.
+    def __init__(self, bot) -> None:
+        """Initialize the PollCog.
 
         Args:
             bot: The Discord bot instance
@@ -757,9 +744,8 @@ class PollCog(commands.Cog, name="Poll"):
         poll_id="Optional: Specific poll ID to display (defaults to latest active or most recent poll)"
     )
     @app_commands.checks.cooldown(1, 60.0, key=lambda i: (i.user.id, i.channel.id))
-    async def poll(self, interaction: discord.Interaction, poll_id: int = None):
-        """
-        Display poll information to the user.
+    async def poll(self, interaction: discord.Interaction, poll_id: int = None) -> None:
+        """Display poll information to the user.
 
         This command shows either the latest active poll or a specific poll by ID.
         If no active polls exist and no ID is specified, it shows the most recent poll.
@@ -849,7 +835,7 @@ class PollCog(commands.Cog, name="Poll"):
                             title="❌ No Polls Available",
                             description="No polls are currently available in the database.",
                             color=discord.Color.red(),
-                            timestamp=datetime.now(timezone.utc),
+                            timestamp=datetime.now(UTC),
                         )
                         await interaction.response.send_message(
                             embed=error_embed, ephemeral=True
@@ -877,7 +863,7 @@ class PollCog(commands.Cog, name="Poll"):
                         title="❌ Invalid Poll ID",
                         description="Poll ID must be a positive number.",
                         color=discord.Color.red(),
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                     await interaction.response.send_message(
                         embed=error_embed, ephemeral=True
@@ -904,7 +890,7 @@ class PollCog(commands.Cog, name="Poll"):
                         title="❌ Poll Not Found",
                         description=f"No poll found with ID **{poll_id}**. Use `/polllist` to see available polls.",
                         color=discord.Color.red(),
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                     await interaction.response.send_message(
                         embed=error_embed, ephemeral=True
@@ -941,7 +927,7 @@ class PollCog(commands.Cog, name="Poll"):
                 title="❌ Error Loading Poll",
                 description="Sorry, there was an error loading the poll. Please try again later.",
                 color=discord.Color.red(),
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
 
             try:
@@ -961,7 +947,7 @@ class PollCog(commands.Cog, name="Poll"):
     @poll.error
     async def on_poll_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
-    ):
+    ) -> None:
         if isinstance(error, discord.app_commands.errors.CommandOnCooldown):
             self.logger.warning(
                 "poll_command_cooldown",
@@ -1001,10 +987,9 @@ class PollCog(commands.Cog, name="Poll"):
     async def poll_list(
         self,
         interaction: discord.Interaction,
-        year: int = datetime.now(timezone.utc).year,
-    ):
-        """
-        Display a list of polls from the specified year.
+        year: int = datetime.now(UTC).year,
+    ) -> None:
+        """Display a list of polls from the specified year.
 
         This command shows all polls from a given year with their titles and IDs,
         ordered by start date. Restricted to bot channels to avoid spam.
@@ -1023,13 +1008,13 @@ class PollCog(commands.Cog, name="Poll"):
 
         try:
             # Validate year input
-            current_year = datetime.now(timezone.utc).year
+            current_year = datetime.now(UTC).year
             if year < 2000 or year > current_year + 1:
                 error_embed = discord.Embed(
                     title="❌ Invalid Year",
                     description=f"Please provide a valid year between 2000 and {current_year + 1}.",
                     color=discord.Color.red(),
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                 )
                 await interaction.response.send_message(
                     embed=error_embed, ephemeral=True
@@ -1060,7 +1045,7 @@ class PollCog(commands.Cog, name="Poll"):
                     title="📊 No Polls Found",
                     description=f"No polls were found for the year **{year}**.\n\nTry a different year or check if polls exist for that period.",
                     color=discord.Color.orange(),
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                 )
                 embed.add_field(
                     name="💡 Tip",
@@ -1078,7 +1063,7 @@ class PollCog(commands.Cog, name="Poll"):
                     title="📊 Poll List",
                     color=discord.Color(0x3CD63D),
                     description=f"**Polls from {year}** ({len(polls_years)} total)",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                 )
 
                 # Count active vs expired polls
@@ -1114,7 +1099,7 @@ class PollCog(commands.Cog, name="Poll"):
                         inline=False,
                     )
 
-                embed.set_footer(text=f"Use /poll <id> to view a specific poll")
+                embed.set_footer(text="Use /poll <id> to view a specific poll")
 
                 await interaction.response.send_message(embed=embed)
 
@@ -1141,7 +1126,7 @@ class PollCog(commands.Cog, name="Poll"):
                 title="❌ Error Loading Poll List",
                 description="Sorry, there was an error loading the poll list. Please try again later.",
                 color=discord.Color.red(),
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
 
             try:
@@ -1160,7 +1145,7 @@ class PollCog(commands.Cog, name="Poll"):
             raise
 
     @poll_list.error
-    async def isError(self, interaction: discord.Interaction, error):
+    async def isError(self, interaction: discord.Interaction, error) -> None:
         if isinstance(error, commands.CheckFailure):
             self.logger.info(
                 "poll_list_permission_denied",
@@ -1185,7 +1170,7 @@ class PollCog(commands.Cog, name="Poll"):
     )
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
-    async def getpoll(self, interaction: discord.Interaction):
+    async def getpoll(self, interaction: discord.Interaction) -> None:
         """Fetch and update polls from Patreon API with detailed progress feedback."""
         logger = structlog.get_logger("patreon_poll.command")
 
@@ -1213,7 +1198,7 @@ class PollCog(commands.Cog, name="Poll"):
             embed = discord.Embed(
                 title="✅ Poll Fetch Completed",
                 color=discord.Color.green(),
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
 
             # Add statistics fields
@@ -1258,7 +1243,7 @@ class PollCog(commands.Cog, name="Poll"):
                 title="❌ Poll Fetch Failed",
                 description=f"An error occurred while fetching polls: {str(e)}",
                 color=discord.Color.red(),
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
             error_embed.set_footer(text=f"Executed by {interaction.user.display_name}")
 
@@ -1284,9 +1269,8 @@ class PollCog(commands.Cog, name="Poll"):
     @app_commands.describe(
         query="The search term to look for in poll options (keywords or phrases)"
     )
-    async def findpoll(self, interaction: discord.Interaction, query: str):
-        """
-        Search for polls containing specific keywords in their options.
+    async def findpoll(self, interaction: discord.Interaction, query: str) -> None:
+        """Search for polls containing specific keywords in their options.
 
         This command performs a full-text search through all poll options
         to find matches for the provided query string.
@@ -1311,7 +1295,7 @@ class PollCog(commands.Cog, name="Poll"):
                     title="❌ Invalid Search Query",
                     description="Please provide a search query with at least 2 characters.",
                     color=discord.Color.red(),
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                 )
                 error_embed.add_field(
                     name="💡 Example",
@@ -1369,7 +1353,7 @@ class PollCog(commands.Cog, name="Poll"):
                 title="❌ Search Error",
                 description="Sorry, there was an error searching for polls. Please try again later.",
                 color=discord.Color.red(),
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
             error_embed.add_field(
                 name="💡 Tip",
@@ -1392,5 +1376,5 @@ class PollCog(commands.Cog, name="Poll"):
             raise
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     await bot.add_cog(PollCog(bot))

@@ -1,26 +1,22 @@
-import logging
-import re
-from typing import List, Optional
-
 import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 from utils.error_handling import handle_interaction_errors
-from utils.validation import validate_url
 from utils.exceptions import (
     DatabaseError,
-    QueryError,
-    ValidationError,
-    ResourceNotFoundError,
-    ResourceAlreadyExistsError,
     PermissionError,
+    QueryError,
+    ResourceAlreadyExistsError,
+    ResourceNotFoundError,
+    ValidationError,
 )
+from utils.validation import validate_url
 
 
 class LinkTags(commands.Cog, name="Links"):
-    def __init__(self, bot):
+    def __init__(self, bot) -> None:
         self.bot = bot
         self.links_cache = None
 
@@ -31,7 +27,7 @@ class LinkTags(commands.Cog, name="Links"):
         self,
         interaction: discord.Interaction,
         current: str,
-    ) -> List[app_commands.Choice[str]]:
+    ) -> list[app_commands.Choice[str]]:
         ln = []
         for x in self.links_cache:
             ln.append({"title": x["title"], "content": x["content"]})
@@ -47,9 +43,8 @@ class LinkTags(commands.Cog, name="Links"):
         self,
         interaction: discord.Interaction,
         current: str,
-    ) -> List[app_commands.Choice[str]]:
-        """
-        Provide autocomplete choices for link categories/tags.
+    ) -> list[app_commands.Choice[str]]:
+        """Provide autocomplete choices for link categories/tags.
 
         Args:
             interaction: The Discord interaction object
@@ -78,9 +73,8 @@ class LinkTags(commands.Cog, name="Links"):
     @link.command(name="get", description="Gets a link with the given name")
     @app_commands.autocomplete(title=link_autocomplete)
     @handle_interaction_errors
-    async def link_get(self, interaction: discord.Interaction, title: str):
-        """
-        Retrieve and display a link by its title.
+    async def link_get(self, interaction: discord.Interaction, title: str) -> None:
+        """Retrieve and display a link by its title.
 
         Args:
             interaction: The Discord interaction object
@@ -105,7 +99,7 @@ class LinkTags(commands.Cog, name="Links"):
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Failed to retrieve link '{title}'") from e
         except Exception as e:
-            raise QueryError(f"Unexpected error during link query") from e
+            raise QueryError("Unexpected error during link query") from e
 
         if query_r:
             if query_r["embed"]:
@@ -129,9 +123,8 @@ class LinkTags(commands.Cog, name="Links"):
     )
     @app_commands.autocomplete(category=category_autocomplete)
     @handle_interaction_errors
-    async def link_list(self, interaction: discord.Interaction, category: str = None):
-        """
-        Display a list of all link categories with the number of links in each category,
+    async def link_list(self, interaction: discord.Interaction, category: str = None) -> None:
+        """Display a list of all link categories with the number of links in each category,
         or show all links within a specific category if one is provided.
         This is optimized for handling large amounts of links within Discord's character limit.
 
@@ -170,7 +163,7 @@ class LinkTags(commands.Cog, name="Links"):
                     f"Failed to retrieve links for category '{category}'"
                 ) from e
             except Exception as e:
-                raise QueryError(f"Unexpected error during category links query") from e
+                raise QueryError("Unexpected error during category links query") from e
 
             if not query_r:
                 raise ResourceNotFoundError(
@@ -251,9 +244,8 @@ class LinkTags(commands.Cog, name="Links"):
         title: str,
         tag: str = None,
         embed: bool = True,
-    ):
-        """
-        Add a new link with the given title, content, and optional tag.
+    ) -> None:
+        """Add a new link with the given title, content, and optional tag.
 
         Args:
             interaction: The Discord interaction object
@@ -337,14 +329,13 @@ class LinkTags(commands.Cog, name="Links"):
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Failed to add link '{title}'") from e
         except Exception as e:
-            raise DatabaseError(f"Unexpected error while adding link") from e
+            raise DatabaseError("Unexpected error while adding link") from e
 
     @link.command(name="delete", description="Deletes a link with the given name")
     @app_commands.autocomplete(title=link_autocomplete)
     @handle_interaction_errors
-    async def link_delete(self, interaction: discord.Interaction, title: str):
-        """
-        Delete a link by its title.
+    async def link_delete(self, interaction: discord.Interaction, title: str) -> None:
+        """Delete a link by its title.
 
         Args:
             interaction: The Discord interaction object
@@ -376,7 +367,7 @@ class LinkTags(commands.Cog, name="Links"):
                 )
 
             # Delete the link
-            result = await self.bot.db.execute(
+            await self.bot.db.execute(
                 "DELETE FROM links WHERE lower(title) = lower($1)", title
             )
 
@@ -397,7 +388,7 @@ class LinkTags(commands.Cog, name="Links"):
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Failed to delete link '{title}'") from e
         except Exception as e:
-            raise DatabaseError(f"Unexpected error while deleting link") from e
+            raise DatabaseError("Unexpected error while deleting link") from e
 
     @link.command(
         name="edit",
@@ -406,9 +397,8 @@ class LinkTags(commands.Cog, name="Links"):
     @handle_interaction_errors
     async def link_edit(
         self, interaction: discord.Interaction, title: str, content: str
-    ):
-        """
-        Edit an existing link's content.
+    ) -> None:
+        """Edit an existing link's content.
 
         Args:
             interaction: The Discord interaction object
@@ -489,15 +479,14 @@ class LinkTags(commands.Cog, name="Links"):
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Failed to edit link '{title}'") from e
         except Exception as e:
-            raise DatabaseError(f"Unexpected error while editing link") from e
+            raise DatabaseError("Unexpected error while editing link") from e
 
     @app_commands.command(
         name="tag", description="View all links that got a certain tag"
     )
     @handle_interaction_errors
-    async def tag(self, interaction: discord.Interaction, tag: str):
-        """
-        Display all links that have a specific tag.
+    async def tag(self, interaction: discord.Interaction, tag: str) -> None:
+        """Display all links that have a specific tag.
 
         Args:
             interaction: The Discord interaction object
@@ -522,7 +511,7 @@ class LinkTags(commands.Cog, name="Links"):
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Failed to retrieve links for tag '{tag}'") from e
         except Exception as e:
-            raise QueryError(f"Unexpected error during tag query") from e
+            raise QueryError("Unexpected error during tag query") from e
 
         if not query_r:
             raise ResourceNotFoundError(
@@ -544,5 +533,5 @@ class LinkTags(commands.Cog, name="Links"):
         )
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     await bot.add_cog(LinkTags(bot))

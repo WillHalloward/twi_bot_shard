@@ -1,11 +1,9 @@
-"""
-Query commands for the stats system.
+"""Query commands for the stats system.
 
 This module contains app commands and query methods that allow users
 to retrieve statistical information from the database.
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -31,8 +29,7 @@ class StatsQueriesMixin:
     async def message_count(
         self, interaction: "Interaction", channel: discord.TextChannel, hours: int
     ) -> None:
-        """
-        Retrieve message count from a specific channel within a time range.
+        """Retrieve message count from a specific channel within a time range.
 
         Args:
             interaction: The Discord interaction object
@@ -134,8 +131,7 @@ class StatsQueriesMixin:
     async def channel_stats(
         self, interaction: "Interaction", channel: discord.TextChannel, days: int = 7
     ) -> None:
-        """
-        Get comprehensive statistics for a specific channel.
+        """Get comprehensive statistics for a specific channel.
 
         Args:
             interaction: The Discord interaction object
@@ -283,8 +279,7 @@ class StatsQueriesMixin:
     )
     @handle_interaction_errors
     async def server_stats(self, interaction: "Interaction", days: int = 7) -> None:
-        """
-        Get comprehensive statistics for the current server.
+        """Get comprehensive statistics for the current server.
 
         Args:
             interaction: The Discord interaction object
@@ -439,8 +434,7 @@ class StatsQueriesMixin:
     async def user_stats(
         self, interaction: "Interaction", user: discord.Member = None, days: int = 7
     ) -> None:
-        """
-        Get comprehensive statistics for a specific user.
+        """Get comprehensive statistics for a specific user.
 
         Args:
             interaction: The Discord interaction object
@@ -569,11 +563,11 @@ class StatsQueriesMixin:
                 for i, channel_data in enumerate(top_channels, 1):
                     channel = interaction.guild.get_channel(channel_data["channel_id"])
                     channel_name = (
-                        channel.name if channel else f"Channel {channel_data['channel_id']}"
+                        channel.name
+                        if channel
+                        else f"Channel {channel_data['channel_id']}"
                     )
-                    top_channels_text += (
-                        f"{i}. #{channel_name}: {channel_data['message_count']:,} messages\n"
-                    )
+                    top_channels_text += f"{i}. #{channel_name}: {channel_data['message_count']:,} messages\n"
 
                 embed.add_field(
                     name="🏆 Most Active Channels",
@@ -608,8 +602,7 @@ class StatsQueriesMixin:
     async def role_stats(
         self, interaction: "Interaction", role: discord.Role, days: int = 7
     ) -> None:
-        """
-        Get comprehensive statistics for a specific role.
+        """Get comprehensive statistics for a specific role.
 
         Args:
             interaction: The Discord interaction object
@@ -746,11 +739,11 @@ class StatsQueriesMixin:
                 for i, contributor_data in enumerate(top_contributors, 1):
                     user = self.bot.get_user(contributor_data["user_id"])
                     username = (
-                        user.display_name if user else f"User {contributor_data['user_id']}"
+                        user.display_name
+                        if user
+                        else f"User {contributor_data['user_id']}"
                     )
-                    top_contributors_text += (
-                        f"{i}. {username}: {contributor_data['message_count']:,} messages\n"
-                    )
+                    top_contributors_text += f"{i}. {username}: {contributor_data['message_count']:,} messages\n"
 
                 embed.add_field(
                     name="🏆 Top Contributors",
@@ -783,10 +776,12 @@ class StatsQueriesMixin:
     )
     @handle_interaction_errors
     async def category_stats(
-        self, interaction: "Interaction", category: discord.CategoryChannel, days: int = 7
+        self,
+        interaction: "Interaction",
+        category: discord.CategoryChannel,
+        days: int = 7,
     ) -> None:
-        """
-        Get comprehensive statistics for a specific category.
+        """Get comprehensive statistics for a specific category.
 
         Args:
             interaction: The Discord interaction object
@@ -819,7 +814,11 @@ class StatsQueriesMixin:
         d_time = datetime.now() - timedelta(days=days)
 
         # Get all channel IDs in this category
-        category_channel_ids = [channel.id for channel in category.channels if isinstance(channel, discord.TextChannel)]
+        category_channel_ids = [
+            channel.id
+            for channel in category.channels
+            if isinstance(channel, discord.TextChannel)
+        ]
 
         if not category_channel_ids:
             embed = discord.Embed(
@@ -933,11 +932,11 @@ class StatsQueriesMixin:
                 for i, channel_data in enumerate(top_channels, 1):
                     channel = interaction.guild.get_channel(channel_data["channel_id"])
                     channel_name = (
-                        channel.name if channel else f"Channel {channel_data['channel_id']}"
+                        channel.name
+                        if channel
+                        else f"Channel {channel_data['channel_id']}"
                     )
-                    top_channels_text += (
-                        f"{i}. #{channel_name}: {channel_data['message_count']:,} messages\n"
-                    )
+                    top_channels_text += f"{i}. #{channel_name}: {channel_data['message_count']:,} messages\n"
 
                 embed.add_field(
                     name="🏆 Most Active Channels",
@@ -962,7 +961,9 @@ class StatsQueriesMixin:
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Database query failed: {e}") from e
         except Exception as e:
-            raise QueryError(f"Unexpected error during category stats query: {e}") from e
+            raise QueryError(
+                f"Unexpected error during category stats query: {e}"
+            ) from e
 
     @stats.command(
         name="thread",
@@ -972,8 +973,7 @@ class StatsQueriesMixin:
     async def thread_stats(
         self, interaction: "Interaction", thread: discord.Thread, days: int = 7
     ) -> None:
-        """
-        Get comprehensive statistics for a specific thread.
+        """Get comprehensive statistics for a specific thread.
 
         Args:
             interaction: The Discord interaction object

@@ -1,32 +1,29 @@
-import logging
 import discord
+import openai
+import structlog
 from discord import app_commands
 from discord.ext import commands
-import config
-import structlog
 from openai import OpenAI
-import openai
 
+import config
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
-    ExternalServiceError,
     APIError,
+    ExternalServiceError,
     ValidationError,
-    QueryError,
 )
 
 client = OpenAI(api_key=config.openai_api_key)
 
 
 class SummarizationCog(commands.Cog):
-    def __init__(self, bot, server_rules):
+    def __init__(self, bot, server_rules) -> None:
         self.bot = bot
         self.server_rules = server_rules
         self.logger = structlog.get_logger("cogs.summarization")
 
     async def summarize_messages(self, messages):
-        """
-        Summarize a list of Discord messages using OpenAI API.
+        """Summarize a list of Discord messages using OpenAI API.
 
         Args:
             messages: List of Discord message objects to summarize
@@ -117,8 +114,7 @@ class SummarizationCog(commands.Cog):
             ) from e
 
     async def moderate_conversation(self, messages):
-        """
-        Moderate a list of Discord messages using OpenAI API to check for rule violations.
+        """Moderate a list of Discord messages using OpenAI API to check for rule violations.
 
         Args:
             messages: List of Discord message objects to moderate
@@ -216,9 +212,8 @@ class SummarizationCog(commands.Cog):
 
     @app_commands.command(name="summarize")
     @handle_interaction_errors
-    async def summarize(self, interaction: discord.Interaction, num_messages: int = 50):
-        """
-        Summarizes the last X messages in the channel using AI.
+    async def summarize(self, interaction: discord.Interaction, num_messages: int = 50) -> None:
+        """Summarizes the last X messages in the channel using AI.
 
         Args:
             interaction: The Discord interaction object
@@ -291,9 +286,8 @@ class SummarizationCog(commands.Cog):
 
     @app_commands.command(name="moderate")
     @handle_interaction_errors
-    async def moderate(self, interaction: discord.Interaction, num_messages: int = 50):
-        """
-        Analyzes the last X messages in the channel for potential rule violations using AI.
+    async def moderate(self, interaction: discord.Interaction, num_messages: int = 50) -> None:
+        """Analyzes the last X messages in the channel for potential rule violations using AI.
 
         Args:
             interaction: The Discord interaction object
@@ -371,7 +365,7 @@ class SummarizationCog(commands.Cog):
             ) from e
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     # Replace 'your_openai_api_key' and 'server_rules' with actual values or load from config
     server_rules = [
         "Follow the Discord Community Guidelines.",

@@ -1,34 +1,32 @@
+import asyncio
 import logging
-import subprocess
 import re
 import shlex
-from typing import List
+import subprocess
+from typing import Literal
 
-import asyncio
 import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
-from typing import Literal, Optional
 
 # Import FAISS schema query functions
 from query_faiss_schema import (
-    query_faiss,
-    build_prompt,
-    generate_sql,
-    extract_sql_from_response,
     INDEX_FILE,
     LOOKUP_FILE,
     TOP_K,
+    build_prompt,
+    extract_sql_from_response,
+    generate_sql,
+    query_faiss,
 )
-
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
     DatabaseError,
+    ExternalServiceError,
+    PermissionError,
     QueryError,
     ValidationError,
-    PermissionError,
-    ExternalServiceError,
 )
 
 cogs = [
@@ -49,16 +47,15 @@ cogs = [
 
 class OwnerCog(commands.Cog, name="Owner"):
 
-    def __init__(self, bot):
+    def __init__(self, bot) -> None:
         self.bot = bot
 
     @app_commands.command(name="load")
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     @handle_interaction_errors
-    async def load_cog(self, interaction: discord.Interaction, *, cog: str):
-        """
-        Load a Discord bot extension/cog.
+    async def load_cog(self, interaction: discord.Interaction, *, cog: str) -> None:
+        """Load a Discord bot extension/cog.
 
         This command loads a specified cog into the bot, enabling its functionality.
 
@@ -161,7 +158,7 @@ class OwnerCog(commands.Cog, name="Owner"):
         self,
         interaction: discord.Interaction,
         current: str,
-    ) -> List[app_commands.Choice[str]]:
+    ) -> list[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
             for cog in cogs
@@ -172,9 +169,8 @@ class OwnerCog(commands.Cog, name="Owner"):
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     @handle_interaction_errors
-    async def unload_cog(self, interaction: discord.Interaction, *, cog: str):
-        """
-        Unload a Discord bot extension/cog.
+    async def unload_cog(self, interaction: discord.Interaction, *, cog: str) -> None:
+        """Unload a Discord bot extension/cog.
 
         This command unloads a specified cog from the bot, disabling its functionality.
 
@@ -269,7 +265,7 @@ class OwnerCog(commands.Cog, name="Owner"):
         self,
         interaction: discord.Interaction,
         current: str,
-    ) -> List[app_commands.Choice[str]]:
+    ) -> list[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
             for cog in cogs
@@ -280,9 +276,8 @@ class OwnerCog(commands.Cog, name="Owner"):
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     @handle_interaction_errors
-    async def reload_cog(self, interaction: discord.Interaction, cog: str):
-        """
-        Reload a Discord bot extension/cog.
+    async def reload_cog(self, interaction: discord.Interaction, cog: str) -> None:
+        """Reload a Discord bot extension/cog.
 
         This command unloads and then reloads a specified cog, refreshing its code
         and functionality without restarting the bot.
@@ -323,14 +318,11 @@ class OwnerCog(commands.Cog, name="Owner"):
         )
 
         # Track the reload process
-        unload_success = False
-        load_success = False
 
         try:
             # Step 1: Unload the extension
             try:
                 await self.bot.unload_extension(cog)
-                unload_success = True
                 logging.info(
                     f"OWNER COG: Successfully unloaded cog '{cog}' during reload"
                 )
@@ -339,7 +331,6 @@ class OwnerCog(commands.Cog, name="Owner"):
                 logging.warning(
                     f"OWNER COG: Cog '{cog}' was already unloaded during reload"
                 )
-                unload_success = True  # Treat as success since we wanted it unloaded
             except Exception as e:
                 error_msg = f"❌ **Reload failed during unload**\n**Cog:** `{cog}`\n**Error:** {type(e).__name__}: {str(e)}"
                 logging.error(
@@ -350,7 +341,6 @@ class OwnerCog(commands.Cog, name="Owner"):
             # Step 2: Load the extension
             try:
                 await self.bot.load_extension(cog)
-                load_success = True
                 logging.info(
                     f"OWNER COG: Successfully loaded cog '{cog}' during reload"
                 )
@@ -413,7 +403,7 @@ class OwnerCog(commands.Cog, name="Owner"):
     @reload_cog.autocomplete("cog")
     async def reload_cog_autocomplete(
         self, interaction: discord.Interaction, current: str
-    ) -> List[app_commands.Choice[str]]:
+    ) -> list[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
             for cog in cogs
@@ -424,9 +414,8 @@ class OwnerCog(commands.Cog, name="Owner"):
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     @handle_interaction_errors
-    async def cmd(self, interaction: discord.Interaction, args: str):
-        """
-        Execute a system command with enhanced security restrictions.
+    async def cmd(self, interaction: discord.Interaction, args: str) -> None:
+        """Execute a system command with enhanced security restrictions.
 
         This command allows the bot owner to execute system commands with strict
         security controls including command whitelisting and comprehensive logging.
@@ -626,7 +615,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             raise ExternalServiceError(message=error_msg)
 
         except Exception as e:
-            error_msg = f"❌ Unexpected error executing command"
+            error_msg = "❌ Unexpected error executing command"
             logging.error(
                 f"OWNER COMMAND ERROR: Unexpected error for '{full_command}': {e}"
             )
@@ -635,9 +624,8 @@ class OwnerCog(commands.Cog, name="Owner"):
     @app_commands.command(name="sync")
     @commands.is_owner()
     @handle_interaction_errors
-    async def sync(self, interaction: discord.Interaction, all_guilds: bool):
-        """
-        Sync application commands to Discord.
+    async def sync(self, interaction: discord.Interaction, all_guilds: bool) -> None:
+        """Sync application commands to Discord.
 
         This command loads any missing extensions and then syncs the command tree
         either globally or to the current guild.
@@ -717,18 +705,14 @@ class OwnerCog(commands.Cog, name="Owner"):
             raise ExternalServiceError(message=error_msg) from e
 
         except discord.Forbidden as e:
-            error_msg = (
-                f"❌ **Permission Error**\nBot lacks permission to sync commands"
-            )
+            error_msg = "❌ **Permission Error**\nBot lacks permission to sync commands"
             logging.error(
                 f"OWNER SYNC ERROR: Permission denied during {'global' if all_guilds else 'local'} sync: {e}"
             )
             raise PermissionError(message=error_msg) from e
 
         except discord.NotFound as e:
-            error_msg = (
-                f"❌ **Guild Not Found**\nThe specified guild could not be found"
-            )
+            error_msg = "❌ **Guild Not Found**\nThe specified guild could not be found"
             logging.error(f"OWNER SYNC ERROR: Guild not found during local sync: {e}")
             raise ValidationError(message=error_msg) from e
 
@@ -750,9 +734,8 @@ class OwnerCog(commands.Cog, name="Owner"):
     @commands.is_owner()
     @app_commands.guilds(297916314239107072)
     @handle_interaction_errors
-    async def exit(self, interaction: discord.Interaction):
-        """
-        Gracefully shut down the bot.
+    async def exit(self, interaction: discord.Interaction) -> None:
+        """Gracefully shut down the bot.
 
         This command logs the shutdown request and closes the bot connection.
         Only available in the specified guild for security.
@@ -789,9 +772,8 @@ class OwnerCog(commands.Cog, name="Owner"):
         self,
         interaction: discord.Interaction,
         detail_level: Literal["basic", "detailed", "system"] = "basic",
-    ):
-        """
-        Display resource usage statistics.
+    ) -> None:
+        """Display resource usage statistics.
 
         This command provides comprehensive resource monitoring including memory,
         CPU, database cache, and HTTP client statistics with configurable detail levels.
@@ -1015,9 +997,8 @@ class OwnerCog(commands.Cog, name="Owner"):
         interaction: discord.Interaction,
         query: str,
         allow_modifications: bool = False,
-    ):
-        """
-        Execute a SQL query with enhanced security restrictions.
+    ) -> None:
+        """Execute a SQL query with enhanced security restrictions.
 
         This command allows the bot owner to execute SQL queries with strict
         security controls including query type restrictions and comprehensive logging.
@@ -1122,7 +1103,7 @@ class OwnerCog(commands.Cog, name="Owner"):
                         "✅ Query executed successfully but returned no results."
                     )
                     await interaction.followup.send(completion_msg)
-                    logging.info(f"OWNER SQL SUCCESS: Query returned no results")
+                    logging.info("OWNER SQL SUCCESS: Query returned no results")
                     return
 
                 # Format results as a table
@@ -1131,7 +1112,7 @@ class OwnerCog(commands.Cog, name="Owner"):
                         "✅ Query executed successfully but returned no results."
                     )
                     await interaction.followup.send(completion_msg)
-                    logging.info(f"OWNER SQL SUCCESS: Query returned empty result set")
+                    logging.info("OWNER SQL SUCCESS: Query returned empty result set")
                     return
 
                 # Get column names from the first row
@@ -1159,7 +1140,7 @@ class OwnerCog(commands.Cog, name="Owner"):
 
                 # Data rows (limit to first 50 rows to prevent message being too long)
                 display_limit = 50
-                for i, row in enumerate(results[:display_limit]):
+                for _i, row in enumerate(results[:display_limit]):
                     row_str = " | ".join(
                         str(row[col])[: col_widths[col]].ljust(col_widths[col])
                         for col in columns
@@ -1231,9 +1212,8 @@ class OwnerCog(commands.Cog, name="Owner"):
     @app_commands.command(name="ask_db")
     @commands.is_owner()
     @handle_interaction_errors
-    async def ask_database(self, interaction: discord.Interaction, question: str):
-        """
-        Ask a natural language question about the database and get SQL results.
+    async def ask_database(self, interaction: discord.Interaction, question: str) -> None:
+        """Ask a natural language question about the database and get SQL results.
 
         This command uses AI to convert natural language questions into SQL queries,
         executes them against the database, and returns formatted results.
@@ -1423,7 +1403,7 @@ class OwnerCog(commands.Cog, name="Owner"):
                 table_lines.append(separator)
 
                 # Data rows (limit to first 20 rows to prevent message being too long)
-                for i, row in enumerate(results[:20]):
+                for _i, row in enumerate(results[:20]):
                     row_str = " | ".join(
                         str(row[col])[: col_widths[col]].ljust(col_widths[col])
                         for col in columns
@@ -1439,7 +1419,7 @@ class OwnerCog(commands.Cog, name="Owner"):
                 # Add information about total rows
                 result_info = f"Query returned {len(results)} row(s)"
                 if len(results) > 20:
-                    result_info += f" (showing first 20)"
+                    result_info += " (showing first 20)"
 
                 # Format final response
                 response = f"**Question:** {question}\n\n**Generated SQL:**\n```sql\n{sql_query}\n```\n\n**Results:** ✅ {result_info}\n```\n{table_text}\n```"
@@ -1474,5 +1454,5 @@ class OwnerCog(commands.Cog, name="Owner"):
             raise ExternalServiceError(message=error_msg) from e
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     await bot.add_cog(OwnerCog(bot))

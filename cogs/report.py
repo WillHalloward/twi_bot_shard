@@ -1,19 +1,18 @@
+import logging
+
 import discord
 from discord import app_commands
 from discord.ext import commands
-import logging
-from typing import Optional
 
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
     DatabaseError,
     ValidationError,
-    PermissionError,
 )
 
 
 class ReportModal(discord.ui.Modal):
-    def __init__(self, report_view: "ReportView"):
+    def __init__(self, report_view: "ReportView") -> None:
         super().__init__(title="Additional Information")
         self.report_view = report_view
         self.logger = logging.getLogger("report_modal")
@@ -46,15 +45,15 @@ class ReportModal(discord.ui.Modal):
 
 
 class ReportView(discord.ui.View):
-    def __init__(self, message: discord.Message, bot):
+    def __init__(self, message: discord.Message, bot) -> None:
         super().__init__(timeout=300)  # 5 minutes timeout
         self.message = message
         self.bot = bot
         self.logger = logging.getLogger("report_view")
 
         # Store user selections
-        self.selected_reason: Optional[str] = None
-        self.is_anonymous: Optional[bool] = None
+        self.selected_reason: str | None = None
+        self.is_anonymous: bool | None = None
         self.additional_info_text: str = ""
 
         self.reason_select = discord.ui.Select(
@@ -239,7 +238,7 @@ class ReportView(discord.ui.View):
 
 
 class ReportCog(commands.Cog, name="report"):
-    def __init__(self, bot):
+    def __init__(self, bot) -> None:
         self.bot = bot
         self.logger = logging.getLogger("report_cog")
         self.report = app_commands.ContextMenu(
@@ -248,9 +247,8 @@ class ReportCog(commands.Cog, name="report"):
         self.bot.tree.add_command(self.report)
 
     @handle_interaction_errors
-    async def report(self, interaction: discord.Interaction, message: discord.Message):
-        """
-        Report a message using the context menu.
+    async def report(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        """Report a message using the context menu.
 
         Args:
             interaction: The Discord interaction object
@@ -341,5 +339,5 @@ class ReportCog(commands.Cog, name="report"):
             self.logger.error(f"Error removing report context menu: {e}")
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     await bot.add_cog(ReportCog(bot))

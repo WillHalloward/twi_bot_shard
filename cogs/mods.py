@@ -1,27 +1,25 @@
-import asyncio
 import datetime
 import logging
 import re
 
-import aiohttp
 import discord
-from discord import app_commands, Webhook
+from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import Cog
 
 import config
 from utils.error_handling import handle_interaction_errors, log_error
 from utils.exceptions import (
-    ExternalServiceError,
     DiscordError,
-    ValidationError,
+    ExternalServiceError,
     ResourceNotFoundError,
+    ValidationError,
 )
 from utils.webhook_manager import WebhookManager
 
 
 class ModCogs(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.logger = logging.getLogger(__name__)
         self.webhook_manager = WebhookManager(bot.http_client)
@@ -31,9 +29,8 @@ class ModCogs(commands.Cog):
     )
     @app_commands.default_permissions(ban_members=True)
     @handle_interaction_errors
-    async def reset(self, interaction: discord.Interaction, command: str):
-        """
-        Reset the cooldown of a specific command for the user.
+    async def reset(self, interaction: discord.Interaction, command: str) -> None:
+        """Reset the cooldown of a specific command for the user.
 
         Args:
             interaction: The Discord interaction object
@@ -99,9 +96,8 @@ class ModCogs(commands.Cog):
     )
     @app_commands.default_permissions(ban_members=True)
     @handle_interaction_errors
-    async def state(self, interaction: discord.Interaction, message: str):
-        """
-        Post an official moderator message with proper formatting and attribution.
+    async def state(self, interaction: discord.Interaction, message: str) -> None:
+        """Post an official moderator message with proper formatting and attribution.
 
         Args:
             interaction: The Discord interaction object
@@ -165,7 +161,7 @@ class ModCogs(commands.Cog):
             )
 
     @Cog.listener("on_message")
-    async def log_attachment(self, message):
+    async def log_attachment(self, message) -> None:
         if (
             message.attachments
             and not message.author.bot
@@ -173,7 +169,9 @@ class ModCogs(commands.Cog):
         ):
             for attachment in message.attachments:
                 try:
-                    async with self.webhook_manager.get_webhook(config.webhook) as webhook:
+                    async with self.webhook_manager.get_webhook(
+                        config.webhook
+                    ) as webhook:
                         embed = discord.Embed(
                             title="New attachment",
                             url=message.jump_url,
@@ -212,7 +210,7 @@ class ModCogs(commands.Cog):
                     )
 
     @Cog.listener("on_message")
-    async def dm_watch(self, message):
+    async def dm_watch(self, message) -> None:
         if (
             isinstance(message.channel, discord.channel.DMChannel)
             and not message.author.bot
@@ -220,12 +218,16 @@ class ModCogs(commands.Cog):
             if message.attachments:
                 for attachment in message.attachments:
                     try:
-                        async with self.webhook_manager.get_webhook(config.webhook_testing_log) as webhook:
+                        async with self.webhook_manager.get_webhook(
+                            config.webhook_testing_log
+                        ) as webhook:
                             embed = discord.Embed(
                                 title="New attachment",
                                 description=f"content: {message.content}",
                             )
-                            file = await attachment.to_file(spoiler=attachment.is_spoiler())
+                            file = await attachment.to_file(
+                                spoiler=attachment.is_spoiler()
+                            )
                             embed.set_image(url=f"attachment://{attachment.filename}")
                             embed.add_field(
                                 name="User", value=message.author.mention, inline=True
@@ -235,7 +237,9 @@ class ModCogs(commands.Cog):
                             )
                             await webhook.send(file=file, embed=embed)
                     except Exception as e:
-                        error = ExternalServiceError(f"Failed to log DM attachment: {str(e)}")
+                        error = ExternalServiceError(
+                            f"Failed to log DM attachment: {str(e)}"
+                        )
                         log_error(
                             error=error,
                             command_name="dm_watch",
@@ -245,9 +249,12 @@ class ModCogs(commands.Cog):
                         )
             else:
                 try:
-                    async with self.webhook_manager.get_webhook(config.webhook_testing_log) as webhook:
+                    async with self.webhook_manager.get_webhook(
+                        config.webhook_testing_log
+                    ) as webhook:
                         embed = discord.Embed(
-                            title="New message", description=f"content: {message.content}"
+                            title="New message",
+                            description=f"content: {message.content}",
                         )
                         embed.add_field(
                             name="sender", value=message.author.mention, inline=True
@@ -273,7 +280,7 @@ class ModCogs(commands.Cog):
                     )
 
     @Cog.listener("on_message")
-    async def find_links(self, message: discord.Message):
+    async def find_links(self, message: discord.Message) -> None:
         if (
             not isinstance(message.channel, discord.channel.DMChannel)
             and not message.author.bot
@@ -284,7 +291,9 @@ class ModCogs(commands.Cog):
                 message.content,
             ):
                 try:
-                    async with self.webhook_manager.get_webhook(config.webhook) as webhook:
+                    async with self.webhook_manager.get_webhook(
+                        config.webhook
+                    ) as webhook:
                         await webhook.send(
                             f"Link detected: {message.content[0:1600]}\n"
                             f"User: {message.author.name} {message.author.id}\n"
@@ -310,7 +319,7 @@ class ModCogs(commands.Cog):
                     )
 
     @Cog.listener("on_member_join")
-    async def filter_new_users(self, member):
+    async def filter_new_users(self, member) -> None:
         try:
             if member.created_at.replace(
                 tzinfo=None
@@ -330,5 +339,5 @@ class ModCogs(commands.Cog):
             )
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     await bot.add_cog(ModCogs(bot))
