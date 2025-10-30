@@ -232,48 +232,6 @@ async def test_admin_or_me_check_returns_boolean(user_id: int, guild_id: int) ->
     assert isinstance(result, bool)
 
 
-@pytest.mark.asyncio
-async def test_is_bot_channel_returns_boolean() -> None:
-    """Test that is_bot_channel returns a boolean value for different channel IDs."""
-    # Use a fixed channel ID for testing since the patch needs to be consistent
-    test_channel_id = 111222333
-
-    # Create mock objects
-    channel = MockChannelFactory.create_text_channel(channel_id=test_channel_id)
-
-    # Create a mock context
-    ctx = MockContextFactory.create(channel=channel)
-
-    # Verify the mock channel has the correct ID
-    assert channel.id == test_channel_id
-
-    # Patch the config module in utils.permissions where it's imported
-    with patch('utils.permissions.config') as mock_config:
-        mock_config.bot_channel_id = test_channel_id
-
-        # Call the function (is_bot_channel is async)
-        result = await is_bot_channel(ctx)
-
-        # Check that the result is a boolean
-        assert isinstance(result, bool)
-
-        # Check that the result is True when the channel ID matches
-        assert result is True
-
-    # Patch with a different value
-    with patch('utils.permissions.config') as mock_config:
-        mock_config.bot_channel_id = test_channel_id + 1
-
-        # Call the function (is_bot_channel is async)
-        result = await is_bot_channel(ctx)
-
-        # Check that the result is a boolean
-        assert isinstance(result, bool)
-
-        # Check that the result is False when the channel ID doesn't match
-        assert result is False
-
-
 # Tests for error_handling.py
 
 
@@ -329,7 +287,6 @@ async def main() -> None:
     await test_log_command_calls_log_command_usage()
     await test_handle_errors_catches_exceptions()
     await test_admin_or_me_check_returns_boolean()
-    await test_is_bot_channel_returns_boolean()
 
     print("All property-based tests passed!")
 

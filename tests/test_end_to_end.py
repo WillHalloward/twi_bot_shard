@@ -256,67 +256,6 @@ async def test_wiki_command() -> bool:
     return True
 
 
-@pytest.mark.asyncio
-async def test_find_command() -> bool:
-    """Test the find command."""
-    print("\nTesting find command...")
-
-    # Create a test bot
-    bot = await TestSetup.create_test_bot()
-
-    # Create the TwiCog
-    cog = await TestSetup.setup_cog(bot, TwiCog)
-
-    # Create a mock interaction
-    interaction = MockInteractionFactory.create()
-
-    # Test with results
-    with (
-        patch("cogs.twi.google_search", mock_google_search),
-        patch("utils.permissions.app_is_bot_channel", new=AsyncMock(return_value=True)),
-    ):
-        # Call the command's callback directly
-        await cog.find.callback(cog, interaction, "test_query")
-
-        # Verify the response - find command uses defer() then followup.send()
-        interaction.response.defer.assert_called_once()
-        interaction.followup.send.assert_called_once()
-        args, kwargs = interaction.followup.send.call_args
-        assert kwargs.get("embed") is not None
-        embed = kwargs.get("embed")
-        assert "Search Results" in embed.title
-        # Check that the embed contains fields (less strict than checking specific content)
-        assert len(embed.fields) > 0
-
-    # Reset the mocks
-    interaction.response.defer.reset_mock()
-    interaction.followup.send.reset_mock()
-
-    # Test with no results
-    with (
-        patch("cogs.twi.google_search", mock_google_search),
-        patch("utils.permissions.app_is_bot_channel", return_value=True),
-    ):
-        # Call the command's callback directly
-        await cog.find.callback(cog, interaction, "nonexistent_query")
-
-        # Verify the response
-        interaction.response.defer.assert_called_once()
-        interaction.followup.send.assert_called_once()
-        args, kwargs = interaction.followup.send.call_args
-        assert kwargs.get("embed") is not None
-        embed = kwargs.get("embed")
-        assert "No results found on wanderinginn.com" in embed.description
-        assert "nonexistent_query" in embed.description
-
-    # Clean up
-    await TestTeardown.teardown_cog(bot, "The Wandering Inn")
-    await TestTeardown.teardown_bot(bot)
-
-    print("✅ find command test passed")
-    return True
-
-
 async def test_invis_text_command() -> bool:
     """Test the invis_text command."""
     print("\nTesting invis_text command...")

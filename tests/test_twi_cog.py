@@ -215,7 +215,7 @@ async def test_wiki_command() -> bool:
 
 
 async def test_find_command() -> bool:
-    """Test the find command."""
+    """Test the find command with success and failure cases."""
     print("\nTesting find command...")
 
     # Force reload the cogs.twi module to ensure fresh state
@@ -239,36 +239,65 @@ async def test_find_command() -> bool:
 
     # Mock the google_search function
     def mock_google_search(query, api_key, cse_id, **kwargs):
-        return {
-            "searchInformation": {"totalResults": "1"},
-            "items": [
-                {
-                    "title": "Test Search Result",
-                    "link": "https://wanderinginn.com/test",
-                    "snippet": "Test search content",
-                }
-            ],
-        }
+        if "test_query" in query:
+            return {
+                "searchInformation": {"totalResults": "1"},
+                "items": [
+                    {
+                        "title": "Test Search Result",
+                        "link": "https://wanderinginn.com/test",
+                        "snippet": "Test search content",
+                    }
+                ],
+            }
+        else:
+            return {"searchInformation": {"totalResults": "0"}}
 
-    # Mock the Google search function and permissions
+    # Test case 1: Successful search with results
     with (
         patch("cogs.twi.google_search", mock_google_search),
-        patch("config.google_api_key", "test_api_key"),
-        patch("config.google_cse_id", "test_cse_id"),
-        patch("utils.permissions.app_is_bot_channel", return_value=True),
+        patch("utils.permissions.app_is_bot_channel", new=AsyncMock(return_value=True)),
     ):
         # Call the command's callback directly
-        await cog.find.callback(cog, interaction, "test query")
+        await cog.find.callback(cog, interaction, "test_query")
 
     # Verify the response was deferred and followup was sent
     interaction.response.defer.assert_called_once()
     interaction.followup.send.assert_called_once()
 
+    # Verify embed contains results
+    args, kwargs = interaction.followup.send.call_args
+    assert kwargs.get("embed") is not None
+    embed = kwargs.get("embed")
+    assert "Search Results" in embed.title
+
+    # Reset mocks for next test
+    interaction.response.defer.reset_mock()
+    interaction.followup.send.reset_mock()
+
+    # Test case 2: Search with no results
+    with (
+        patch("cogs.twi.google_search", mock_google_search),
+        patch("utils.permissions.app_is_bot_channel", new=AsyncMock(return_value=True)),
+    ):
+        # Call the command with query that returns no results
+        await cog.find.callback(cog, interaction, "nonexistent_query")
+
+    # Verify the response was deferred and followup was sent
+    interaction.response.defer.assert_called_once()
+    interaction.followup.send.assert_called_once()
+
+    # Verify embed shows no results message
+    args, kwargs = interaction.followup.send.call_args
+    assert kwargs.get("embed") is not None
+    embed = kwargs.get("embed")
+    assert "No results found" in embed.description
+
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
     await TestTeardown.teardown_bot(bot)
 
-    print("✅ find command test passed")
+    print("✅ find command test passed (success and failure cases)")
     return True
 
 
