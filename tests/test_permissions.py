@@ -12,12 +12,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
-# Mock the config module before importing permissions
-sys.modules["config"] = MagicMock()
-sys.modules["config"].bot_channel_id = 111222333
-sys.modules["config"].logfile = "test"
-
-
 # Import permissions utilities
 from utils.permissions import (
     admin_or_me_check,

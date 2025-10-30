@@ -1,22 +1,26 @@
 # Consolidated Task List - Twi Bot Shard (Cognita)
 
 **Generated:** 2025-10-30
-**Last Updated:** 2025-10-30 (Test infrastructure improvements)
+**Last Updated:** 2025-10-30 (Test infrastructure improvements + subtasks for flaky tests)
 **Status:** Consolidated from multiple task documents with verification against codebase
-**Total Tasks:** 81 (12 completed, 11 partial, 58 remaining)
-**Completion Rate:** 15%
+**Total Tasks:** 81 (14 completed, 11 partial, 56 remaining)
+**Completion Rate:** 17%
+**Subtasks:** T-014 expanded with 4 subtasks (T-014a through T-014d) for fixing 8 flaky tests
 
 ### Recent Progress (2025-10-30)
 - ✅ Fixed import issue in `cogs/owner.py` (query_faiss_schema path)
 - ✅ Set up test environment with proper .env configuration
 - ✅ Installed greenlet dependency (fixed 5 tests)
-- ✅ Test suite improved: **186 passing** / 213 total tests (87% pass rate, +7 tests)
-- ⚠️ 12 remaining failures are flaky tests (pass individually, fail in suite due to test isolation)
-- 📝 T-014 Status: Significant progress - 7 tests fixed, 12 flaky tests identified
+- ✅ Created test_gallery_cog_admin.py with 16 passing tests (T-003)
+- ✅ Created test_mods_cog_unit.py with 11 passing tests (T-004)
+- ✅ Enhanced test isolation infrastructure in conftest.py
+- ✅ Fixed 4 flaky command group tests
+- 📊 Test suite improved: **217 passing** / 242 total tests (90% pass rate, +31 tests from start)
+- ⚠️ 8 remaining flaky tests (down from 12) - detailed subtasks in T-014
 
 ---
 
-## 1. Testing & Quality Assurance (39 tasks: 10 complete, 3 partial, 26 remaining)
+## 1. Testing & Quality Assurance (39 tasks: 12 complete, 3 partial, 24 remaining)
 
 ### 1.1 Critical Test Files (13 tasks)
 
@@ -24,8 +28,8 @@
 |----|------|--------|--------|----------|
 | T-001 | Create test_owner_cog.py (9 commands) | ✅ COMPLETE | 4-6h | Critical |
 | T-002 | Create test_gallery_cog_repost.py (repost logic) | ✅ COMPLETE | 6-8h | Critical |
-| T-003 | Create test_gallery_cog_admin.py (6 admin commands) | ❌ TODO | 6-7h | Critical |
-| T-004 | Create test_mods_cog_unit.py (reset, state, listeners) | ❌ TODO | 4-6h | Critical |
+| T-003 | Create test_gallery_cog_admin.py (6 admin commands) | ✅ COMPLETE | 6-7h | Critical |
+| T-004 | Create test_mods_cog_unit.py (reset, state, listeners) | ✅ COMPLETE | 4-6h | Critical |
 | T-005 | Create test_command_groups.py | ✅ COMPLETE | 2-3h | High |
 | T-006 | Create test_ao3_auth.py (async auth, retry logic) | ✅ COMPLETE | 3-4h | High |
 | T-007 | Create test_summarization_cog.py (OpenAI API) | ❌ TODO | 4-5h | High |
@@ -36,13 +40,13 @@
 | T-012 | Create test_links_tags_cog.py | ❌ TODO | 3h | Medium |
 | T-013 | Create test_patreon_poll_cog.py | ❌ TODO | 2-3h | Medium |
 
-**Subtotal:** 4 complete, 9 remaining | **Effort Remaining:** 39-50 hours
+**Subtotal:** 6 complete, 7 remaining | **Effort Remaining:** 25-32 hours
 
 ### 1.2 Test Infrastructure (9 tasks)
 
 | ID | Task | Status | Effort | Priority |
 |----|------|--------|--------|----------|
-| T-014 | Fix 11 failing/flaky tests (config timing, AsyncMock) | ⚠️ PARTIAL | 2-4h | Critical |
+| T-014 | Fix 8 remaining flaky tests (see subtasks below) | ⚠️ PARTIAL | 2-4h | Critical |
 | T-015 | Add view persistence tests (button recovery after restart) | ❌ TODO | 4-6h | High |
 | T-016 | Create test_webhook_manager.py | ❌ TODO | 2h | Medium |
 | T-017 | Create test_gallery_data_extractor.py | ❌ TODO | 3h | Medium |
@@ -51,6 +55,31 @@
 | T-020 | Add pytest-flaky markers for remaining flaky tests | ❌ TODO | 1h | Medium |
 | T-021 | Configure pytest-xdist for parallel test execution | ❌ TODO | 1-2h | Low |
 | T-022 | Set coverage targets to 90%+ in pytest config | ❌ TODO | 1h | Low |
+
+**T-014 Subtasks - Fix Remaining Flaky Tests (8 tests):**
+- **T-014a**: Fix permission manager mock issues (1-1.5h)
+  - `test_permissions.py::test_admin_check_wrappers` - Settings cog is_admin needs to be AsyncMock
+  - Root cause: Permission manager falls back to settings cog but mock is not async
+  - Solution: Create proper AsyncMock for settings_cog.is_admin in test setup
+
+- **T-014b**: Fix config.bot_channel_id patching (0.5-1h)
+  - `test_permissions.py::test_is_bot_channel` - Config module patching not working in test suite
+  - `test_permissions.py::test_bot_channel_wrappers` - Same issue
+  - `test_property_based.py::test_is_bot_channel_returns_boolean` - Same issue
+  - Root cause: Config module already imported when tests run, patch.object doesn't affect already-loaded values
+  - Solution: Add config cleanup to conftest.py or use monkeypatch fixture
+
+- **T-014c**: Fix webhook mocking in find/link tests (0.5-1h)
+  - `test_end_to_end.py::test_find_command` - Webhook.send not properly mocked
+  - `test_integration.py::test_find_links` - Same issue
+  - `test_regression.py::test_find_command` - Same issue
+  - Root cause: WebhookManager context manager returns webhook but send method not mocked
+  - Solution: Ensure webhook.send is AsyncMock in test fixtures
+
+- **T-014d**: Fix command registration state (0.5h)
+  - `test_regression.py::test_password_command` - Command not found in suite but works individually
+  - Root cause: Command registration state persists between tests
+  - Solution: Add command tree cleanup to conftest.py fixtures
 
 **Subtotal:** 0 complete, 1 partial, 8 remaining | **Effort Remaining:** 21-27 hours
 

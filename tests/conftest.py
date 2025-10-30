@@ -9,6 +9,7 @@ import asyncio
 import contextlib
 import gc
 import logging
+import os
 import sys
 from collections.abc import Generator
 from unittest.mock import _patch
@@ -32,11 +33,15 @@ def clean_imports() -> Generator[None, None, None]:
     # Clean up modules that might have been modified during the test
     modules_to_clean = [
         "config",
+        "config.__init__",
         "cogs.twi",
-        "utils.permissions",
+        "cogs.owner",
+        "cogs.mods",
+        "cogs.gallery",
         "cogs.patreon_poll",
         "cogs.stats",
-        "cogs.gallery",
+        "utils.permissions",
+        "utils.command_groups",
         "utils.db",
     ]
 
@@ -49,6 +54,26 @@ def clean_imports() -> Generator[None, None, None]:
 
     # Force garbage collection
     gc.collect()
+
+
+@pytest.fixture(autouse=True)
+def reset_environment() -> Generator[None, None, None]:
+    """
+    Reset environment variables and config state between tests.
+    """
+    # Store original environment
+    original_env = dict(os.environ)
+
+    yield
+
+    # Restore original environment
+    os.environ.clear()
+    os.environ.update(original_env)
+
+    # Force dotenv to reload on next import
+    if "dotenv" in sys.modules:
+        with contextlib.suppress(KeyError):
+            del sys.modules["dotenv"]
 
 
 @pytest.fixture(autouse=True)
