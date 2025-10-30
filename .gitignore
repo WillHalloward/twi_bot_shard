@@ -146,3 +146,10 @@ temp_tests/
 /doc-updates-summary.md
 /ideas.md
 /tasks.md
+
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
