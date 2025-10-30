@@ -11,7 +11,7 @@ from discord import app_commands
 from discord.ext import commands
 
 # Import FAISS schema query functions
-from query_faiss_schema import (
+from scripts.schema.query_faiss_schema import (
     INDEX_FILE,
     LOOKUP_FILE,
     TOP_K,
