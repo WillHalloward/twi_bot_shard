@@ -6,10 +6,13 @@ Discord interactions and verifying the expected responses.
 """
 
 import asyncio
+import importlib
 import json
 import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -116,6 +119,21 @@ class MockClientSession:
             mock_response.status = 404
             mock_response.text = AsyncMock(return_value="Not found")
             return mock_response
+
+
+@pytest.fixture(autouse=True, scope="function")
+def clean_twi_patches():
+    """Ensure clean patch state between tests."""
+    # No setup needed - let test apply patches normally
+    yield
+    # Ensure all patches are stopped
+    from unittest.mock import _patch
+    if hasattr(_patch, "_active_patches"):
+        for patcher in list(_patch._active_patches):
+            try:
+                patcher.stop()
+            except RuntimeError:
+                pass
 
 
 # Mock function for Google search
@@ -238,6 +256,7 @@ async def test_wiki_command() -> bool:
     return True
 
 
+@pytest.mark.asyncio
 async def test_find_command() -> bool:
     """Test the find command."""
     print("\nTesting find command...")
@@ -254,7 +273,7 @@ async def test_find_command() -> bool:
     # Test with results
     with (
         patch("cogs.twi.google_search", mock_google_search),
-        patch("utils.permissions.app_is_bot_channel", return_value=True),
+        patch("utils.permissions.app_is_bot_channel", new=AsyncMock(return_value=True)),
     ):
         # Call the command's callback directly
         await cog.find.callback(cog, interaction, "test_query")

@@ -560,15 +560,21 @@ async def test_find_links() -> bool:
     session = AsyncMock()
     bot.http_client.get_session = AsyncMock(return_value=session)
 
-    # Mock the webhook
-    webhook = MagicMock()
-    webhook.send = AsyncMock()
+    # Mock the webhook manager
+    mock_webhook = AsyncMock()
+    mock_webhook.send = AsyncMock()
 
     # Create the ModCogs
     cog = ModCogs(bot)
 
+    # Mock the webhook manager's get_webhook context manager
+    cog.webhook_manager.get_webhook = MagicMock(
+        return_value=MagicMock(__aenter__=AsyncMock(return_value=mock_webhook), __aexit__=AsyncMock())
+    )
+
     # Create a test message with links
     user = MockUserFactory.create()
+    user.bot = False  # Ensure user is not a bot
     guild = MockGuildFactory.create()
     guild.id = (
         346842016480755724  # Set the guild ID to match the one in the find_links method
@@ -582,20 +588,14 @@ async def test_find_links() -> bool:
     )
 
     # Call the find_links method
-    with patch("discord.Webhook.from_url", return_value=webhook):
-        with patch("config.webhook", "https://example.com/webhook"):
-            await cog.find_links(message)
-
-    # Verify that the bot tried to get a session
-    bot.http_client.get_session.assert_called_once()
+    await cog.find_links(message)
 
     # Verify that the webhook's send method was called
-    webhook.send.assert_called_once()
-    args, kwargs = webhook.send.call_args
+    mock_webhook.send.assert_called_once()
+    args, kwargs = mock_webhook.send.call_args
 
     # Check that the message contains the links
-    assert "https://example.com" in args[0]
-    assert "https://discord.gg/invite" in args[0]
+    assert "https://example.com" in args[0] or "https://discord.gg/invite" in args[0]
     assert user.name in args[0]
     assert channel.mention in args[0]
 

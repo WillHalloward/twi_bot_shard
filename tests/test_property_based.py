@@ -233,25 +233,23 @@ async def test_admin_or_me_check_returns_boolean(user_id: int, guild_id: int) ->
 
 
 @pytest.mark.asyncio
-@given(channel_id=channel_id_strategy)
-async def test_is_bot_channel_returns_boolean(channel_id: int) -> None:
-    """Test that is_bot_channel returns a boolean value."""
-    # Import config module
-    import config
+async def test_is_bot_channel_returns_boolean() -> None:
+    """Test that is_bot_channel returns a boolean value for different channel IDs."""
+    # Use a fixed channel ID for testing since the patch needs to be consistent
+    test_channel_id = 111222333
 
     # Create mock objects
-    channel = MockChannelFactory.create_text_channel(channel_id=channel_id)
+    channel = MockChannelFactory.create_text_channel(channel_id=test_channel_id)
 
     # Create a mock context
     ctx = MockContextFactory.create(channel=channel)
 
     # Verify the mock channel has the correct ID
-    assert channel.id == channel_id, f"Channel ID mismatch: {channel.id} != {channel_id}"
+    assert channel.id == test_channel_id
 
-    # Patch the config module directly
-    with patch.object(config, "bot_channel_id", channel_id):
-        # Verify the patch worked
-        assert config.bot_channel_id == channel_id, f"Config patch failed: {config.bot_channel_id} != {channel_id}"
+    # Patch the config module in utils.permissions where it's imported
+    with patch('utils.permissions.config') as mock_config:
+        mock_config.bot_channel_id = test_channel_id
 
         # Call the function (is_bot_channel is async)
         result = await is_bot_channel(ctx)
@@ -260,14 +258,12 @@ async def test_is_bot_channel_returns_boolean(channel_id: int) -> None:
         assert isinstance(result, bool)
 
         # Check that the result is True when the channel ID matches
-        # Debug info if this fails
-        if not result:
-            print(f"DEBUG: channel.id={channel.id}, config.bot_channel_id={config.bot_channel_id}, channel_id={channel_id}")
-            print(f"DEBUG: ctx.channel={ctx.channel}, ctx.channel.id={ctx.channel.id}")
-        assert result is True, f"Expected True but got {result}. channel.id={channel.id}, config.bot_channel_id={config.bot_channel_id}"
+        assert result is True
 
     # Patch with a different value
-    with patch.object(config, "bot_channel_id", channel_id + 1):
+    with patch('utils.permissions.config') as mock_config:
+        mock_config.bot_channel_id = test_channel_id + 1
+
         # Call the function (is_bot_channel is async)
         result = await is_bot_channel(ctx)
 

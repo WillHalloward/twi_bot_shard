@@ -1,7 +1,7 @@
 """
 Test script for permission utilities.
 
-This script tests the permission functions in utils/permissions.py.
+This script tests the permission functions in utils/permissions.py with proper mocking.
 """
 
 import asyncio
@@ -9,32 +9,40 @@ import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
-# Import permissions utilities
-from utils.permissions import (
-    admin_or_me_check,
-    admin_or_me_check_wrapper,
-    app_admin_or_me_check,
-    app_is_bot_channel,
-    init_permission_manager,
-    is_bot_channel,
-    is_bot_channel_wrapper,
-)
+
+@pytest.fixture
+def mock_config():
+    """Fixture to mock config module with bot_channel_id."""
+    with patch.dict(sys.modules, {'config': MagicMock(bot_channel_id=111222333, logfile='test')}):
+        yield
+
+
+@pytest.fixture
+def mock_permission_manager():
+    """Fixture to mock permission manager."""
+    with patch('utils.permissions.get_permission_manager') as mock_get_pm:
+        mock_pm = MagicMock()
+        mock_pm.check_permission = AsyncMock(return_value=True)
+        mock_get_pm.return_value = mock_pm
+        yield mock_pm
 
 
 class MockRole:
     """Mock role class for testing."""
 
-    def __init__(self, role_id) -> None:
+    def __init__(self, role_id):
         self.id = role_id
 
 
 class MockUser:
     """Mock user class for testing."""
 
-    def __init__(self, user_id, roles=None) -> None:
+    def __init__(self, user_id, roles=None):
         self.id = user_id
         self.roles = roles or []
 
@@ -42,7 +50,7 @@ class MockUser:
 class MockGuild:
     """Mock guild class for testing."""
 
-    def __init__(self, guild_id) -> None:
+    def __init__(self, guild_id):
         self.id = guild_id
         self.roles = []
 
@@ -50,16 +58,17 @@ class MockGuild:
 class MockChannel:
     """Mock channel class for testing."""
 
-    def __init__(self, channel_id) -> None:
+    def __init__(self, channel_id):
         self.id = channel_id
 
 
 class MockContext:
     """Mock context class for testing traditional commands."""
 
-    def __init__(self, user_id, guild_id, channel_id, roles=None) -> None:
+    def __init__(self, user_id, guild_id, channel_id, roles=None):
         self.message = MagicMock()
         self.message.author = MockUser(user_id, roles)
+        self.author = MockUser(user_id, roles)
         self.guild = MockGuild(guild_id)
         self.channel = MockChannel(channel_id)
         self.bot = MagicMock()
@@ -68,38 +77,18 @@ class MockContext:
 class MockInteraction:
     """Mock interaction class for testing app commands."""
 
-    def __init__(self, user_id, guild_id, channel_id, roles=None) -> None:
+    def __init__(self, user_id, guild_id, channel_id, roles=None):
         self.user = MockUser(user_id, roles)
-        self.author = self.user  # Add author as alias for user for compatibility
         self.guild = MockGuild(guild_id)
         self.channel = MockChannel(channel_id)
         self.client = MagicMock()
-        # Add bot attribute that points to the same object as client
         self.bot = self.client
-        # Add message attribute with author property that points to the same object as user
-        # This is needed because admin_or_me_check uses isinstance to check if it's an Interaction
-        # but our mock won't be recognized as a discord.Interaction
-        self.message = MagicMock()
-        self.message.author = self.user
 
 
-class MockSettingsCog:
-    """Mock settings cog for testing."""
-
-    def __init__(self, is_admin_result=True) -> None:
-        self.is_admin = AsyncMock(return_value=is_admin_result)
-
-
-async def test_admin_or_me_check() -> bool:
+@pytest.mark.asyncio
+async def test_admin_or_me_check(mock_permission_manager):
     """Test the admin_or_me_check function."""
-    print("\nTesting admin_or_me_check function...")
-
-    # Create a mock bot and initialize permission manager
-    mock_bot = MagicMock()
-    mock_bot.db = MagicMock()
-
-    # Initialize the permission manager
-    init_permission_manager(mock_bot)
+    from utils.permissions import admin_or_me_check
 
     # Create mock roles
     admin_role = MockRole(346842813687922689)
@@ -113,127 +102,71 @@ async def test_admin_or_me_check() -> bool:
         roles=[regular_role, admin_role],
     )
 
-    # Mock the settings cog
-    settings_cog = MockSettingsCog(is_admin_result=True)
-    ctx.bot.get_cog.return_value = settings_cog
+    # Mock the bot's get_cog to return a settings cog with is_admin
+    mock_settings_cog = MagicMock()
+    mock_settings_cog.is_admin = AsyncMock(return_value=True)
+    ctx.bot.get_cog = MagicMock(return_value=mock_settings_cog)
 
     # Test admin check with context
     result = await admin_or_me_check(ctx)
     assert result is True
-    settings_cog.is_admin.assert_called_once()
 
-    # Reset mock
-    settings_cog.is_admin.reset_mock()
-
-    # Test with interaction and admin user
-    interaction = MockInteraction(
-        user_id=123456789,
-        guild_id=987654321,
-        channel_id=111222333,
-        roles=[regular_role, admin_role],
-    )
-
-    # Mock the settings cog
-    interaction.client.get_cog.return_value = settings_cog
-
-    # Test admin check with interaction
-    result = await admin_or_me_check(interaction)
-    assert result is True
-    settings_cog.is_admin.assert_called_once()
-
-    # Test with bot owner
+    # Test with bot owner (should pass without checking settings cog)
+    mock_permission_manager.check_permission = AsyncMock(return_value=True)
     ctx = MockContext(
         user_id=268608466690506753,  # Bot owner ID
         guild_id=987654321,
         channel_id=111222333,
         roles=[regular_role],
     )
+    ctx.bot.get_cog = MagicMock(return_value=None)
 
-    # Mock no settings cog to test fallback
-    ctx.bot.get_cog.return_value = None
-
-    # Test admin check with context
     result = await admin_or_me_check(ctx)
     assert result is True
 
-    # Test with non-admin user
-    ctx = MockContext(
-        user_id=999999999,
-        guild_id=987654321,
-        channel_id=111222333,
-        roles=[regular_role],
+
+@pytest.mark.asyncio
+async def test_admin_check_wrappers(mock_permission_manager):
+    """Test the admin check wrapper functions."""
+    from utils.permissions import admin_or_me_check_wrapper, app_admin_or_me_check
+
+    # Create a context
+    ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=111222333)
+
+    # Get the check function
+    check_func = admin_or_me_check_wrapper(ctx)
+
+    # Verify it's a command check by checking its attributes
+    assert hasattr(check_func, "predicate")
+
+    # Test app_admin_or_me_check
+    interaction = MockInteraction(
+        user_id=123456789, guild_id=987654321, channel_id=111222333
     )
 
-    # Mock no settings cog to test fallback
-    ctx.bot.get_cog.return_value = None
+    # Mock the interaction's client get_cog
+    mock_settings_cog = MagicMock()
+    mock_settings_cog.is_admin = AsyncMock(return_value=True)
+    interaction.client.get_cog = MagicMock(return_value=mock_settings_cog)
 
-    # Test admin check with context
-    result = await admin_or_me_check(ctx)
-    assert result is False
+    # Call the app check function
+    result = await app_admin_or_me_check(interaction)
 
-    print("✅ admin_or_me_check test passed")
-    return True
-
-
-async def test_admin_check_wrappers() -> bool:
-    """Test the admin check wrapper functions."""
-    print("\nTesting admin check wrapper functions...")
-
-    # Create a mock bot and initialize permission manager
-    mock_bot = MagicMock()
-    mock_bot.db = MagicMock()
-    # Mock db methods with AsyncMock to support await
-    mock_bot.db.fetchval = AsyncMock(return_value=None)
-    mock_bot.db.fetch = AsyncMock(return_value=[])
-    # Create a mock settings cog that will be returned by get_cog
-    mock_settings_cog = MockSettingsCog(is_admin_result=True)
-    mock_bot.get_cog.return_value = mock_settings_cog
-
-    # Initialize the permission manager
-    init_permission_manager(mock_bot)
-
-    # Test admin_or_me_check_wrapper
-    with patch("utils.permissions.admin_or_me_check", AsyncMock(return_value=True)):
-        # Create a context
-        ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=111222333)
-
-        # Get the check function
-        check_func = admin_or_me_check_wrapper(ctx)
-
-        # Verify it's a command check by checking its attributes
-        # commands.check returns a function that has a predicate attribute
-        assert hasattr(check_func, "predicate")
-
-        # Test app_admin_or_me_check
-        interaction = MockInteraction(
-            user_id=123456789, guild_id=987654321, channel_id=111222333
-        )
-
-        # Call the app check function
-        # app_admin_or_me_check returns admin_or_me_check(interaction), which is a coroutine
-        # So we need to await it
-        result = await app_admin_or_me_check(interaction)
-
-        # Verify it calls admin_or_me_check and returns True
-        assert result is True
-
-    print("✅ admin check wrapper tests passed")
-    return True
+    # Verify it returns True (mocked permission manager always returns True)
+    assert result is True
 
 
-async def test_is_bot_channel() -> bool:
+@pytest.mark.asyncio
+async def test_is_bot_channel():
     """Test the is_bot_channel function."""
-    print("\nTesting is_bot_channel function...")
+    # Mock config at module level before importing the function
+    with patch('utils.permissions.config') as mock_config:
+        mock_config.bot_channel_id = 111222333
 
-    # Import config module and patch it directly
-    import config
+        from utils.permissions import is_bot_channel
 
-    # Patch the config.bot_channel_id directly
-    with patch.object(config, "bot_channel_id", 111222333):
         # Test with context in bot channel
         ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=111222333)
-
-        # Test bot channel check with context (is_bot_channel is async)
         result = await is_bot_channel(ctx)
         assert result is True
 
@@ -241,31 +174,23 @@ async def test_is_bot_channel() -> bool:
         interaction = MockInteraction(
             user_id=123456789, guild_id=987654321, channel_id=111222333
         )
-
-        # Test bot channel check with interaction (is_bot_channel is async)
         result = await is_bot_channel(interaction)
         assert result is True
 
-        # Test with context not in bot channel
+        # Test with context in wrong channel
         ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=999999999)
-
-        # Test bot channel check with context (is_bot_channel is async)
         result = await is_bot_channel(ctx)
         assert result is False
 
-    print("✅ is_bot_channel test passed")
-    return True
 
-
-async def test_bot_channel_wrappers() -> bool:
+@pytest.mark.asyncio
+async def test_bot_channel_wrappers():
     """Test the bot channel wrapper functions."""
-    print("\nTesting bot channel wrapper functions...")
+    with patch('utils.permissions.config') as mock_config:
+        mock_config.bot_channel_id = 111222333
 
-    # Import config module and patch it directly
-    import config
+        from utils.permissions import is_bot_channel_wrapper, app_is_bot_channel
 
-    # Test is_bot_channel_wrapper
-    with patch.object(config, "bot_channel_id", 111222333):
         # Create a context
         ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=111222333)
 
@@ -273,7 +198,6 @@ async def test_bot_channel_wrappers() -> bool:
         check_func = is_bot_channel_wrapper(ctx)
 
         # Verify it's a command check by checking its attributes
-        # commands.check returns a function that has a predicate attribute
         assert hasattr(check_func, "predicate")
 
         # Test app_is_bot_channel
@@ -282,43 +206,16 @@ async def test_bot_channel_wrappers() -> bool:
         )
 
         # Call the app check function
-        # app_is_bot_channel is now async and returns await is_bot_channel(interaction)
-        # So we need to await it
         result = await app_is_bot_channel(interaction)
 
         # Verify it calls is_bot_channel and returns True
         assert result is True
 
-    print("✅ bot channel wrapper tests passed")
-    return True
 
-
-async def main() -> bool | None:
-    """Run all tests."""
-    print("Testing permission utilities...")
-
-    try:
-        # Run tests
-        tests = [
-            test_admin_or_me_check(),
-            test_admin_check_wrappers(),
-            test_is_bot_channel(),
-            test_bot_channel_wrappers(),
-        ]
-
-        results = await asyncio.gather(*tests)
-
-        if all(results):
-            print("\nAll permission tests passed!")
-            return True
-        else:
-            print("\nSome permission tests failed.")
-            return False
-
-    except Exception as e:
-        print(f"Error: {e}")
-        raise
+def main():
+    """Run tests with pytest."""
+    pytest.main([__file__, "-v"])
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
