@@ -16,6 +16,7 @@ from discord import app_commands
 from models.tables.creator_links import CreatorLink
 from models.tables.gallery import GalleryMementos
 from utils.base_cog import BaseCog
+from utils.command_groups import gallery_admin
 from utils.decorators import log_command
 from utils.error_handling import handle_interaction_errors
 from utils.gallery_data_extractor import GalleryDataExtractor
@@ -1251,7 +1252,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         else:
             await interaction.delete_original_response()
 
-    @app_commands.command(name="set_repost")
+    @gallery_admin.command(name="set_repost", description="Add or remove a channel from repost channels")
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("set_repost")
@@ -1422,7 +1423,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 "❌ A database error occurred. Please try again later.", ephemeral=True
             )
 
-    @app_commands.command(name="extract_gallery_data")
+    @gallery_admin.command(name="extract_data", description="Extract gallery data from channels")
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("extract_gallery_data")
@@ -1754,7 +1755,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
 
         await interaction.followup.send(embed=embed_report, file=file, ephemeral=True)
 
-    @app_commands.command(name="gallery_migration_stats")
+    @gallery_admin.command(name="migration_stats", description="View gallery migration statistics")
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("gallery_migration_stats")
@@ -1816,7 +1817,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 "❌ Error retrieving migration statistics.", ephemeral=True
             )
 
-    @app_commands.command(name="review_gallery_entries")
+    @gallery_admin.command(name="review_entries", description="Review and manage gallery entries")
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("review_gallery_entries")
@@ -1915,7 +1916,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 "❌ Error retrieving entries for review.", ephemeral=True
             )
 
-    @app_commands.command(name="update_gallery_tags")
+    @gallery_admin.command(name="update_tags", description="Update tags for a gallery entry")
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("update_gallery_tags")
@@ -1970,7 +1971,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             self.logger.error(f"Error updating tags for {msg_id}: {e}")
             await interaction.followup.send("❌ Error updating tags.", ephemeral=True)
 
-    @app_commands.command(name="mark_entry_reviewed")
+    @gallery_admin.command(name="mark_reviewed", description="Mark a gallery entry as reviewed")
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("mark_entry_reviewed")

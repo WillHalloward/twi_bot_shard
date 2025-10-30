@@ -10,7 +10,7 @@ import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Mock the config module before importing permissions
 sys.modules["config"] = MagicMock()
@@ -76,6 +76,7 @@ class MockInteraction:
 
     def __init__(self, user_id, guild_id, channel_id, roles=None) -> None:
         self.user = MockUser(user_id, roles)
+        self.author = self.user  # Add author as alias for user for compatibility
         self.guild = MockGuild(guild_id)
         self.channel = MockChannel(channel_id)
         self.client = MagicMock()
@@ -187,7 +188,12 @@ async def test_admin_check_wrappers() -> bool:
     # Create a mock bot and initialize permission manager
     mock_bot = MagicMock()
     mock_bot.db = MagicMock()
-    mock_bot.get_cog.return_value = None
+    # Mock db methods with AsyncMock to support await
+    mock_bot.db.fetchval = AsyncMock(return_value=None)
+    mock_bot.db.fetch = AsyncMock(return_value=[])
+    # Create a mock settings cog that will be returned by get_cog
+    mock_settings_cog = MockSettingsCog(is_admin_result=True)
+    mock_bot.get_cog.return_value = mock_settings_cog
 
     # Initialize the permission manager
     init_permission_manager(mock_bot)

@@ -188,6 +188,14 @@ class TestBot(commands.Bot):
         # Mock the latency property to return a valid float instead of NaN
         self._latency = 0.05  # 50ms latency
 
+    async def get_db_session(self):
+        """Get a new SQLAlchemy database session (mock version).
+
+        Returns:
+            MockAsyncSession: A mock async session for testing
+        """
+        return await self.session_maker()
+
     @property
     def latency(self) -> float:
         """Override latency property to return a valid float instead of NaN."""

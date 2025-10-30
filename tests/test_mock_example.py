@@ -144,7 +144,8 @@ def test_mock_context_manager(mocker) -> None:
         data = f.read()
 
     # Verify open was called with the expected arguments
-    mock_file.assert_called_once_with("test_file.txt", "r")
+    # Note: When no mode is specified, open() is called without the 'r' argument
+    mock_file.assert_called_once_with("test_file.txt")
 
     # Verify the data was read correctly
     assert data == "test data"

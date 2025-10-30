@@ -50,7 +50,6 @@ async def test_save_message() -> bool:
     message = MockMessageFactory.create()
 
     # Mock the database methods
-    bot.db.fetchval = AsyncMock(return_value=False)  # User doesn't exist
     bot.db.execute = AsyncMock()
     bot.db.execute_many = AsyncMock()
 
@@ -58,8 +57,8 @@ async def test_save_message() -> bool:
     await save_message(bot, message)
 
     # Verify that database methods were called
-    assert bot.db.fetchval.call_count >= 1
-    assert bot.db.execute.call_count >= 1
+    # save_message uses execute() for INSERT statements, not fetchval()
+    assert bot.db.execute.call_count >= 2  # At least 2 inserts (user + message)
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "stats")

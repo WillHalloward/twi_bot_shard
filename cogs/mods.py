@@ -8,6 +8,7 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 
 import config
+from utils.command_groups import mod
 from utils.error_handling import handle_interaction_errors, log_error
 from utils.exceptions import (
     DiscordError,
@@ -24,7 +25,7 @@ class ModCogs(commands.Cog):
         self.logger = logging.getLogger(__name__)
         self.webhook_manager = WebhookManager(bot.http_client)
 
-    @app_commands.command(
+    @mod.command(
         name="reset", description="Resets the cooldown of a command for a user"
     )
     @app_commands.default_permissions(ban_members=True)
@@ -91,7 +92,7 @@ class ModCogs(commands.Cog):
                 message=f"Failed to reset cooldown for command **{command}**: {str(e)}"
             )
 
-    @app_commands.command(
+    @mod.command(
         name="state", description="Post an official moderator message"
     )
     @app_commands.default_permissions(ban_members=True)

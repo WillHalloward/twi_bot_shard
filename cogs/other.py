@@ -6,6 +6,7 @@ server info, role management, quotes, dice rolling, and more.
 """
 
 # Import standard library modules first
+import asyncio
 import logging
 import random
 import re
@@ -23,12 +24,10 @@ from discord.ext import commands
 # Other third-party imports
 
 # Import AO3 last to avoid potential import deadlocks
-# Adding a small delay before AO3 import to prevent deadlocks
-
-time.sleep(0.1)  # 100ms delay to avoid potential race conditions
 import AO3
 
 import config
+from utils.command_groups import admin
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
     DatabaseError,
@@ -40,12 +39,8 @@ from utils.permissions import (
     app_admin_or_me_check,
 )
 
-LOGIN_AO3_SUCCESSFUL = False
-try:
-    session = AO3.Session(str(config.ao3_username), str(config.ao3_password))
-    LOGIN_AO3_SUCCESSFUL = True
-except Exception as e:
-    logging.error(f"AO3 login error: {e}")
+# AO3 session will be initialized in the cog's cog_load method
+# to avoid blocking the bot startup with authentication
 
 
 async def user_info_function(interaction: discord.Interaction, member: discord.Member) -> None:
@@ -283,6 +278,9 @@ class OtherCogs(commands.Cog, name="Other"):
         self.quote_cache = None
         self.category_cache = None
         self.pin_cache = None
+        self.ao3_session = None
+        self.ao3_login_successful = False
+        self.ao3_login_in_progress = False
 
         self.pin = app_commands.ContextMenu(
             name="Pin",
@@ -296,12 +294,65 @@ class OtherCogs(commands.Cog, name="Other"):
         )
         self.bot.tree.add_command(self.info_user_context)
 
+    async def _initialize_ao3_session(self, max_retries: int = 3) -> None:
+        """Initialize AO3 session with retry logic.
+
+        This method runs the blocking AO3 authentication in an executor to avoid
+        blocking the event loop. If authentication fails, it will retry with
+        exponential backoff up to max_retries times.
+
+        Args:
+            max_retries: Maximum number of retry attempts (default: 3)
+        """
+        if self.ao3_login_in_progress:
+            self.logger.warning("AO3 login already in progress, skipping duplicate attempt")
+            return
+
+        self.ao3_login_in_progress = True
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                self.logger.info(f"Attempting AO3 login (attempt {attempt}/{max_retries})")
+
+                # Run the blocking AO3.Session call in an executor to avoid blocking the event loop
+                loop = asyncio.get_event_loop()
+                session = await loop.run_in_executor(
+                    None,  # Use default executor
+                    AO3.Session,
+                    str(config.ao3_username),
+                    str(config.ao3_password)
+                )
+
+                self.ao3_session = session
+                self.ao3_login_successful = True
+                self.logger.info("AO3 login successful")
+                self.ao3_login_in_progress = False
+                return
+
+            except Exception as e:
+                self.logger.error(
+                    f"AO3 login failed (attempt {attempt}/{max_retries}): {e}",
+                    exc_info=True
+                )
+
+                if attempt < max_retries:
+                    # Exponential backoff: 2^attempt seconds (2, 4, 8...)
+                    wait_time = 2 ** attempt
+                    self.logger.info(f"Retrying AO3 login in {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    self.logger.error("AO3 login failed after all retry attempts")
+                    self.ao3_login_successful = False
+
+        self.ao3_login_in_progress = False
+
     async def cog_load(self) -> None:
         """Load initial data when the cog is added to the bot.
 
         This method is called automatically when the cog is loaded.
         It populates the quote cache, category cache, and pin cache
-        for use in commands and autocomplete.
+        for use in commands and autocomplete. It also initiates the
+        AO3 login process in the background.
         """
         self.quote_cache = await self.bot.db.fetch(
             "SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x"
@@ -312,6 +363,74 @@ class OtherCogs(commands.Cog, name="Other"):
         self.pin_cache = await self.bot.db.fetch(
             "SELECT id FROM channels where allow_pins = TRUE"
         )
+
+        # Start AO3 login in background (don't await to avoid blocking cog load)
+        asyncio.create_task(self._initialize_ao3_session())
+
+    @admin.command(
+        name="ao3_status",
+        description="Check AO3 authentication status or retry login",
+    )
+    @app_commands.describe(retry="Set to True to retry AO3 login")
+    @app_commands.checks.has_permissions(administrator=True)
+    @handle_interaction_errors
+    async def ao3_status(self, interaction: discord.Interaction, retry: bool = False) -> None:
+        """Check AO3 authentication status or manually retry login.
+
+        This admin command allows checking the current AO3 authentication status
+        and optionally retry the login process if it previously failed.
+
+        Args:
+            interaction: The Discord interaction object
+            retry: Whether to retry the AO3 login process
+
+        Raises:
+            PermissionError: If user lacks administrator permissions
+        """
+        await interaction.response.defer(ephemeral=True)
+
+        if retry:
+            if self.ao3_login_in_progress:
+                await interaction.followup.send(
+                    "⏳ AO3 login is already in progress. Please wait...",
+                    ephemeral=True
+                )
+                return
+
+            self.logger.info(f"Admin {interaction.user.id} triggered manual AO3 login retry")
+            await interaction.followup.send(
+                "🔄 Retrying AO3 login... This may take up to 90 seconds per attempt.",
+                ephemeral=True
+            )
+
+            # Retry login in background
+            asyncio.create_task(self._initialize_ao3_session())
+
+            # Wait a moment and check status
+            await asyncio.sleep(2)
+
+            if self.ao3_login_successful:
+                await interaction.edit_original_response(
+                    content="✅ AO3 login successful!"
+                )
+            elif self.ao3_login_in_progress:
+                await interaction.edit_original_response(
+                    content="⏳ AO3 login in progress... Check status again in a moment."
+                )
+            else:
+                await interaction.edit_original_response(
+                    content="❌ AO3 login failed. Check bot logs for details."
+                )
+        else:
+            # Just check status
+            if self.ao3_login_successful:
+                status_msg = "✅ **AO3 Status: Connected**\nAuthentication is working properly."
+            elif self.ao3_login_in_progress:
+                status_msg = "⏳ **AO3 Status: Connecting**\nLogin attempt in progress..."
+            else:
+                status_msg = "❌ **AO3 Status: Disconnected**\nAuthentication failed. Use `retry: True` to retry."
+
+            await interaction.followup.send(status_msg, ephemeral=True)
 
     @app_commands.command(
         name="ping",
@@ -3290,7 +3409,7 @@ class OtherCogs(commands.Cog, name="Other"):
                 )
 
             # Check if AO3 login was successful
-            if not LOGIN_AO3_SUCCESSFUL:
+            if not self.ao3_login_successful:
                 raise ExternalServiceError(
                     message="❌ **AO3 Service Unavailable**\nAO3 authentication failed. Please try again later."
                 )
@@ -3304,7 +3423,7 @@ class OtherCogs(commands.Cog, name="Other"):
 
             try:
                 # Refresh authentication token
-                session.refresh_auth_token()
+                self.ao3_session.refresh_auth_token()
             except Exception as e:
                 logging.error(
                     f"OTHER AO3 ERROR: Failed to refresh auth token for user {interaction.user.id}: {e}"
@@ -3317,7 +3436,7 @@ class OtherCogs(commands.Cog, name="Other"):
                 # Extract work ID and create work object
                 ao3_id = AO3.utils.workid_from_url(ao3_url)
                 work = AO3.Work(ao3_id)
-                work.set_session(session)
+                work.set_session(self.ao3_session)
             except AO3.utils.InvalidIdError:
                 raise ValidationError(
                     message="❌ **Work Not Found**\nI could not find that work on AO3. Please check the URL and try again."
@@ -3644,12 +3763,12 @@ class OtherCogs(commands.Cog, name="Other"):
             raise ExternalServiceError(message=error_msg) from e
 
     # Set which channels the pin command should work in
-    @app_commands.checks.has_permissions(ban_members=True)
-    @app_commands.default_permissions(ban_members=True)
-    @app_commands.command(
+    @admin.command(
         name="set_pin_channels",
         description="Set which channels the pin command should work in",
     )
+    @app_commands.checks.has_permissions(ban_members=True)
+    @app_commands.default_permissions(ban_members=True)
     @handle_interaction_errors
     async def set_pin_channels(
         self, interaction: discord.Interaction, channel: discord.TextChannel

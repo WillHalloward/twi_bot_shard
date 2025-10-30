@@ -20,6 +20,7 @@ from query_faiss_schema import (
     generate_sql,
     query_faiss,
 )
+from utils.command_groups import admin
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
     DatabaseError,
@@ -50,9 +51,8 @@ class OwnerCog(commands.Cog, name="Owner"):
     def __init__(self, bot) -> None:
         self.bot = bot
 
-    @app_commands.command(name="load")
+    @admin.command(name="load", description="Load a Discord bot extension/cog")
     @commands.is_owner()
-    @app_commands.guilds(297916314239107072)
     @handle_interaction_errors
     async def load_cog(self, interaction: discord.Interaction, *, cog: str) -> None:
         """Load a Discord bot extension/cog.
@@ -165,9 +165,8 @@ class OwnerCog(commands.Cog, name="Owner"):
             if current.lower() in cog.lower()
         ]
 
-    @app_commands.command(name="unload")
+    @admin.command(name="unload", description="Unload a Discord bot extension/cog")
     @commands.is_owner()
-    @app_commands.guilds(297916314239107072)
     @handle_interaction_errors
     async def unload_cog(self, interaction: discord.Interaction, *, cog: str) -> None:
         """Unload a Discord bot extension/cog.
@@ -272,9 +271,8 @@ class OwnerCog(commands.Cog, name="Owner"):
             if current.lower() in cog.lower()
         ]
 
-    @app_commands.command(name="reload")
+    @admin.command(name="reload", description="Reload a Discord bot extension/cog")
     @commands.is_owner()
-    @app_commands.guilds(297916314239107072)
     @handle_interaction_errors
     async def reload_cog(self, interaction: discord.Interaction, cog: str) -> None:
         """Reload a Discord bot extension/cog.
@@ -410,9 +408,8 @@ class OwnerCog(commands.Cog, name="Owner"):
             if current.lower() in cog.lower()
         ]
 
-    @app_commands.command(name="cmd")
+    @admin.command(name="cmd", description="Execute a shell command on the host system")
     @commands.is_owner()
-    @app_commands.guilds(297916314239107072)
     @handle_interaction_errors
     async def cmd(self, interaction: discord.Interaction, args: str) -> None:
         """Execute a system command with enhanced security restrictions.
@@ -621,7 +618,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             )
             raise ExternalServiceError(message=error_msg)
 
-    @app_commands.command(name="sync")
+    @admin.command(name="sync", description="Sync the bot's command tree")
     @commands.is_owner()
     @handle_interaction_errors
     async def sync(self, interaction: discord.Interaction, all_guilds: bool) -> None:
@@ -730,9 +727,8 @@ class OwnerCog(commands.Cog, name="Owner"):
 
         await interaction.followup.send(final_message)
 
-    @app_commands.command(name="exit")
+    @admin.command(name="exit", description="Shut down the bot")
     @commands.is_owner()
-    @app_commands.guilds(297916314239107072)
     @handle_interaction_errors
     async def exit(self, interaction: discord.Interaction) -> None:
         """Gracefully shut down the bot.
@@ -765,7 +761,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             logging.error(f"OWNER EXIT ERROR: Failed to shutdown bot: {e}")
             raise ExternalServiceError(message=error_msg) from e
 
-    @app_commands.command(name="resources")
+    @admin.command(name="resources", description="View bot resource usage statistics")
     @commands.is_owner()
     @handle_interaction_errors
     async def resources(
@@ -989,7 +985,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             )
             raise ExternalServiceError(message=error_msg) from e
 
-    @app_commands.command(name="sql")
+    @admin.command(name="sql", description="Execute a SQL query on the database")
     @commands.is_owner()
     @handle_interaction_errors
     async def sql_query(
@@ -1175,8 +1171,6 @@ class OwnerCog(commands.Cog, name="Owner"):
                 affected_rows = "Unknown"
                 if isinstance(result, str):
                     # Try to extract number from result string like "UPDATE 5" or "INSERT 0 3"
-                    import re
-
                     match = re.search(r"(\w+)\s+(\d+)", result)
                     if match:
                         operation, count = match.groups()
@@ -1209,7 +1203,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             logging.error(f"OWNER SQL ERROR: Unexpected error for query: {e}")
             raise QueryError(message=error_msg) from e
 
-    @app_commands.command(name="ask_db")
+    @admin.command(name="ask_db", description="Ask a natural language question about the database")
     @commands.is_owner()
     @handle_interaction_errors
     async def ask_database(self, interaction: discord.Interaction, question: str) -> None:

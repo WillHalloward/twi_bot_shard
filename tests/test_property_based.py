@@ -245,8 +245,14 @@ async def test_is_bot_channel_returns_boolean(channel_id: int) -> None:
     # Create a mock context
     ctx = MockContextFactory.create(channel=channel)
 
+    # Verify the mock channel has the correct ID
+    assert channel.id == channel_id, f"Channel ID mismatch: {channel.id} != {channel_id}"
+
     # Patch the config module directly
     with patch.object(config, "bot_channel_id", channel_id):
+        # Verify the patch worked
+        assert config.bot_channel_id == channel_id, f"Config patch failed: {config.bot_channel_id} != {channel_id}"
+
         # Call the function (is_bot_channel is async)
         result = await is_bot_channel(ctx)
 
@@ -254,7 +260,11 @@ async def test_is_bot_channel_returns_boolean(channel_id: int) -> None:
         assert isinstance(result, bool)
 
         # Check that the result is True when the channel ID matches
-        assert result is True
+        # Debug info if this fails
+        if not result:
+            print(f"DEBUG: channel.id={channel.id}, config.bot_channel_id={config.bot_channel_id}, channel_id={channel_id}")
+            print(f"DEBUG: ctx.channel={ctx.channel}, ctx.channel.id={ctx.channel.id}")
+        assert result is True, f"Expected True but got {result}. channel.id={channel.id}, config.bot_channel_id={config.bot_channel_id}"
 
     # Patch with a different value
     with patch.object(config, "bot_channel_id", channel_id + 1):

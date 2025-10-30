@@ -25,6 +25,7 @@ import discord
 from discord.ext import commands
 
 import config
+from utils.command_groups import admin, mod, gallery_admin
 from utils.error_handling import setup_global_exception_handler
 from utils.http_client import HTTPClient
 from utils.permissions import setup_permissions
@@ -253,6 +254,16 @@ class Cognita(commands.Bot):
                 f"Failed to initialize secret manager: {e}\n{error_details}"
             )
             # Continue without secret manager, but log the error
+
+        # Register shared command groups before loading extensions
+        start_time = time.time()
+        self.tree.add_command(admin)
+        self.tree.add_command(mod)
+        self.tree.add_command(gallery_admin)
+        self.startup_times["command_groups_init"] = time.time() - start_time
+        self.logger.info(
+            f"Registered shared command groups in {self.startup_times['command_groups_init']:.2f}s"
+        )
 
         # Task 6: Load critical extensions
         await self.load_extensions()

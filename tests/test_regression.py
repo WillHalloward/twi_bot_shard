@@ -356,6 +356,13 @@ async def test_password_command() -> bool:
         patch("config.password_allowed_channel_ids", [test_channel_id]),
         patch("cogs.twi.config.password_allowed_channel_ids", [test_channel_id]),
     ):
+        # Verify the mock setup before calling
+        import config as cfg
+        assert test_channel_id in cfg.password_allowed_channel_ids, \
+            f"Channel ID {test_channel_id} not in config.password_allowed_channel_ids: {cfg.password_allowed_channel_ids}"
+        assert interaction.channel.id == test_channel_id, \
+            f"Interaction channel ID {interaction.channel.id} doesn't match expected {test_channel_id}"
+
         # Call the command's callback directly
         await cog.password.callback(cog, interaction)
 
@@ -376,7 +383,9 @@ async def test_password_command() -> bool:
                 if hasattr(field, "value"):
                     response_text += " " + str(field.value)
 
-        assert "test_password" in response_text or kwargs.get("view") is not None
+        # The password should be in the response when called from an allowed channel
+        assert "test_password" in response_text, \
+            f"Expected 'test_password' in response. Got: {response_text[:200]}"
 
     # Reset the mock
     interaction.response.send_message.reset_mock()

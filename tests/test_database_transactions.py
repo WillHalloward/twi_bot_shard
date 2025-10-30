@@ -40,8 +40,6 @@ def setup_mock_database_with_pool(db, mock_conn, mock_transaction=None):
 
     # If a transaction mock is provided, set it up properly
     if mock_transaction:
-        from unittest.mock import MagicMock
-
         mock_conn.transaction = MagicMock(return_value=mock_transaction)
 
     db.pool = mock_pool
@@ -212,8 +210,6 @@ async def test_concurrent_transactions() -> bool:
         else:
             connection_counter = 0
             return MockAcquire(mock_conn2)
-
-    from unittest.mock import MagicMock
 
     mock_pool = MagicMock()
     mock_pool.acquire = get_connection

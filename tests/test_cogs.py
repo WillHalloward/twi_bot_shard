@@ -201,6 +201,7 @@ class TestBot(commands.Bot):
         # Create a proper mock session that can be used with the fetch function
         mock_response = MagicMock()
         mock_response.text = AsyncMock(return_value='{"test": "response"}')
+        mock_response.status = 200
 
         mock_context_manager = MagicMock()
         mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
@@ -210,12 +211,16 @@ class TestBot(commands.Bot):
         mock_session.get = MagicMock(return_value=mock_context_manager)
 
         self.http_client.get_session = AsyncMock(return_value=mock_session)
+        self.http_client.get_session_with_retry = AsyncMock(return_value=mock_session)
 
         # Mock the latency property to return a valid float instead of NaN
         self._latency = 0.05  # 50ms latency
 
         # Mock guilds list for testing
         self._guilds = []
+
+        # Add initial_extensions list (needed by sync command)
+        self.initial_extensions = []
 
     async def get_db_session(self):
         """

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(python lint:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(python format:*)",
+      "Bash(uv run black:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Skill(discordpy)",
+      "Bash(python lint.py:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(pytest:*)",
+      "Bash(uv run pytest:*)"
+    ],
+    "deny": []
+  }
+}
