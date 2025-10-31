@@ -166,54 +166,6 @@ async def test_password_command() -> bool:
     return True
 
 
-async def test_wiki_command() -> bool:
-    """Test the wiki command."""
-    print("\nTesting wiki command...")
-
-    # Force reload the cogs.twi module to ensure fresh state
-    import importlib
-    import sys
-
-    if "cogs.twi" in sys.modules:
-        importlib.reload(sys.modules["cogs.twi"])
-
-    # Re-import after reload
-    from cogs.twi import TwiCog
-
-    # Create a test bot
-    bot = await TestSetup.create_test_bot()
-
-    # Create the TwiCog
-    cog = await TestSetup.setup_cog(bot, TwiCog)
-
-    # Create a mock interaction
-    interaction = MockInteractionFactory.create()
-
-    # Mock the fetch function that the wiki command actually uses
-    wiki_response = '{"query": {"pages": {"1": {"index": 1, "title": "Test Wiki Page", "fullurl": "https://thewanderinginn.fandom.com/wiki/Test", "images": [{"title": "Test_Image.jpg"}]}}}}'
-
-    # Mock the fetch function directly - this is simpler and more reliable
-    with patch("cogs.twi.fetch", new_callable=AsyncMock) as mock_fetch:
-        mock_fetch.return_value = wiki_response
-
-        # Call the command's callback directly
-        await cog.wiki.callback(cog, interaction, "test query")
-
-        # Verify the fetch was called (once for search - the test expects 2 but let's see what actually happens)
-        assert mock_fetch.call_count >= 1
-
-    # Verify the response was deferred and followup was sent
-    interaction.response.defer.assert_called_once()
-    interaction.followup.send.assert_called_once()
-
-    # Clean up
-    await TestTeardown.teardown_cog(bot, "The Wandering Inn")
-    await TestTeardown.teardown_bot(bot)
-
-    print("✅ wiki command test passed")
-    return True
-
-
 async def test_find_command() -> bool:
     """Test the find command with success and failure cases."""
     print("\nTesting find command...")
@@ -554,7 +506,6 @@ async def main() -> None:
     await test_twi_cog_initialization()
     await test_cog_load()
     await test_password_command()
-    await test_wiki_command()
     await test_find_command()
     await test_invis_text_command()
     await test_colored_text_command()

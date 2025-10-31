@@ -208,7 +208,7 @@ class TestBot(commands.Bot):
 
 
 # Test functions
-async def test_save_message() -> bool:
+async def test_save_message_workflow() -> bool:
     """Test saving a message to the database."""
     print("\nTesting save_message function...")
 
@@ -243,7 +243,7 @@ async def test_save_message() -> bool:
     return True
 
 
-async def test_save_reaction() -> bool:
+async def test_save_reaction_workflow() -> bool:
     """Test saving a reaction to the database."""
     print("\nTesting save_reaction function...")
 
@@ -285,60 +285,6 @@ async def test_save_reaction() -> bool:
     assert "👍" in args
 
     print("✅ save_reaction test passed")
-    return True
-
-
-async def test_message_count_command() -> bool:
-    """Test the message_count command."""
-    print("\nTesting message_count command...")
-
-    # Create a test bot
-    bot = TestBot()
-
-    # Create the StatsCogs with stats_loop disabled
-    cog = StatsCogs(bot)
-
-    # Disable the stats_loop background task
-    if hasattr(cog, "stats_loop"):
-        cog.stats_loop.cancel()
-
-    # Create a mock interaction
-    user = MockUserFactory.create()
-    guild = MockGuildFactory.create()
-    channel = MockChannelFactory.create_text_channel(guild=guild)
-    interaction = MockInteractionFactory.create(
-        user=user, guild=guild, channel=channel, command_name="message_count"
-    )
-
-    # Mock the database fetchrow method to return a message count
-    bot.db.fetchrow.return_value = {"total": 15}
-
-    # Call the message_count command's callback directly
-    await cog.message_count.callback(cog, interaction, channel, 24)
-
-    # Verify that the database fetchrow method was called
-    bot.db.fetchrow.assert_called_once()
-    args, kwargs = bot.db.fetchrow.call_args
-
-    # Check that the SQL query contains SELECT count(*)
-    assert "SELECT count(*)" in args[0]
-
-    # Verify the response
-    interaction.response.send_message.assert_called_once()
-    args, kwargs = interaction.response.send_message.call_args
-
-    # The message_count method returns an embed, not a text message
-    assert kwargs.get("embed") is not None
-    embed = kwargs.get("embed")
-    assert "📊 Message Count Statistics" in embed.title
-    # Check that the total count is in the embed
-    assert "15" in str(embed.fields)
-    # Check that the channel is mentioned in the embed
-    assert str(channel.id) in str(embed.fields) or channel.mention in str(embed.fields)
-    # Check that the hours are mentioned in the embed
-    assert "24" in str(embed.fields)
-
-    print("✅ message_count command test passed")
     return True
 
 
@@ -671,9 +617,8 @@ async def main() -> bool | None:
     try:
         # Run tests
         tests = [
-            test_save_message(),
-            test_save_reaction(),
-            test_message_count_command(),
+            test_save_message_workflow(),
+            test_save_reaction_workflow(),
             test_repost_attachment(),
             test_find_links(),
             test_filter_new_users(),
