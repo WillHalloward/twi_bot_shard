@@ -255,7 +255,7 @@ tzdata==2025.3
     # via faker
 uritemplate==4.1.1
     # via google-api-python-client
-urllib3==2.4.0
+urllib3==2.6.0
     # via requests
 virtualenv==20.35.4
     # via pre-commit
