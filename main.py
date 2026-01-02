@@ -898,10 +898,22 @@ async def main() -> None:
             f"Bot will automatically exit after {config.kill_after} seconds"
         )
 
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.load_verify_locations("ssl-cert/server-ca.pem")
-    context.load_cert_chain("ssl-cert/client-cert.pem", "ssl-cert/client-key.pem")
+    # Configure SSL based on environment (Railway vs GCP)
+    # Railway uses simple SSL, GCP uses custom certificates
+    database_url = os.getenv("DATABASE_URL")
+
+    if database_url:
+        # Railway environment - use simple SSL requirement
+        ssl_config = "require"
+        root_logger.info("Using Railway SSL configuration (ssl='require')")
+    else:
+        # GCP Cloud SQL - use custom SSL certificates
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.load_verify_locations("ssl-cert/server-ca.pem")
+        context.load_cert_chain("ssl-cert/client-cert.pem", "ssl-cert/client-key.pem")
+        ssl_config = context
+        root_logger.info("Using GCP Cloud SQL SSL configuration (custom certificates)")
 
     # Create HTTP client with connection pooling and aggressive cleanup
     http_client = HTTPClient(
@@ -917,7 +929,7 @@ async def main() -> None:
         user=config.DB_user,
         password=config.DB_password,
         host=config.host,
-        ssl=context,
+        ssl=ssl_config,
         command_timeout=300,
         min_size=5,  # Minimum number of connections
         max_size=20,  # Maximum number of connections

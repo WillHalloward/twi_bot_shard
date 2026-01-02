@@ -345,15 +345,45 @@ def load_from_env() -> BotConfig:
             missing_vars.append(name)
         return value
 
-    # Get required environment variables
-    bot_token = get_env("BOT_TOKEN", "", required=True)
-    host = get_env("HOST", "", required=True)
-    db_user = get_env("DB_USER", "", required=True)
-    db_password = get_env("DB_PASSWORD", "", required=True)
-    database = get_env("DATABASE", "", required=True)
+    # Check for Railway's DATABASE_URL first
+    database_url = get_env("DATABASE_URL")
+
+    if database_url:
+        # Parse Railway's DATABASE_URL format: postgresql://user:password@host:port/database
+        from urllib.parse import urlparse
+
+        parsed = urlparse(database_url)
+        host = parsed.hostname
+        port_str = str(parsed.port) if parsed.port else "5432"
+        db_user = parsed.username
+        db_password = parsed.password
+        database = parsed.path[1:]  # Remove leading '/'
+
+        # Bot token still required
+        bot_token = get_env("BOT_TOKEN", "", required=True)
+    else:
+        # Fall back to individual environment variables (for local development)
+        bot_token = get_env("BOT_TOKEN", "", required=True)
+
+        # Try PG* variables first (Railway individual vars), then fall back to custom names
+        host = get_env("PGHOST") or get_env("HOST")
+        db_user = get_env("PGUSER") or get_env("DB_USER")
+        db_password = get_env("PGPASSWORD") or get_env("DB_PASSWORD")
+        database = get_env("PGDATABASE") or get_env("DATABASE")
+        port_str = get_env("PGPORT") or get_env("PORT", "5432")
+
+        # Only mark as required if none of the alternatives are set
+        if not host:
+            missing_vars.append("HOST or PGHOST")
+        if not db_user:
+            missing_vars.append("DB_USER or PGUSER")
+        if not db_password:
+            missing_vars.append("DB_PASSWORD or PGPASSWORD")
+        if not database:
+            missing_vars.append("DATABASE or PGDATABASE")
 
     # Get optional environment variables with defaults
-    port = get_env("PORT", "5432")
+    port = port_str if database_url else (get_env("PORT") or "5432")
     kill_after = get_env("KILL_AFTER", "0")
     logfile = get_env("LOGFILE", "test")
     log_format = get_env("LOG_FORMAT", LogFormat.CONSOLE)
