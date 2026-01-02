@@ -13,14 +13,11 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv (fast Python package installer)
-RUN pip install --no-cache-dir uv
-
 # Copy dependency files first (for better caching)
 COPY pyproject.toml requirements.txt ./
 
-# Install Python dependencies using uv
-RUN uv pip install --system -r requirements.txt
+# Install Python dependencies directly with pip
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
