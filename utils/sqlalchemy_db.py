@@ -1,5 +1,6 @@
 """SQLAlchemy database connection and session management."""
 
+import os
 import ssl
 from collections.abc import AsyncGenerator
 
@@ -10,16 +11,35 @@ import config
 
 # Create SSL context
 def create_ssl_context():
-    """Create SSL context for database connection."""
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.load_verify_locations("ssl-cert/server-ca.pem")
-    context.load_cert_chain("ssl-cert/client-cert.pem", "ssl-cert/client-key.pem")
-    return context
+    """Create SSL context for database connection.
+
+    Returns:
+        SSL context for GCP Cloud SQL, or string 'require' for Railway.
+    """
+    # Check if we're on Railway (which provides DATABASE_URL)
+    database_url = os.getenv("DATABASE_URL")
+
+    if database_url:
+        # Railway environment - use simple SSL requirement
+        return "require"
+    else:
+        # GCP Cloud SQL - use custom SSL certificates
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.load_verify_locations("ssl-cert/server-ca.pem")
+        context.load_cert_chain("ssl-cert/client-cert.pem", "ssl-cert/client-key.pem")
+        return context
 
 
 # Connection URL
-DATABASE_URL = f"postgresql+asyncpg://{config.DB_user}:{config.DB_password}@{config.host}/{config.database}"
+# Use DATABASE_URL if available (Railway), otherwise build from individual components (GCP/local)
+database_url_env = os.getenv("DATABASE_URL")
+if database_url_env:
+    # Railway provides DATABASE_URL in postgres:// format, need to convert to postgresql+asyncpg://
+    DATABASE_URL = database_url_env.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    # Build from individual components for GCP/local development
+    DATABASE_URL = f"postgresql+asyncpg://{config.DB_user}:{config.DB_password}@{config.host}/{config.database}"
 
 # Create engine with SSL
 engine = create_async_engine(
