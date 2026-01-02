@@ -288,7 +288,7 @@ class ModCogs(commands.Cog):
             and message.guild.id == 346842016480755724
         ):
             if re.search(
-                "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
+                r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
                 message.content,
             ):
                 try:

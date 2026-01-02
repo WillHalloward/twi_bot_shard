@@ -63,7 +63,9 @@ logs/
 
 # Database dumps
 *.dump
+*.sql
 *.sql.gz
+backups/
 
 # OS
 .DS_Store

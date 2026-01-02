@@ -294,7 +294,7 @@ class Cognita(commands.Bot):
             try:
                 # Use a longer timeout (10 minutes) for database optimizations
                 await self.db.execute_script(
-                    "database/db_optimizations.sql", timeout=600.0
+                    "database/optimizations/base.sql", timeout=600.0
                 )
                 self.startup_times["db_optimizations"] = time.time() - start_time
                 self.logger.info(
@@ -316,7 +316,7 @@ class Cognita(commands.Bot):
             try:
                 # Use a longer timeout (5 minutes) for error telemetry table initialization
                 await self.db.execute_script(
-                    "database/error_telemetry.sql", timeout=300.0
+                    "database/utilities/error_telemetry.sql", timeout=300.0
                 )
                 self.startup_times["error_telemetry"] = time.time() - start_time
                 self.logger.info(
