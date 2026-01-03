@@ -88,6 +88,45 @@ def _extract_command_params(interaction: discord.Interaction, command) -> dict:
     return params
 
 
+def _format_app_command_parameter(param: Any) -> dict[str, Any]:
+    choices = []
+    for choice in getattr(param, "choices", []) or []:
+        name = getattr(choice, "name", None)
+        value = getattr(choice, "value", None)
+        if name is None and value is None:
+            continue
+        choices.append({"name": name, "value": value})
+
+    return {
+        "name": getattr(param, "name", None),
+        "required": getattr(param, "required", None),
+        "type": str(getattr(param, "type", None)),
+        "choices": choices or None,
+    }
+
+
+def _summarize_app_command(command: Any) -> dict[str, Any]:
+    summary = {
+        "name": getattr(command, "name", None),
+        "qualified_name": getattr(command, "qualified_name", None),
+        "type": str(getattr(command, "type", None)),
+    }
+
+    parameters = []
+    for param in getattr(command, "parameters", []) or []:
+        parameters.append(_format_app_command_parameter(param))
+    if parameters:
+        summary["parameters"] = parameters
+
+    subcommands = []
+    for sub in getattr(command, "commands", []) or []:
+        subcommands.append(_summarize_app_command(sub))
+    if subcommands:
+        summary["subcommands"] = subcommands
+
+    return summary
+
+
 # Patterns for sensitive information that should be redacted
 SENSITIVE_PATTERNS: list[Pattern] = [
     # API keys and tokens
@@ -870,6 +909,19 @@ async def handle_global_app_command_error(
                 "CommandSignatureMismatch payload: %s",
                 json.dumps(payload, default=str),
             )
+            command_summary = _summarize_app_command(interaction.command)
+            logger.error(
+                "CommandSignatureMismatch local command: %s",
+                json.dumps(command_summary, default=str),
+            )
+            if hasattr(interaction, "client"):
+                admin_group = interaction.client.tree.get_command("admin")
+                if admin_group:
+                    admin_summary = _summarize_app_command(admin_group)
+                    logger.error(
+                        "CommandSignatureMismatch local admin group: %s",
+                        json.dumps(admin_summary, default=str),
+                    )
         except Exception as exc:
             logger.error(
                 "Failed to log CommandSignatureMismatch payload: %s",
