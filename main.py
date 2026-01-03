@@ -13,6 +13,8 @@ import datetime
 import json
 import logging
 import logging.handlers
+import os
+import platform
 import ssl
 import sys
 import time
@@ -60,6 +62,45 @@ status = cycle(
         "Writing songs to ward off the departed",
     ]
 )
+
+
+def _get_git_sha() -> str | None:
+    env_keys = [
+        "RAILWAY_GIT_COMMIT_SHA",
+        "RAILWAY_GIT_COMMIT",
+        "GIT_SHA",
+        "COMMIT_SHA",
+        "SOURCE_COMMIT",
+    ]
+    for key in env_keys:
+        value = os.getenv(key)
+        if value:
+            return value
+
+    try:
+        with open(os.path.join(".git", "HEAD"), encoding="utf-8") as handle:
+            head = handle.read().strip()
+        if head.startswith("ref: "):
+            ref_path = os.path.join(".git", head.split(" ", 1)[1])
+            with open(ref_path, encoding="utf-8") as handle:
+                return handle.read().strip()
+        return head
+    except OSError:
+        return None
+
+
+def _format_sha(sha: str | None) -> str:
+    if not sha:
+        return "unknown"
+    return sha[:12]
+
+
+def get_build_info() -> dict[str, str]:
+    return {
+        "python": platform.python_version(),
+        "discord": discord.__version__,
+        "git": _format_sha(_get_git_sha()),
+    }
 
 
 class Cognita(commands.Bot):
@@ -861,8 +902,6 @@ async def main() -> None:
     discord_logger.handlers.clear()
 
     # Create handler for file logging
-    import os
-
     # Ensure logs directory exists
     os.makedirs("logs", exist_ok=True)
     handler = logging.handlers.RotatingFileHandler(
@@ -891,6 +930,13 @@ async def main() -> None:
     root_logger.addHandler(console_handler)
 
     root_logger.info("Logging started...")
+    build = get_build_info()
+    root_logger.info(
+        "Build info: "
+        f"python={build['python']} "
+        f"discord={build['discord']} "
+        f"git={build['git']}"
+    )
 
     # Log the KILL_AFTER setting
     if config.kill_after > 0:
