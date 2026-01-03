@@ -855,6 +855,27 @@ async def handle_global_app_command_error(
         interaction: The interaction context
         error: The error that occurred
     """
+    if isinstance(error, discord.app_commands.errors.CommandSignatureMismatch):
+        try:
+            payload = {
+                "guild_id": interaction.guild_id,
+                "channel_id": getattr(interaction, "channel_id", None),
+                "command": getattr(interaction.command, "qualified_name", None),
+                "command_id": interaction.data.get("id")
+                if isinstance(interaction.data, dict)
+                else None,
+                "data": interaction.data,
+            }
+            logger.error(
+                "CommandSignatureMismatch payload: %s",
+                json.dumps(payload, default=str),
+            )
+        except Exception as exc:
+            logger.error(
+                "Failed to log CommandSignatureMismatch payload: %s",
+                exc,
+            )
+
     # Check if this is a CommandNotFound error and attempt lazy loading
     if isinstance(error, discord.app_commands.errors.CommandNotFound):
         # Extract command name from the error message
