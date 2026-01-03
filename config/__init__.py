@@ -38,6 +38,24 @@ load_dotenv()
 ENVIRONMENT = os.getenv("ENVIRONMENT", Environment.DEVELOPMENT)
 
 
+def _parse_log_level_override() -> int | None:
+    raw = os.getenv("LOG_LEVEL") or os.getenv("LOGGING_LEVEL")
+    if raw is None or raw.strip() == "":
+        return None
+
+    value = raw.strip()
+    if value.isdigit():
+        return int(value)
+
+    name = value.upper()
+    if name in logging._nameToLevel:
+        return logging._nameToLevel[name]
+
+    raise ValueError(
+        f"Invalid LOG_LEVEL value: {raw}. Use DEBUG, INFO, WARNING, ERROR, CRITICAL, or a numeric level."
+    )
+
+
 # Base configuration model with validation
 class BotConfig(BaseModel):
     """Base configuration model with validation.
@@ -519,6 +537,10 @@ elif ENVIRONMENT == Environment.PRODUCTION:
     config.logging_level = logging.WARNING
 else:
     raise ValueError(f"Unknown environment: {ENVIRONMENT}")
+
+log_level_override = _parse_log_level_override()
+if log_level_override is not None:
+    config.logging_level = log_level_override
 
 # Export configuration variables for backward compatibility
 bot_token = config.bot_token
