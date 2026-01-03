@@ -241,6 +241,21 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         )
 
     async def cog_load(self) -> None:
+        # Bind commands in the gallery_admin group to this cog instance
+        # Commands added to external groups don't get automatically bound
+        cog_method_names = {
+            "set_repost",
+            "extract_gallery_data",
+            "gallery_migration_stats",
+            "review_gallery_entries",
+            "update_gallery_tags",
+            "mark_entry_reviewed",
+        }
+
+        for cmd in gallery_admin.commands:
+            if cmd.callback.__name__ in cog_method_names:
+                cmd.binding = self
+
         # Use repository to load gallery mementos
         self.repost_cache = await self.gallery_repo.get_all()
 

@@ -354,6 +354,14 @@ class OtherCogs(commands.Cog, name="Other"):
         for use in commands and autocomplete. It also initiates the
         AO3 login process in the background.
         """
+        # Bind commands in the admin group to this cog instance
+        # Commands added to external groups don't get automatically bound
+        cog_method_names = {"ao3_status", "set_pin_channels"}
+
+        for cmd in admin.commands:
+            if cmd.callback.__name__ in cog_method_names:
+                cmd.binding = self
+
         self.quote_cache = await self.bot.db.fetch(
             "SELECT quote, row_number FROM (SELECT quote, ROW_NUMBER () OVER () FROM quotes) x"
         )

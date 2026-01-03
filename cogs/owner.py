@@ -51,6 +51,31 @@ class OwnerCog(commands.Cog, name="Owner"):
     def __init__(self, bot) -> None:
         self.bot = bot
 
+    async def cog_load(self) -> None:
+        """Bind commands in the admin group to this cog instance.
+
+        Commands added to external groups via @admin.command() don't get
+        automatically bound to the cog instance. This causes TypeError when
+        invoked because the callback expects 'self' but receives none.
+        """
+        # Get all command names defined in this cog that use the admin group
+        cog_method_names = {
+            "load_cog",
+            "unload_cog",
+            "reload_cog",
+            "cmd",
+            "sync",
+            "exit",
+            "resources",
+            "sql_query",
+            "ask_database",
+        }
+
+        for cmd in admin.commands:
+            # Check if this command's callback belongs to this cog
+            if cmd.callback.__name__ in cog_method_names:
+                cmd.binding = self
+
     @admin.command(name="load", description="Load a Discord bot extension/cog")
     @commands.is_owner()
     @handle_interaction_errors

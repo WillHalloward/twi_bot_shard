@@ -25,6 +25,19 @@ class ModCogs(commands.Cog):
         self.logger = logging.getLogger(__name__)
         self.webhook_manager = WebhookManager(bot.http_client)
 
+    async def cog_load(self) -> None:
+        """Bind commands in the mod group to this cog instance.
+
+        Commands added to external groups via @mod.command() don't get
+        automatically bound to the cog instance. This causes TypeError when
+        invoked because the callback expects 'self' but receives none.
+        """
+        cog_method_names = {"reset", "state"}
+
+        for cmd in mod.commands:
+            if cmd.callback.__name__ in cog_method_names:
+                cmd.binding = self
+
     @mod.command(
         name="reset", description="Resets the cooldown of a command for a user"
     )
