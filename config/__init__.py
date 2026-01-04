@@ -212,6 +212,10 @@ class BotConfig(BaseModel):
     webhooks_enabled: bool = Field(
         True, description="Whether to send webhooks (disabled in staging by default)"
     )
+    sync_on_start: bool = Field(
+        False,
+        description="Whether to sync commands globally on startup (set via SYNC_ON_START)",
+    )
 
     # Class variables to track configuration
     _sensitive_fields: set[str] = {
@@ -451,6 +455,8 @@ def load_from_env() -> BotConfig:
     staging_guild_id = int(staging_guild_id_str) if staging_guild_id_str else None
     webhooks_enabled_str = get_env("WEBHOOKS_ENABLED", "true")
     webhooks_enabled = webhooks_enabled_str.lower() not in ("false", "0", "no")
+    sync_on_start_str = get_env("SYNC_ON_START", "false")
+    sync_on_start = sync_on_start_str.lower() in ("true", "1", "yes")
 
     # Check for missing required variables
     if missing_vars:
@@ -527,6 +533,7 @@ def load_from_env() -> BotConfig:
             role_ids=role_ids,
             staging_guild_id=staging_guild_id,
             webhooks_enabled=webhooks_enabled,
+            sync_on_start=sync_on_start,
         )
     except ValueError as e:
         # Add more context to validation errors
@@ -610,6 +617,7 @@ fallback_admin_role_id = config.fallback_admin_role_id
 # Staging environment exports
 staging_guild_id = config.staging_guild_id
 webhooks_enabled = config.webhooks_enabled
+sync_on_start = config.sync_on_start
 
 
 # Helper functions for environment checks

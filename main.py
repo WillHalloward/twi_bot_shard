@@ -695,6 +695,15 @@ class Cognita(commands.Bot):
             except Exception as e:
                 logging.error(f"STAGING: Failed to sync commands to staging guild: {e}")
 
+        # Global sync on startup (one-time use via SYNC_ON_START env var)
+        if config.sync_on_start:
+            try:
+                logging.info("SYNC_ON_START enabled - syncing commands globally...")
+                synced = await self.tree.sync()
+                logging.info(f"SYNC_ON_START: Synced {len(synced)} commands globally")
+            except Exception as e:
+                logging.error(f"SYNC_ON_START: Failed to sync commands globally: {e}")
+
     # Error handling is now managed by setup_global_exception_handler
 
     async def on_app_command_completion(
