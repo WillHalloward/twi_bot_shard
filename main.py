@@ -47,19 +47,21 @@ from utils.repository_factory import RepositoryFactory
 from utils.service_container import ServiceContainer
 from utils.sqlalchemy_db import async_session_maker
 
+# Status messages with optional environment prefix for non-production
+_status_prefix = config.get_bot_status_prefix()
 status = cycle(
     [
-        "Killing the mages of Wistram",
-        "Cleaning up a mess",
-        "Hiding corpses",
-        "Mending Pirateaba's broken hands",
-        "Hoarding knowledge",
-        "Dusting off priceless artifacts",
-        "Praying for Mating Rituals 4",
-        "Plotting demise of nosy half-elfs",
-        "Humming while dusting the graves",
-        "Harmonizing the tombstones",
-        "Writing songs to ward off the departed",
+        f"{_status_prefix}Killing the mages of Wistram",
+        f"{_status_prefix}Cleaning up a mess",
+        f"{_status_prefix}Hiding corpses",
+        f"{_status_prefix}Mending Pirateaba's broken hands",
+        f"{_status_prefix}Hoarding knowledge",
+        f"{_status_prefix}Dusting off priceless artifacts",
+        f"{_status_prefix}Praying for Mating Rituals 4",
+        f"{_status_prefix}Plotting demise of nosy half-elfs",
+        f"{_status_prefix}Humming while dusting the graves",
+        f"{_status_prefix}Harmonizing the tombstones",
+        f"{_status_prefix}Writing songs to ward off the departed",
     ]
 )
 
@@ -308,6 +310,23 @@ class Cognita(commands.Bot):
 
         # Task 6: Load critical extensions
         await self.load_extensions()
+
+        # Task 6.5: Handle staging environment command sync
+        if config.is_staging() and config.staging_guild_id:
+            self.logger.info(
+                f"STAGING MODE: Commands will be synced to guild {config.staging_guild_id}"
+            )
+            # Store staging guild for later use
+            self._staging_guild = discord.Object(id=config.staging_guild_id)
+        else:
+            self._staging_guild = None
+
+        if config.is_staging():
+            self.logger.warning(
+                "Bot running in STAGING mode - "
+                f"webhooks_enabled={config.webhooks_enabled}, "
+                f"staging_guild_id={config.staging_guild_id}"
+            )
 
         # Task 7: Set up global exception handlers
         start_time = time.time()
@@ -620,8 +639,8 @@ class Cognita(commands.Bot):
             await self.db.execute(
                 """
                 INSERT INTO bot_metrics(
-                    timestamp, 
-                    metric_type, 
+                    timestamp,
+                    metric_type,
                     metric_data
                 )
                 VALUES($1, $2, $3)
@@ -661,9 +680,20 @@ class Cognita(commands.Bot):
         """Event handler that is called when the bot is ready and connected to Discord.
 
         This method logs information about the bot's identity once it has successfully
-        connected to Discord.
+        connected to Discord. In staging mode, it also syncs commands to the staging guild.
         """
         logging.info(f"Logged in as {self.user.name} (ID: {self.user.id})")
+
+        # In staging mode, sync commands to staging guild only
+        if config.is_staging() and hasattr(self, "_staging_guild") and self._staging_guild:
+            try:
+                self.tree.copy_global_to(guild=self._staging_guild)
+                synced = await self.tree.sync(guild=self._staging_guild)
+                logging.info(
+                    f"STAGING: Synced {len(synced)} commands to guild {self._staging_guild.id}"
+                )
+            except Exception as e:
+                logging.error(f"STAGING: Failed to sync commands to staging guild: {e}")
 
     # Error handling is now managed by setup_global_exception_handler
 
@@ -692,11 +722,11 @@ class Cognita(commands.Bot):
                 try:
                     await self.db.execute(
                         """
-                        UPDATE command_history 
-                        SET 
-                            run_time=$1, 
+                        UPDATE command_history
+                        SET
+                            run_time=$1,
                             finished_successfully=TRUE,
-                            end_date=$2 
+                            end_date=$2
                         WHERE serial=$3
                         """,
                         run_time,
@@ -759,13 +789,13 @@ class Cognita(commands.Bot):
 
         sql_query = """
             INSERT INTO command_history(
-                start_date, 
-                user_id, 
-                command_name, 
-                channel_id, 
-                guild_id, 
-                slash_command, 
-                args, 
+                start_date,
+                user_id,
+                command_name,
+                channel_id,
+                guild_id,
+                slash_command,
+                args,
                 started_successfully
             )
             VALUES($1, $2, $3, $4, $5, $6, $7, $8)

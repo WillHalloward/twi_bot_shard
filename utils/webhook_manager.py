@@ -4,11 +4,22 @@ from contextlib import asynccontextmanager
 
 from discord import Webhook
 
+import config
+
+
+class _DisabledWebhook:
+    """A no-op webhook that silently ignores all operations when webhooks are disabled."""
+
+    async def send(self, *args, **kwargs):
+        """Silently ignore send operations."""
+        pass
+
 
 class WebhookManager:
     def __init__(self, http_client) -> None:
         self.http_client = http_client
         self.logger = logging.getLogger(__name__)
+        self._disabled_webhook = _DisabledWebhook()
 
     @asynccontextmanager
     async def get_webhook(self, webhook_url: str, max_retries: int = 2):
@@ -19,8 +30,14 @@ class WebhookManager:
             max_retries: Maximum number of retries on session errors
 
         Yields:
-            discord.Webhook: Ready-to-use webhook instance
+            discord.Webhook: Ready-to-use webhook instance, or a no-op webhook if disabled
         """
+        # In staging mode with webhooks disabled, return a no-op webhook
+        if not config.webhooks_enabled:
+            self.logger.debug("Webhooks disabled - skipping webhook operation")
+            yield self._disabled_webhook
+            return
+
         session = None
         retry_count = 0
 

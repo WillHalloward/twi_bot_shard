@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 class Environment(str, Enum):
     DEVELOPMENT = "development"
     TESTING = "testing"
+    STAGING = "staging"
     PRODUCTION = "production"
 
 
@@ -202,6 +203,15 @@ class BotConfig(BaseModel):
         346842161704075265, description="Inn General channel ID"
     )
     bot_channel_id: int = Field(361694671631548417, description="Bot channel ID")
+
+    # Staging environment settings
+    staging_guild_id: int | None = Field(
+        None,
+        description="Guild ID to restrict commands to in staging mode (set via STAGING_GUILD_ID)",
+    )
+    webhooks_enabled: bool = Field(
+        True, description="Whether to send webhooks (disabled in staging by default)"
+    )
 
     # Class variables to track configuration
     _sensitive_fields: set[str] = {
@@ -436,6 +446,12 @@ def load_from_env() -> BotConfig:
     # Secret encryption key
     secret_encryption_key = get_env("SECRET_ENCRYPTION_KEY")
 
+    # Staging environment settings
+    staging_guild_id_str = get_env("STAGING_GUILD_ID")
+    staging_guild_id = int(staging_guild_id_str) if staging_guild_id_str else None
+    webhooks_enabled_str = get_env("WEBHOOKS_ENABLED", "true")
+    webhooks_enabled = webhooks_enabled_str.lower() not in ("false", "0", "no")
+
     # Check for missing required variables
     if missing_vars:
         raise ValueError(
@@ -509,6 +525,8 @@ def load_from_env() -> BotConfig:
             headers=headers,
             channel_ids=channel_ids,
             role_ids=role_ids,
+            staging_guild_id=staging_guild_id,
+            webhooks_enabled=webhooks_enabled,
         )
     except ValueError as e:
         # Add more context to validation errors
@@ -531,6 +549,13 @@ elif ENVIRONMENT == Environment.TESTING:
     # Override settings for testing environment
     config.logfile = "test"
     config.logging_level = logging.DEBUG
+elif ENVIRONMENT == Environment.STAGING:
+    config = load_from_env()
+    # Override settings for staging environment
+    config.logging_level = logging.INFO
+    # Disable webhooks by default in staging unless explicitly enabled
+    if os.getenv("WEBHOOKS_ENABLED") is None:
+        config.webhooks_enabled = False
 elif ENVIRONMENT == Environment.PRODUCTION:
     config = load_from_env()
     # Override settings for production environment
@@ -581,3 +606,46 @@ inn_general_channel_id = config.inn_general_channel_id
 password_allowed_channel_ids = config.password_allowed_channel_ids
 bot_owner_id = config.bot_owner_id
 fallback_admin_role_id = config.fallback_admin_role_id
+
+# Staging environment exports
+staging_guild_id = config.staging_guild_id
+webhooks_enabled = config.webhooks_enabled
+
+
+# Helper functions for environment checks
+def is_staging() -> bool:
+    """Check if the bot is running in staging mode."""
+    return ENVIRONMENT == Environment.STAGING
+
+
+def is_production() -> bool:
+    """Check if the bot is running in production mode."""
+    return ENVIRONMENT == Environment.PRODUCTION
+
+
+def is_development() -> bool:
+    """Check if the bot is running in development mode."""
+    return ENVIRONMENT == Environment.DEVELOPMENT
+
+
+def get_environment() -> Environment:
+    """Get the current environment."""
+    return Environment(ENVIRONMENT)
+
+
+def get_bot_status_prefix() -> str:
+    """Get the status prefix for the bot based on environment.
+
+    Returns:
+        str: Empty string for production, "[STAGING] " for staging,
+             "[DEV] " for development, "[TEST] " for testing.
+    """
+    if ENVIRONMENT == Environment.PRODUCTION:
+        return ""
+    elif ENVIRONMENT == Environment.STAGING:
+        return "[STAGING] "
+    elif ENVIRONMENT == Environment.DEVELOPMENT:
+        return "[DEV] "
+    elif ENVIRONMENT == Environment.TESTING:
+        return "[TEST] "
+    return f"[{ENVIRONMENT}] "
