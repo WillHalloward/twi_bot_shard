@@ -787,21 +787,61 @@ class Cognita(commands.Bot):
         )  # Convert options to JSON string
         start_date = datetime.datetime.now()
 
-        sql_query = """
-            INSERT INTO command_history(
-                start_date,
-                user_id,
-                command_name,
-                channel_id,
-                guild_id,
-                slash_command,
-                args,
-                started_successfully
-            )
-            VALUES($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING serial
-            """
         try:
+            # Ensure user exists before inserting command history (foreign key constraint)
+            await self.db.execute(
+                """
+                INSERT INTO users (user_id, username, bot, created_at)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (user_id) DO UPDATE SET username = $2
+                """,
+                user_id,
+                interaction.user.name,
+                interaction.user.bot,
+                interaction.user.created_at.replace(tzinfo=None),
+            )
+
+            # Ensure server exists (foreign key constraint)
+            if guild_id and interaction.guild:
+                await self.db.execute(
+                    """
+                    INSERT INTO servers (server_id, server_name, creation_date)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (server_id) DO UPDATE SET server_name = $2
+                    """,
+                    guild_id,
+                    interaction.guild.name,
+                    interaction.guild.created_at.replace(tzinfo=None),
+                )
+
+            # Ensure channel exists (foreign key constraint)
+            if channel_id and interaction.channel:
+                await self.db.execute(
+                    """
+                    INSERT INTO channels (id, name, guild_id, created_at)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (id) DO UPDATE SET name = $2
+                    """,
+                    channel_id,
+                    interaction.channel.name,
+                    guild_id,
+                    interaction.channel.created_at.replace(tzinfo=None),
+                )
+
+            sql_query = """
+                INSERT INTO command_history(
+                    start_date,
+                    user_id,
+                    command_name,
+                    channel_id,
+                    guild_id,
+                    slash_command,
+                    args,
+                    started_successfully
+                )
+                VALUES($1, $2, $3, $4, $5, $6, $7, $8)
+                RETURNING serial
+                """
             serial = await self.db.fetchval(
                 sql_query,
                 start_date,
