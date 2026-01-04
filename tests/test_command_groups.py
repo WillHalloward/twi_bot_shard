@@ -8,7 +8,6 @@ to share common command namespaces for better organization.
 
 import os
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -25,6 +24,42 @@ from utils.command_groups import admin, gallery_admin, mod
 
 # Import test utilities
 from tests.test_utils import TestSetup
+
+# Force import cogs to populate command groups with their commands
+# This ensures the groups have their expected commands before tests run
+# pylint: disable=unused-import
+import cogs.owner  # noqa: F401 - adds commands to admin group
+import cogs.mods  # noqa: F401 - adds commands to mod group
+import cogs.gallery  # noqa: F401 - adds commands to gallery_admin group
+import cogs.other  # noqa: F401 - adds commands to admin group
+
+
+@pytest.fixture
+def reset_command_groups():
+    """Reset command groups before and after tests to prevent pollution.
+
+    This fixture clears all commands from the groups before the test
+    and after the test to ensure test isolation.
+    """
+    # Store original commands
+    original_admin = list(admin.commands)
+    original_mod = list(mod.commands)
+    original_gallery_admin = list(gallery_admin.commands)
+
+    yield
+
+    # Clear all commands added during the test
+    for cmd in list(admin.commands):
+        if cmd not in original_admin:
+            admin.remove_command(cmd.name)
+
+    for cmd in list(mod.commands):
+        if cmd not in original_mod:
+            mod.remove_command(cmd.name)
+
+    for cmd in list(gallery_admin.commands):
+        if cmd not in original_gallery_admin:
+            gallery_admin.remove_command(cmd.name)
 
 
 class TestCommandGroupDefinitions:
@@ -118,6 +153,7 @@ class TestCommandGroupRegistration:
         await bot.close()
 
 
+@pytest.mark.usefixtures("reset_command_groups")
 class TestCommandGroupUsage:
     """Tests for using command groups in cogs."""
 
@@ -336,13 +372,13 @@ class TestCommandGroupIntegration:
         await bot.close()
 
 
+@pytest.mark.usefixtures("reset_command_groups")
 class TestCommandGroupInvocation:
     """Tests for invoking commands through groups."""
 
     @pytest.mark.asyncio
     async def test_grouped_command_callback_pattern(self):
         """Test the callback pattern for invoking grouped commands."""
-        from unittest.mock import AsyncMock
 
         from tests.mock_factories import MockInteractionFactory
 
@@ -417,6 +453,143 @@ class TestCommandGroupInvocation:
 
         # Cleanup
         await bot.remove_cog("TestDeferCog")
+        bot.tree.remove_command("admin")
+        await bot.close()
+
+
+@pytest.mark.usefixtures("reset_command_groups")
+class TestCommandGroupBinding:
+    """Tests for command binding to cog instances.
+
+    Commands added to external groups via @group.command() don't automatically
+    get bound to their cog instances. The cog_load() method must manually bind
+    them to prevent TypeError when invoked.
+    """
+
+    @pytest.mark.asyncio
+    async def test_external_group_commands_need_manual_binding(self):
+        """Test that commands in external groups start with binding=None."""
+
+        class TestCog(commands.Cog):
+            def __init__(self, bot):
+                self.bot = bot
+
+            @admin.command(name="binding_test", description="Test binding")
+            async def binding_test(self, interaction: discord.Interaction):
+                await interaction.response.send_message("Test")
+
+        # Create bot and register group
+        bot = await TestSetup.create_test_bot()
+        bot.tree.add_command(admin)
+
+        # Before cog is loaded, find our command
+        cmd = None
+        for c in admin.commands:
+            if c.name == "binding_test":
+                cmd = c
+                break
+
+        assert cmd is not None, "Command should exist in group after decoration"
+        # Command binding is None before cog_load sets it
+        assert cmd.binding is None, "External group commands start with binding=None"
+
+        # Cleanup
+        admin.remove_command("binding_test")
+        bot.tree.remove_command("admin")
+        await bot.close()
+
+    @pytest.mark.asyncio
+    async def test_cog_load_binds_commands(self):
+        """Test that cog_load() properly binds commands to cog instance."""
+
+        class TestBindingCog(commands.Cog):
+            def __init__(self, bot):
+                self.bot = bot
+
+            async def cog_load(self) -> None:
+                """Bind commands to this cog instance."""
+                for cmd in admin.commands:
+                    if cmd.callback.__name__ == "bound_command":
+                        cmd.binding = self
+
+            @admin.command(name="bound_cmd", description="Test bound command")
+            async def bound_command(self, interaction: discord.Interaction):
+                await interaction.response.send_message("Bound!")
+
+        # Create bot and register group
+        bot = await TestSetup.create_test_bot()
+        bot.tree.add_command(admin)
+
+        # Create and load cog
+        test_cog = TestBindingCog(bot)
+        await bot.add_cog(test_cog)
+
+        # Find our command
+        cmd = None
+        for c in admin.commands:
+            if c.name == "bound_cmd":
+                cmd = c
+                break
+
+        assert cmd is not None, "Command should exist"
+        assert cmd.binding is test_cog, "Command should be bound to cog instance after cog_load()"
+
+        # Cleanup
+        await bot.remove_cog("TestBindingCog")
+        admin.remove_command("bound_cmd")
+        bot.tree.remove_command("admin")
+        await bot.close()
+
+    @pytest.mark.asyncio
+    async def test_bound_command_can_access_self(self):
+        """Test that properly bound commands can access self (cog instance)."""
+        from tests.mock_factories import MockInteractionFactory
+
+        class TestSelfAccessCog(commands.Cog):
+            def __init__(self, bot):
+                self.bot = bot
+                self.was_called = False
+
+            async def cog_load(self) -> None:
+                for cmd in admin.commands:
+                    if cmd.callback.__name__ == "self_access_cmd":
+                        cmd.binding = self
+
+            @admin.command(name="self_access", description="Test self access")
+            async def self_access_cmd(self, interaction: discord.Interaction):
+                # This should work because self is properly bound
+                self.was_called = True
+                await interaction.response.send_message(f"Bot: {self.bot}")
+
+        # Create bot and register group
+        bot = await TestSetup.create_test_bot()
+        bot.tree.add_command(admin)
+
+        # Create and load cog
+        test_cog = TestSelfAccessCog(bot)
+        await bot.add_cog(test_cog)
+
+        # Create mock interaction and invoke via callback
+        interaction = MockInteractionFactory.create()
+
+        # Find command and invoke it properly (simulating discord.py's invocation)
+        cmd = None
+        for c in admin.commands:
+            if c.name == "self_access":
+                cmd = c
+                break
+
+        assert cmd is not None
+        assert cmd.binding is test_cog
+
+        # Invoke using the binding (this is what discord.py does internally)
+        await cmd.callback(cmd.binding, interaction)
+
+        assert test_cog.was_called is True, "Command should have accessed self"
+
+        # Cleanup
+        await bot.remove_cog("TestSelfAccessCog")
+        admin.remove_command("self_access")
         bot.tree.remove_command("admin")
         await bot.close()
 

@@ -1,4 +1,10 @@
 import json
+import sys
+from pathlib import Path
+
+# Add project root to path for imports
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 import faiss
 import numpy as np
@@ -6,9 +12,9 @@ from openai import OpenAI
 
 import config
 
-SCHEMA_FILE = ".cache/faiss/schema_descriptions.txt"
-INDEX_FILE = ".cache/faiss/schema_index.faiss"
-LOOKUP_FILE = ".cache/faiss/schema_lookup.json"
+SCHEMA_FILE = project_root / ".cache/faiss/schema_descriptions.txt"
+INDEX_FILE = project_root / ".cache/faiss/schema_index.faiss"
+LOOKUP_FILE = project_root / ".cache/faiss/schema_lookup.json"
 EMBEDDING_MODEL = "text-embedding-3-small"
 
 
@@ -33,16 +39,19 @@ def build_faiss_index(vectors: list[list[float]]) -> faiss.IndexFlatL2:
     return index
 
 
-def save_index(index: faiss.IndexFlatL2, filename: str) -> None:
-    faiss.write_index(index, filename)
+def save_index(index: faiss.IndexFlatL2, filename: str | Path) -> None:
+    faiss.write_index(index, str(filename))
 
 
-def save_lookup(mapping: dict[int, str], filename: str) -> None:
+def save_lookup(mapping: dict[int, str], filename: str | Path) -> None:
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(mapping, f, indent=2)
 
 
 def main() -> None:
+    # Ensure output directory exists
+    INDEX_FILE.parent.mkdir(parents=True, exist_ok=True)
+
     print("🔄 Loading schema...")
     schema_chunks = load_schema_chunks()
 

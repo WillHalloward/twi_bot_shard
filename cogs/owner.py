@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import re
 import shlex
 import subprocess
@@ -179,7 +180,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             raise ExternalServiceError(message=error_msg)
 
     @load_cog.autocomplete("cog")
-    async def reload_cog_autocomplete(
+    async def load_cog_autocomplete(
         self,
         interaction: discord.Interaction,
         current: str,
@@ -285,7 +286,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             raise ExternalServiceError(message=error_msg)
 
     @unload_cog.autocomplete("cog")
-    async def reload_cog_autocomplete(
+    async def unload_cog_autocomplete(
         self,
         interaction: discord.Interaction,
         current: str,
@@ -1272,6 +1273,17 @@ class OwnerCog(commands.Cog, name="Owner"):
             )
 
             try:
+                # Check if FAISS index files exist before attempting to query
+                if not os.path.exists(INDEX_FILE) or not os.path.exists(LOOKUP_FILE):
+                    logging.error(
+                        f"OWNER ASK_DB ERROR: FAISS index files not found: "
+                        f"INDEX_FILE={INDEX_FILE} exists={os.path.exists(INDEX_FILE)}, "
+                        f"LOOKUP_FILE={LOOKUP_FILE} exists={os.path.exists(LOOKUP_FILE)}"
+                    )
+                    raise ExternalServiceError(
+                        message="❌ Database schema index not available. Run `build_faiss_index.py` to create it."
+                    )
+
                 relevant_schema = query_faiss(question, INDEX_FILE, LOOKUP_FILE, TOP_K)
                 if not relevant_schema:
                     raise ExternalServiceError(
@@ -1280,11 +1292,8 @@ class OwnerCog(commands.Cog, name="Owner"):
                 logging.info(
                     f"OWNER ASK_DB: Found {len(relevant_schema)} relevant schema entries"
                 )
-            except FileNotFoundError as e:
-                logging.error(f"OWNER ASK_DB ERROR: FAISS index files not found: {e}")
-                raise ExternalServiceError(
-                    message="❌ Database schema index not available. Please contact administrator."
-                )
+            except ExternalServiceError:
+                raise  # Re-raise our own errors without wrapping
             except Exception as e:
                 logging.error(f"OWNER ASK_DB ERROR: FAISS query failed: {e}")
                 raise ExternalServiceError(message=f"❌ Schema search failed: {str(e)}")

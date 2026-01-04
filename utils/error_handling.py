@@ -472,6 +472,11 @@ ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
         "log_level": logging.WARNING,
         "ephemeral": True,
     },
+    discord.app_commands.errors.CheckFailure: {
+        "message": "This command can only be used in specific channels.",
+        "log_level": logging.DEBUG,
+        "ephemeral": True,
+    },
     commands.NoPrivateMessage: {
         "message": "This command cannot be used in private messages.",
         "log_level": logging.INFO,
@@ -561,7 +566,7 @@ async def track_error(
         return await bot.db.fetchval(
             """
             INSERT INTO error_telemetry(
-                error_type, command_name, user_id, error_message, 
+                error_type, command_name, user_id, error_message,
                 guild_id, channel_id, timestamp
             )
             VALUES($1, $2, $3, $4, $5, $6, $7)
@@ -644,13 +649,16 @@ def log_error(
         except Exception as e:
             logger.error(f"Failed to serialize error context: {e}")
 
-    # For unexpected errors, log the full traceback (but exclude CommandOnCooldown)
+    # For unexpected errors, log the full traceback (but exclude expected errors)
     if (
         isinstance(error, Exception)
         and not isinstance(error, CognitaError)
         and not isinstance(
             error,
-            commands.CommandOnCooldown | discord.app_commands.errors.CommandOnCooldown,
+            commands.CommandOnCooldown
+            | discord.app_commands.errors.CommandOnCooldown
+            | commands.CheckFailure
+            | discord.app_commands.errors.CheckFailure,
         )
     ):
         error_details = "".join(

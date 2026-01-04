@@ -46,7 +46,10 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
-.cache
+# Ignore cache contents but allow specific subdirs
+.cache/*
+# Keep FAISS index files for /ask_db command
+!.cache/faiss/
 nosetests.xml
 coverage.xml
 *.cover
