@@ -3919,6 +3919,32 @@ class OtherCogs(commands.Cog, name="Other"):
             )
             raise DatabaseError(message=error_msg) from e
 
+    @app_commands.command(name="pat", description="Give Cognita a pat for a job well done!")
+    async def pat(self, interaction: discord.Interaction) -> None:
+        """Pat the bot to show appreciation.
+
+        Args:
+            interaction: The Discord interaction object
+        """
+        responses = [
+            "...Your gesture is acknowledged.",
+            "*The stone is cool to the touch, but not unwelcoming.*",
+            "I have endured the spells of Archmages. A pat is... acceptable.",
+            "You are either very brave or very foolish. I appreciate both qualities.",
+            "*Her emerald eyes blink once.* Thank you.",
+            "I have stood for centuries. This is the first pat in quite some time.",
+            "Zelkyr never patted me. I am uncertain how to process this.",
+            "*Her expression remains impassive, but something shifts in those emerald eyes.*",
+            "Your appreciation is noted and... welcome.",
+            "I could crush you with a single hand. Instead, I shall accept this gesture.",
+            "*The faintest hint of warmth emanates from the Truestone.* ...Acknowledged.",
+            "You would pat a being who has slain Archmages? Bold.",
+            "I am made of stone. And yet... that was not unpleasant.",
+        ]
+        response = random.choice(responses)
+        logging.info(f"OTHER PAT: User {interaction.user.id} patted the bot")
+        await interaction.response.send_message(response)
+
 
 async def setup(bot: commands.Bot) -> None:
     """Set up the OtherCogs cog.
