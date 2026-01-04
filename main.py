@@ -704,6 +704,29 @@ class Cognita(commands.Bot):
             except Exception as e:
                 logging.error(f"SYNC_ON_START: Failed to sync commands globally: {e}")
 
+    @commands.command(name="sync")
+    @commands.is_owner()
+    async def prefix_sync(self, ctx: commands.Context, guild_id: int | None = None):
+        """Sync slash commands globally or to a specific guild. Owner only.
+
+        Usage:
+            !sync - Sync commands globally
+            !sync <guild_id> - Sync commands to a specific guild
+        """
+        try:
+            if guild_id:
+                guild = discord.Object(id=guild_id)
+                self.tree.copy_global_to(guild=guild)
+                synced = await self.tree.sync(guild=guild)
+                await ctx.send(f"Synced {len(synced)} commands to guild {guild_id}")
+            else:
+                synced = await self.tree.sync()
+                await ctx.send(f"Synced {len(synced)} commands globally")
+            logging.info(f"!sync: Synced {len(synced)} commands {'to guild ' + str(guild_id) if guild_id else 'globally'}")
+        except Exception as e:
+            await ctx.send(f"Failed to sync: {e}")
+            logging.error(f"!sync failed: {e}")
+
     # Error handling is now managed by setup_global_exception_handler
 
     async def on_app_command_completion(
