@@ -49,8 +49,8 @@ async def save_reaction(self, reaction: discord.Reaction) -> None:
                 # Execute batch insert
                 await self.bot.db.execute_many(
                     """
-                    INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                    INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
                     ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
                     """,
                     reaction_data,
@@ -76,8 +76,8 @@ async def save_reaction(self, reaction: discord.Reaction) -> None:
                 # Execute batch insert
                 await self.bot.db.execute_many(
                     """
-                    INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                    INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
                     ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
                     """,
                     reaction_data,
@@ -103,8 +103,8 @@ async def save_reaction(self, reaction: discord.Reaction) -> None:
                 # Execute batch insert
                 await self.bot.db.execute_many(
                     """
-                    INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                    INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
                     ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE
                     """,
                     reaction_data,
@@ -578,11 +578,11 @@ class StatsCogs(commands.Cog, name="stats"):
                             continue
 
                         result = await self.bot.db.execute(
-                            """ 
-                            INSERT INTO emotes(guild_id, emote_id, name, animated, managed) 
+                            """
+                            INSERT INTO emotes(guild_id, emote_id, name, animated, managed)
                             VALUES ($1,$2,$3,$4,$5)
-                            ON CONFLICT (emote_id) 
-                            DO UPDATE SET name = $3, animated = $4, managed = $5 
+                            ON CONFLICT (emote_id)
+                            DO UPDATE SET name = $3, animated = $4, managed = $5
                             WHERE emotes.name != $3 OR emotes.animated != $4 OR emotes.managed != $5
                             """,
                             guild.id,
@@ -1672,8 +1672,8 @@ class StatsCogs(commands.Cog, name="stats"):
                 if reaction.emoji.is_custom_emoji():
                     await self.bot.db.execute(
                         """
-                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
                         ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
                         """,
                         None,
@@ -1689,8 +1689,8 @@ class StatsCogs(commands.Cog, name="stats"):
                 elif isinstance(reaction.emoji, str):
                     await self.bot.db.execute(
                         """
-                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
                         ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
                         """,
                         reaction.emoji,
@@ -1706,8 +1706,8 @@ class StatsCogs(commands.Cog, name="stats"):
                 else:
                     await self.bot.db.execute(
                         """
-                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
                         ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE
                         """,
                         reaction.emoji.name,
@@ -1732,7 +1732,7 @@ class StatsCogs(commands.Cog, name="stats"):
                     await self.bot.db.execute(
                         """
                         UPDATE reactions
-                        SET removed = TRUE 
+                        SET removed = TRUE
                         WHERE message_id = $1 AND user_id = $2 AND emoji_id = $3
                         """,
                         reaction.message_id,
@@ -1743,7 +1743,7 @@ class StatsCogs(commands.Cog, name="stats"):
                     await self.bot.db.execute(
                         """
                         UPDATE reactions
-                        SET removed = TRUE 
+                        SET removed = TRUE
                         WHERE message_id = $1 AND user_id = $2 AND unicode_emoji = $3
                         """,
                         reaction.message_id,
@@ -1754,7 +1754,7 @@ class StatsCogs(commands.Cog, name="stats"):
                 # Log the removal for analytics
                 await self.bot.db.execute(
                     """
-                    INSERT INTO updates(updated_table, action, before, after, date, primary_key) 
+                    INSERT INTO updates(updated_table, action, before, after, date, primary_key)
                     VALUES($1, $2, $3, $4, $5, $6)
                     """,
                     "reactions",
@@ -2441,7 +2441,7 @@ class StatsCogs(commands.Cog, name="stats"):
 
         # Query the materialized view instead of the raw tables
         messages_result = await self.bot.db.fetch(
-            """         
+            """
             SELECT total, channel_name as "Channel"
             FROM daily_message_stats
             WHERE server_id = 346842016480755724
@@ -2454,13 +2454,13 @@ class StatsCogs(commands.Cog, name="stats"):
             logging.error(
                 f"No messages found in guild 346842016480755724 during the last {datetime.now() - timedelta(hours=24)} - {datetime.now()}"
             )
-            owner = self.bot.get_user(self.bot.owner_id)
-            if owner is not None:
+            try:
+                owner = await self.bot.fetch_user(self.bot.owner_id)
                 await owner.send(
                     f"No messages found in guild 346842016480755724 during the last {datetime.now() - timedelta(hours=24)} - {datetime.now()}"
                 )
-            else:
-                logging.error("I couldn't find the owner")
+            except Exception as e:
+                logging.error(f"Couldn't notify owner: {e}")
         else:
             logging.debug(f"Found results {messages_result}")
             length = len(str(messages_result[0]["total"])) + 1
@@ -2476,7 +2476,7 @@ class StatsCogs(commands.Cog, name="stats"):
 
         # Query the materialized view for join/leave stats
         user_join_leave_results = await self.bot.db.fetchrow(
-            """         
+            """
             SELECT joins as "join", leaves as "leave"
             FROM daily_member_stats
             WHERE server_id = 346842016480755724

@@ -43,9 +43,9 @@ class StatsTasksMixin:
 
         # Query with hierarchical structure: category -> channel -> thread
         messages_result = await self.bot.db.fetch(
-            """         
+            """
             WITH message_stats AS (
-                SELECT 
+                SELECT
                     m.channel_id,
                     m.channel_name,
                     COUNT(*) as message_count,
@@ -56,7 +56,7 @@ class StatsTasksMixin:
                     t.name as thread_name,
                     -- For threads, get parent channel name; for regular channels, use channel name
                     COALESCE(parent_c.name, m.channel_name) as parent_channel_name,
-                    CASE 
+                    CASE
                         WHEN t.id IS NOT NULL THEN 'thread'
                         ELSE 'channel'
                     END as channel_type
@@ -71,13 +71,13 @@ class StatsTasksMixin:
                 AND m.server_id = 346842016480755724
                 AND m.is_bot = FALSE
                 AND m.deleted = FALSE
-                GROUP BY m.channel_id, m.channel_name, 
+                GROUP BY m.channel_id, m.channel_name,
                          COALESCE(parent_c.category_id, c.category_id),
                          COALESCE(parent_cat.name, cat.name),
                          t.parent_id, t.name, t.id,
                          COALESCE(parent_c.name, m.channel_name)
             )
-            SELECT 
+            SELECT
                 COALESCE(category_name, 'Uncategorized') as category,
                 channel_name,
                 thread_name,
@@ -86,7 +86,7 @@ class StatsTasksMixin:
                 parent_channel_name,
                 COALESCE(parent_id, channel_id) as sort_parent
             FROM message_stats
-            ORDER BY 
+            ORDER BY
                 COALESCE(category_name, 'Uncategorized'),
                 COALESCE(parent_id, channel_id),
                 CASE WHEN channel_type = 'thread' THEN 1 ELSE 0 END,
@@ -99,13 +99,13 @@ class StatsTasksMixin:
             logging.error(
                 f"No messages found in guild 346842016480755724 during the last {datetime.now() - timedelta(hours=24)} - {datetime.now()}"
             )
-            owner = self.bot.get_user(self.bot.owner_id)
-            if owner is not None:
+            try:
+                owner = await self.bot.fetch_user(self.bot.owner_id)
                 await owner.send(
                     f"No messages found in guild 346842016480755724 during the last {datetime.now() - timedelta(hours=24)} - {datetime.now()}"
                 )
-            else:
-                logging.error("I couldn't find the owner")
+            except Exception as e:
+                logging.error(f"Couldn't notify owner: {e}")
         else:
             logging.debug(f"Found results {messages_result}")
 
@@ -224,8 +224,8 @@ class StatsTasksMixin:
         # Calculate 24 hours ago using Python to match how data is stored
         twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
         user_join_leave_results = await self.bot.db.fetchrow(
-            """         
-            SELECT 
+            """
+            SELECT
                 COUNT(*) FILTER (WHERE join_or_leave = 'join') as "join",
                 COUNT(*) FILTER (WHERE join_or_leave = 'leave') as "leave"
             FROM join_leave
