@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import re
 import shlex
 import subprocess
@@ -11,15 +10,13 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-# Import FAISS schema query functions
-from scripts.schema.query_faiss_schema import (
-    INDEX_FILE,
-    LOOKUP_FILE,
-    TOP_K,
-    build_prompt,
+# Import pgvector schema search functions
+from utils.schema_search import (
+    SchemaSearchError,
+    check_schema_embeddings_exist,
     extract_sql_from_response,
     generate_sql,
-    query_faiss,
+    search_schema,
 )
 from utils.command_groups import admin
 from utils.error_handling import handle_interaction_errors
@@ -1314,7 +1311,7 @@ class OwnerCog(commands.Cog, name="Owner"):
 
         Raises:
             ValidationError: If the question is invalid or empty
-            ExternalServiceError: If AI service or FAISS index is unavailable
+            ExternalServiceError: If AI service or schema embeddings are unavailable
             DatabaseError: If database query execution fails
             QueryError: If the generated SQL query is invalid
         """
@@ -1337,24 +1334,23 @@ class OwnerCog(commands.Cog, name="Owner"):
         )
 
         try:
-            # Step 1: Search for relevant schema using FAISS
+            # Step 1: Search for relevant schema using pgvector
             await interaction.followup.send(
-                "🔗 **Step 1/5:** Searching schema for relevant tables..."
+                "🔗 **Step 1/4:** Searching schema for relevant tables..."
             )
 
             try:
-                # Check if FAISS index files exist before attempting to query
-                if not os.path.exists(INDEX_FILE) or not os.path.exists(LOOKUP_FILE):
+                # Check if schema embeddings exist in database
+                embeddings_exist = await check_schema_embeddings_exist(self.bot.db)
+                if not embeddings_exist:
                     logging.error(
-                        f"OWNER ASK_DB ERROR: FAISS index files not found: "
-                        f"INDEX_FILE={INDEX_FILE} exists={os.path.exists(INDEX_FILE)}, "
-                        f"LOOKUP_FILE={LOOKUP_FILE} exists={os.path.exists(LOOKUP_FILE)}"
+                        "OWNER ASK_DB ERROR: Schema embeddings not found in database"
                     )
                     raise ExternalServiceError(
-                        message="❌ Database schema index not available. Run `build_faiss_index.py` to create it."
+                        message="❌ Schema embeddings not available. Run `populate_schema_embeddings.py` to create them."
                     )
 
-                relevant_schema = query_faiss(question, INDEX_FILE, LOOKUP_FILE, TOP_K)
+                relevant_schema = await search_schema(self.bot.db, question)
                 if not relevant_schema:
                     raise ExternalServiceError(
                         message="❌ No relevant database schema found for your question"
@@ -1362,15 +1358,18 @@ class OwnerCog(commands.Cog, name="Owner"):
                 logging.info(
                     f"OWNER ASK_DB: Found {len(relevant_schema)} relevant schema entries"
                 )
+            except SchemaSearchError as e:
+                logging.error(f"OWNER ASK_DB ERROR: Schema search failed: {e}")
+                raise ExternalServiceError(message=f"❌ Schema search failed: {str(e)}")
             except ExternalServiceError:
                 raise  # Re-raise our own errors without wrapping
             except Exception as e:
-                logging.error(f"OWNER ASK_DB ERROR: FAISS query failed: {e}")
+                logging.error(f"OWNER ASK_DB ERROR: Schema search failed: {e}")
                 raise ExternalServiceError(message=f"❌ Schema search failed: {str(e)}")
 
-            # Step 2: Build prompt with relevant schema
+            # Step 2: Generate SQL using OpenAI
             await interaction.edit_original_response(
-                content="🧠 **Step 2/5:** Building AI prompt with schema context..."
+                content="🤖 **Step 2/4:** Generating SQL with AI..."
             )
 
             try:
@@ -1379,34 +1378,23 @@ class OwnerCog(commands.Cog, name="Owner"):
                 channel_id = interaction.channel.id if interaction.channel else None
                 user_id = interaction.user.id
 
-                prompt = build_prompt(
-                    question, relevant_schema, server_id, channel_id, user_id
+                raw_sql_response = await generate_sql(
+                    question,
+                    relevant_schema,
+                    server_id=server_id,
+                    channel_id=channel_id,
+                    user_id=user_id,
                 )
-                if not prompt:
-                    raise ExternalServiceError(message="❌ Failed to build AI prompt")
-                logging.info(
-                    f"OWNER ASK_DB: Built prompt with {len(prompt)} characters (Server: {server_id}, Channel: {channel_id}, User: {user_id})"
-                )
-            except Exception as e:
-                logging.error(f"OWNER ASK_DB ERROR: Prompt building failed: {e}")
-                raise ExternalServiceError(
-                    message=f"❌ Prompt generation failed: {str(e)}"
-                )
-
-            # Step 3: Generate SQL using OpenAI
-            await interaction.edit_original_response(
-                content="🤖 **Step 3/5:** Generating SQL with AI..."
-            )
-
-            try:
-                raw_sql_response = generate_sql(prompt)
                 if not raw_sql_response:
                     raise ExternalServiceError(
                         message="❌ AI service returned empty response"
                     )
                 logging.info(
-                    f"OWNER ASK_DB: Received AI response with {len(raw_sql_response)} characters"
+                    f"OWNER ASK_DB: Received AI response with {len(raw_sql_response)} characters (Server: {server_id}, Channel: {channel_id}, User: {user_id})"
                 )
+            except SchemaSearchError as e:
+                logging.error(f"OWNER ASK_DB ERROR: AI SQL generation failed: {e}")
+                raise ExternalServiceError(message=f"❌ AI SQL generation failed: {str(e)}")
             except Exception as e:
                 logging.error(f"OWNER ASK_DB ERROR: AI SQL generation failed: {e}")
                 if "rate limit" in str(e).lower():
@@ -1422,9 +1410,9 @@ class OwnerCog(commands.Cog, name="Owner"):
                         message=f"❌ AI SQL generation failed: {str(e)}"
                     )
 
-            # Step 4: Extract clean SQL from response
+            # Step 3: Extract clean SQL from response
             await interaction.edit_original_response(
-                content="🔍 **Step 4/5:** Extracting SQL query..."
+                content="🔍 **Step 3/4:** Extracting SQL query..."
             )
 
             try:
@@ -1449,9 +1437,9 @@ class OwnerCog(commands.Cog, name="Owner"):
                 )
                 return
 
-            # Step 5: Execute the generated SQL
+            # Step 4: Execute the generated SQL
             await interaction.edit_original_response(
-                content="⚡ **Step 5/5:** Executing generated SQL..."
+                content="⚡ **Step 4/4:** Executing generated SQL..."
             )
 
             try:
