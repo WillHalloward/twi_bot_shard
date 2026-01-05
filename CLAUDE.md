@@ -257,12 +257,10 @@ The project uses a two-branch deployment strategy with Railway:
 
 ### Statistics System
 
-The stats module is split into specialized components:
-- `stats_commands.py`: Owner commands for data management
-- `stats_listeners.py`: Real-time event listeners for message tracking
-- `stats_queries.py`: User-facing query commands
-- `stats_tasks.py`: Background tasks for reporting
-- `stats_utils.py`: Shared utility functions
+The stats module is organized into three specialized components:
+- `stats_commands.py`: Owner commands for data management and comprehensive save operations
+- `stats_listeners.py`: Real-time event listeners for message tracking, plus utility functions (`save_message`, `perform_comprehensive_save`)
+- `stats_queries.py`: User-facing query commands for statistics lookups
 - Stats listeners are unsubscribed in main.py to prevent duplicate handling
 
 ### Performance Considerations
