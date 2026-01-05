@@ -8,6 +8,13 @@ Continuous Integration (CI) is a development practice that requires developers t
 
 In the Twi Bot Shard project, we use GitHub Actions for CI. GitHub Actions is a CI/CD (Continuous Integration/Continuous Deployment) platform that allows you to automate your build, test, and deployment pipeline.
 
+## Workflows
+
+The project has two GitHub Actions workflows:
+
+1. **CI Workflow** (`.github/workflows/ci.yml`): Runs tests, linting, and builds
+2. **Security Scanning** (`.github/workflows/security-scan.yml`): Scans for vulnerabilities and secrets
+
 ## CI Workflow
 
 Our CI workflow is defined in the `.github/workflows/ci.yml` file and consists of three main jobs:
@@ -53,14 +60,74 @@ The build job performs the following steps:
 
 This job ensures that the package can be built successfully and makes the built package available as an artifact.
 
-## When the CI Runs
+## Security Scanning Workflow
+
+Our security scanning workflow is defined in `.github/workflows/security-scan.yml` and consists of three jobs that help identify security vulnerabilities:
+
+### Dependency Vulnerability Scan
+
+This job uses **Safety** to scan Python dependencies for known vulnerabilities:
+
+1. Checks out the code
+2. Sets up Python 3.12
+3. Installs Safety and project dependencies
+4. Runs `safety check` to scan for vulnerable packages
+5. Uploads the safety report as an artifact
+
+### Static Security Analysis
+
+This job uses **Bandit** for static security analysis of Python code:
+
+1. Checks out the code
+2. Sets up Python 3.12
+3. Installs Bandit
+4. Runs Bandit to scan for common security issues (excluding tests and venv directories)
+5. Uploads the Bandit report as a JSON artifact
+
+Bandit identifies potential security issues such as:
+- Hardcoded passwords
+- SQL injection vulnerabilities
+- Use of insecure functions
+- Weak cryptographic practices
+
+### Secret Scanning
+
+This job uses **Gitleaks** to detect accidentally committed secrets:
+
+1. Checks out the code
+2. Runs Gitleaks to scan for API keys, tokens, passwords, and other secrets
+
+This helps prevent sensitive credentials from being exposed in the repository.
+
+## When Workflows Run
+
+### CI Workflow
 
 The CI workflow is triggered on:
 
 - Pushes to the main branch
 - Pull requests to the main branch
 
-This ensures that code is tested and validated before it is merged into the main branch.
+### Security Scanning Workflow
+
+The security scanning workflow is triggered on:
+
+- Pushes to the main branch
+- Pull requests to the main branch
+- Weekly schedule (every Sunday at midnight UTC)
+
+The weekly scheduled run ensures that newly discovered vulnerabilities in dependencies are detected even when there are no code changes.
+
+## Branch Strategy
+
+The project uses a two-branch deployment strategy:
+
+- **`staging`**: Development branch where all feature work happens
+- **`production`**: Protected branch for production deployments
+
+**Note:** The CI workflows are currently configured to trigger on the `main` branch. If you're working with the `staging` or `production` branches, ensure your pull requests target the appropriate branch for your workflow.
+
+This ensures that code is tested and validated before it is merged.
 
 ## Viewing CI Results
 
@@ -92,8 +159,10 @@ Before pushing your changes, you can run the same checks locally to catch issues
 
 1. Run the tests with coverage:
    ```bash
-   pytest tests/ --cov=.
+   ENVIRONMENT=testing pytest tests/ --cov=.
    ```
+
+   **Note:** The `ENVIRONMENT=testing` prefix is required to ensure proper test configuration, including lazy cog loading and test-specific settings.
 
 2. Run the linters:
    ```bash
@@ -119,8 +188,9 @@ When adding new tests to the project, they will automatically be included in the
 
 If you want to add new linting rules, you can modify the configuration files:
 
-- `pyproject.toml` for ruff and black
-- `mypy.ini` for mypy
+- `pyproject.toml` for ruff, black, and mypy
+
+**Note:** All tool configurations, including mypy, are centralized in `pyproject.toml`. There is no separate `mypy.ini` file.
 
 ## Troubleshooting CI Issues
 

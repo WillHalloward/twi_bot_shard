@@ -2,6 +2,8 @@
 
 Welcome to Twi Bot Shard (Cognita) development! This guide will help you set up your local development environment.
 
+> **Note:** This guide covers local development setup. For production deployment on Railway, see the [Deployment Guide](../operations/deployment.md).
+
 ## Prerequisites
 
 Before you begin, ensure you have:
@@ -18,7 +20,7 @@ Before you begin, ensure you have:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/twi_bot_shard.git
+git clone https://github.com/WillHalloward/twi_bot_shard.git
 cd twi_bot_shard
 ```
 
@@ -35,7 +37,7 @@ source .venv/bin/activate
 .venv\Scripts\activate
 ```
 
-###3. Install Dependencies
+### 3. Install Dependencies
 
 ```bash
 # Using uv (recommended)
@@ -49,7 +51,7 @@ pip install -e .
 
 ```bash
 # Run dependency test
-python tests/test_dependencies.py
+ENVIRONMENT=testing python tests/test_dependencies.py
 ```
 
 ## Discord Bot Setup
@@ -104,27 +106,30 @@ CREATE USER botuser WITH PASSWORD 'your_secure_password';
 GRANT ALL PRIVILEGES ON DATABASE cognita_db TO botuser;
 ```
 
-### Set Up SSL Certificates
+### Set Up SSL Certificates (Local Development)
 
-Place SSL certificates in the `ssl-cert/` directory:
+For local development with SSL, place certificates in the `ssl-cert/` directory:
 - `server-ca.pem` - Server certificate authority
 - `client-cert.pem` - Client certificate
 - `client-key.pem` - Client key
+
+> **Railway Note:** For Railway deployment, SSL is handled automatically via the `DB_SSL` environment variable. Set `DB_SSL=disable` for Railway's pgvector template or `DB_SSL=require` for standard PostgreSQL. See [Deployment Guide](../operations/deployment.md).
 
 ### Apply Database Schema
 
 ```bash
 # Apply main schema
-psql -U botuser -d cognita_db -f database/cognita_db_tables.sql
+psql -U botuser -d cognita_db -f database/init.sql
 
 # Apply optimizations (optional for development)
-psql -U botuser -d cognita_db -f database/db_optimizations.sql
+psql -U botuser -d cognita_db -f database/optimizations/base.sql
+psql -U botuser -d cognita_db -f database/optimizations/additional.sql
 ```
 
 ### Test Database Connection
 
 ```bash
-python tests/test_db_connection.py
+ENVIRONMENT=testing python tests/test_db_connection.py
 ```
 
 ## Environment Configuration
@@ -143,7 +148,7 @@ nano .env  # or your preferred editor
 
 ### Required Environment Variables
 
-See [Environment Variables Guide](setup/environment-variables.md) for complete reference.
+See [Environment Variables Guide](environment-variables.md) for complete reference.
 
 **Minimum required:**
 
@@ -151,12 +156,15 @@ See [Environment Variables Guide](setup/environment-variables.md) for complete r
 # Discord
 BOT_TOKEN=your_discord_bot_token
 
-# Database
+# Database (Option 1: Individual variables for local dev)
 HOST=localhost
 DB_USER=botuser
 DB_PASSWORD=your_secure_password
 DATABASE=cognita_db
 PORT=5432
+
+# Database (Option 2: Connection URL - Railway provides this automatically)
+# DATABASE_URL=postgresql://user:password@host:port/database
 
 # Development Settings
 ENVIRONMENT=development
@@ -164,6 +172,8 @@ LOG_FORMAT=console
 LOGFILE=dev
 KILL_AFTER=0
 ```
+
+> **Railway Note:** Railway automatically provides `DATABASE_URL` which takes precedence over individual variables.
 
 ### Verify Configuration
 
@@ -217,21 +227,21 @@ mypy .
 
 ```bash
 # Run all tests
-pytest tests/ -v
+ENVIRONMENT=testing pytest tests/ -v
 
 # Run specific test categories
-python tests/test_dependencies.py
-python tests/test_db_connection.py
-python tests/test_sqlalchemy_models.py
-python tests/test_cogs.py
+ENVIRONMENT=testing python tests/test_dependencies.py
+ENVIRONMENT=testing python tests/test_db_connection.py
+ENVIRONMENT=testing python tests/test_sqlalchemy_models.py
+ENVIRONMENT=testing python tests/test_cogs.py
 
 # Run with coverage
-pytest tests/ --cov=. --cov-report=xml
+ENVIRONMENT=testing pytest tests/ --cov=. --cov-report=xml
 ```
 
 ### Working with Cogs
 
-See [Creating Cogs Guide](../guides/creating-cogs.md) for detailed instructions.
+See the [Features Documentation](../features.md) for detailed information on existing cogs.
 
 **Quick example:**
 
@@ -253,20 +263,22 @@ async def setup(bot):
 
 ### Database Operations
 
-See [Database Operations Guide](../guides/database-operations.md) for details.
+See [Database Guide](database.md) for details.
 
 **Quick example:**
 
 ```python
-# Using the Database utility
+# Using raw asyncpg (most common)
 await self.bot.db.execute(
     "INSERT INTO example(name) VALUES($1)",
     "test"
 )
 
-# Using repositories
-repo = self.get_repository(GalleryMementos)
-items = await repo.find_by(guild_id=guild_id)
+# Fetching data
+rows = await self.bot.db.fetch(
+    "SELECT * FROM messages WHERE guild_id = $1",
+    guild_id
+)
 ```
 
 ## Troubleshooting
@@ -294,18 +306,17 @@ items = await repo.find_by(guild_id=guild_id)
 
 ### Getting Help
 
-- Check the [documentation](../) for detailed guides
-- Review [troubleshooting guide](../../user/troubleshooting.md)
-- Check existing [GitHub issues](https://github.com/yourusername/twi_bot_shard/issues)
+- Check the [project documentation](../../CLAUDE.md) for detailed guides
+- Check existing [GitHub issues](https://github.com/WillHalloward/twi_bot_shard/issues)
 
 ## Next Steps
 
 Now that you have the bot running:
 
-1. **Learn the Architecture** - Read [Architecture Overview](../architecture/overview.md)
-2. **Create Your First Cog** - Follow [Creating Cogs Guide](../guides/creating-cogs.md)
-3. **Understand Database Layer** - Read [Database Architecture](../architecture/database-layer.md)
-4. **Review Code Style** - See [Contributing Guide](../../meta/contributing.md)
+1. **Understand the Features** - Read [Features Documentation](../features.md)
+2. **Learn Database Patterns** - Read [Database Guide](database.md)
+3. **Review Error Handling** - See [Error Handling Guide](error-handling.md)
+4. **Review Code Style** - See [Contributing Guide](../contributing.md)
 
 ## Development Tips
 
@@ -339,9 +350,9 @@ This will run formatting and linting before each commit.
 - [Discord.py Documentation](https://discordpy.readthedocs.io/en/stable/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
 - [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
-- [Project Architecture](../architecture/overview.md)
-- [API Reference](../reference/api.md)
+- [Project Documentation](../../CLAUDE.md)
+- [Features Overview](../features.md)
 
 ---
 
-**Ready to contribute?** Check out the [Contributing Guide](../../meta/contributing.md)!
+**Ready to contribute?** Check out the [Contributing Guide](../contributing.md)!
