@@ -61,6 +61,7 @@ class OwnerCog(commands.Cog, name="Owner"):
         # Get all command names defined in this cog that use the admin group
         cog_method_names = {
             "load_cog",
+            "load_all_cogs",
             "unload_cog",
             "reload_cog",
             "cmd",
@@ -189,6 +190,72 @@ class OwnerCog(commands.Cog, name="Owner"):
             for cog in cogs
             if current.lower() in cog.lower()
         ]
+
+    @admin.command(name="loadall", description="Load all unloaded cogs")
+    @commands.is_owner()
+    @handle_interaction_errors
+    async def load_all_cogs(self, interaction: discord.Interaction) -> None:
+        """Load all unloaded cogs at once.
+
+        This command loads all cogs that are defined in the cogs list but not
+        currently loaded.
+
+        Args:
+            interaction: The Discord interaction object
+
+        Raises:
+            ExternalServiceError: If any cog loading fails
+        """
+        await interaction.response.defer()
+
+        # Find unloaded cogs
+        unloaded_cogs = [cog for cog in cogs if cog not in self.bot.extensions]
+
+        if not unloaded_cogs:
+            await interaction.followup.send(
+                "✅ **All cogs already loaded**\n"
+                f"**Total loaded:** {len(self.bot.extensions)}"
+            )
+            return
+
+        logging.info(
+            f"OWNER COG: User {interaction.user.id} loading all unloaded cogs: "
+            f"{unloaded_cogs}"
+        )
+
+        loaded = []
+        failed = []
+
+        for cog in unloaded_cogs:
+            try:
+                await self.bot.load_extension(cog)
+                loaded.append(cog)
+                logging.info(f"OWNER COG: Successfully loaded '{cog}'")
+            except Exception as e:
+                failed.append((cog, str(e)))
+                logging.error(f"OWNER COG ERROR: Failed to load '{cog}': {e}")
+
+        # Build response message
+        response_parts = []
+
+        if loaded:
+            loaded_list = "\n".join(f"  • `{c}`" for c in loaded)
+            response_parts.append(f"✅ **Loaded ({len(loaded)}):**\n{loaded_list}")
+
+        if failed:
+            failed_list = "\n".join(f"  • `{c}`: {e}" for c, e in failed)
+            response_parts.append(f"❌ **Failed ({len(failed)}):**\n{failed_list}")
+
+        response_parts.append(f"\n**Total loaded cogs:** {len(self.bot.extensions)}")
+
+        await interaction.followup.send("\n\n".join(response_parts))
+
+        # Auto-delete after 15 seconds for cleaner chat
+        await asyncio.sleep(15)
+        try:
+            await interaction.delete_original_response()
+        except discord.NotFound:
+            pass  # Message already deleted
 
     @admin.command(name="unload", description="Unload a Discord bot extension/cog")
     @commands.is_owner()
