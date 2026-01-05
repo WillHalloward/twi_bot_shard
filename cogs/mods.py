@@ -11,7 +11,6 @@ import config
 from utils.command_groups import mod
 from utils.error_handling import handle_interaction_errors, log_error
 from utils.exceptions import (
-    DiscordError,
     ExternalServiceError,
     ResourceNotFoundError,
     ValidationError,
@@ -105,9 +104,7 @@ class ModCogs(commands.Cog):
                 message=f"Failed to reset cooldown for command **{command}**: {str(e)}"
             )
 
-    @mod.command(
-        name="state", description="Post an official moderator message"
-    )
+    @mod.command(name="state", description="Post an official moderator message")
     @app_commands.default_permissions(ban_members=True)
     @handle_interaction_errors
     async def state(self, interaction: discord.Interaction, message: str) -> None:
@@ -342,7 +339,9 @@ class ModCogs(commands.Cog):
                 await member.add_roles(verified)
         except Exception as e:
             # Use standardized error logging with context
-            error = DiscordError(f"Failed to filter new user: {str(e)}")
+            error = ExternalServiceError(
+                service_name="Discord", message=f"Failed to filter new user: {str(e)}"
+            )
             log_error(
                 error=error,
                 command_name="filter_new_users",

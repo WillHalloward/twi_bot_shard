@@ -8,8 +8,8 @@ update_tags, and mark_reviewed commands.
 
 import os
 import sys
-from datetime import datetime, UTC
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -17,20 +17,19 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Discord components
-import discord
 
 # Import the cog to test
 from cogs.gallery import GalleryCog
 
 # Import test utilities
 from tests.mock_factories import (
+    MockChannelFactory,
+    MockGuildFactory,
     MockInteractionFactory,
     MockMessageFactory,
-    MockChannelFactory,
     MockUserFactory,
-    MockGuildFactory,
 )
-from tests.test_utils import TestSetup, TestTeardown
+from tests.test_utils import TestSetup
 
 
 class TestSetRepostCommand:
@@ -57,7 +56,9 @@ class TestSetRepostCommand:
 
         # Mock repository methods
         cog.gallery_repo = MagicMock()
-        cog.gallery_repo.get_by_field = AsyncMock(return_value=[])  # Channel doesn't exist
+        cog.gallery_repo.get_by_field = AsyncMock(
+            return_value=[]
+        )  # Channel doesn't exist
         cog.gallery_repo.create = AsyncMock()
 
         # Call the command
@@ -66,7 +67,7 @@ class TestSetRepostCommand:
         # Verify response was sent
         interaction.response.send_message.assert_called_once()
         call_args = interaction.response.send_message.call_args
-        embed = call_args.kwargs.get('embed')
+        embed = call_args.kwargs.get("embed")
 
         assert embed is not None
         assert "Added" in embed.title or "Repost Channel Added" in embed.title
@@ -97,7 +98,7 @@ class TestSetRepostCommand:
 
         interaction.response.send_message.assert_called_once()
         call_args = interaction.response.send_message.call_args
-        embed = call_args.kwargs.get('embed')
+        embed = call_args.kwargs.get("embed")
 
         assert embed is not None
         assert "Removed" in embed.title or "Repost Channel Removed" in embed.title
@@ -123,7 +124,9 @@ class TestSetRepostCommand:
         interaction.response.send_message.assert_called_once()
         args = interaction.response.send_message.call_args[0]
         assert "permission" in args[0].lower()
-        assert interaction.response.send_message.call_args.kwargs.get('ephemeral') is True
+        assert (
+            interaction.response.send_message.call_args.kwargs.get("ephemeral") is True
+        )
 
 
 class TestExtractDataCommand:
@@ -155,8 +158,13 @@ class TestExtractDataCommand:
         # Mock _process_gallery_chunk method
         cog._process_gallery_chunk = AsyncMock(return_value=([], [], []))
 
-        await cog.extract_gallery_data.callback(cog,
-            interaction, channel, after_date=None, chunk_size=500, store_in_db=False
+        await cog.extract_gallery_data.callback(
+            cog,
+            interaction,
+            channel,
+            after_date=None,
+            chunk_size=500,
+            store_in_db=False,
         )
 
         # Verify defer was called
@@ -183,8 +191,13 @@ class TestExtractDataCommand:
         channel.history = MagicMock(return_value=mock_history())
         cog._process_gallery_chunk = AsyncMock(return_value=([], [], []))
 
-        await cog.extract_gallery_data.callback(cog,
-            interaction, channel, after_date="2024-01-01", chunk_size=100, store_in_db=False
+        await cog.extract_gallery_data.callback(
+            cog,
+            interaction,
+            channel,
+            after_date="2024-01-01",
+            chunk_size=100,
+            store_in_db=False,
         )
 
         interaction.response.defer.assert_called_once()
@@ -199,8 +212,8 @@ class TestExtractDataCommand:
         channel = MockChannelFactory.create_text_channel(guild=guild)
         interaction = MockInteractionFactory.create(guild=guild, channel=channel)
 
-        await cog.extract_gallery_data.callback(cog,
-            interaction, channel, after_date="invalid-date", chunk_size=100
+        await cog.extract_gallery_data.callback(
+            cog, interaction, channel, after_date="invalid-date", chunk_size=100
         )
 
         interaction.response.defer.assert_called_once()
@@ -227,8 +240,13 @@ class TestExtractDataCommand:
         cog._process_gallery_chunk = AsyncMock(return_value=([], [], []))
 
         # Try to set chunk_size > 1000
-        await cog.extract_gallery_data.callback(cog,
-            interaction, channel, after_date=None, chunk_size=2000, store_in_db=False
+        await cog.extract_gallery_data.callback(
+            cog,
+            interaction,
+            channel,
+            after_date=None,
+            chunk_size=2000,
+            store_in_db=False,
         )
 
         # Verify warning was sent about chunk size reduction
@@ -250,15 +268,17 @@ class TestMigrationStatsCommand:
 
         # Mock migration repository to return stats
         cog.migration_repo = MagicMock()
-        cog.migration_repo.get_statistics = AsyncMock(return_value={
-            'total_entries': 100,
-            'migrated_entries': 50,
-            'pending_migration': 30,
-            'migration_progress': 50.0,
-            'needs_review': 20,
-            'bot_posts': 60,
-            'manual_posts': 40,
-        })
+        cog.migration_repo.get_statistics = AsyncMock(
+            return_value={
+                "total_entries": 100,
+                "migrated_entries": 50,
+                "pending_migration": 30,
+                "migration_progress": 50.0,
+                "needs_review": 20,
+                "bot_posts": 60,
+                "manual_posts": 40,
+            }
+        )
 
         await cog.gallery_migration_stats.callback(cog, interaction)
 
@@ -268,7 +288,7 @@ class TestMigrationStatsCommand:
         # Then send followup with embed
         interaction.followup.send.assert_called_once()
         call_args = interaction.followup.send.call_args
-        embed = call_args.kwargs.get('embed')
+        embed = call_args.kwargs.get("embed")
 
         assert embed is not None
         assert "Migration" in embed.title or "Stats" in embed.title
@@ -304,7 +324,9 @@ class TestReviewEntriesCommand:
             mock_entries.append(entry)
 
         cog.migration_repo = MagicMock()
-        cog.migration_repo.get_entries_needing_review = AsyncMock(return_value=mock_entries)
+        cog.migration_repo.get_entries_needing_review = AsyncMock(
+            return_value=mock_entries
+        )
 
         await cog.review_gallery_entries.callback(cog, interaction, limit=10)
 
@@ -331,7 +353,7 @@ class TestReviewEntriesCommand:
 
         # Check the message content
         call_args = interaction.followup.send.call_args
-        message = call_args[0][0] if call_args[0] else call_args[1].get('content', '')
+        message = call_args[0][0] if call_args[0] else call_args[1].get("content", "")
         assert "No entries need manual review" in message
 
 
@@ -355,13 +377,17 @@ class TestUpdateTagsCommand:
         cog.migration_repo = MagicMock()
         cog.migration_repo.update_tags = AsyncMock(return_value=True)
 
-        await cog.update_gallery_tags.callback(cog, interaction, message_id="123456", tags="fan art,meme")
+        await cog.update_gallery_tags.callback(
+            cog, interaction, message_id="123456", tags="fan art,meme"
+        )
 
         interaction.response.defer.assert_called_once_with(ephemeral=True)
         interaction.followup.send.assert_called_once()
 
         # Check that update_tags was called with correct parameters
-        cog.migration_repo.update_tags.assert_called_once_with(123456, ["fan art", "meme"])
+        cog.migration_repo.update_tags.assert_called_once_with(
+            123456, ["fan art", "meme"]
+        )
 
     @pytest.mark.asyncio
     async def test_update_tags_entry_not_found(self):
@@ -380,14 +406,16 @@ class TestUpdateTagsCommand:
         cog.migration_repo = MagicMock()
         cog.migration_repo.update_tags = AsyncMock(return_value=False)
 
-        await cog.update_gallery_tags.callback(cog, interaction, message_id="999999", tags="fan art")
+        await cog.update_gallery_tags.callback(
+            cog, interaction, message_id="999999", tags="fan art"
+        )
 
         interaction.response.defer.assert_called_once_with(ephemeral=True)
         interaction.followup.send.assert_called_once()
 
         # Check the failure message
         call_args = interaction.followup.send.call_args
-        message = call_args[0][0] if call_args[0] else ''
+        message = call_args[0][0] if call_args[0] else ""
         assert "Failed to update tags" in message or "may not exist" in message
 
 
@@ -438,7 +466,7 @@ class TestMarkReviewedCommand:
 
         # Check the failure message
         call_args = interaction.followup.send.call_args
-        message = call_args[0][0] if call_args[0] else ''
+        message = call_args[0][0] if call_args[0] else ""
         assert "Failed to mark" in message or "may not exist" in message
 
 
@@ -461,7 +489,9 @@ class TestGalleryAdminEdgeCases:
 
         # Mock database error
         cog.gallery_repo = MagicMock()
-        cog.gallery_repo.get_by_field = AsyncMock(side_effect=Exception("Database error"))
+        cog.gallery_repo.get_by_field = AsyncMock(
+            side_effect=Exception("Database error")
+        )
 
         await cog.set_repost.callback(cog, interaction, channel)
 
@@ -490,8 +520,13 @@ class TestGalleryAdminEdgeCases:
             return_value=([], [], ["Error 1", "Error 2"])
         )
 
-        await cog.extract_gallery_data.callback(cog,
-            interaction, channel, after_date=None, chunk_size=100, store_in_db=False
+        await cog.extract_gallery_data.callback(
+            cog,
+            interaction,
+            channel,
+            after_date=None,
+            chunk_size=100,
+            store_in_db=False,
         )
 
         # Verify errors were reported

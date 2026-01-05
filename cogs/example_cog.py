@@ -47,7 +47,9 @@ class ExampleCog(commands.Cog, name="Example"):
             await ctx.send(f"Transaction failed: {e}")
 
     @app_commands.command(name="example_fetch")
-    async def example_fetch(self, interaction: discord.Interaction, limit: int = 10) -> None:
+    async def example_fetch(
+        self, interaction: discord.Interaction, limit: int = 10
+    ) -> None:
         """Example command demonstrating fetch operations with error handling."""
         try:
             # Fetch data with retry logic built in

@@ -918,7 +918,7 @@ class SecretManager:
                     csv_lines.append(
                         f"{log['id']},{log['timestamp'].isoformat()},{log['user_id'] or ''},"
                         f"{log['action']},{log['resource_type'] or ''},{log['resource_id'] or ''},"
-                        f"\"{details_str}\",{log['ip_address'] or ''},{log['success']}"
+                        f'"{details_str}",{log["ip_address"] or ""},{log["success"]}'
                     )
 
                 return "\n".join(csv_lines)
@@ -950,7 +950,8 @@ class SecretManager:
 
             # Get all logs in the time period
             logs = await self.get_audit_logs(
-                start_time=start_time, limit=10000  # Set a high limit
+                start_time=start_time,
+                limit=10000,  # Set a high limit
             )
 
             # Group by user_id and IP address
@@ -1145,8 +1146,8 @@ async def register_default_credentials(manager) -> None:
             name,
             rotation_interval_days=interval,
             metadata={
-                "description": f'{name.replace("_", " ").title()} credentials',
+                "description": f"{name.replace('_', ' ').title()} credentials",
                 "environment_variables": env_vars,
-                "rotation_instructions": f'Generate new {name.replace("_", " ")} credentials and update the .env file',
+                "rotation_instructions": f"Generate new {name.replace('_', ' ')} credentials and update the .env file",
             },
         )

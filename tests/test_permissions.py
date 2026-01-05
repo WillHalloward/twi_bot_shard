@@ -4,7 +4,6 @@ Test script for permission utilities.
 This script tests the permission functions in utils/permissions.py with proper mocking.
 """
 
-import asyncio
 import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -18,14 +17,16 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 @pytest.fixture
 def mock_config():
     """Fixture to mock config module with bot_channel_id."""
-    with patch.dict(sys.modules, {'config': MagicMock(bot_channel_id=111222333, logfile='test')}):
+    with patch.dict(
+        sys.modules, {"config": MagicMock(bot_channel_id=111222333, logfile="test")}
+    ):
         yield
 
 
 @pytest.fixture
 def mock_permission_manager():
     """Fixture to mock permission manager."""
-    with patch('utils.permissions.get_permission_manager') as mock_get_pm:
+    with patch("utils.permissions.get_permission_manager") as mock_get_pm:
         mock_pm = MagicMock()
         mock_pm.check_permission = AsyncMock(return_value=True)
         mock_get_pm.return_value = mock_pm
@@ -160,7 +161,7 @@ async def test_admin_check_wrappers(mock_permission_manager):
 async def test_is_bot_channel():
     """Test the is_bot_channel function."""
     # Mock config at module level before importing the function
-    with patch('utils.permissions.config') as mock_config:
+    with patch("utils.permissions.config") as mock_config:
         mock_config.bot_channel_id = 111222333
 
         from utils.permissions import is_bot_channel
@@ -186,10 +187,10 @@ async def test_is_bot_channel():
 @pytest.mark.asyncio
 async def test_bot_channel_wrappers():
     """Test the bot channel wrapper functions."""
-    with patch('utils.permissions.config') as mock_config:
+    with patch("utils.permissions.config") as mock_config:
         mock_config.bot_channel_id = 111222333
 
-        from utils.permissions import is_bot_channel_wrapper, app_is_bot_channel
+        from utils.permissions import app_is_bot_channel, is_bot_channel_wrapper
 
         # Create a context
         ctx = MockContext(user_id=123456789, guild_id=987654321, channel_id=111222333)

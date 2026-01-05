@@ -247,7 +247,9 @@ class ReportCog(commands.Cog, name="report"):
         self.bot.tree.add_command(self.report)
 
     @handle_interaction_errors
-    async def report(self, interaction: discord.Interaction, message: discord.Message) -> None:
+    async def report(
+        self, interaction: discord.Interaction, message: discord.Message
+    ) -> None:
         """Report a message using the context menu.
 
         Args:

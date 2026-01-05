@@ -117,7 +117,6 @@ async def test_wiki_command() -> bool:
     mock_fetch_no_results = AsyncMock()
     mock_fetch_no_results.return_value = json.dumps({"error": "no results"})
     with patch("cogs.twi.fetch", mock_fetch_no_results):
-
         # Reset the mocks before calling the command
         interaction.response.defer.reset_mock()
         interaction.followup.send.reset_mock()
@@ -277,8 +276,9 @@ async def test_password_command() -> bool:
     # Verify we got some response (either password or instructions)
     assert len(response_text) > 0, "Expected some response from password command"
     # The response should contain password-related content
-    assert ("password" in response_text.lower() or "patreon" in response_text.lower()), \
+    assert "password" in response_text.lower() or "patreon" in response_text.lower(), (
         f"Expected password-related content in response. Got: {response_text[:200]}"
+    )
 
     # Reset the mock
     interaction.response.send_message.reset_mock()
@@ -493,7 +493,6 @@ async def test_bot_lifecycle() -> bool:
     # Verify that the bot was initialized correctly
     assert bot.db is not None
     assert bot.container is not None
-    assert bot.repo_factory is not None
 
     # Test loading a cog
     await TestSetup.setup_cog(bot, TwiCog)

@@ -16,7 +16,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-def run_command_with_input(cmd: list[str], input_file: Path, description: str, env: dict | None = None) -> bool:
+def run_command_with_input(
+    cmd: list[str], input_file: Path, description: str, env: dict | None = None
+) -> bool:
     """Run a command with file input.
 
     Args:
@@ -28,12 +30,12 @@ def run_command_with_input(cmd: list[str], input_file: Path, description: str, e
     Returns:
         True if successful, False otherwise
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"📋 {description}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     try:
-        with open(input_file, 'r', encoding='utf-8') as f:
+        with open(input_file, encoding="utf-8") as f:
             process = subprocess.Popen(
                 cmd,
                 stdin=f,
@@ -42,14 +44,14 @@ def run_command_with_input(cmd: list[str], input_file: Path, description: str, e
                 env=env or os.environ,
                 text=True,
                 bufsize=1,
-                universal_newlines=True
+                universal_newlines=True,
             )
 
             # Stream output in real-time
             for line in process.stdout:
                 # Filter out noise
-                if not line.strip().startswith('SET'):
-                    print(line, end='')
+                if not line.strip().startswith("SET"):
+                    print(line, end="")
 
             process.wait()
 
@@ -80,17 +82,24 @@ def get_railway_credentials():
             "port": parsed.port or 5432,
             "user": parsed.username,
             "password": parsed.password,
-            "database": parsed.path[1:]
+            "database": parsed.path[1:],
         }
 
     # Fall back to PG* variables
-    if all([os.getenv("PGHOST"), os.getenv("PGUSER"), os.getenv("PGPASSWORD"), os.getenv("PGDATABASE")]):
+    if all(
+        [
+            os.getenv("PGHOST"),
+            os.getenv("PGUSER"),
+            os.getenv("PGPASSWORD"),
+            os.getenv("PGDATABASE"),
+        ]
+    ):
         return {
             "host": os.getenv("PGHOST"),
             "port": int(os.getenv("PGPORT", "5432")),
             "user": os.getenv("PGUSER"),
             "password": os.getenv("PGPASSWORD"),
-            "database": os.getenv("PGDATABASE")
+            "database": os.getenv("PGDATABASE"),
         }
 
     return None
@@ -118,12 +127,12 @@ def test_connection(creds: dict) -> bool:
                 f"--port={creds['port']}",
                 f"--username={creds['user']}",
                 f"--dbname={creds['database']}",
-                "--command=SELECT 1;"
+                "--command=SELECT 1;",
             ],
             env=env,
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         print("✅ Connection successful!")
         return True
@@ -146,12 +155,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Restore SQL backup to Railway PostgreSQL"
     )
-    parser.add_argument(
-        "--input",
-        "-i",
-        required=True,
-        help="Path to SQL backup file"
-    )
+    parser.add_argument("--input", "-i", required=True, help="Path to SQL backup file")
 
     args = parser.parse_args()
 
@@ -166,8 +170,8 @@ def main():
         sys.exit(1)
 
     size_bytes = input_file.stat().st_size
-    size_gb = size_bytes / (1024 ** 3)
-    size_mb = size_bytes / (1024 ** 2)
+    size_gb = size_bytes / (1024**3)
+    size_mb = size_bytes / (1024**2)
 
     if size_gb >= 1:
         print(f"\n📏 Backup size: {size_gb:.2f} GB")
@@ -183,7 +187,7 @@ def main():
         print(f"  railway run python {sys.argv[0]} --input {args.input}")
         sys.exit(1)
 
-    print(f"\n📊 Railway Configuration:")
+    print("\n📊 Railway Configuration:")
     print(f"  Host:     {creds['host']}")
     print(f"  Database: {creds['database']}")
 
@@ -195,7 +199,7 @@ def main():
     print(f"\n⚠️  This will restore {input_file.name} to Railway PostgreSQL")
     print("⏱️  Expected time: 15-30 minutes for 14GB")
     response = input("\nProceed? (y/n): ")
-    if response.lower() not in ['y', 'yes']:
+    if response.lower() not in ["y", "yes"]:
         print("❌ Restore cancelled")
         sys.exit(0)
 
@@ -209,7 +213,7 @@ def main():
         f"--host={creds['host']}",
         f"--port={creds['port']}",
         f"--username={creds['user']}",
-        f"--dbname={creds['database']}"
+        f"--dbname={creds['database']}",
     ]
 
     print("\n🔄 Starting restore...")
@@ -229,7 +233,7 @@ def main():
         f"--port={creds['port']}",
         f"--username={creds['user']}",
         f"--dbname={creds['database']}",
-        "--command=ANALYZE;"
+        "--command=ANALYZE;",
     ]
 
     subprocess.run(analyze_cmd, env=env)

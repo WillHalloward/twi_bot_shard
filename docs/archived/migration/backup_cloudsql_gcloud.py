@@ -19,14 +19,14 @@ Environment variables:
 
 import datetime
 import json
-import os
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 
-def run_command(cmd: list[str], description: str, capture_output: bool = False) -> tuple[bool, str]:
+def run_command(
+    cmd: list[str], description: str, capture_output: bool = False
+) -> tuple[bool, str]:
     """Run a shell command with error handling.
 
     Args:
@@ -37,21 +37,16 @@ def run_command(cmd: list[str], description: str, capture_output: bool = False) 
     Returns:
         Tuple of (success: bool, output: str)
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"📋 {description}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if not capture_output:
         print(f"Command: {' '.join(cmd)}\n")
 
     try:
         if capture_output:
-            result = subprocess.run(
-                cmd,
-                check=True,
-                capture_output=True,
-                text=True
-            )
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
             return True, result.stdout.strip()
         else:
             result = subprocess.run(cmd, check=True)
@@ -79,7 +74,7 @@ def get_gcloud_config() -> dict:
     success, output = run_command(
         ["gcloud", "config", "list", "--format=json"],
         "Getting gcloud configuration",
-        capture_output=True
+        capture_output=True,
     )
 
     if success:
@@ -97,11 +92,16 @@ def list_sql_instances(project_id: str) -> list[dict]:
         List of instance dictionaries
     """
     success, output = run_command(
-        ["gcloud", "sql", "instances", "list",
-         f"--project={project_id}",
-         "--format=json"],
+        [
+            "gcloud",
+            "sql",
+            "instances",
+            "list",
+            f"--project={project_id}",
+            "--format=json",
+        ],
         "Listing Cloud SQL instances",
-        capture_output=True
+        capture_output=True,
     )
 
     if success:
@@ -123,7 +123,7 @@ def get_or_create_bucket(project_id: str, bucket_name: str) -> bool:
     success, _ = run_command(
         ["gsutil", "ls", f"gs://{bucket_name}"],
         f"Checking if bucket gs://{bucket_name} exists",
-        capture_output=True
+        capture_output=True,
     )
 
     if success:
@@ -134,7 +134,7 @@ def get_or_create_bucket(project_id: str, bucket_name: str) -> bool:
     print(f"\n📦 Creating bucket gs://{bucket_name}...")
     success, _ = run_command(
         ["gsutil", "mb", "-p", project_id, f"gs://{bucket_name}"],
-        f"Creating bucket gs://{bucket_name}"
+        f"Creating bucket gs://{bucket_name}",
     )
 
     return success
@@ -145,7 +145,7 @@ def export_database(
     database_name: str,
     bucket_name: str,
     filename: str,
-    project_id: str
+    project_id: str,
 ) -> bool:
     """Export Cloud SQL database to GCS.
 
@@ -166,11 +166,14 @@ def export_database(
     print("You can monitor progress in GCP Console → SQL → Operations\n")
 
     cmd = [
-        "gcloud", "sql", "export", "sql",
+        "gcloud",
+        "sql",
+        "export",
+        "sql",
         instance_name,
         gcs_uri,
         f"--database={database_name}",
-        f"--project={project_id}"
+        f"--project={project_id}",
     ]
 
     # Start export (this will wait for completion)
@@ -194,18 +197,14 @@ def download_from_gcs(bucket_name: str, filename: str, local_path: Path) -> bool
 
     print(f"\n⬇️  Downloading {gcs_uri} to {local_path}...")
 
-    cmd = [
-        "gsutil", "cp",
-        gcs_uri,
-        str(local_path)
-    ]
+    cmd = ["gsutil", "cp", gcs_uri, str(local_path)]
 
     success, _ = run_command(cmd, "Downloading backup from GCS")
 
     if success:
         size_bytes = local_path.stat().st_size
-        size_gb = size_bytes / (1024 ** 3)
-        size_mb = size_bytes / (1024 ** 2)
+        size_gb = size_bytes / (1024**3)
+        size_mb = size_bytes / (1024**2)
 
         if size_gb >= 1:
             print(f"📦 Downloaded file size: {size_gb:.2f} GB")
@@ -224,15 +223,15 @@ def main():
     # Get gcloud configuration
     config = get_gcloud_config()
 
-    if not config or 'core' not in config:
+    if not config or "core" not in config:
         print("\n❌ gcloud CLI not configured!")
         print("\nPlease run:")
         print("  gcloud auth login")
         print("  gcloud config set project YOUR_PROJECT_ID")
         sys.exit(1)
 
-    project_id = config.get('core', {}).get('project')
-    account = config.get('core', {}).get('account')
+    project_id = config.get("core", {}).get("project")
+    account = config.get("core", {}).get("account")
 
     if not project_id:
         print("\n❌ No GCP project configured!")
@@ -240,7 +239,7 @@ def main():
         print("  gcloud config set project YOUR_PROJECT_ID")
         sys.exit(1)
 
-    print(f"\n📊 GCP Configuration:")
+    print("\n📊 GCP Configuration:")
     print(f"  Project: {project_id}")
     print(f"  Account: {account}")
 
@@ -253,7 +252,9 @@ def main():
 
     print(f"\n💾 Found {len(instances)} Cloud SQL instance(s):")
     for i, instance in enumerate(instances, 1):
-        print(f"  {i}. {instance['name']} ({instance.get('databaseVersion', 'unknown')})")
+        print(
+            f"  {i}. {instance['name']} ({instance.get('databaseVersion', 'unknown')})"
+        )
 
     # Select instance
     if len(instances) == 1:
@@ -267,7 +268,7 @@ def main():
             print("❌ Invalid selection")
             sys.exit(1)
 
-    instance_name = instance['name']
+    instance_name = instance["name"]
 
     # Get database name
     database_name = input("\nEnter database name (default: cognita_db): ").strip()
@@ -289,7 +290,7 @@ def main():
 
     # Confirm
     response = input("\n⚠️  Continue with backup? (y/n): ")
-    if response.lower() not in ['y', 'yes']:
+    if response.lower() not in ["y", "yes"]:
         print("❌ Backup cancelled")
         sys.exit(0)
 
@@ -299,7 +300,9 @@ def main():
         sys.exit(1)
 
     # Export database
-    if not export_database(instance_name, database_name, bucket_name, filename, project_id):
+    if not export_database(
+        instance_name, database_name, bucket_name, filename, project_id
+    ):
         print("\n❌ Database export failed")
         sys.exit(1)
 
@@ -308,7 +311,7 @@ def main():
     # Ask if user wants to download
     response = input("\n⬇️  Download backup to local machine? (y/n): ")
 
-    if response.lower() in ['y', 'yes']:
+    if response.lower() in ["y", "yes"]:
         # Create backups directory
         backup_dir = Path("backups")
         backup_dir.mkdir(exist_ok=True)
@@ -319,7 +322,7 @@ def main():
             print(f"\n✅ Backup downloaded to: {local_path.absolute()}")
         else:
             print("\n⚠️  Download failed, but backup is available in GCS")
-            print(f"You can download it later with:")
+            print("You can download it later with:")
             print(f"  gsutil cp gs://{bucket_name}/{filename} backups/")
 
     # Summary
@@ -334,8 +337,8 @@ def main():
     print("\nNext steps:")
     print("1. Verify backup (download and inspect if needed)")
     print("\n2. Convert SQL to custom format for pg_restore:")
-    print(f"   # This requires pg_dump/pg_restore tools")
-    print(f"   # OR you can restore the SQL file directly:")
+    print("   # This requires pg_dump/pg_restore tools")
+    print("   # OR you can restore the SQL file directly:")
     print(f"   railway run psql < backups/{filename}")
 
     print("\n3. Alternative: Use this SQL backup directly with Railway:")

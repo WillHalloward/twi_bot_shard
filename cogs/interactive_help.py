@@ -122,7 +122,9 @@ class HelpView(discord.ui.View):
     class CommandSelect(discord.ui.Select):
         """Select menu for commands within a category."""
 
-        def __init__(self, cog: "InteractiveHelp", commands: list[dict], category: str) -> None:
+        def __init__(
+            self, cog: "InteractiveHelp", commands: list[dict], category: str
+        ) -> None:
             """Initialize the command select menu.
 
             Args:

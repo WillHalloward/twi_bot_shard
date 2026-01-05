@@ -1158,12 +1158,12 @@ async def example_usage() -> None:
     # Create multiple random users
     users = [MockUserFactory.create() for _ in range(3)]
     for i, u in enumerate(users):
-        print(f"Random user {i+1}: {u.name}#{u.discriminator}")
+        print(f"Random user {i + 1}: {u.name}#{u.discriminator}")
 
     # Create multiple random channels
     channels = [MockChannelFactory.create_text_channel(guild=guild) for _ in range(3)]
     for i, c in enumerate(channels):
-        print(f"Random channel {i+1}: #{c.name}")
+        print(f"Random channel {i + 1}: #{c.name}")
 
     # Create multiple random messages
     messages = [
@@ -1174,7 +1174,7 @@ async def example_usage() -> None:
     ]
     for i, m in enumerate(messages):
         print(
-            f"Random message {i+1}: '{m.content}' by {m.author.name} in #{m.channel.name}"
+            f"Random message {i + 1}: '{m.content}' by {m.author.name} in #{m.channel.name}"
         )
 
     print("\n=== Testing Mock Methods ===")

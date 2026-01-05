@@ -448,9 +448,15 @@ async def run_all_load_tests():
         print(f"   ❌ Error Rate: {summary['error_rate']:.1f}%")
 
         if "avg_response_time" in summary:
-            print(f"   📊 Avg Response Time: {summary['avg_response_time']*1000:.2f}ms")
-            print(f"   📊 P95 Response Time: {summary['p95_response_time']*1000:.2f}ms")
-            print(f"   📊 P99 Response Time: {summary['p99_response_time']*1000:.2f}ms")
+            print(
+                f"   📊 Avg Response Time: {summary['avg_response_time'] * 1000:.2f}ms"
+            )
+            print(
+                f"   📊 P95 Response Time: {summary['p95_response_time'] * 1000:.2f}ms"
+            )
+            print(
+                f"   📊 P99 Response Time: {summary['p99_response_time'] * 1000:.2f}ms"
+            )
 
         if "avg_memory_mb" in summary:
             print(f"   💾 Avg Memory Usage: {summary['avg_memory_mb']:.1f}MB")

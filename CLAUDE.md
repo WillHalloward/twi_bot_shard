@@ -32,19 +32,27 @@ black .
 ### Testing
 ```bash
 # Run all tests using pytest
-pytest tests/
+ENVIRONMENT=testing pytest tests/
 # Or with verbose output: pytest tests/ -v
 
+# Run a single test file
+ENVIRONMENT=testing pytest tests/test_cogs.py -v
+
+# Run a specific test function
+ENVIRONMENT=testing pytest tests/test_cogs.py::test_cog_loading -v
+
 # Run with coverage
-pytest tests/ --cov=. --cov-report=xml
+ENVIRONMENT=testing pytest tests/ --cov=. --cov-report=xml
 
 # Run specific test categories
-python tests/test_dependencies.py       # Verify dependencies
-python tests/test_db_connection.py      # Test database connection
-python tests/test_sqlalchemy_models.py  # Test ORM models
-python tests/test_cogs.py               # Test all cog loading
-python tests/test_chaos_engineering.py  # Test resilience
+ENVIRONMENT=testing python tests/test_dependencies.py       # Verify dependencies
+ENVIRONMENT=testing python tests/test_db_connection.py      # Test database connection
+ENVIRONMENT=testing python tests/test_sqlalchemy_models.py  # Test ORM models
+ENVIRONMENT=testing python tests/test_cogs.py               # Test all cog loading
+ENVIRONMENT=testing python tests/test_chaos_engineering.py  # Test resilience
 ```
+
+Note: The `ENVIRONMENT=testing` prefix ensures lazy cog loading and proper test configuration.
 
 ### Type checking
 ```bash
@@ -101,7 +109,7 @@ python scripts/development/setup_hooks.py
    - All cogs inherit from `BaseCog` in `utils/base_cog.py`
    - Cogs access repositories via `self.repo_factory.get_repository(ModelClass)`
    - Critical cogs loaded at startup; non-critical cogs loaded lazily
-   - Critical cogs: `stats` (event tracking), `mods` (moderation), `gallery` (content management)
+   - Critical cogs: `owner`, `mods`, `stats`, `settings`, `interactive_help`
    - Stats functionality is split into modular components (commands, listeners, queries, tasks, utils)
 
 3. **Service Container** (`utils/service_container.py`)
@@ -152,8 +160,8 @@ The bot implements a comprehensive error handling strategy:
    - Use `@commands.Cog.listener()` decorator for event handlers
    - Use `@commands.command()` for prefix commands or `@app_commands.command()` for slash commands
    - Follow patterns in `cogs/example_cog.py`
-   - Add cog to the `cogs` list in main.py (line ~918)
-   - Add to `critical_cogs` only if required at startup
+   - Add cog to the `cogs` list in main.py (line ~1089)
+   - Add to `base_critical_cogs` (line ~1107) only if required at startup
 
 2. **New Database Model**:
    - Create model in `models/tables/` inheriting from `Base`
@@ -354,7 +362,7 @@ class MyModal(discord.ui.Modal, title="Input Form"):
 
 ### Intents Configuration
 
-The bot requires `message_content` intent (configured in main.py line 963-965):
+The bot requires `message_content` intent (configured in main.py):
 ```python
 intents = discord.Intents.default()
 intents.members = True
@@ -414,7 +422,7 @@ async def my_command(self, ctx, arg: str):
 
 ## Critical Files
 
-- `main.py`: Bot initialization and lifecycle (lines 64-826)
+- `main.py`: Bot initialization and lifecycle
 - `config/__init__.py`: Environment configuration with Pydantic validation
 - `utils/base_cog.py`: Base class for all cogs
 - `utils/repository.py`: Base repository implementation

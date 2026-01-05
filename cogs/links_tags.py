@@ -123,7 +123,9 @@ class LinkTags(commands.Cog, name="Links"):
     )
     @app_commands.autocomplete(category=category_autocomplete)
     @handle_interaction_errors
-    async def link_list(self, interaction: discord.Interaction, category: str = None) -> None:
+    async def link_list(
+        self, interaction: discord.Interaction, category: str = None
+    ) -> None:
         """Display a list of all link categories with the number of links in each category,
         or show all links within a specific category if one is provided.
         This is optimized for handling large amounts of links within Discord's character limit.

@@ -17,7 +17,6 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Discord components
-import discord
 
 # Import the cog to test
 from cogs.other import OtherCogs
@@ -124,7 +123,9 @@ class TestAO3SessionInitialization:
         cog = OtherCogs(bot)
 
         # Mock AO3.Session to always fail
-        with patch("cogs.other.AO3.Session", side_effect=Exception("Auth always fails")):
+        with patch(
+            "cogs.other.AO3.Session", side_effect=Exception("Auth always fails")
+        ):
             # Mock asyncio.sleep to avoid delays
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 # Call the initialization method

@@ -8,10 +8,9 @@ resource monitoring, and system commands.
 Note: These tests focus on the command logic. Error handling is tested separately.
 """
 
-import asyncio
 import os
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -19,7 +18,6 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Discord components
-import discord
 
 # Import the cog to test
 from cogs.owner import OwnerCog
@@ -48,7 +46,9 @@ class TestOwnerCogLoad:
         interaction = MockInteractionFactory.create()
 
         # Mock bot.extensions as empty dict (cog not loaded)
-        with patch.object(type(bot), 'extensions', new_callable=PropertyMock, return_value={}):
+        with patch.object(
+            type(bot), "extensions", new_callable=PropertyMock, return_value={}
+        ):
             # Call the command using callback pattern for grouped commands
             await cog.load_cog.callback(cog, interaction, cog="cogs.test")
 
@@ -77,7 +77,12 @@ class TestOwnerCogLoad:
         interaction = MockInteractionFactory.create()
 
         # Mock bot.extensions with cog already loaded
-        with patch.object(type(bot), 'extensions', new_callable=PropertyMock, return_value={"cogs.test": MagicMock()}):
+        with patch.object(
+            type(bot),
+            "extensions",
+            new_callable=PropertyMock,
+            return_value={"cogs.test": MagicMock()},
+        ):
             # Call the command using callback pattern
             await cog.load_cog.callback(cog, interaction, cog="cogs.test")
 
@@ -106,7 +111,9 @@ class TestOwnerCogLoad:
         interaction = MockInteractionFactory.create()
 
         # Mock bot.extensions
-        with patch.object(type(bot), 'extensions', new_callable=PropertyMock, return_value={}):
+        with patch.object(
+            type(bot), "extensions", new_callable=PropertyMock, return_value={}
+        ):
             # Call with empty string - error handler will catch it
             await cog.load_cog.callback(cog, interaction, cog="")
 
@@ -136,7 +143,12 @@ class TestOwnerCogUnload:
         interaction = MockInteractionFactory.create()
 
         # Mock bot.extensions with cog loaded
-        with patch.object(type(bot), 'extensions', new_callable=PropertyMock, return_value={"cogs.test": MagicMock()}):
+        with patch.object(
+            type(bot),
+            "extensions",
+            new_callable=PropertyMock,
+            return_value={"cogs.test": MagicMock()},
+        ):
             # Call the command using callback pattern
             await cog.unload_cog.callback(cog, interaction, cog="cogs.test")
 
@@ -162,7 +174,9 @@ class TestOwnerCogUnload:
         interaction = MockInteractionFactory.create()
 
         # Mock bot.extensions as empty
-        with patch.object(type(bot), 'extensions', new_callable=PropertyMock, return_value={}):
+        with patch.object(
+            type(bot), "extensions", new_callable=PropertyMock, return_value={}
+        ):
             # Call the command using callback pattern
             await cog.unload_cog.callback(cog, interaction, cog="cogs.test")
 
@@ -188,7 +202,12 @@ class TestOwnerCogUnload:
         interaction = MockInteractionFactory.create()
 
         # Mock bot.extensions with owner cog loaded
-        with patch.object(type(bot), 'extensions', new_callable=PropertyMock, return_value={"cogs.owner": MagicMock()}):
+        with patch.object(
+            type(bot),
+            "extensions",
+            new_callable=PropertyMock,
+            return_value={"cogs.owner": MagicMock()},
+        ):
             # Call the command using callback pattern
             await cog.unload_cog.callback(cog, interaction, cog="cogs.owner")
 
@@ -219,7 +238,12 @@ class TestOwnerCogReload:
         interaction = MockInteractionFactory.create()
 
         # Mock bot.extensions with cog loaded
-        with patch.object(type(bot), 'extensions', new_callable=PropertyMock, return_value={"cogs.test": MagicMock()}):
+        with patch.object(
+            type(bot),
+            "extensions",
+            new_callable=PropertyMock,
+            return_value={"cogs.test": MagicMock()},
+        ):
             # Call the command using callback pattern
             await cog.reload_cog.callback(cog, interaction, cog="cogs.test")
 
@@ -249,9 +273,7 @@ class TestOwnerCogCmd:
         # Mock subprocess
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Test output",
-                stderr=""
+                returncode=0, stdout="Test output", stderr=""
             )
 
             # Call the command using callback pattern
@@ -333,12 +355,12 @@ class TestOwnerCogResources:
         bot.resource_monitor.get_resource_stats.return_value = {
             "memory_mb": 100,
             "cpu_percent": 5.0,
-            "uptime": 3600
+            "uptime": 3600,
         }
         bot.resource_monitor.get_summary_stats.return_value = {
             "avg_memory_mb": 95,
             "peak_memory_mb": 120,
-            "avg_cpu_percent": 4.5
+            "avg_cpu_percent": 4.5,
         }
 
         # Create the OwnerCog
@@ -370,10 +392,9 @@ class TestOwnerCogSQL:
         bot = await TestSetup.create_test_bot()
 
         # Mock database fetch
-        bot.db.fetch = AsyncMock(return_value=[
-            {"id": 1, "name": "test1"},
-            {"id": 2, "name": "test2"}
-        ])
+        bot.db.fetch = AsyncMock(
+            return_value=[{"id": 1, "name": "test1"}, {"id": 2, "name": "test2"}]
+        )
 
         # Create the OwnerCog
         cog = await TestSetup.setup_cog(bot, OwnerCog)
@@ -382,7 +403,9 @@ class TestOwnerCogSQL:
         interaction = MockInteractionFactory.create()
 
         # Call the command using callback pattern (note: method name is sql_query, not sql)
-        await cog.sql_query.callback(cog, interaction, query="SELECT * FROM test", allow_modifications=False)
+        await cog.sql_query.callback(
+            cog, interaction, query="SELECT * FROM test", allow_modifications=False
+        )
 
         # Verify database fetch was called
         bot.db.fetch.assert_called_once()
@@ -410,11 +433,12 @@ class TestOwnerCogAskDB:
         interaction = MockInteractionFactory.create()
 
         # Mock the FAISS query functions
-        with patch("cogs.owner.query_faiss") as mock_query, \
-             patch("cogs.owner.build_prompt") as mock_prompt, \
-             patch("cogs.owner.generate_sql") as mock_generate, \
-             patch("cogs.owner.extract_sql_from_response") as mock_extract:
-
+        with (
+            patch("cogs.owner.query_faiss") as mock_query,
+            patch("cogs.owner.build_prompt") as mock_prompt,
+            patch("cogs.owner.generate_sql") as mock_generate,
+            patch("cogs.owner.extract_sql_from_response") as mock_extract,
+        ):
             # Set up mocks
             mock_query.return_value = ["table: users", "column: id"]
             mock_prompt.return_value = "Generate SQL"
@@ -425,7 +449,11 @@ class TestOwnerCogAskDB:
             await cog.ask_database.callback(cog, interaction, question="how many users")
 
             # Verify some processing happened
-            assert mock_query.called or mock_extract.called or interaction.response.defer.called
+            assert (
+                mock_query.called
+                or mock_extract.called
+                or interaction.response.defer.called
+            )
 
         # Cleanup
         await TestTeardown.teardown_bot(bot)

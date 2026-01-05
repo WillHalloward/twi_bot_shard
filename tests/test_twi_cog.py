@@ -451,9 +451,12 @@ async def test_autocomplete_functionality() -> bool:
     interaction = MockInteractionFactory.create()
 
     # Mock file operations for autocomplete
-    with patch("os.path.exists", return_value=True), patch(
-        "os.listdir",
-        return_value=["chapter1.txt", "chapter2.txt", "test_chapter.txt"],
+    with (
+        patch("os.path.exists", return_value=True),
+        patch(
+            "os.listdir",
+            return_value=["chapter1.txt", "chapter2.txt", "test_chapter.txt"],
+        ),
     ):
         # Call the autocomplete method
         choices = await cog.invis_text_autocomplete(interaction, "test")

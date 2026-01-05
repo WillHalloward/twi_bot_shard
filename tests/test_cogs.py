@@ -189,11 +189,6 @@ class TestBot(commands.Bot):
         self.container.register("web_client", None)  # Mock web client
         self.container.register_factory("db_session", self.session_maker)
 
-        # Initialize repository factory
-        from utils.repository_factory import RepositoryFactory
-
-        self.repo_factory = RepositoryFactory(self.container, self.session_maker)
-
         # Add mock http_client
         from unittest.mock import AsyncMock, MagicMock
 

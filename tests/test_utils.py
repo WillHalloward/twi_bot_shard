@@ -228,9 +228,9 @@ class TestAssertions:
         record = result.scalars().first()
 
         # Assert that a record was found
-        assert (
-            record is not None
-        ), f"No {model_class.__name__} record found matching {filters}"
+        assert record is not None, (
+            f"No {model_class.__name__} record found matching {filters}"
+        )
 
 
 class TestHelpers:

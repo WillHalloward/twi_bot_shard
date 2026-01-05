@@ -91,7 +91,6 @@ async def setup(bot):
   - **stats_queries.py**: User-facing query commands for statistics
   - **stats_tasks.py**: Background tasks for reporting and maintenance
   - **stats_utils.py**: Utility functions for data processing
-  - **stats_original.py**: Original stats implementation (legacy)
 - **creator_links.py**: Manages links to creator content
 - **report.py**: Handles user reporting functionality
 - **summarization.py**: Text summarization capabilities

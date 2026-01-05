@@ -67,9 +67,7 @@ async def test_basic_transaction_commit() -> bool:
 
     # Test transaction commit
     async with db.pool.acquire() as conn, conn.transaction():
-        await conn.execute(
-            "INSERT INTO test_table (name) VALUES ($1)", "test_value"
-        )
+        await conn.execute("INSERT INTO test_table (name) VALUES ($1)", "test_value")
 
     # Verify transaction was used
     mock_conn.transaction.assert_called_once()
@@ -146,9 +144,7 @@ async def test_nested_transactions() -> bool:
 
     # Test nested transactions
     async with db.pool.acquire() as conn, conn.transaction():
-        await conn.execute(
-            "INSERT INTO test_table (name) VALUES ($1)", "outer_value"
-        )
+        await conn.execute("INSERT INTO test_table (name) VALUES ($1)", "outer_value")
         async with conn.transaction():
             await conn.execute(
                 "INSERT INTO test_table (name) VALUES ($1)", "inner_value"
@@ -219,15 +215,11 @@ async def test_concurrent_transactions() -> bool:
     # Test concurrent transactions
     async def transaction1() -> None:
         async with db.pool.acquire() as conn, conn.transaction():
-            await conn.execute(
-                "INSERT INTO test_table (name) VALUES ($1)", "value1"
-            )
+            await conn.execute("INSERT INTO test_table (name) VALUES ($1)", "value1")
 
     async def transaction2() -> None:
         async with db.pool.acquire() as conn, conn.transaction():
-            await conn.execute(
-                "INSERT INTO test_table (name) VALUES ($1)", "value2"
-            )
+            await conn.execute("INSERT INTO test_table (name) VALUES ($1)", "value2")
 
     # Run transactions concurrently
     await asyncio.gather(transaction1(), transaction2())
@@ -423,9 +415,7 @@ async def test_savepoint_operations() -> bool:
         await conn.execute("SAVEPOINT sp1")
 
         try:
-            await conn.execute(
-                "INSERT INTO test_table (name) VALUES ($1)", "value2"
-            )
+            await conn.execute("INSERT INTO test_table (name) VALUES ($1)", "value2")
             # Simulate error
             raise Exception("Simulated error")
         except Exception:
@@ -465,9 +455,7 @@ async def test_bulk_operations_in_transaction() -> bool:
     async with db.pool.acquire() as conn, conn.transaction():
         # Bulk insert using executemany
         data = [("user1", "email1"), ("user2", "email2"), ("user3", "email3")]
-        await conn.executemany(
-            "INSERT INTO users (name, email) VALUES ($1, $2)", data
-        )
+        await conn.executemany("INSERT INTO users (name, email) VALUES ($1, $2)", data)
 
         # Bulk insert using copy
         await conn.copy_records_to_table("users", records=data)

@@ -24,38 +24,15 @@ from discord.ext import commands
 
 from utils.exceptions import (
     APIError,
-    ChannelError,
-    # Base exception
     CognitaError,
-    CommandCooldownError,
-    # Configuration errors
-    ConfigurationError,
-    ConnectionError,
-    # Database errors
     DatabaseError,
-    # Discord-specific errors
-    DiscordError,
-    # External service errors
     ExternalServiceError,
-    FormatError,
-    GuildError,
-    InvalidConfigurationError,
-    MessageError,
-    MissingConfigurationError,
     OwnerOnlyError,
-    # Permission errors
     PermissionError,
     QueryError,
-    # Rate limiting errors
-    RateLimitError,
     ResourceAlreadyExistsError,
-    ResourceInUseError,
-    # Resource errors
     ResourceNotFoundError,
     RolePermissionError,
-    ServiceUnavailableError,
-    TransactionError,
-    # Input validation errors
     UserInputError,
     ValidationError,
 )
@@ -153,11 +130,6 @@ SENSITIVE_PATTERNS: list[Pattern] = [
 SENSITIVE_ERROR_TYPES: set[type[Exception]] = {
     DatabaseError,
     QueryError,
-    ConnectionError,
-    TransactionError,
-    ConfigurationError,
-    MissingConfigurationError,
-    InvalidConfigurationError,
     APIError,
     ExternalServiceError,
 }
@@ -319,11 +291,6 @@ ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
         "log_level": logging.WARNING,
         "ephemeral": True,
     },
-    FormatError: {
-        "message": "Format error: {error.message}",
-        "log_level": logging.WARNING,
-        "ephemeral": True,
-    },
     # External service errors
     ExternalServiceError: {
         "message": "External service error: {error.message}",
@@ -332,11 +299,6 @@ ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
     },
     APIError: {
         "message": "API error: {error.message}",
-        "log_level": logging.ERROR,
-        "ephemeral": True,
-    },
-    ServiceUnavailableError: {
-        "message": "Service unavailable: {error.message}",
         "log_level": logging.ERROR,
         "ephemeral": True,
     },
@@ -367,38 +329,6 @@ ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
         "log_level": logging.WARNING,
         "ephemeral": True,
     },
-    ResourceInUseError: {
-        "message": "Resource in use: {error.message}",
-        "log_level": logging.WARNING,
-        "ephemeral": True,
-    },
-    # Configuration errors
-    ConfigurationError: {
-        "message": "Configuration error: {error.message}",
-        "log_level": logging.ERROR,
-        "ephemeral": True,
-    },
-    MissingConfigurationError: {
-        "message": "Missing configuration: {error.message}",
-        "log_level": logging.ERROR,
-        "ephemeral": True,
-    },
-    InvalidConfigurationError: {
-        "message": "Invalid configuration: {error.message}",
-        "log_level": logging.ERROR,
-        "ephemeral": True,
-    },
-    # Rate limiting errors
-    RateLimitError: {
-        "message": "Rate limit exceeded: {error.message}",
-        "log_level": logging.WARNING,
-        "ephemeral": True,
-    },
-    CommandCooldownError: {
-        "message": "Command on cooldown: {error.message}",
-        "log_level": logging.WARNING,
-        "ephemeral": True,
-    },
     # Database errors
     DatabaseError: {
         "message": "Database error: {error.message}",
@@ -407,37 +337,6 @@ ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
     },
     QueryError: {
         "message": "Query error: {error.message}",
-        "log_level": logging.ERROR,
-        "ephemeral": True,
-    },
-    ConnectionError: {
-        "message": "Database connection error: {error.message}",
-        "log_level": logging.ERROR,
-        "ephemeral": True,
-    },
-    TransactionError: {
-        "message": "Transaction error: {error.message}",
-        "log_level": logging.ERROR,
-        "ephemeral": True,
-    },
-    # Discord-specific errors
-    DiscordError: {
-        "message": "Discord API error: {error.message}",
-        "log_level": logging.ERROR,
-        "ephemeral": True,
-    },
-    MessageError: {
-        "message": "Message error: {error.message}",
-        "log_level": logging.ERROR,
-        "ephemeral": True,
-    },
-    ChannelError: {
-        "message": "Channel error: {error.message}",
-        "log_level": logging.ERROR,
-        "ephemeral": True,
-    },
-    GuildError: {
-        "message": "Guild error: {error.message}",
         "log_level": logging.ERROR,
         "ephemeral": True,
     },

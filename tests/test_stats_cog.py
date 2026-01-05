@@ -19,7 +19,7 @@ import discord
 
 # Import the cog to test
 from cogs.stats import StatsCogs
-from cogs.stats_utils import save_message, save_reaction
+from cogs.stats_listeners import save_message, save_reaction
 
 # Import test utilities
 from tests.mock_factories import (

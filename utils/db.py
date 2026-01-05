@@ -227,7 +227,10 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
+                if isinstance(
+                    e,
+                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -323,7 +326,10 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
+                if isinstance(
+                    e,
+                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -381,7 +387,10 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
+                if isinstance(
+                    e,
+                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -443,7 +452,10 @@ class Database:
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
+                if isinstance(
+                    e,
+                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -514,7 +526,10 @@ class Database:
                             await conn.execute(query, *args)
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
+                if isinstance(
+                    e,
+                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -565,7 +580,10 @@ class Database:
 
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
+                if isinstance(
+                    e,
+                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -628,7 +646,10 @@ class Database:
 
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
+                if isinstance(
+                    e,
+                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -720,7 +741,11 @@ class Database:
                     )
                     raise
                 except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                    if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
+                    if isinstance(
+                        e,
+                        asyncpg.DeadlockDetectedError
+                        | asyncpg.ConnectionDoesNotExistError,
+                    ):
                         # These errors are retryable
                         if attempt < retries - 1:
                             self.logger.warning(
@@ -785,7 +810,10 @@ class Database:
                 self.logger.error(f"Query timed out after {timeout_seconds}s: {query}")
                 raise
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
+                if isinstance(
+                    e,
+                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(
@@ -847,7 +875,10 @@ class Database:
                 self.logger.error(f"Query timed out after {timeout_seconds}s: {query}")
                 raise
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(e, asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError):
+                if isinstance(
+                    e,
+                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
+                ):
                     # These errors are retryable
                     if attempt < retries - 1:
                         self.logger.warning(

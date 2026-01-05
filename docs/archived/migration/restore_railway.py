@@ -35,11 +35,11 @@ def run_command(cmd: list[str], description: str, env: dict | None = None) -> bo
     Returns:
         True if successful, False otherwise
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"📋 {description}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     # Don't print password in command
-    safe_cmd = ' '.join(cmd).replace(os.getenv('PGPASSWORD', ''), '***')
+    safe_cmd = " ".join(cmd).replace(os.getenv("PGPASSWORD", ""), "***")
     print(f"Command: {safe_cmd}\n")
 
     try:
@@ -50,12 +50,12 @@ def run_command(cmd: list[str], description: str, env: dict | None = None) -> bo
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            universal_newlines=True
+            universal_newlines=True,
         )
 
         # Stream output in real-time
         for line in process.stdout:
-            print(line, end='')
+            print(line, end="")
 
         process.wait()
 
@@ -90,17 +90,24 @@ def get_railway_credentials():
             "port": parsed.port or 5432,
             "user": parsed.username,
             "password": parsed.password,
-            "database": parsed.path[1:]  # Remove leading '/'
+            "database": parsed.path[1:],  # Remove leading '/'
         }
 
     # Fall back to individual PG* variables
-    if all([os.getenv("PGHOST"), os.getenv("PGUSER"), os.getenv("PGPASSWORD"), os.getenv("PGDATABASE")]):
+    if all(
+        [
+            os.getenv("PGHOST"),
+            os.getenv("PGUSER"),
+            os.getenv("PGPASSWORD"),
+            os.getenv("PGDATABASE"),
+        ]
+    ):
         return {
             "host": os.getenv("PGHOST"),
             "port": int(os.getenv("PGPORT", "5432")),
             "user": os.getenv("PGUSER"),
             "password": os.getenv("PGPASSWORD"),
-            "database": os.getenv("PGDATABASE")
+            "database": os.getenv("PGDATABASE"),
         }
 
     return None
@@ -126,8 +133,8 @@ def verify_backup_file(backup_path: Path) -> bool:
 
     # Check file size
     size_bytes = backup_path.stat().st_size
-    size_gb = size_bytes / (1024 ** 3)
-    size_mb = size_bytes / (1024 ** 2)
+    size_gb = size_bytes / (1024**3)
+    size_mb = size_bytes / (1024**2)
 
     if size_gb >= 1:
         print(f"📏 Backup size: {size_gb:.2f} GB")
@@ -161,7 +168,7 @@ def test_connection(creds: dict) -> bool:
         f"--port={creds['port']}",
         f"--username={creds['user']}",
         f"--dbname={creds['database']}",
-        "--command=SELECT version();"
+        "--command=SELECT version();",
     ]
 
     return run_command(test_cmd, "Testing database connection", env)
@@ -187,16 +194,12 @@ def get_table_count(creds: dict) -> int | None:
         f"--dbname={creds['database']}",
         "--tuples-only",
         "--no-align",
-        "--command=SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';"
+        "--command=SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';",
     ]
 
     try:
         result = subprocess.run(
-            query_cmd,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=True
+            query_cmd, env=env, capture_output=True, text=True, check=True
         )
         return int(result.stdout.strip())
     except Exception:
@@ -212,17 +215,15 @@ def main():
         "--input",
         "-i",
         required=True,
-        help="Path to backup file (e.g., backups/cognita_backup.dump)"
+        help="Path to backup file (e.g., backups/cognita_backup.dump)",
     )
     parser.add_argument(
         "--clean",
         action="store_true",
-        help="Drop existing database objects before restore (use with caution!)"
+        help="Drop existing database objects before restore (use with caution!)",
     )
     parser.add_argument(
-        "--skip-verify",
-        action="store_true",
-        help="Skip post-restore verification"
+        "--skip-verify", action="store_true", help="Skip post-restore verification"
     )
 
     args = parser.parse_args()
@@ -237,9 +238,13 @@ def main():
     if not creds:
         print("\n❌ Railway database credentials not found!")
         print("\nPlease either:")
-        print("1. Run with Railway CLI: railway run python scripts/migration/restore_railway.py -i <file>")
+        print(
+            "1. Run with Railway CLI: railway run python scripts/migration/restore_railway.py -i <file>"
+        )
         print("2. Set DATABASE_URL environment variable")
-        print("3. Set PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE environment variables")
+        print(
+            "3. Set PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE environment variables"
+        )
         print("\nTo get Railway credentials:")
         print("  railway variables  # List all variables")
         sys.exit(1)
@@ -270,7 +275,7 @@ def main():
         if not args.clean:
             print("Consider using --clean flag to drop existing objects first.")
         response = input("\nContinue anyway? (y/n): ")
-        if response.lower() not in ['y', 'yes']:
+        if response.lower() not in ["y", "yes"]:
             print("❌ Restore cancelled")
             sys.exit(0)
 
@@ -278,7 +283,7 @@ def main():
     print("\n⚠️  This will restore the backup to Railway PostgreSQL.")
     print("⏱️  Expected time: 15-30 minutes for 14GB database")
     response = input("\nProceed with restore? (y/n): ")
-    if response.lower() not in ['y', 'yes']:
+    if response.lower() not in ["y", "yes"]:
         print("❌ Restore cancelled")
         sys.exit(0)
 
@@ -295,7 +300,7 @@ def main():
         f"--dbname={creds['database']}",
         "--verbose",
         "--no-owner",  # Don't try to restore ownership
-        "--no-acl"     # Don't try to restore access privileges
+        "--no-acl",  # Don't try to restore access privileges
     ]
 
     if args.clean:
@@ -313,9 +318,7 @@ def main():
             print("⏱️  This may take 15-30 minutes...\n")
 
             decompress_proc = subprocess.Popen(
-                decompress_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                decompress_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
 
             restore_proc = subprocess.Popen(
@@ -326,14 +329,14 @@ def main():
                 env=env,
                 text=True,
                 bufsize=1,
-                universal_newlines=True
+                universal_newlines=True,
             )
 
             decompress_proc.stdout.close()
 
             # Stream output
             for line in restore_proc.stdout:
-                print(line, end='')
+                print(line, end="")
 
             restore_proc.wait()
 
@@ -370,7 +373,7 @@ def main():
             f"--port={creds['port']}",
             f"--username={creds['user']}",
             f"--dbname={creds['database']}",
-            "--command=ANALYZE;"
+            "--command=ANALYZE;",
         ]
         run_command(analyze_cmd, "Running ANALYZE", env)
 
@@ -389,11 +392,13 @@ def main():
             f"--dbname={creds['database']}",
             "--tuples-only",
             "--no-align",
-            f"--command={size_query}"
+            f"--command={size_query}",
         ]
 
         try:
-            result = subprocess.run(size_cmd, env=env, capture_output=True, text=True, check=True)
+            result = subprocess.run(
+                size_cmd, env=env, capture_output=True, text=True, check=True
+            )
             db_size = result.stdout.strip()
             print(f"💾 Database size: {db_size}")
         except Exception:
@@ -407,7 +412,7 @@ def main():
             f"--port={creds['port']}",
             f"--username={creds['user']}",
             f"--dbname={creds['database']}",
-            "--command=\\dt"
+            "--command=\\dt",
         ]
         run_command(list_cmd, "Listing tables", env)
 
@@ -419,8 +424,8 @@ def main():
     print("1. Test bot connection to Railway database:")
     print("   railway run python main.py")
     print("\n2. Verify critical data:")
-    print(f"   railway run psql -c 'SELECT COUNT(*) FROM messages;'")
-    print(f"   railway run psql -c 'SELECT COUNT(*) FROM gallery_mementos;'")
+    print("   railway run psql -c 'SELECT COUNT(*) FROM messages;'")
+    print("   railway run psql -c 'SELECT COUNT(*) FROM gallery_mementos;'")
     print("\n3. Run database optimizations:")
     print("   railway run psql -f database/optimizations/base.sql")
     print("\n4. Deploy bot to Railway:")

@@ -296,7 +296,9 @@ class TimingContext:
         ```
     """
 
-    def __init__(self, logger: structlog.stdlib.BoundLogger, operation_name: str) -> None:
+    def __init__(
+        self, logger: structlog.stdlib.BoundLogger, operation_name: str
+    ) -> None:
         """Initialize the timing context.
 
         Args:

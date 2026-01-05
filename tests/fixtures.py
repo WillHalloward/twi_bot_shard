@@ -186,7 +186,9 @@ class TestDataFixture:
                 creation_date=datetime.now(),
             )
             session.add(test_server)
-            await session.flush()  # Flush to get the server_id available for foreign key
+            await (
+                session.flush()
+            )  # Flush to get the server_id available for foreign key
 
             for i in range(count):
                 command = CommandHistory(

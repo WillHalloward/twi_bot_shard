@@ -390,7 +390,6 @@ class ChaosEngineeringTests:
                     "aiohttp.ClientSession.get",
                     side_effect=Exception("Network failure"),
                 ):
-
                     start_time = time.time()
 
                     try:
@@ -455,9 +454,7 @@ class ChaosEngineeringTests:
             other_cog = OtherCogs(bot)
 
             # Create intermittent failure function
-            await self.injector.intermittent_failure(
-                failure_rate=0.3
-            )
+            await self.injector.intermittent_failure(failure_rate=0.3)
 
             success_count = 0
             failure_count = 0
@@ -544,7 +541,9 @@ class ChaosEngineeringTests:
                 severity = (
                     "high"
                     if recovery_time > 3.0
-                    else "medium" if recovery_time > 1.0 else "low"
+                    else "medium"
+                    if recovery_time > 1.0
+                    else "low"
                 )
                 self.metrics.record_degradation_event(
                     "slow_response", severity, {"response_time": recovery_time}

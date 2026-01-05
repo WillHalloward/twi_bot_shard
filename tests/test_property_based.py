@@ -8,7 +8,7 @@ to verify that certain properties hold for a wide range of inputs.
 import asyncio
 import os
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -42,7 +42,7 @@ from utils.decorators import (
     log_command,
 )
 from utils.error_handling import get_error_response, log_error
-from utils.permissions import admin_or_me_check, is_bot_channel
+from utils.permissions import admin_or_me_check
 
 # Define strategies for generating test data
 

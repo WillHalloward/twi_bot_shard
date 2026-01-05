@@ -170,7 +170,9 @@ class CreatorLinks(commands.Cog, name="Creator"):
         description="Removes a link from your creator links.",
     )
     @handle_interaction_errors
-    async def creator_link_remove(self, interaction: discord.Interaction, title: str) -> None:
+    async def creator_link_remove(
+        self, interaction: discord.Interaction, title: str
+    ) -> None:
         """Remove a link from the user's creator links.
 
         Args:

@@ -212,7 +212,9 @@ class SummarizationCog(commands.Cog):
 
     @app_commands.command(name="summarize")
     @handle_interaction_errors
-    async def summarize(self, interaction: discord.Interaction, num_messages: int = 50) -> None:
+    async def summarize(
+        self, interaction: discord.Interaction, num_messages: int = 50
+    ) -> None:
         """Summarizes the last X messages in the channel using AI.
 
         Args:
@@ -286,7 +288,9 @@ class SummarizationCog(commands.Cog):
 
     @app_commands.command(name="moderate")
     @handle_interaction_errors
-    async def moderate(self, interaction: discord.Interaction, num_messages: int = 50) -> None:
+    async def moderate(
+        self, interaction: discord.Interaction, num_messages: int = 50
+    ) -> None:
         """Analyzes the last X messages in the channel for potential rule violations using AI.
 
         Args:

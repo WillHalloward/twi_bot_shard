@@ -28,7 +28,6 @@ from cogs.gallery import GalleryCog, RepostMenu
 from cogs.mods import ModCogs
 
 # Import the cogs we want to test
-from cogs.stats import StatsCogs
 
 
 # Define simplified versions of save_message and save_reaction for testing
@@ -167,11 +166,6 @@ class TestBot(commands.Bot):
 
         self.session_maker = session_factory
         self.container.register_factory("db_session", self.session_maker)
-
-        # Initialize repository factory
-
-        self.repo_factory = MagicMock()
-        self.repo_factory.get_repository = MagicMock(return_value=MagicMock())
 
         # Add mock http_client
         self.http_client = MagicMock()
@@ -515,7 +509,9 @@ async def test_find_links() -> bool:
 
     # Mock the webhook manager's get_webhook context manager
     cog.webhook_manager.get_webhook = MagicMock(
-        return_value=MagicMock(__aenter__=AsyncMock(return_value=mock_webhook), __aexit__=AsyncMock())
+        return_value=MagicMock(
+            __aenter__=AsyncMock(return_value=mock_webhook), __aexit__=AsyncMock()
+        )
     )
 
     # Create a test message with links

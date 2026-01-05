@@ -36,9 +36,9 @@ def run_command(cmd: list[str], description: str) -> bool:
     Returns:
         True if successful, False otherwise
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"📋 {description}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Command: {' '.join(cmd)}\n")
 
     try:
@@ -46,7 +46,7 @@ def run_command(cmd: list[str], description: str) -> bool:
             cmd,
             check=True,
             capture_output=False,  # Show output in real-time
-            text=True
+            text=True,
         )
         print(f"\n✅ {description} - SUCCESS\n")
         return True
@@ -66,7 +66,9 @@ def run_command(cmd: list[str], description: str) -> bool:
         return False
 
 
-def get_env_or_prompt(var_name: str, prompt_text: str, required: bool = True, secret: bool = False) -> str | None:
+def get_env_or_prompt(
+    var_name: str, prompt_text: str, required: bool = True, secret: bool = False
+) -> str | None:
     """Get environment variable or prompt user.
 
     Args:
@@ -83,6 +85,7 @@ def get_env_or_prompt(var_name: str, prompt_text: str, required: bool = True, se
     if not value:
         if secret:
             import getpass
+
             value = getpass.getpass(f"{prompt_text}: ")
         else:
             value = input(f"{prompt_text}: ").strip()
@@ -103,20 +106,20 @@ def main():
         "--output",
         "-o",
         help="Output filename (default: cognita_backup_YYYYMMDD_HHMMSS.dump)",
-        default=None
+        default=None,
     )
     parser.add_argument(
         "--compress",
         "-c",
         action="store_true",
-        help="Compress backup with gzip after creation"
+        help="Compress backup with gzip after creation",
     )
     parser.add_argument(
         "--format",
         "-f",
         choices=["custom", "plain", "directory"],
         default="custom",
-        help="Backup format (default: custom, recommended for large databases)"
+        help="Backup format (default: custom, recommended for large databases)",
     )
 
     args = parser.parse_args()
@@ -127,13 +130,16 @@ def main():
 
     # Load environment variables
     from dotenv import load_dotenv
+
     load_dotenv()
 
     # Get database connection details
     host = get_env_or_prompt("HOST", "Cloud SQL Host/IP", required=True)
     port = os.getenv("PORT", "5432")
     db_user = get_env_or_prompt("DB_USER", "Database Username", required=True)
-    db_password = get_env_or_prompt("DB_PASSWORD", "Database Password", required=True, secret=True)
+    db_password = get_env_or_prompt(
+        "DB_PASSWORD", "Database Password", required=True, secret=True
+    )
     database = get_env_or_prompt("DATABASE", "Database Name", required=True)
 
     # Generate output filename if not provided
@@ -159,7 +165,7 @@ def main():
 
     # Confirm before proceeding
     response = input("\n⚠️  Continue with backup? (y/n): ")
-    if response.lower() not in ['y', 'yes']:
+    if response.lower() not in ["y", "yes"]:
         print("❌ Backup cancelled")
         sys.exit(0)
 
@@ -168,11 +174,7 @@ def main():
     env["PGPASSWORD"] = db_password
 
     # Build pg_dump command
-    format_flag = {
-        "custom": "c",
-        "plain": "p",
-        "directory": "d"
-    }[args.format]
+    format_flag = {"custom": "c", "plain": "p", "directory": "d"}[args.format]
 
     pg_dump_cmd = [
         "pg_dump",
@@ -183,7 +185,7 @@ def main():
         f"--format={format_flag}",
         "--blobs",
         "--verbose",
-        f"--file={backup_path}"
+        f"--file={backup_path}",
     ]
 
     # Execute backup
@@ -199,12 +201,12 @@ def main():
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            universal_newlines=True
+            universal_newlines=True,
         )
 
         # Stream output in real-time
         for line in process.stdout:
-            print(line, end='')
+            print(line, end="")
 
         process.wait()
 

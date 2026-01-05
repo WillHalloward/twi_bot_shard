@@ -7,8 +7,8 @@ including reset, state, log_attachment, dm_watch, find_links, and filter_new_use
 
 import os
 import sys
-from datetime import datetime, timedelta, UTC
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -23,15 +23,14 @@ from cogs.mods import ModCogs
 
 # Import test utilities
 from tests.mock_factories import (
-    MockInteractionFactory,
-    MockMessageFactory,
     MockChannelFactory,
-    MockUserFactory,
     MockGuildFactory,
+    MockInteractionFactory,
     MockMemberFactory,
+    MockMessageFactory,
+    MockUserFactory,
 )
-from tests.test_utils import TestSetup, TestTeardown
-from utils.exceptions import ValidationError, ResourceNotFoundError
+from tests.test_utils import TestSetup
 
 
 class TestResetCommand:
@@ -79,7 +78,7 @@ class TestStateCommand:
 
         interaction.response.send_message.assert_called_once()
         call_args = interaction.response.send_message.call_args
-        embed = call_args.kwargs.get('embed')
+        embed = call_args.kwargs.get("embed")
 
         assert embed is not None
         assert "MODERATOR MESSAGE" in embed.title
@@ -111,7 +110,9 @@ class TestLogAttachmentListener:
         mock_webhook = AsyncMock()
         mock_webhook.send = AsyncMock()
         cog.webhook_manager.get_webhook = MagicMock(
-            return_value=MagicMock(__aenter__=AsyncMock(return_value=mock_webhook), __aexit__=AsyncMock())
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_webhook), __aexit__=AsyncMock()
+            )
         )
 
         await cog.log_attachment(message)
@@ -174,7 +175,9 @@ class TestDMWatchListener:
         # Create DM channel mock that passes isinstance check
         dm_channel = MagicMock(spec=discord.DMChannel)
         user = MockUserFactory.create(bot=False)
-        message = MockMessageFactory.create(channel=dm_channel, author=user, content="Test DM message")
+        message = MockMessageFactory.create(
+            channel=dm_channel, author=user, content="Test DM message"
+        )
         message.attachments = []
         dm_channel.recipient = None
 
@@ -182,7 +185,9 @@ class TestDMWatchListener:
         mock_webhook = AsyncMock()
         mock_webhook.send = AsyncMock()
         cog.webhook_manager.get_webhook = MagicMock(
-            return_value=MagicMock(__aenter__=AsyncMock(return_value=mock_webhook), __aexit__=AsyncMock())
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_webhook), __aexit__=AsyncMock()
+            )
         )
 
         await cog.dm_watch(message)
@@ -206,9 +211,7 @@ class TestFindLinksListener:
         channel = MockChannelFactory.create_text_channel(guild=guild)
         user = MockUserFactory.create(bot=False)
         message = MockMessageFactory.create(
-            channel=channel,
-            author=user,
-            content="Check out http://example.com"
+            channel=channel, author=user, content="Check out http://example.com"
         )
         message.guild = guild  # Set guild on message
 
@@ -216,7 +219,9 @@ class TestFindLinksListener:
         mock_webhook = AsyncMock()
         mock_webhook.send = AsyncMock()
         cog.webhook_manager.get_webhook = MagicMock(
-            return_value=MagicMock(__aenter__=AsyncMock(return_value=mock_webhook), __aexit__=AsyncMock())
+            return_value=MagicMock(
+                __aenter__=AsyncMock(return_value=mock_webhook), __aexit__=AsyncMock()
+            )
         )
 
         await cog.find_links(message)
@@ -235,9 +240,7 @@ class TestFindLinksListener:
         channel = MockChannelFactory.create_text_channel(guild=guild)
         user = MockUserFactory.create(bot=False)
         message = MockMessageFactory.create(
-            channel=channel,
-            author=user,
-            content="Just a regular message without links"
+            channel=channel, author=user, content="Just a regular message without links"
         )
         message.guild = guild  # Set guild on message
 
@@ -323,7 +326,9 @@ class TestModsEdgeCases:
         message.attachments = [mock_attachment]
 
         # Mock webhook failure
-        cog.webhook_manager.get_webhook = MagicMock(side_effect=Exception("Webhook error"))
+        cog.webhook_manager.get_webhook = MagicMock(
+            side_effect=Exception("Webhook error")
+        )
 
         # Should not raise - errors are logged
         await cog.log_attachment(message)

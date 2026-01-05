@@ -10,7 +10,7 @@ Focus is on testing component initialization and core logic.
 
 import os
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -18,13 +18,15 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Discord components
-import discord
 
 # Import the cog to test
 from cogs.gallery import GalleryCog, RepostMenu, RepostModal
 
 # Import test utilities
-from tests.mock_factories import MockInteractionFactory, MockMessageFactory, MockChannelFactory, MockUserFactory
+from tests.mock_factories import (
+    MockInteractionFactory,
+    MockMessageFactory,
+)
 from tests.test_utils import TestSetup, TestTeardown
 
 
@@ -197,7 +199,7 @@ class TestGalleryRepostValidation:
             MagicMock(
                 url="https://example.com/file.xyz",
                 filename="file.xyz",
-                content_type=None  # Unsupported
+                content_type=None,  # Unsupported
             )
         ]
 

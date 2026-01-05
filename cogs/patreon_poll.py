@@ -351,7 +351,6 @@ async def check_and_update_expired_polls(bot, polls):
             and poll["expire_date"] < datetime.now(UTC)
             and not poll["expired"]
         ):
-
             logger.info(
                 "poll_expired_detected",
                 poll_id=poll["id"],

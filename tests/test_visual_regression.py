@@ -531,9 +531,9 @@ async def run_all_visual_regression_tests():
     print("\n🖼️ Gallery Visual Tests")
     print("-" * 40)
     gallery_tests = GalleryVisualTests()
-    results["gallery_attachments"] = (
-        await gallery_tests.test_gallery_image_attachment_processing()
-    )
+    results[
+        "gallery_attachments"
+    ] = await gallery_tests.test_gallery_image_attachment_processing()
     results["gallery_embeds"] = await gallery_tests.test_gallery_embed_image_setting()
 
     # Avatar Visual Tests

@@ -15,20 +15,15 @@ from discord import app_commands
 # Admin group - Owner-only commands for bot administration
 # These commands should be restricted to the bot owner only
 admin = app_commands.Group(
-    name="admin",
-    description="Owner-only commands for bot administration"
+    name="admin", description="Owner-only commands for bot administration"
 )
 
 # Mod group - Server moderation commands
 # These commands are for server moderators and staff
-mod = app_commands.Group(
-    name="mod",
-    description="Server moderation commands"
-)
+mod = app_commands.Group(name="mod", description="Server moderation commands")
 
 # Gallery admin group - Gallery-specific administration
 # These commands are for managing the gallery system
 gallery_admin = app_commands.Group(
-    name="gallery_admin",
-    description="Gallery administration and management commands"
+    name="gallery_admin", description="Gallery administration and management commands"
 )

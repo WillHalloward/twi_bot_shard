@@ -8,7 +8,6 @@ invalidation, and cache statistics.
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
 
 import pytest
 

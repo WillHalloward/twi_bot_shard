@@ -14,17 +14,16 @@ import time
 from datetime import UTC
 from itertools import groupby
 
+# Other third-party imports
+# Import AO3 last to avoid potential import deadlocks
+import AO3
+
 # Import third-party modules in a specific order
 # Discord-related imports
 import discord
 import structlog
 from discord import app_commands
 from discord.ext import commands
-
-# Other third-party imports
-
-# Import AO3 last to avoid potential import deadlocks
-import AO3
 
 import config
 from utils.command_groups import admin
@@ -43,7 +42,9 @@ from utils.permissions import (
 # to avoid blocking the bot startup with authentication
 
 
-async def user_info_function(interaction: discord.Interaction, member: discord.Member) -> None:
+async def user_info_function(
+    interaction: discord.Interaction, member: discord.Member
+) -> None:
     """Create and send an embed with detailed information about a Discord user.
 
     This function creates an embed containing comprehensive information about a user,
@@ -305,14 +306,18 @@ class OtherCogs(commands.Cog, name="Other"):
             max_retries: Maximum number of retry attempts (default: 3)
         """
         if self.ao3_login_in_progress:
-            self.logger.warning("AO3 login already in progress, skipping duplicate attempt")
+            self.logger.warning(
+                "AO3 login already in progress, skipping duplicate attempt"
+            )
             return
 
         self.ao3_login_in_progress = True
 
         for attempt in range(1, max_retries + 1):
             try:
-                self.logger.info(f"Attempting AO3 login (attempt {attempt}/{max_retries})")
+                self.logger.info(
+                    f"Attempting AO3 login (attempt {attempt}/{max_retries})"
+                )
 
                 # Run the blocking AO3.Session call in an executor to avoid blocking the event loop
                 loop = asyncio.get_event_loop()
@@ -320,7 +325,7 @@ class OtherCogs(commands.Cog, name="Other"):
                     None,  # Use default executor
                     AO3.Session,
                     str(config.ao3_username),
-                    str(config.ao3_password)
+                    str(config.ao3_password),
                 )
 
                 self.ao3_session = session
@@ -332,12 +337,12 @@ class OtherCogs(commands.Cog, name="Other"):
             except Exception as e:
                 self.logger.error(
                     f"AO3 login failed (attempt {attempt}/{max_retries}): {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
 
                 if attempt < max_retries:
                     # Exponential backoff: 2^attempt seconds (2, 4, 8...)
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     self.logger.info(f"Retrying AO3 login in {wait_time} seconds...")
                     await asyncio.sleep(wait_time)
                 else:
@@ -382,7 +387,9 @@ class OtherCogs(commands.Cog, name="Other"):
     @app_commands.describe(retry="Set to True to retry AO3 login")
     @app_commands.checks.has_permissions(administrator=True)
     @handle_interaction_errors
-    async def ao3_status(self, interaction: discord.Interaction, retry: bool = False) -> None:
+    async def ao3_status(
+        self, interaction: discord.Interaction, retry: bool = False
+    ) -> None:
         """Check AO3 authentication status or manually retry login.
 
         This admin command allows checking the current AO3 authentication status
@@ -401,14 +408,16 @@ class OtherCogs(commands.Cog, name="Other"):
             if self.ao3_login_in_progress:
                 await interaction.followup.send(
                     "⏳ AO3 login is already in progress. Please wait...",
-                    ephemeral=True
+                    ephemeral=True,
                 )
                 return
 
-            self.logger.info(f"Admin {interaction.user.id} triggered manual AO3 login retry")
+            self.logger.info(
+                f"Admin {interaction.user.id} triggered manual AO3 login retry"
+            )
             await interaction.followup.send(
                 "🔄 Retrying AO3 login... This may take up to 90 seconds per attempt.",
-                ephemeral=True
+                ephemeral=True,
             )
 
             # Retry login in background
@@ -432,9 +441,13 @@ class OtherCogs(commands.Cog, name="Other"):
         else:
             # Just check status
             if self.ao3_login_successful:
-                status_msg = "✅ **AO3 Status: Connected**\nAuthentication is working properly."
+                status_msg = (
+                    "✅ **AO3 Status: Connected**\nAuthentication is working properly."
+                )
             elif self.ao3_login_in_progress:
-                status_msg = "⏳ **AO3 Status: Connecting**\nLogin attempt in progress..."
+                status_msg = (
+                    "⏳ **AO3 Status: Connecting**\nLogin attempt in progress..."
+                )
             else:
                 status_msg = "❌ **AO3 Status: Disconnected**\nAuthentication failed. Use `retry: True` to retry."
 
@@ -1970,7 +1983,9 @@ class OtherCogs(commands.Cog, name="Other"):
         description="Posts a quote a random quote or a quote with the given index",
     )
     @handle_interaction_errors
-    async def quote_get(self, interaction: discord.Interaction, index: int = None) -> None:
+    async def quote_get(
+        self, interaction: discord.Interaction, index: int = None
+    ) -> None:
         """Retrieve and display a quote from the database.
 
         This command retrieves either a random quote or a specific quote by its
@@ -2494,7 +2509,6 @@ class OtherCogs(commands.Cog, name="Other"):
 
             # Group roles by category and build embed fields
             try:
-
                 for key, group in groupby(
                     roles, key=lambda k: k["category"] or "Uncategorized"
                 ):
@@ -2925,7 +2939,9 @@ class OtherCogs(commands.Cog, name="Other"):
     )
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
-    async def role_remove(self, interaction: discord.Interaction, role: discord.Role) -> None:
+    async def role_remove(
+        self, interaction: discord.Interaction, role: discord.Role
+    ) -> None:
         """Remove a role from the self-assignable roles list.
 
         This admin-only command removes a role from the self-assignable roles list,
@@ -3326,7 +3342,7 @@ class OtherCogs(commands.Cog, name="Other"):
                     else:
                         rolls_str = (
                             ", ".join(map(str, rolls[:20]))
-                            + f"... (+{len(rolls)-20} more)"
+                            + f"... (+{len(rolls) - 20} more)"
                         )
                     breakdown_parts.append(f"Rolls: [{rolls_str}]")
                     breakdown_parts.append(f"Sum: {total_before_modifier}")
@@ -3919,7 +3935,9 @@ class OtherCogs(commands.Cog, name="Other"):
             )
             raise DatabaseError(message=error_msg) from e
 
-    @app_commands.command(name="pat", description="Give Cognita a pat for a job well done!")
+    @app_commands.command(
+        name="pat", description="Give Cognita a pat for a job well done!"
+    )
     async def pat(self, interaction: discord.Interaction) -> None:
         """Pat the bot to show appreciation.
 

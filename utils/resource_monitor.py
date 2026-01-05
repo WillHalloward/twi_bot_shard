@@ -384,11 +384,13 @@ class ResourceMonitor:
                 stats.update(
                     {
                         "memory_leak_candidates": list(self._potential_leaks),
-                        "memory_growth_top10": dict(sorted(
+                        "memory_growth_top10": dict(
+                            sorted(
                                 self._memory_growth.items(),
                                 key=lambda item: item[1],
                                 reverse=True,
-                            )[:10]),
+                            )[:10]
+                        ),
                     }
                 )
 

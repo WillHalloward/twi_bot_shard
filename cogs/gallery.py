@@ -13,8 +13,6 @@ import discord
 import gallery_dl
 from discord import app_commands
 
-from models.tables.creator_links import CreatorLink
-from models.tables.gallery import GalleryMementos
 from utils.base_cog import BaseCog
 from utils.command_groups import gallery_admin
 from utils.decorators import log_command
@@ -220,10 +218,6 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         self.bot = bot
         self.repost_cache = None
 
-        # Get repositories from the repository factory
-        self.gallery_repo = bot.repo_factory.get_repository(GalleryMementos)
-        self.creator_links_repo = bot.repo_factory.get_repository(CreatorLink)
-
         # Initialize migration repository and data extractor
         self.migration_repo = GalleryMigrationRepository(bot.get_db_session)
         self.data_extractor = GalleryDataExtractor()
@@ -256,14 +250,8 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             if cmd.callback.__name__ in cog_method_names:
                 cmd.binding = self
 
-        # Use repository to load gallery mementos
-        self.repost_cache = await self.gallery_repo.get_all()
-
-        # Keep the old method as a fallback
-        if not self.repost_cache:
-            self.repost_cache = await self.bot.db.fetch(
-                "SELECT * FROM gallery_mementos"
-            )
+        # Load gallery mementos from database
+        self.repost_cache = await self.bot.db.fetch("SELECT * FROM gallery_mementos")
 
     @app_commands.default_permissions(ban_members=True)
     @handle_interaction_errors
@@ -668,8 +656,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
 
                 # Get creator links for the message author
                 try:
-                    query_r = await self.creator_links_repo.get_by_user_id(
-                        message.author.id
+                    query_r = await self.bot.db.fetch(
+                        "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
+                        message.author.id,
                     )
                 except Exception as e:
                     self.logger.error(
@@ -990,7 +979,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             repost_channel = interaction.guild.get_channel(
                 int(menu.channel_select.values[0])
             )
-            query_r = await self.creator_links_repo.get_by_user_id(message.author.id)
+            query_r = await self.bot.db.fetch(
+                "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
+                message.author.id,
+            )
             if query_r:
                 for x in query_r:
                     if repost_channel.is_nsfw() or not x.nsfw:
@@ -1042,8 +1034,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 repost_channel = interaction.guild.get_channel(
                     int(menu.channel_select.values[0])
                 )
-                query_r = await self.creator_links_repo.get_by_user_id(
-                    message.author.id
+                query_r = await self.bot.db.fetch(
+                    "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
+                    message.author.id,
                 )
                 for image in sorted(os.listdir("temp_files")):
                     if image.startswith(str(tweet_id)) and not image.endswith(".mp4"):
@@ -1135,7 +1128,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             repost_channel = interaction.guild.get_channel(
                 int(menu.channel_select.values[0])
             )
-            query_r = await self.creator_links_repo.get_by_user_id(message.author.id)
+            query_r = await self.bot.db.fetch(
+                "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
+                message.author.id,
+            )
             embed = discord.Embed(
                 title=menu.title_item,
                 description=menu.description_item,
@@ -1199,7 +1195,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             repost_channel = interaction.guild.get_channel(
                 int(menu.channel_select.values[0])
             )
-            query_r = await self.creator_links_repo.get_by_user_id(message.author.id)
+            query_r = await self.bot.db.fetch(
+                "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
+                message.author.id,
+            )
             for image in sorted(os.listdir(f"{interaction.guild_id}_temp_files")):
                 file = discord.File(f"{interaction.guild_id}_temp_files/{image}")
                 embed = discord.Embed(
@@ -1267,7 +1266,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         else:
             await interaction.delete_original_response()
 
-    @gallery_admin.command(name="set_repost", description="Add or remove a channel from repost channels")
+    @gallery_admin.command(
+        name="set_repost", description="Add or remove a channel from repost channels"
+    )
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("set_repost")
@@ -1294,12 +1295,16 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
 
         try:
             # Check if channel exists in database
-            existing = await self.gallery_repo.get_by_field("channel_id", channel.id)
+            existing = await self.bot.db.fetch(
+                "SELECT * FROM gallery_mementos WHERE channel_id = $1", channel.id
+            )
 
             if existing:
                 # Remove existing channel
                 try:
-                    await self.gallery_repo.delete(existing[0].channel_name)
+                    await self.bot.db.execute(
+                        "DELETE FROM gallery_mementos WHERE channel_id = $1", channel.id
+                    )
 
                     embed = discord.Embed(
                         title="🗑️ Repost Channel Removed",
@@ -1342,10 +1347,11 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             else:
                 # Add new channel
                 try:
-                    await self.gallery_repo.create(
-                        channel_name=channel.name,
-                        channel_id=channel.id,
-                        guild_id=channel.guild.id,
+                    await self.bot.db.execute(
+                        "INSERT INTO gallery_mementos (channel_name, channel_id, guild_id) VALUES ($1, $2, $3)",
+                        channel.name,
+                        channel.id,
+                        channel.guild.id,
                     )
 
                     embed = discord.Embed(
@@ -1396,13 +1402,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
 
             # Refresh cache
             try:
-                self.repost_cache = await self.gallery_repo.get_all()
-
-                # Keep the old method as a fallback
-                if not self.repost_cache:
-                    self.repost_cache = await self.bot.db.fetch(
-                        "SELECT * FROM gallery_mementos"
-                    )
+                self.repost_cache = await self.bot.db.fetch(
+                    "SELECT * FROM gallery_mementos"
+                )
 
                 self.logger.info(
                     f"Refreshed repost cache, now contains {len(self.repost_cache)} channels",
@@ -1438,7 +1440,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 "❌ A database error occurred. Please try again later.", ephemeral=True
             )
 
-    @gallery_admin.command(name="extract_data", description="Extract gallery data from channels")
+    @gallery_admin.command(
+        name="extract_data", description="Extract gallery data from channels"
+    )
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("extract_gallery_data")
@@ -1511,10 +1515,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 # Process chunk when it reaches the specified size
                 if len(current_chunk) >= chunk_size:
                     chunk_count += 1
-                    chunk_data, chunk_db_data, chunk_errors = (
-                        await self._process_gallery_chunk(
-                            current_chunk, chunk_count, channel.name
-                        )
+                    (
+                        chunk_data,
+                        chunk_db_data,
+                        chunk_errors,
+                    ) = await self._process_gallery_chunk(
+                        current_chunk, chunk_count, channel.name
                     )
                     extracted_entries.extend(chunk_data)
                     db_entries.extend(chunk_db_data)
@@ -1545,10 +1551,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             # Process remaining messages in the last chunk
             if current_chunk:
                 chunk_count += 1
-                chunk_data, chunk_db_data, chunk_errors = (
-                    await self._process_gallery_chunk(
-                        current_chunk, chunk_count, channel.name
-                    )
+                (
+                    chunk_data,
+                    chunk_db_data,
+                    chunk_errors,
+                ) = await self._process_gallery_chunk(
+                    current_chunk, chunk_count, channel.name
                 )
                 extracted_entries.extend(chunk_data)
                 db_entries.extend(chunk_db_data)
@@ -1715,7 +1723,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             value=(
                 f"• Bot posts: {bot_entries:,}\n"
                 f"• Manual posts: {manual_entries:,}\n"
-                f"• Bot percentage: {(bot_entries/len(extracted_data)*100):.1f}%"
+                f"• Bot percentage: {(bot_entries / len(extracted_data) * 100):.1f}%"
                 if extracted_data
                 else "• No entries found"
             ),
@@ -1734,8 +1742,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
 
         embed_report.add_field(
             name="🎯 Forum Classification",
-            value=f"• SFW entries: {sfw_entries:,}\n"
-            f"• NSFW entries: {nsfw_entries:,}",
+            value=f"• SFW entries: {sfw_entries:,}\n• NSFW entries: {nsfw_entries:,}",
             inline=False,
         )
 
@@ -1744,7 +1751,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 name="💾 Database Storage",
                 value=(
                     f"• Entries stored: {stored_count:,}\n"
-                    f"• Storage success: {(stored_count/len(extracted_data)*100):.1f}%"
+                    f"• Storage success: {(stored_count / len(extracted_data) * 100):.1f}%"
                     if extracted_data
                     else "• No entries to store"
                 ),
@@ -1770,7 +1777,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
 
         await interaction.followup.send(embed=embed_report, file=file, ephemeral=True)
 
-    @gallery_admin.command(name="migration_stats", description="View gallery migration statistics")
+    @gallery_admin.command(
+        name="migration_stats", description="View gallery migration statistics"
+    )
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("gallery_migration_stats")
@@ -1805,7 +1814,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 name="🔍 Review Status",
                 value=(
                     f"• Needs review: {stats['needs_review']:,}\n"
-                    f"• Review percentage: {(stats['needs_review']/stats['total_entries']*100):.1f}%"
+                    f"• Review percentage: {(stats['needs_review'] / stats['total_entries'] * 100):.1f}%"
                     if stats["total_entries"] > 0
                     else "• No entries"
                 ),
@@ -1817,7 +1826,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 value=(
                     f"• Bot posts: {stats['bot_posts']:,}\n"
                     f"• Manual posts: {stats['manual_posts']:,}\n"
-                    f"• Bot percentage: {(stats['bot_posts']/stats['total_entries']*100):.1f}%"
+                    f"• Bot percentage: {(stats['bot_posts'] / stats['total_entries'] * 100):.1f}%"
                     if stats["total_entries"] > 0
                     else "• No entries"
                 ),
@@ -1832,7 +1841,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 "❌ Error retrieving migration statistics.", ephemeral=True
             )
 
-    @gallery_admin.command(name="review_entries", description="Review and manage gallery entries")
+    @gallery_admin.command(
+        name="review_entries", description="Review and manage gallery entries"
+    )
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("review_gallery_entries")
@@ -1931,7 +1942,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 "❌ Error retrieving entries for review.", ephemeral=True
             )
 
-    @gallery_admin.command(name="update_tags", description="Update tags for a gallery entry")
+    @gallery_admin.command(
+        name="update_tags", description="Update tags for a gallery entry"
+    )
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("update_gallery_tags")
@@ -1986,7 +1999,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             self.logger.error(f"Error updating tags for {msg_id}: {e}")
             await interaction.followup.send("❌ Error updating tags.", ephemeral=True)
 
-    @gallery_admin.command(name="mark_reviewed", description="Mark a gallery entry as reviewed")
+    @gallery_admin.command(
+        name="mark_reviewed", description="Mark a gallery entry as reviewed"
+    )
     @app_commands.check(app_admin_or_me_check)
     @handle_interaction_errors
     @log_command("mark_entry_reviewed")

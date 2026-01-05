@@ -75,7 +75,9 @@ class TestGoogleSearchIntegration:
         """Mock empty Google search response."""
         return {"items": []}
 
-    def mock_google_search_error(self, query: str, api_key: str, cse_id: str, **kwargs) -> Never:
+    def mock_google_search_error(
+        self, query: str, api_key: str, cse_id: str, **kwargs
+    ) -> Never:
         """Mock Google search API error."""
         from googleapiclient.errors import HttpError
 

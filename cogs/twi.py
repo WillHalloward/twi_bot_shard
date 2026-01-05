@@ -608,7 +608,9 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         name="invistext", description="Gives a list of all the invisible text in TWI."
     )
     @handle_interaction_errors
-    async def invis_text(self, interaction: discord.Interaction, chapter: str = None) -> None:
+    async def invis_text(
+        self, interaction: discord.Interaction, chapter: str = None
+    ) -> None:
         """Retrieve invisible text from The Wandering Inn chapters.
 
         This command either lists all chapters containing invisible text

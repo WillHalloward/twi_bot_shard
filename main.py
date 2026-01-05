@@ -27,7 +27,7 @@ import discord
 from discord.ext import commands
 
 import config
-from utils.command_groups import admin, mod, gallery_admin
+from utils.command_groups import admin, gallery_admin, mod
 from utils.error_handling import setup_global_exception_handler
 from utils.http_client import HTTPClient
 from utils.permissions import setup_permissions
@@ -39,11 +39,7 @@ type DiscordID = int
 type CommandName = str
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.tables.creator_links import CreatorLink
-from models.tables.gallery import GalleryMementos
 from utils.db import Database
-from utils.repositories import register_repositories
-from utils.repository_factory import RepositoryFactory
 from utils.service_container import ServiceContainer
 from utils.sqlalchemy_db import async_session_maker
 
@@ -119,7 +115,6 @@ class Cognita(commands.Bot):
         web_client (ClientSession): aiohttp client session for making HTTP requests
         session_maker: SQLAlchemy session maker for ORM operations
         container (ServiceContainer): Service container for dependency injection
-        repo_factory (RepositoryFactory): Factory for creating repositories
     """
 
     def __init__(
@@ -192,11 +187,6 @@ class Cognita(commands.Bot):
         self.container.register("resource_monitor", self.resource_monitor)
         self.container.register_factory("db_session", self.get_db_session)
 
-        # Initialize repository factory
-        self.repo_factory: RepositoryFactory = RepositoryFactory(
-            self.container, self.get_db_session
-        )
-
     async def get_db_session(self) -> AsyncSession:
         """Get a new SQLAlchemy database session.
 
@@ -213,10 +203,9 @@ class Cognita(commands.Bot):
         1. Initializes the web client session for backward compatibility
         2. Starts the resource monitoring
         3. Starts the status rotation loop
-        4. Registers repositories for database models
-        5. Sets up the secret manager for secure credential handling
-        6. Loads critical extensions (cogs)
-        7. Sets up global exception handlers
+        4. Sets up the secret manager for secure credential handling
+        5. Loads critical extensions (cogs)
+        6. Sets up global exception handlers
         8. Initializes database optimizations
         9. Sets up error telemetry
         10. Initializes the permission system
@@ -264,14 +253,6 @@ class Cognita(commands.Bot):
 
         # Task 4: Start periodic cleanup loop
         self.cleanup_task = self.loop.create_task(self.periodic_cleanup())
-
-        # Task 5: Register repositories
-        start_time = time.time()
-        self.register_repositories()
-        self.startup_times["repositories_init"] = time.time() - start_time
-        self.logger.info(
-            f"Repositories registered in {self.startup_times['repositories_init']:.2f}s"
-        )
 
         # Wait for all parallel initialization tasks to complete
         await asyncio.gather(*init_tasks)
@@ -478,23 +459,6 @@ class Cognita(commands.Bot):
                     f"Failed to run comprehensive save in production: {e}\n{error_details}"
                 )
 
-    def register_repositories(self) -> None:
-        """Register repositories for all database models.
-
-        This method registers all repositories using the register_repositories function
-        and then verifies that critical repositories are available by attempting to
-        retrieve them from the repository factory.
-
-        Raises:
-            ValueError: If a required repository cannot be found
-        """
-        # Register repositories using the register_repositories function
-        register_repositories(self.repo_factory)
-
-        # Ensure repositories are available
-        self.repo_factory.get_repository(GalleryMementos)
-        self.repo_factory.get_repository(CreatorLink)
-
     async def load_extensions(self) -> None:
         """Load critical extensions (cogs) at startup.
 
@@ -685,7 +649,11 @@ class Cognita(commands.Bot):
         logging.info(f"Logged in as {self.user.name} (ID: {self.user.id})")
 
         # In staging mode, sync commands to staging guild only
-        if config.is_staging() and hasattr(self, "_staging_guild") and self._staging_guild:
+        if (
+            config.is_staging()
+            and hasattr(self, "_staging_guild")
+            and self._staging_guild
+        ):
             try:
                 self.tree.copy_global_to(guild=self._staging_guild)
                 synced = await self.tree.sync(guild=self._staging_guild)
@@ -722,7 +690,9 @@ class Cognita(commands.Bot):
             else:
                 synced = await self.tree.sync()
                 await ctx.send(f"Synced {len(synced)} commands globally")
-            logging.info(f"!sync: Synced {len(synced)} commands {'to guild ' + str(guild_id) if guild_id else 'globally'}")
+            logging.info(
+                f"!sync: Synced {len(synced)} commands {'to guild ' + str(guild_id) if guild_id else 'globally'}"
+            )
         except Exception as e:
             await ctx.send(f"Failed to sync: {e}")
             logging.error(f"!sync failed: {e}")
@@ -1072,19 +1042,21 @@ async def main() -> None:
         logger=root_logger.getChild("http_client"),
     )
 
-    async with asyncpg.create_pool(
-        database=config.database,
-        user=config.DB_user,
-        password=config.DB_password,
-        host=config.host,
-        ssl=ssl_config,
-        command_timeout=300,
-        min_size=5,  # Minimum number of connections
-        max_size=20,  # Maximum number of connections
-        max_inactive_connection_lifetime=180.0,  # Reduce from 300 to 180 seconds (3 minutes)
-        max_cached_statement_lifetime=300.0,  # Add statement cache lifetime
-        timeout=30.0,  # Connection timeout
-    ) as pool:
+    async with (
+        asyncpg.create_pool(
+            database=config.database,
+            user=config.DB_user,
+            password=config.DB_password,
+            host=config.host,
+            ssl=ssl_config,
+            command_timeout=300,
+            min_size=5,  # Minimum number of connections
+            max_size=20,  # Maximum number of connections
+            max_inactive_connection_lifetime=180.0,  # Reduce from 300 to 180 seconds (3 minutes)
+            max_cached_statement_lifetime=300.0,  # Add statement cache lifetime
+            timeout=30.0,  # Connection timeout
+        ) as pool
+    ):
         # Define all cogs
         cogs = [
             "cogs.gallery",

@@ -19,19 +19,20 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-# Import command groups
-from utils.command_groups import admin, gallery_admin, mod
-
-# Import test utilities
-from tests.test_utils import TestSetup
+import cogs.gallery  # noqa: F401 - adds commands to gallery_admin group
+import cogs.mods  # noqa: F401 - adds commands to mod group
+import cogs.other  # noqa: F401 - adds commands to admin group
 
 # Force import cogs to populate command groups with their commands
 # This ensures the groups have their expected commands before tests run
 # pylint: disable=unused-import
 import cogs.owner  # noqa: F401 - adds commands to admin group
-import cogs.mods  # noqa: F401 - adds commands to mod group
-import cogs.gallery  # noqa: F401 - adds commands to gallery_admin group
-import cogs.other  # noqa: F401 - adds commands to admin group
+
+# Import test utilities
+from tests.test_utils import TestSetup
+
+# Import command groups
+from utils.command_groups import admin, gallery_admin, mod
 
 
 @pytest.fixture
@@ -70,14 +71,20 @@ class TestCommandGroupDefinitions:
         assert admin is not None
         assert isinstance(admin, app_commands.Group)
         assert admin.name == "admin"
-        assert "owner" in admin.description.lower() or "administration" in admin.description.lower()
+        assert (
+            "owner" in admin.description.lower()
+            or "administration" in admin.description.lower()
+        )
 
     def test_mod_group_exists(self):
         """Test that mod group is properly defined."""
         assert mod is not None
         assert isinstance(mod, app_commands.Group)
         assert mod.name == "mod"
-        assert "moderation" in mod.description.lower() or "server" in mod.description.lower()
+        assert (
+            "moderation" in mod.description.lower()
+            or "server" in mod.description.lower()
+        )
 
     def test_gallery_admin_group_exists(self):
         """Test that gallery_admin group is properly defined."""
@@ -304,7 +311,9 @@ class TestCommandGroupIntegration:
         # Check for some expected owner commands
         expected_commands = ["load", "unload", "reload", "sync", "exit"]
         for expected in expected_commands:
-            assert expected in command_names, f"Expected '{expected}' command in admin group"
+            assert expected in command_names, (
+                f"Expected '{expected}' command in admin group"
+            )
 
         # Cleanup
         await bot.remove_cog("Owner")
@@ -334,7 +343,9 @@ class TestCommandGroupIntegration:
         # Check for expected mod commands
         expected_commands = ["reset", "state"]
         for expected in expected_commands:
-            assert expected in command_names, f"Expected '{expected}' command in mod group"
+            assert expected in command_names, (
+                f"Expected '{expected}' command in mod group"
+            )
 
         # Cleanup
         await bot.remove_cog("Mods")
@@ -364,7 +375,9 @@ class TestCommandGroupIntegration:
         # Check for expected gallery admin commands
         expected_commands = ["set_repost", "extract_data", "migration_stats"]
         for expected in expected_commands:
-            assert expected in command_names, f"Expected '{expected}' command in gallery_admin group"
+            assert expected in command_names, (
+                f"Expected '{expected}' command in gallery_admin group"
+            )
 
         # Cleanup
         await bot.remove_cog("Gallery")
@@ -532,7 +545,9 @@ class TestCommandGroupBinding:
                 break
 
         assert cmd is not None, "Command should exist"
-        assert cmd.binding is test_cog, "Command should be bound to cog instance after cog_load()"
+        assert cmd.binding is test_cog, (
+            "Command should be bound to cog instance after cog_load()"
+        )
 
         # Cleanup
         await bot.remove_cog("TestBindingCog")

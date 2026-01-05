@@ -281,7 +281,9 @@ class HTTPClient:
                     # Create trace config for request timing
                     trace_config = TraceConfig()
 
-                    async def on_request_start(session, trace_config_ctx, params) -> None:
+                    async def on_request_start(
+                        session, trace_config_ctx, params
+                    ) -> None:
                         trace_config_ctx.start = time.time()
 
                     async def on_request_end(session, trace_config_ctx, params) -> None:
@@ -569,7 +571,9 @@ class HTTPClient:
                     # Retry on certain exceptions if attempts remain
                     if retry_count < self.retry_attempts and isinstance(
                         e,
-                        aiohttp.ClientConnectorError | aiohttp.ServerDisconnectedError | aiohttp.ClientOSError,
+                        aiohttp.ClientConnectorError
+                        | aiohttp.ServerDisconnectedError
+                        | aiohttp.ClientOSError,
                     ):
                         retry_count += 1
                         self._stats["retries"] += 1
@@ -758,7 +762,9 @@ class HTTPClient:
                     # Retry on certain exceptions if attempts remain
                     if retry_count < self.retry_attempts and isinstance(
                         e,
-                        aiohttp.ClientConnectorError | aiohttp.ServerDisconnectedError | aiohttp.ClientOSError,
+                        aiohttp.ClientConnectorError
+                        | aiohttp.ServerDisconnectedError
+                        | aiohttp.ClientOSError,
                     ):
                         retry_count += 1
                         self._stats["retries"] += 1
@@ -948,7 +954,9 @@ class HTTPClient:
                     # Retry on certain exceptions if attempts remain
                     if retry_count < self.retry_attempts and isinstance(
                         e,
-                        aiohttp.ClientConnectorError | aiohttp.ServerDisconnectedError | aiohttp.ClientOSError,
+                        aiohttp.ClientConnectorError
+                        | aiohttp.ServerDisconnectedError
+                        | aiohttp.ClientOSError,
                     ):
                         retry_count += 1
                         self._stats["retries"] += 1

@@ -48,7 +48,6 @@ cogs = [
 
 
 class OwnerCog(commands.Cog, name="Owner"):
-
     def __init__(self, bot) -> None:
         self.bot = bot
 
@@ -1229,10 +1228,14 @@ class OwnerCog(commands.Cog, name="Owner"):
             logging.error(f"OWNER SQL ERROR: Unexpected error for query: {e}")
             raise QueryError(message=error_msg) from e
 
-    @admin.command(name="ask_db", description="Ask a natural language question about the database")
+    @admin.command(
+        name="ask_db", description="Ask a natural language question about the database"
+    )
     @commands.is_owner()
     @handle_interaction_errors
-    async def ask_database(self, interaction: discord.Interaction, question: str) -> None:
+    async def ask_database(
+        self, interaction: discord.Interaction, question: str
+    ) -> None:
         """Ask a natural language question about the database and get SQL results.
 
         This command uses AI to convert natural language questions into SQL queries,

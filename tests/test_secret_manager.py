@@ -35,8 +35,8 @@ def test_secret_manager_initialization(mock_bot):
     assert manager._cipher is not None
 
     # Without encryption key - patch os.getenv to ensure no fallback
-    with patch.dict('os.environ', {}, clear=False):
-        with patch('os.getenv', return_value=None):
+    with patch.dict("os.environ", {}, clear=False):
+        with patch("os.getenv", return_value=None):
             manager_no_key = SecretManager(mock_bot, encryption_key=None)
             assert manager_no_key._cipher is None
 
