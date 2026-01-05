@@ -4,6 +4,9 @@ This module provides a base class for cogs with common functionality,
 reducing code duplication across cogs.
 """
 
+from typing import Any
+
+import discord
 import structlog
 from discord.ext import commands
 
@@ -32,3 +35,31 @@ class BaseCog(commands.Cog):
             "s", ""
         )
         self.logger = structlog.get_logger(f"cogs.{cog_name}")
+
+    async def log_command_usage(
+        self, ctx_or_interaction: Any, command_name: str
+    ) -> None:
+        """Log command usage with structured logging.
+
+        Args:
+            ctx_or_interaction: The command context or interaction.
+            command_name: The name of the command being used.
+        """
+        is_interaction = isinstance(ctx_or_interaction, discord.Interaction)
+
+        user = (
+            ctx_or_interaction.user
+            if is_interaction
+            else ctx_or_interaction.message.author
+        )
+        guild = ctx_or_interaction.guild
+
+        self.logger.info(
+            "command_used",
+            command=command_name,
+            user_id=user.id,
+            user_name=user.name,
+            guild_id=guild.id if guild else None,
+            guild_name=guild.name if guild else "DM",
+            interaction_type="slash" if is_interaction else "prefix",
+        )
