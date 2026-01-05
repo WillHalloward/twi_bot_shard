@@ -1017,13 +1017,20 @@ async def main() -> None:
         )
 
     # Configure SSL based on environment (Railway vs GCP)
-    # Railway uses simple SSL, GCP uses custom certificates
+    # Railway pgvector template doesn't support SSL, standard Railway Postgres does
+    # Use DB_SSL env var to override: "disable", "require", or "prefer"
     database_url = os.getenv("DATABASE_URL")
+    db_ssl_override = os.getenv("DB_SSL", "").lower()
 
-    if database_url:
-        # Railway environment - use simple SSL requirement
-        ssl_config = "require"
-        root_logger.info("Using Railway SSL configuration (ssl='require')")
+    if db_ssl_override in ("disable", "false", "no", "off"):
+        # Explicitly disabled (e.g., Railway pgvector template)
+        ssl_config = False
+        root_logger.info("SSL disabled via DB_SSL environment variable")
+    elif database_url:
+        # Railway environment - default to no SSL for pgvector compatibility
+        # Set DB_SSL=require if using standard Railway Postgres with SSL
+        ssl_config = db_ssl_override if db_ssl_override else False
+        root_logger.info(f"Using Railway SSL configuration (ssl={ssl_config})")
     else:
         # GCP Cloud SQL - use custom SSL certificates
         context = ssl.create_default_context()
