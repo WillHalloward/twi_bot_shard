@@ -260,5 +260,4 @@ When adding new scripts:
 ## Related Documentation
 
 - [Developer Guide](../docs/developer/getting-started.md)
-- [Database Documentation](../docs/developer/architecture/database-layer.md)
-- [Development Workflow](../docs/developer/guides/debugging.md)
+- [Database Documentation](../docs/developer/database.md)

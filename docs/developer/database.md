@@ -514,6 +514,127 @@ The implemented optimizations significantly improve performance for:
 
 Monitor the slow query logs to identify any remaining performance issues.
 
+## Database Migrations with Alembic
+
+For database schema changes, use Alembic for version-controlled migrations:
+
+### Setup
+
+1. Initialize Alembic:
+```bash
+alembic init migrations
+```
+
+2. Configure `alembic.ini` to use your database URL
+
+3. Update `migrations/env.py` to import your models and use async engine
+
+### Creating Migrations
+
+```bash
+# Create initial migration (auto-generates based on model changes)
+alembic revision --autogenerate -m "Initial migration"
+
+# Create a manual migration
+alembic revision -m "Add new column to messages"
+```
+
+### Applying Migrations
+
+```bash
+# Apply all pending migrations
+alembic upgrade head
+
+# Upgrade to a specific revision
+alembic upgrade abc123
+
+# Downgrade one revision
+alembic downgrade -1
+
+# View current revision
+alembic current
+
+# View migration history
+alembic history
+```
+
+## Advanced Features
+
+### Prepared Statements
+
+For frequently executed queries, use prepared statements to improve performance:
+
+```python
+# Prepare a statement once
+stmt = await db.prepare_statement("get_user", "SELECT * FROM users WHERE user_id = $1")
+
+# Use it multiple times
+user = await stmt.fetchrow(user_id)  # Get a single row
+value = await stmt.fetchval(user_id)  # Get a single value
+all_users = await stmt.fetch(user_id)  # Get all rows
+await stmt.execute(user_id)  # Execute without returning results
+```
+
+### Connection Health Checks
+
+The database class provides methods to validate connection health:
+
+```python
+# Check if a single connection is healthy
+is_healthy = await db.check_connection_health()
+
+# Validate all connections in the pool
+await db.validate_connections()
+```
+
+### Query Performance Monitoring
+
+The database utility logs slow queries (taking more than 500ms by default) for debugging and optimization:
+- Query text is logged with execution time
+- Use these logs to identify candidates for optimization
+
+### Autovacuum Settings
+
+Large tables have optimized autovacuum settings to prevent bloat:
+
+```sql
+-- For high-churn tables like reactions and role_membership
+ALTER TABLE reactions SET (
+    autovacuum_vacuum_scale_factor = 0.05,
+    autovacuum_vacuum_cost_delay = 2
+);
+```
+
+### Database Maintenance
+
+A maintenance function is available for index rebuilding:
+
+```sql
+-- Rebuild indexes with high fragmentation
+SELECT maintain_indexes();
+```
+
+## Connection Pool Configuration
+
+The database connection pool is configured in `main.py`:
+
+```python
+asyncpg.create_pool(
+    database=config.database,
+    user=config.DB_user,
+    password=config.DB_password,
+    host=config.host,
+    ssl=context,
+    command_timeout=300,
+    min_size=5,           # Minimum number of connections
+    max_size=20,          # Maximum number of connections
+    max_inactive_connection_lifetime=300.0,  # Close inactive connections after 5 minutes
+    timeout=10.0          # Connection timeout
+)
+```
+
+These settings can be adjusted based on application workload requirements.
+
 ## Related Documentation
 
 - `utils/db.py`: Raw asyncpg Database class implementation
