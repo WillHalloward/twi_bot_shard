@@ -23,16 +23,19 @@ class CreatorLink(Base):
 
     __tablename__ = "creator_links"
 
-    serial_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, primary_key=True)
-    title: Mapped[str] = mapped_column(String(100), nullable=False, primary_key=True)
+    # Required fields (no defaults) must come first for dataclass compatibility
+    serial_id: Mapped[int] = mapped_column(Integer, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    title: Mapped[str] = mapped_column(String(100), nullable=False)
     link: Mapped[str] = mapped_column(String(255))
-    last_changed: Mapped[datetime] = mapped_column(
-        DateTime, insert_default=datetime.now, nullable=False
-    )
+
+    # Optional fields (with defaults) must come after required fields
     nsfw: Mapped[bool] = mapped_column(Boolean, default=False)
     weight: Mapped[int] = mapped_column(Integer, default=0)
     feature: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_changed: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, default=None, insert_default=datetime.now
+    )
 
     # Define __table_args__ to create composite indexes and primary key
     __table_args__ = (PrimaryKeyConstraint("user_id", "title", "serial_id"),)
