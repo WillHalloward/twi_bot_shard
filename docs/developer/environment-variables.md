@@ -26,6 +26,21 @@ BOT_TOKEN=your_discord_bot_token
 
 ### Database Configuration
 
+The bot supports multiple ways to configure database connections:
+
+#### Option 1: DATABASE_URL (Railway/Heroku style)
+
+```env
+DATABASE_URL=postgresql://user:password@host:port/database
+```
+
+**Description:** Combined database URL format commonly used by Railway, Heroku, and other PaaS providers.
+**Format:** `postgresql://username:password@hostname:port/database_name`
+**Precedence:** If `DATABASE_URL` is set, it takes precedence over all individual database variables below.
+**Security:** Contains password (🔐 **Sensitive**)
+
+#### Option 2: Individual Variables
+
 ```env
 HOST=localhost
 DB_USER=botuser
@@ -41,8 +56,22 @@ PORT=5432
 - `DATABASE`: Database name
 - `PORT`: PostgreSQL port (default: 5432)
 
+#### Option 3: Railway PG* Variables (Alternative)
+
+Railway also provides individual PG* environment variables that the bot recognizes:
+
+```env
+PGHOST=hostname
+PGUSER=username
+PGPASSWORD=password
+PGDATABASE=database_name
+PGPORT=5432
+```
+
+**Note:** PG* variables are checked before the custom names (HOST, DB_USER, etc.). If neither PG* nor custom variables are set, and DATABASE_URL is not provided, an error will be raised.
+
 **For local development:** Use `localhost` for HOST
-**For production:** Use your database server's hostname/IP
+**For production:** Use your database server's hostname/IP or DATABASE_URL
 
 ## Optional Variables
 
@@ -68,7 +97,14 @@ ENVIRONMENT=development
 - `ENVIRONMENT`: Current environment (default: `development`)
   - `development` - Dev mode with verbose logging, lazy loading
   - `testing` - Test mode with debug logging
+  - `staging` - Staging mode with info-level logging, webhooks disabled by default
   - `production` - Production mode with warning-level logging
+
+- `LOG_LEVEL`: Override the default logging level for the environment
+  - Can be a name: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+  - Can be numeric: `10` (DEBUG), `20` (INFO), `30` (WARNING), etc.
+  - If set, this overrides the environment's default logging level
+  - Also accepts `LOGGING_LEVEL` as an alias
 
 ### Bot Behavior
 
@@ -117,21 +153,25 @@ OPENAI_API_KEY=your_openai_api_key
 Required for: Reddit content fetching, Patreon poll tracking
 
 ```env
-CLIENT_ID=your_reddit_client_id
-CLIENT_SECRET=your_reddit_client_secret
 USER_AGENT=python:twi_bot_shard:v1.0 by /u/your_username
 USERNAME=your_reddit_username
 PASSWORD=your_reddit_password
 ```
 
 **Where to get:**
-1. Create app at [Reddit App Preferences](https://www.reddit.com/prefs/apps)
-2. Select "script" type
-3. Note the CLIENT_ID and CLIENT_SECRET
+1. Create an account at [Reddit](https://www.reddit.com)
+2. Note your username and password
 
-**Requirements:** If any Reddit variable is set, all must be set
-**Security:** 🔐 `CLIENT_SECRET` and `PASSWORD` are sensitive
+**Descriptions:**
+- `USER_AGENT`: Identifies your bot to Reddit's API (required format: `platform:app_id:version by /u/username`)
+- `USERNAME`: Your Reddit account username
+- `PASSWORD`: Your Reddit account password
+
+**Requirements:** If any Reddit variable is set, all 3 must be set
+**Security:** 🔐 `PASSWORD` is sensitive
 **User Agent Format:** `platform:app_id:version by /u/username`
+
+**Note:** The bot uses these credentials for read-only Reddit access. The `CLIENT_ID` and `CLIENT_SECRET` variables shown in some Reddit API documentation are not required for this bot's functionality.
 
 ### Twitter Integration
 
@@ -199,6 +239,50 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
 ## Advanced Configuration
+
+### Database SSL Configuration
+
+```env
+DB_SSL=disable
+```
+
+**Description:** Controls SSL mode for database connections.
+**Values:**
+- `disable`, `false`, `no`, `off` - Disable SSL entirely (for Railway pgvector template)
+- `require` - Require SSL connection
+- `prefer` - Prefer SSL but allow non-SSL
+
+**Default behavior:**
+- If `DATABASE_URL` is set (Railway): SSL is disabled by default for pgvector compatibility
+- If using GCP Cloud SQL (individual variables): Uses custom SSL certificates from `ssl-cert/` directory
+
+**Note:** Railway's standard PostgreSQL supports SSL, but the pgvector template does not. Set `DB_SSL=require` if using standard Railway Postgres with SSL support.
+
+### Staging Environment Configuration
+
+These variables are specifically for staging deployments:
+
+```env
+STAGING_GUILD_ID=123456789012345678
+WEBHOOKS_ENABLED=false
+SYNC_ON_START=true
+```
+
+**Descriptions:**
+- `STAGING_GUILD_ID`: Discord guild ID to restrict slash commands to in staging mode
+  - When set, commands are synced only to this guild (faster updates during development)
+  - If not set, commands sync globally (slower, may take up to an hour)
+
+- `WEBHOOKS_ENABLED`: Whether to send webhook notifications (default: `true`)
+  - In staging mode, defaults to `false` if not explicitly set
+  - Set to `true`, `1`, or `yes` to enable
+  - Set to `false`, `0`, or `no` to disable
+
+- `SYNC_ON_START`: Whether to sync slash commands globally on bot startup (default: `false`)
+  - One-time use for deploying new commands globally
+  - Set to `true`, `1`, or `yes` to enable
+
+**Usage:** Set `ENVIRONMENT=staging` to enable staging mode behavior.
 
 ### Complex JSON Structures
 
@@ -345,8 +429,6 @@ GOOGLE_CSE_ID=your_cse_id
 OPENAI_API_KEY=your_openai_key
 
 # Reddit (for Patreon tracking)
-CLIENT_ID=your_reddit_client_id
-CLIENT_SECRET=your_reddit_secret
 USER_AGENT=python:twi_bot_shard:v1.0dev by /u/yourname
 USERNAME=your_reddit_user
 PASSWORD=your_reddit_pass
@@ -384,8 +466,6 @@ TWITTER_API_KEY_SECRET=prod_twitter_secret
 TWITTER_BEARER_TOKEN=prod_bearer_token
 TWITTER_ACCESS_TOKEN=prod_access_token
 TWITTER_ACCESS_TOKEN_SECRET=prod_access_secret
-CLIENT_ID=prod_reddit_id
-CLIENT_SECRET=prod_reddit_secret
 USER_AGENT=python:twi_bot_shard:v1.0 by /u/produser
 USERNAME=prod_reddit_user
 PASSWORD=prod_reddit_pass
@@ -418,7 +498,7 @@ The bot will fail to start if any required variable is missing:
 The bot validates that multi-part credentials are complete:
 - **Twitter:** All 5 variables required if any are set
 - **Google:** Both API_KEY and CSE_ID required if either is set
-- **Reddit:** All 5 variables required if any are set
+- **Reddit:** All 3 variables required if any are set (USER_AGENT, USERNAME, PASSWORD)
 - **AO3:** Both USERNAME and PASSWORD required if either is set
 
 ### Type Validation
@@ -532,11 +612,10 @@ TWITTER_ACCESS_TOKEN_SECRET=...
 
 ## Related Documentation
 
-- [Getting Started Guide](../getting-started.md) - Initial setup
-- [Configuration Module](../../reference/configuration.md) - Technical reference
-- [Security Guide](../../advanced/security.md) - Security best practices
-- [Deployment Guide](../../../operations/deployment/production.md) - Production deployment
+- [Getting Started Guide](getting-started.md) - Initial setup
+- [Deployment Guide](../operations/deployment.md) - Production deployment
+- [Security Guide](../operations/security.md) - Security review process
 
 ---
 
-**Need help?** See the [troubleshooting guide](../../../user/troubleshooting.md) or file an issue.
+**Need help?** Check the project's GitHub issues or contact the maintainers.

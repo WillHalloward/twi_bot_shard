@@ -10,7 +10,7 @@ Tests that all required Python dependencies can be imported correctly.
 
 **Usage:**
 ```bash
-python tests\test_dependencies.py
+ENVIRONMENT=testing python tests/test_dependencies.py
 ```
 
 ### 2. `test_db_connection.py`
@@ -19,7 +19,7 @@ Tests the database connection to ensure the bot can connect to the database.
 
 **Usage:**
 ```bash
-python tests\test_db_connection.py
+ENVIRONMENT=testing python tests/test_db_connection.py
 ```
 
 ### 3. `test_sqlalchemy_models.py`
@@ -28,7 +28,7 @@ Tests the SQLAlchemy models to ensure they work correctly.
 
 **Usage:**
 ```bash
-python tests\test_sqlalchemy_models.py
+ENVIRONMENT=testing python tests/test_sqlalchemy_models.py
 ```
 
 ### 4. `test_cogs.py`
@@ -37,7 +37,7 @@ Tests loading all cogs to ensure they can be loaded without errors. This is part
 
 **Usage:**
 ```bash
-python tests\test_cogs.py
+ENVIRONMENT=testing python tests/test_cogs.py
 ```
 
 **What it does:**
@@ -52,7 +52,7 @@ Tests the decorator utilities in `utils/decorators.py` to ensure they work corre
 
 **Usage:**
 ```bash
-python tests\test_decorators.py
+ENVIRONMENT=testing python tests/test_decorators.py
 ```
 
 ### 6. `test_permissions.py`
@@ -61,48 +61,16 @@ Tests the permission utilities in `utils/permissions.py` to ensure they work cor
 
 **Usage:**
 ```bash
-python tests\test_permissions.py
+ENVIRONMENT=testing python tests/test_permissions.py
 ```
 
-### 7. `test_db_operations.py`
-
-Tests database operations using both SQLAlchemy and the repository pattern.
-
-**Usage:**
-```bash
-python tests\test_db_operations.py
-```
-
-**What it does:**
-- Tests CRUD operations using DatabaseService
-- Tests the Repository pattern implementation
-- Tests transaction management (commit and rollback)
-- Tests error handling and retries
-- Tests the RepositoryFactory pattern
-
-### 8. `test_end_to_end.py`
-
-Tests critical bot commands by simulating Discord interactions and verifying the expected responses.
-
-**Usage:**
-```bash
-python tests\test_end_to_end.py
-```
-
-**What it does:**
-- Tests the `wiki` command from the TwiCog with both successful and failed searches
-- Tests the `find` command from the TwiCog with both successful and failed searches
-- Tests the `invis_text` command from the TwiCog with various scenarios
-- Mocks Discord interactions, external API calls, and database responses
-- Verifies that commands produce the expected responses
-
-### 9. `test_integration.py`
+### 7. `test_integration.py`
 
 Tests critical bot workflows by simulating interactions between multiple components and verifying database state after operations.
 
 **Usage:**
 ```bash
-python tests\test_integration.py
+ENVIRONMENT=testing python tests/test_integration.py
 ```
 
 **What it does:**
@@ -115,13 +83,13 @@ python tests\test_integration.py
 - Verifies that database operations are performed correctly
 - Verifies that event handlers respond appropriately to different scenarios
 
-### 10. `test_stats_cog.py`
+### 8. `test_stats_cog.py`
 
 Tests the StatsCogs class, which is responsible for collecting and storing statistics about Discord servers, users, and events.
 
 **Usage:**
 ```bash
-python tests\test_stats_cog.py
+ENVIRONMENT=testing python tests/test_stats_cog.py
 ```
 
 **What it does:**
@@ -130,13 +98,13 @@ python tests\test_stats_cog.py
 - Tests the message_count command
 - Verifies that database operations are performed correctly
 
-### 11. `test_other_cog.py`
+### 9. `test_other_cog.py`
 
 Tests the OtherCogs class, which provides various utility commands for server management and user interaction.
 
 **Usage:**
 ```bash
-python tests\test_other_cog.py
+ENVIRONMENT=testing python tests/test_other_cog.py
 ```
 
 **What it does:**
@@ -144,13 +112,13 @@ python tests\test_other_cog.py
 - Tests OtherCogs class methods (ping, av, info_user, info_server, roll, say)
 - Verifies that commands produce the expected responses
 
-### 12. `test_interactive_help.py`
+### 10. `test_interactive_help.py`
 
 Tests the InteractiveHelp class, which provides an interactive help system for the bot's commands.
 
 **Usage:**
 ```bash
-python tests\test_interactive_help.py
+ENVIRONMENT=testing python tests/test_interactive_help.py
 ```
 
 **What it does:**
@@ -158,13 +126,22 @@ python tests\test_interactive_help.py
 - Tests InteractiveHelp class methods (get_commands_for_category, help_command, help_slash)
 - Verifies that the help system displays the correct information
 
-### 13. `test_validation_property_based.py`
+### 11. `test_property_based.py`
 
-Tests the validation functions in `utils/validation.py` using property-based testing to ensure they maintain certain properties for a wide range of inputs.
+Tests various functions using property-based testing to ensure they maintain certain properties for a wide range of inputs.
 
 **Usage:**
 ```bash
-python tests\test_validation_property_based.py
+ENVIRONMENT=testing python tests/test_property_based.py
+```
+
+### 12. `test_validation.py`
+
+Tests the validation functions in `utils/validation.py`.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_validation.py -v
 ```
 
 **What it does:**
@@ -179,59 +156,13 @@ python tests\test_validation_property_based.py
 - Tests sanitize_json with different input types
 - Verifies that all validation functions maintain their expected properties
 
-### 14. `test_mock_example.py`
-
-Demonstrates how to use pytest-mock to mock dependencies in tests.
-
-**Usage:**
-```bash
-pytest tests\test_mock_example.py -v
-```
-
-**What it does:**
-- Shows how to mock functions and verify they're called with expected arguments
-- Demonstrates mocking async methods and database connections
-- Shows how to spy on existing methods without replacing their functionality
-- Demonstrates mocking context managers
-- Provides examples of common mocking patterns used in the project
-
-### 15. `test_timeout_example.py`
-
-Demonstrates how to use pytest-timeout to prevent tests from hanging indefinitely.
-
-**Usage:**
-```bash
-pytest tests\test_timeout_example.py -v
-```
-
-**What it does:**
-- Shows how to set timeouts for individual test functions
-- Demonstrates using timeouts with async functions
-- Shows how to set timeouts for all methods in a test class
-- Demonstrates different timeout methods (thread, signal)
-- Provides examples of handling expected timeouts with xfail
-
-**Example output:**
-```
-[2023-05-01 12:34:56] [INFO] test_cogs: Testing cog loading...
-[2023-05-01 12:34:56] [INFO] test_cogs: Attempting to load cogs.gallery...
-[2023-05-01 12:34:56] [INFO] test_cogs: ✅ Successfully loaded cogs.gallery
-[2023-05-01 12:34:56] [INFO] test_cogs: Attempting to load cogs.links_tags...
-[2023-05-01 12:34:56] [INFO] test_cogs: ✅ Successfully loaded cogs.links_tags
-...
-[2023-05-01 12:34:57] [INFO] test_cogs: 
-Summary: 13/13 cogs loaded successfully
-[2023-05-01 12:34:57] [INFO] test_cogs: 
-Test passed: All cogs loaded successfully!
-```
-
-### 17. `test_chaos_engineering.py`
+### 13. `test_chaos_engineering.py`
 
 Tests the bot's resilience under various failure conditions using chaos engineering principles.
 
 **Usage:**
 ```bash
-python tests\test_chaos_engineering.py
+ENVIRONMENT=testing python tests/test_chaos_engineering.py
 ```
 
 **What it does:**
@@ -255,11 +186,11 @@ python tests\test_chaos_engineering.py
 
 **Example output:**
 ```
-🔥 Starting Chaos Engineering Tests for Twi Bot Shard
+Starting Chaos Engineering Tests for Twi Bot Shard
 ============================================================
-📊 CHAOS ENGINEERING TEST RESULTS
+CHAOS ENGINEERING TEST RESULTS
 ============================================================
-Overall Success: ✅ PASS
+Overall Success: PASS
 Resilience Score: 83.3/100
 Scenarios Tested: 6
 Total Failures Injected: 6
@@ -267,36 +198,124 @@ Average Recovery Time: 0.12s
 Max Recovery Time: 0.15s
 Degradation Events: 2
 
-🧪 Individual Test Results:
-  database_failure: ✅ PASS
-  external_api_failure: ✅ PASS
-  memory_pressure: ✅ PASS
-  concurrent_failures: ✅ PASS
-  intermittent_failures: ✅ PASS
-  slow_responses: ✅ PASS
+Individual Test Results:
+  database_failure: PASS
+  external_api_failure: PASS
+  memory_pressure: PASS
+  concurrent_failures: PASS
+  intermittent_failures: PASS
+  slow_responses: PASS
+```
+
+### 14. `test_twi_cog.py`
+
+Tests the TwiCog class, which provides commands related to "The Wandering Inn" wiki and content.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_twi_cog.py -v
+```
+
+### 15. `test_owner_cog.py`
+
+Tests the owner-only commands for bot administration.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_owner_cog.py -v
+```
+
+### 16. `test_mods_cog_unit.py`
+
+Unit tests for the moderation cog functionality.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_mods_cog_unit.py -v
+```
+
+### 17. `test_gallery_cog_admin.py` and `test_gallery_cog_repost.py`
+
+Tests for the gallery cog's admin and repost detection features.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_gallery_cog_admin.py tests/test_gallery_cog_repost.py -v
+```
+
+### 18. `test_error_handling_property_based.py`
+
+Property-based tests for error handling functionality.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_error_handling_property_based.py -v
+```
+
+### 19. `test_database_transactions.py`
+
+Tests database transaction handling and rollback behavior.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_database_transactions.py -v
+```
+
+### 20. `test_external_api_integration.py`
+
+Tests integration with external APIs (Google, Twitter, etc.).
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_external_api_integration.py -v
+```
+
+### 21. `test_load_testing.py` and `test_performance_benchmarks.py`
+
+Performance and load testing for the bot.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_load_testing.py tests/test_performance_benchmarks.py -v
+```
+
+### 22. `test_secret_manager.py`
+
+Tests the secret management functionality.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_secret_manager.py -v
+```
+
+### 23. `test_query_cache.py`
+
+Tests the query caching functionality.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_query_cache.py -v
 ```
 
 ## Running All Tests
 
-To run all tests in sequence, you can use the following command:
+To run all tests using pytest with the testing environment:
 
 ```bash
-python -m tests.test_dependencies && python -m tests.test_db_connection && python -m tests.test_sqlalchemy_models && python -m tests.test_cogs && python -m tests.test_decorators && python -m tests.test_permissions && python -m tests.test_db_operations && python -m tests.test_end_to_end && python -m tests.test_integration && python -m tests.test_stats_cog && python -m tests.test_other_cog && python -m tests.test_interactive_help && python -m tests.test_property_based && python -m tests.test_validation_property_based && python -m tests.test_mock_example && python -m tests.test_timeout_example && python -m tests.test_chaos_engineering
+ENVIRONMENT=testing pytest tests/ -v
 ```
 
-This will run each test in sequence and stop if any test fails.
-
-Alternatively, you can use pytest to run all tests with coverage reporting:
+To run all tests with coverage reporting:
 
 ```bash
-pytest tests/ --cov=. --cov-report=xml
+ENVIRONMENT=testing pytest tests/ --cov=. --cov-report=xml
 ```
 
 This will generate a coverage report in XML format that can be used by tools like Codecov to track code coverage over time.
 
 ## Using pytest-mock and pytest-timeout
 
-The project now includes support for pytest-mock and pytest-timeout, which provide additional testing capabilities:
+The project includes support for pytest-mock and pytest-timeout, which provide additional testing capabilities:
 
 ### pytest-mock
 
@@ -317,8 +336,6 @@ def test_example(mocker):
     mock_function.assert_called_once_with(expected_args)
 ```
 
-See `tests/test_mock_example.py` for more examples of how to use pytest-mock.
-
 ### pytest-timeout
 
 pytest-timeout helps prevent tests from hanging indefinitely by setting timeouts:
@@ -337,11 +354,9 @@ You can also set a global timeout for all tests by using the `--timeout` command
 pytest --timeout=10  # 10 seconds timeout for all tests
 ```
 
-See `tests/test_timeout_example.py` for more examples of how to use pytest-timeout.
-
 ## Using Faker with Mock Factories
 
-The project now includes support for Faker, which provides realistic test data for mock objects. The mock factories in `tests/mock_factories.py` have been enhanced to use Faker for generating realistic data.
+The project includes support for Faker, which provides realistic test data for mock objects. The mock factories in `tests/mock_factories.py` have been enhanced to use Faker for generating realistic data.
 
 ### Mock Factories with Faker
 
@@ -377,3 +392,9 @@ message = MockMessageFactory.create(author=user, channel=channel, guild=guild)
 The mock factories are designed to be backward compatible, so you can still provide specific values for any parameter if needed. If you don't provide a value, Faker will generate a realistic value for you.
 
 See the `example_usage()` function in `tests/mock_factories.py` for more examples of how to use the enhanced mock factories.
+
+## Related Documentation
+
+- [Testing Guide](../docs/developer/testing.md) - Property-based testing and testing strategies
+- [CI/CD Pipeline](../docs/operations/ci.md) - Continuous integration configuration
+- [Getting Started](../docs/developer/getting-started.md) - Developer setup guide

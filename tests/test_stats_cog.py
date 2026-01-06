@@ -672,7 +672,7 @@ async def test_edge_cases() -> bool:
     message.author = None
 
     # Should handle None author gracefully
-    with patch("cogs.stats_utils.save_message"):
+    with patch("cogs.stats_listeners.save_message"):
         await cog.save_listener(message)
         # Should still attempt to save or handle gracefully
 

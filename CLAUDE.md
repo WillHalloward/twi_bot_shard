@@ -237,14 +237,30 @@ The bot implements automatic recovery for:
 - SSL certificates required for database connection (ssl-cert/)
 - Secret management via `SecretManager` with encryption
 
+### Deployment & Branching Strategy
+
+The project uses a two-branch deployment strategy with Railway:
+
+- **`staging` branch**: Development branch, deploys to staging environment on Railway
+- **`production` branch**: Protected branch, deploys to production environment on Railway
+
+**Workflow:**
+1. All development work happens on `staging` (or feature branches merged into `staging`)
+2. Test changes in the staging environment
+3. Create a PR from `staging` → `production` when ready to release
+4. After PR approval and merge, production deployment happens automatically
+
+**Branch Protection:**
+- The `production` branch is protected and requires PR reviews before merging
+- Direct pushes to `production` are not allowed
+- This ensures all production changes are reviewed and tested in staging first
+
 ### Statistics System
 
-The stats module is split into specialized components:
-- `stats_commands.py`: Owner commands for data management
-- `stats_listeners.py`: Real-time event listeners for message tracking
-- `stats_queries.py`: User-facing query commands
-- `stats_tasks.py`: Background tasks for reporting
-- `stats_utils.py`: Shared utility functions
+The stats module is organized into three specialized components:
+- `stats_commands.py`: Owner commands for data management and comprehensive save operations
+- `stats_listeners.py`: Real-time event listeners for message tracking, plus utility functions (`save_message`, `perform_comprehensive_save`)
+- `stats_queries.py`: User-facing query commands for statistics lookups
 - Stats listeners are unsubscribed in main.py to prevent duplicate handling
 
 ### Performance Considerations

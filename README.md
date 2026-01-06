@@ -23,7 +23,7 @@ For a quick overview of the installation process:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/twi_bot_shard.git
+git clone https://github.com/WillHalloward/twi_bot_shard.git
 cd twi_bot_shard
 ```
 
@@ -58,16 +58,14 @@ uv run test_dependencies.py
 python main.py
 ```
 
-**📖 For detailed setup instructions, see the [Complete Setup Guide](docs/SETUP.md)**
-
-**👨‍💻 For developers, see the [Development Guidelines](.junie/guidelines.md)**
+For detailed setup instructions, see the [Getting Started Guide](docs/developer/getting-started.md).
 
 ## Requirements
 
 - Python 3.12.9
 - PostgreSQL database
 - Discord Bot Token
-- Various API keys (see [Setup Guide](docs/SETUP.md))
+- Various API keys (see [Environment Variables](docs/developer/environment-variables.md))
 - uv package manager
 
 ## Environment Variables
@@ -86,35 +84,32 @@ The bot uses environment variables for configuration. These can be set in a `.en
 - **Channel Configuration**: Use `/set_repost` to configure destination channels
 
 ### Links
-- `AddLink`: Adds a link with the given name to the given url and tag
-- `Delink`: Deletes a link with the given name
-- `Link`: Posts the link with the given name
-- `Links`: View all links
-- `Tag`: View all links that got a certain tag
-- `Tags`: See all available tags
+- `/link get`: Retrieves and posts a link with the given name
+- `/link add`: Adds a link with the given name to the given URL and tag
+- `/link delete`: Deletes a link with the given name
+- `/link list`: View all links
+- `/tag`: View all links that have a certain tag
 
-### ModCogs
-- `reset`: Resets the cooldown of a command
+### Moderation
+- `/mod reset`: Resets the cooldown of a command
 
-### Other
-- `Avatar`: Posts the full version of an avatar
-- `Info`: Gives the account information of a user
-- `Ping`: Gives the latency of the bot
-- `Say`: Makes Cognita repeat whatever was said
-- `SayChannel`: Makes Cognita repeat whatever was said in a specific channel
-- `backup`: Backups the channel
+### Utility
+- `/avatar`: Posts the full version of an avatar
+- `/info user`: Gives the account information of a user
+- `/ping`: Gives the latency of the bot
+- `/say`: Makes Cognita repeat whatever was said (Owner only)
 
 ### Poll
-- `FindPoll`: Searches poll questions for a given query
-- `GetPoll`: Fetches the latest poll from patreon
-- `Poll`: Posts the latest poll or a specific poll
+- `/findpoll`: Searches poll questions for a given query
+- `/getpoll`: Fetches the latest poll from Patreon
+- `/poll`: Posts the latest poll or a specific poll
 
 ### The Wandering Inn
-- `ColoredText`: List of all the different colored texts in TWI
-- `ConnectDiscord`: Information for patreons on how to connect their patreon account
-- `Invistext`: Gives a list of all the invisible text in TWI
-- `Password`: Information for patreons on how to get the chapter password
-- `Wiki`: Searches the The Wandering Inn wiki for a matching article
+- `/coloredtext`: List of all the different colored texts in TWI
+- `/connectdiscord`: Information for Patreons on how to connect their Patreon account
+- `/invistext`: Gives a list of all the invisible text in TWI
+- `/password`: Information for Patreons on how to get the chapter password
+- `/wiki`: Searches The Wandering Inn wiki for a matching article
 
 ## Project Structure
 
@@ -128,11 +123,9 @@ The bot uses environment variables for configuration. These can be set in a `.en
 - `.env`: Environment variables with sensitive information (not tracked in git)
 - `requirements.txt`: Project dependencies
 
-For more detailed information about the project structure, see [Project Structure](docs/PROJECT_STRUCTURE.md).
-
 ## Contributing
 
-If you'd like to contribute to the project, please see the [Contributing Guide](CONTRIBUTING.md).
+If you'd like to contribute to the project, please see the [Contributing Guide](docs/contributing.md).
 
 ## Database Optimizations
 
@@ -166,8 +159,8 @@ To apply the database schema changes:
    ```
 
 For detailed information about the optimizations, see:
-- `utils/DATABASE.md`: Comprehensive documentation of database functionality, including optimizations
-- `database/db_optimizations.sql`: SQL script containing the schema changes
+- [Database Documentation](docs/developer/database.md): Comprehensive documentation of database functionality
+- `database/optimizations/`: SQL scripts containing schema optimizations
 
 ## Code Style Guidelines
 
@@ -259,11 +252,13 @@ The codebase has been modernized with several improvements to enhance maintainab
 
 ## Documentation
 
-- [Setup Guide](docs/SETUP.md): Detailed instructions for setting up the bot
-- [Features](docs/FEATURES.md): Comprehensive list of bot features and commands
-- [Project Structure](docs/PROJECT_STRUCTURE.md): Detailed explanation of the codebase
-- [Database Documentation](utils/DATABASE.md): Comprehensive documentation of database functionality, including the Database Utility Module, SQLAlchemy integration, and database optimizations
-- [Error Handling Guidelines](docs/ERROR_HANDLING.md): Standardized error handling patterns and best practices
+- [Getting Started](docs/developer/getting-started.md): Setup and development guide
+- [Features](docs/features.md): Comprehensive list of bot features and commands
+- [Environment Variables](docs/developer/environment-variables.md): Configuration reference
+- [Database Documentation](docs/developer/database.md): Database functionality and best practices
+- [Error Handling Guidelines](docs/developer/error-handling.md): Standardized error handling patterns
+- [Deployment Guide](docs/operations/deployment.md): Production deployment instructions
+- [Contributing](docs/contributing.md): How to contribute to the project
 
 ## License
 
@@ -271,4 +266,4 @@ The codebase has been modernized with several improvements to enhance maintainab
 
 ## Author
 
-WIllHallwoard
+WillHalloward

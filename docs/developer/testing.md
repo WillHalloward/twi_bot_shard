@@ -32,14 +32,11 @@ Property-based testing is particularly useful for:
 
 4. **Invariants**: Functions that should maintain certain invariants regardless of input.
 
-In the Twi Bot Shard project, we've identified several functions that are good candidates for property-based testing:
+In the Twi Bot Shard project, property-based testing is currently used for:
 
-- **Decorators**: Functions that transform other functions should preserve certain properties of the original function.
-- **Permission checks**: Functions that check permissions should always return a boolean value.
-- **Error handling**: Functions that handle errors should provide appropriate user feedback and not raise exceptions themselves.
-- **Validation functions**: Functions that validate input should correctly identify valid and invalid inputs.
-- **Query cache functions**: Functions that cache database queries should correctly store, retrieve, and invalidate cached values.
-- **Secret management functions**: Functions that encrypt, decrypt, and validate secrets should maintain security properties.
+- **Decorators**: The `log_command` and `handle_errors` decorators are tested to verify they preserve function metadata and correctly call the underlying functions.
+- **Permission checks**: The `admin_or_me_check` function is tested to verify it always returns a boolean value.
+- **Error handling**: Functions like `get_error_response`, `log_error`, and `detect_sensitive_info` are tested to ensure they provide appropriate user feedback, don't raise exceptions themselves, and correctly identify sensitive information.
 
 ## How to Use Property-Based Testing in Twi Bot Shard
 
@@ -114,20 +111,11 @@ def exception_strategy() -> SearchStrategy[Exception]:
 To run the property-based tests, you can use the following commands:
 
 ```bash
-# Run the general property-based tests
+# Run the general property-based tests (decorators, permissions, basic error handling)
 python -m tests.test_property_based
 
-# Run the validation property-based tests
-python -m tests.test_validation_property_based
-
-# Run the error handling property-based tests
+# Run the error handling property-based tests (sensitive info detection, error responses)
 python -m tests.test_error_handling_property_based
-
-# Run the query cache property-based tests
-python -m tests.test_query_cache_property_based
-
-# Run the secret manager property-based tests
-python -m tests.test_secret_manager_property_based
 ```
 
 These commands will run the property-based tests defined in the respective test files.
@@ -166,10 +154,8 @@ Property-based testing is a powerful technique for verifying that your code beha
 
 In the Twi Bot Shard project, we use property-based testing to verify the behavior of:
 
-- **Decorators and permission checks**: Ensuring they preserve function metadata and return correct results.
-- **Validation functions**: Verifying they correctly validate and sanitize various types of input.
-- **Error handling functions**: Testing detection and redaction of sensitive information, error message sanitization, and error response generation.
-- **Query cache functions**: Ensuring correct key generation, cache storage/retrieval, and invalidation.
-- **Secret management functions**: Verifying encryption/decryption correctness and secret validation.
+- **Decorators**: The `log_command` and `handle_errors` decorators, ensuring they preserve function metadata and call underlying handlers correctly.
+- **Permission checks**: The `admin_or_me_check` function, verifying it always returns a boolean value.
+- **Error handling functions**: Testing `get_error_response`, `log_error`, and `detect_sensitive_info` to ensure they handle various error types correctly, don't raise exceptions themselves, and properly identify sensitive information.
 
-This comprehensive approach to property-based testing helps ensure that these critical components of the bot behave correctly in all situations, even with unexpected inputs.
+This approach helps ensure that these critical components of the bot behave correctly with a wide range of inputs, including edge cases that might not be covered by traditional unit tests.

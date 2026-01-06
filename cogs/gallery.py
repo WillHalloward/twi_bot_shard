@@ -557,7 +557,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             available_channels = [
                 channel
                 for channel in self.repost_cache
-                if channel.guild_id == interaction.guild_id
+                if channel["guild_id"] == interaction.guild_id
             ]
 
             if not available_channels:
@@ -570,7 +570,8 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             for channel in available_channels:
                 menu.channel_select.append_option(
                     option=discord.SelectOption(
-                        label=f"#{channel.channel_name}", value=str(channel.channel_id)
+                        label=f"#{channel['channel_name']}",
+                        value=str(channel["channel_id"]),
                     )
                 )
 
@@ -944,10 +945,11 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             title=f"{work.title} - **AO3**",
         )
         for channel in self.repost_cache:
-            if channel.guild_id == interaction.guild_id:
+            if channel["guild_id"] == interaction.guild_id:
                 menu.channel_select.append_option(
                     option=discord.SelectOption(
-                        label=f"#{channel.channel_name}", value=channel.channel_id
+                        label=f"#{channel['channel_name']}",
+                        value=str(channel["channel_id"]),
                     )
                 )
         await interaction.response.send_message(
@@ -1014,10 +1016,11 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 title=f"{author['name']} - **Twitter**",
             )
             for channel in self.repost_cache:
-                if channel.guild_id == interaction.guild_id:
+                if channel["guild_id"] == interaction.guild_id:
                     menu.channel_select.append_option(
                         option=discord.SelectOption(
-                            label=f"#{channel.channel_name}", value=channel.channel_id
+                            label=f"#{channel['channel_name']}",
+                            value=str(channel["channel_id"]),
                         )
                     )
             await interaction.response.send_message(
@@ -1111,10 +1114,11 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             description_item=message.content,
         )
         for channel in self.repost_cache:
-            if channel.guild_id == interaction.guild_id:
+            if channel["guild_id"] == interaction.guild_id:
                 menu.channel_select.append_option(
                     option=discord.SelectOption(
-                        label=f"#{channel.channel_name}", value=channel.channel_id
+                        label=f"#{channel['channel_name']}",
+                        value=str(channel["channel_id"]),
                     )
                 )
         await interaction.response.send_message(
@@ -1162,9 +1166,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             title="Discord File",
         )
         for channel in self.repost_cache:
-            if channel.guild_id == interaction.guild_id:
+            if channel["guild_id"] == interaction.guild_id:
                 menu.channel_select.add_option(
-                    label=f"#{channel.channel_name}", value=channel.channel_id
+                    label=f"#{channel['channel_name']}",
+                    value=str(channel["channel_id"]),
                 )
         await interaction.response.send_message(
             "I found a discord file, please select where to repost it",

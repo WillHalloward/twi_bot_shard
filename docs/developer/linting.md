@@ -46,7 +46,7 @@ Black is configured in the `pyproject.toml` file with the following settings:
 The project includes a `lint.py` script that runs Ruff on the codebase:
 
 ```bash
-python lint.py
+python scripts/development/lint.py
 ```
 
 This will:
@@ -58,13 +58,12 @@ This will:
 The project includes a `format.py` script that runs Black on the codebase:
 
 ```bash
-python format.py
+python scripts/development/format.py
 ```
 
 This will:
 1. Run `black --check --diff .` to show what formatting changes would be made
-2. Ask if you want to apply the changes
-3. If you agree, run `black .` to apply the changes
+2. Automatically apply the changes if any files need formatting
 
 ### Using Ruff Directly
 
@@ -196,7 +195,7 @@ The project uses [pre-commit](https://pre-commit.com/) to automatically run lint
 Run the setup script to automatically install pre-commit and set up the git hooks:
 
 ```bash
-python setup_hooks.py
+python scripts/development/setup_hooks.py
 ```
 
 This script will:

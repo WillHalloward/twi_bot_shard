@@ -408,7 +408,7 @@ class Cognita(commands.Bot):
                 "Production environment detected - starting comprehensive save operation"
             )
             try:
-                from cogs.stats_utils import perform_comprehensive_save
+                from cogs.stats_listeners import perform_comprehensive_save
 
                 # Define a simple progress callback for logging
                 async def log_progress(
