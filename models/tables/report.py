@@ -28,6 +28,6 @@ class Report(Base):
     anonymous: Mapped[bool] = mapped_column(Boolean, default=False)
     additional_info: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     guild_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, default=None)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, insert_default=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, default=None, insert_default=datetime.utcnow
     )
