@@ -156,3 +156,6 @@ temp_tests/
 ._*
 .Spotlight-V100
 .Trashes
+
+# AI documentation (local only)
+/ai_docs/

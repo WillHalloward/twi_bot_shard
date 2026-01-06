@@ -1,28 +1,27 @@
-import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
+from sqlalchemy.exc import IntegrityError
 
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
     DatabaseError,
-    QueryError,
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ValidationError,
 )
+from utils.repositories import CreatorLinkRepository
 from utils.validation import validate_url
 
 
 class CreatorLinks(commands.Cog, name="Creator"):
     def __init__(self, bot) -> None:
-        self.links_cache = None
+        self.links_cache: list = []
         self.bot = bot
+        self.creator_link_repo = CreatorLinkRepository(bot.get_db_session)
 
     async def cog_load(self) -> None:
-        self.links_cache = await self.bot.db.fetch(
-            "SELECT title, user_id FROM creator_links"
-        )
+        self.links_cache = await self.creator_link_repo.get_all_for_cache()
 
     creator_link = app_commands.Group(
         name="creator_link", description="Creator Link commands"
@@ -50,28 +49,23 @@ class CreatorLinks(commands.Cog, name="Creator"):
             creator = interaction.user
 
         try:
-            query_r = await self.bot.db.fetch(
-                "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
-                creator.id,
-            )
-        except asyncpg.PostgresError as e:
+            creator_links = await self.creator_link_repo.get_by_user_id(creator.id)
+        except Exception as e:
             raise DatabaseError(
                 f"Failed to retrieve creator links for user {creator.id}"
             ) from e
-        except Exception as e:
-            raise QueryError("Unexpected error during creator links query") from e
 
-        if query_r:
+        if creator_links:
             embed = discord.Embed(
                 title=f"{creator.display_name}'s links", color=0x00FF00
             )
             embed.set_thumbnail(url=creator.display_avatar.url)
 
-            for link_data in query_r:
-                if interaction.channel.is_nsfw() or not link_data["nsfw"]:
+            for link in creator_links:
+                if interaction.channel.is_nsfw() or not link.nsfw:
                     embed.add_field(
-                        name=f"{link_data['title']}{' - NSFW' if link_data['nsfw'] else ''}",
-                        value=link_data["link"],
+                        name=f"{link.title}{' - NSFW' if link.nsfw else ''}",
+                        value=link.link,
                         inline=False,
                     )
 
@@ -140,28 +134,30 @@ class CreatorLinks(commands.Cog, name="Creator"):
             )
 
         try:
-            await self.bot.db.execute(
-                "INSERT INTO creator_links (user_id, title, link, nsfw, weight, feature) VALUES ($1, $2, $3, $4, $5, $6)",
-                interaction.user.id,
-                title,
-                validated_link,
-                nsfw,
-                weight,
-                feature,
+            result = await self.creator_link_repo.create(
+                user_id=interaction.user.id,
+                title=title,
+                link=validated_link,
+                nsfw=nsfw,
+                weight=weight,
+                feature=feature,
             )
-            await interaction.response.send_message(
-                f"✅ Successfully added link **{title}** to your creator links."
-            )
-        except asyncpg.UniqueViolationError:
+            if result:
+                await interaction.response.send_message(
+                    f"✅ Successfully added link **{title}** to your creator links."
+                )
+            else:
+                raise DatabaseError(
+                    f"Failed to add creator link '{title}' for user {interaction.user.id}"
+                )
+        except IntegrityError as e:
             raise ResourceAlreadyExistsError(
                 resource_type="creator link",
                 resource_id=title,
                 message=f"You already have a link with the title **{title}**. Please choose a different title or edit the existing link.",
-            )
-        except asyncpg.PostgresError as e:
-            raise DatabaseError(
-                f"Failed to add creator link '{title}' for user {interaction.user.id}"
             ) from e
+        except ResourceAlreadyExistsError:
+            raise
         except Exception as e:
             raise DatabaseError("Unexpected error while adding creator link") from e
 
@@ -192,10 +188,8 @@ class CreatorLinks(commands.Cog, name="Creator"):
 
         try:
             # First check if the link exists
-            existing_link = await self.bot.db.fetchrow(
-                "SELECT title FROM creator_links WHERE user_id = $1 AND lower(title) = lower($2)",
-                interaction.user.id,
-                title,
+            existing_link = await self.creator_link_repo.get_by_user_and_title(
+                interaction.user.id, title
             )
 
             if not existing_link:
@@ -206,23 +200,15 @@ class CreatorLinks(commands.Cog, name="Creator"):
                 )
 
             # Delete the link
-            await self.bot.db.execute(
-                "DELETE FROM creator_links WHERE user_id = $1 AND lower(title) = lower($2)",
-                interaction.user.id,
-                title,
-            )
+            await self.creator_link_repo.delete(interaction.user.id, title)
 
             await interaction.response.send_message(
-                f"✅ Successfully removed link **{existing_link['title']}** from your creator links."
+                f"✅ Successfully removed link **{existing_link.title}** from your creator links."
             )
 
         except ResourceNotFoundError:
             # Re-raise ResourceNotFoundError as-is
             raise
-        except asyncpg.PostgresError as e:
-            raise DatabaseError(
-                f"Failed to remove creator link '{title}' for user {interaction.user.id}"
-            ) from e
         except Exception as e:
             raise DatabaseError("Unexpected error while removing creator link") from e
 
@@ -277,10 +263,8 @@ class CreatorLinks(commands.Cog, name="Creator"):
 
         try:
             # First check if the link exists
-            existing_link = await self.bot.db.fetchrow(
-                "SELECT title FROM creator_links WHERE user_id = $1 AND lower(title) = lower($2)",
-                interaction.user.id,
-                title,
+            existing_link = await self.creator_link_repo.get_by_user_and_title(
+                interaction.user.id, title
             )
 
             if not existing_link:
@@ -291,27 +275,22 @@ class CreatorLinks(commands.Cog, name="Creator"):
                 )
 
             # Update the link
-            await self.bot.db.execute(
-                "UPDATE creator_links SET link = $1, nsfw = $2, weight = $3, feature = $4, last_changed = now() WHERE user_id = $5 AND lower(title) = lower($6)",
-                validated_link,
-                nsfw,
-                weight,
-                feature,
-                interaction.user.id,
-                title,
+            await self.creator_link_repo.update(
+                user_id=interaction.user.id,
+                title=title,
+                link=validated_link,
+                nsfw=nsfw,
+                weight=weight,
+                feature=feature,
             )
 
             await interaction.response.send_message(
-                f"✅ Successfully updated link **{existing_link['title']}** in your creator links."
+                f"✅ Successfully updated link **{existing_link.title}** in your creator links."
             )
 
         except ResourceNotFoundError:
             # Re-raise ResourceNotFoundError as-is
             raise
-        except asyncpg.PostgresError as e:
-            raise DatabaseError(
-                f"Failed to edit creator link '{title}' for user {interaction.user.id}"
-            ) from e
         except Exception as e:
             raise DatabaseError("Unexpected error while editing creator link") from e
 

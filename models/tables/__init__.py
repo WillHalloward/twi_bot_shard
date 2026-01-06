@@ -6,4 +6,5 @@ from models.tables.gallery_migration import GalleryMigration
 from models.tables.join_leave import JoinLeave
 from models.tables.messages import Message
 from models.tables.reactions import Reaction
+from models.tables.report import Report
 from models.tables.servers import Server

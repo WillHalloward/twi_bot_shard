@@ -21,7 +21,11 @@ from utils.gallery_data_extractor import GalleryDataExtractor
 from utils.permissions import (
     app_admin_or_me_check,
 )
-from utils.repositories.gallery_migration_repository import GalleryMigrationRepository
+from utils.repositories import (
+    CreatorLinkRepository,
+    GalleryMementosRepository,
+    GalleryMigrationRepository,
+)
 from utils.validation import validate_interaction_params
 
 ao3_pattern = r"https?://archiveofourown\.org/\S+"
@@ -216,9 +220,11 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
     def __init__(self, bot) -> None:
         super().__init__(bot)
         self.bot = bot
-        self.repost_cache = None
+        self.repost_cache: list = []
 
-        # Initialize migration repository and data extractor
+        # Initialize repositories and data extractor
+        self.gallery_mementos_repo = GalleryMementosRepository(bot.get_db_session)
+        self.creator_link_repo = CreatorLinkRepository(bot.get_db_session)
         self.migration_repo = GalleryMigrationRepository(bot.get_db_session)
         self.data_extractor = GalleryDataExtractor()
 
@@ -250,8 +256,8 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             if cmd.callback.__name__ in cog_method_names:
                 cmd.binding = self
 
-        # Load gallery mementos from database
-        self.repost_cache = await self.bot.db.fetch("SELECT * FROM gallery_mementos")
+        # Load gallery mementos from database using repository
+        self.repost_cache = await self.gallery_mementos_repo.get_all()
 
     @app_commands.default_permissions(ban_members=True)
     @handle_interaction_errors
@@ -557,7 +563,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             available_channels = [
                 channel
                 for channel in self.repost_cache
-                if channel["guild_id"] == interaction.guild_id
+                if channel.guild_id == interaction.guild_id
             ]
 
             if not available_channels:
@@ -570,8 +576,8 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             for channel in available_channels:
                 menu.channel_select.append_option(
                     option=discord.SelectOption(
-                        label=f"#{channel['channel_name']}",
-                        value=str(channel["channel_id"]),
+                        label=f"#{channel.channel_name}",
+                        value=str(channel.channel_id),
                     )
                 )
 
@@ -655,11 +661,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                     )
                     return
 
-                # Get creator links for the message author
+                # Get creator links for the message author using repository
                 try:
-                    query_r = await self.bot.db.fetch(
-                        "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
-                        message.author.id,
+                    creator_links = await self.creator_link_repo.get_by_user_id(
+                        message.author.id
                     )
                 except Exception as e:
                     self.logger.error(
@@ -670,7 +675,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                             "author_id": message.author.id,
                         },
                     )
-                    query_r = []  # Continue without creator links
+                    creator_links = []  # Continue without creator links
                 # Handle regular channels (non-forum)
                 if not isinstance(repost_channel, discord.ForumChannel):
                     self.logger.info(
@@ -696,12 +701,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                             embed.set_thumbnail(url=message.author.display_avatar.url)
 
                             # Add creator links if available
-                            if query_r:
-                                for query in query_r:
-                                    if repost_channel.is_nsfw() or not query["nsfw"]:
+                            if creator_links:
+                                for link in creator_links:
+                                    if repost_channel.is_nsfw() or not link.nsfw:
                                         embed.add_field(
-                                            name=f"{query['title']} {' - **NSFW**' if query['nsfw'] else ''}",
-                                            value=query["link"],
+                                            name=f"{link.title} {' - **NSFW**' if link.nsfw else ''}",
+                                            value=link.link,
                                             inline=False,
                                         )
 
@@ -865,12 +870,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                         embed.set_thumbnail(url=message.author.display_avatar.url)
 
                         # Add creator links if available
-                        if query_r:
-                            for query in query_r:
-                                if repost_channel.is_nsfw() or not query["nsfw"]:
+                        if creator_links:
+                            for link in creator_links:
+                                if repost_channel.is_nsfw() or not link.nsfw:
                                     embed.add_field(
-                                        name=f"{query['title']} {' - **NSFW**' if query['nsfw'] else ''}",
-                                        value=query["link"],
+                                        name=f"{link.title} {' - **NSFW**' if link.nsfw else ''}",
+                                        value=link.link,
                                         inline=False,
                                     )
 
@@ -945,11 +950,11 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             title=f"{work.title} - **AO3**",
         )
         for channel in self.repost_cache:
-            if channel["guild_id"] == interaction.guild_id:
+            if channel.guild_id == interaction.guild_id:
                 menu.channel_select.append_option(
                     option=discord.SelectOption(
-                        label=f"#{channel['channel_name']}",
-                        value=str(channel["channel_id"]),
+                        label=f"#{channel.channel_name}",
+                        value=str(channel.channel_id),
                     )
                 )
         await interaction.response.send_message(
@@ -981,16 +986,15 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             repost_channel = interaction.guild.get_channel(
                 int(menu.channel_select.values[0])
             )
-            query_r = await self.bot.db.fetch(
-                "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
-                message.author.id,
+            creator_links = await self.creator_link_repo.get_by_user_id(
+                message.author.id
             )
-            if query_r:
-                for x in query_r:
-                    if repost_channel.is_nsfw() or not x["nsfw"]:
+            if creator_links:
+                for link in creator_links:
+                    if repost_channel.is_nsfw() or not link.nsfw:
                         embed.add_field(
-                            name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}",
-                            value=x["link"],
+                            name=f"{link.title} {' - **NSFW**' if link.nsfw else ''}",
+                            value=link.link,
                             inline=False,
                         )
             await repost_channel.send(embed=embed)
@@ -1016,11 +1020,11 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 title=f"{author['name']} - **Twitter**",
             )
             for channel in self.repost_cache:
-                if channel["guild_id"] == interaction.guild_id:
+                if channel.guild_id == interaction.guild_id:
                     menu.channel_select.append_option(
                         option=discord.SelectOption(
-                            label=f"#{channel['channel_name']}",
-                            value=str(channel["channel_id"]),
+                            label=f"#{channel.channel_name}",
+                            value=str(channel.channel_id),
                         )
                     )
             await interaction.response.send_message(
@@ -1037,9 +1041,8 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 repost_channel = interaction.guild.get_channel(
                     int(menu.channel_select.values[0])
                 )
-                query_r = await self.bot.db.fetch(
-                    "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
-                    message.author.id,
+                creator_links = await self.creator_link_repo.get_by_user_id(
+                    message.author.id
                 )
                 for image in sorted(os.listdir("temp_files")):
                     if image.startswith(str(tweet_id)) and not image.endswith(".mp4"):
@@ -1050,12 +1053,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                             url=url,
                         )
                         embed.set_image(url=f"attachment://{image}")
-                        if query_r:
-                            for x in query_r:
-                                if repost_channel.is_nsfw() or not x["nsfw"]:
+                        if creator_links:
+                            for link in creator_links:
+                                if repost_channel.is_nsfw() or not link.nsfw:
                                     embed.add_field(
-                                        name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}",
-                                        value=x["link"],
+                                        name=f"{link.title} {' - **NSFW**' if link.nsfw else ''}",
+                                        value=link.link,
                                         inline=False,
                                     )
                         embed.set_thumbnail(url=author["profile_image"])
@@ -1067,12 +1070,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                             description=f"{menu.description_item}\n{content}",
                             url=url,
                         )
-                        if query_r:
-                            for x in query_r:
-                                if repost_channel.is_nsfw() or not x["nsfw"]:
+                        if creator_links:
+                            for link in creator_links:
+                                if repost_channel.is_nsfw() or not link.nsfw:
                                     embed.add_field(
-                                        name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}",
-                                        value=x["link"],
+                                        name=f"{link.title} {' - **NSFW**' if link.nsfw else ''}",
+                                        value=link.link,
                                         inline=False,
                                     )
                         embed.set_thumbnail(url=author["profile_image"])
@@ -1114,11 +1117,11 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             description_item=message.content,
         )
         for channel in self.repost_cache:
-            if channel["guild_id"] == interaction.guild_id:
+            if channel.guild_id == interaction.guild_id:
                 menu.channel_select.append_option(
                     option=discord.SelectOption(
-                        label=f"#{channel['channel_name']}",
-                        value=str(channel["channel_id"]),
+                        label=f"#{channel.channel_name}",
+                        value=str(channel.channel_id),
                     )
                 )
         await interaction.response.send_message(
@@ -1132,21 +1135,20 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             repost_channel = interaction.guild.get_channel(
                 int(menu.channel_select.values[0])
             )
-            query_r = await self.bot.db.fetch(
-                "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
-                message.author.id,
+            creator_links = await self.creator_link_repo.get_by_user_id(
+                message.author.id
             )
             embed = discord.Embed(
                 title=menu.title_item,
                 description=menu.description_item,
                 url=message.jump_url,
             )
-            if query_r:
-                for x in query_r:
-                    if repost_channel.is_nsfw() or not x["nsfw"]:
+            if creator_links:
+                for link in creator_links:
+                    if repost_channel.is_nsfw() or not link.nsfw:
                         embed.add_field(
-                            name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}",
-                            value=x["link"],
+                            name=f"{link.title} {' - **NSFW**' if link.nsfw else ''}",
+                            value=link.link,
                             inline=False,
                         )
             embed.set_thumbnail(url=message.author.display_avatar.url)
@@ -1166,10 +1168,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             title="Discord File",
         )
         for channel in self.repost_cache:
-            if channel["guild_id"] == interaction.guild_id:
+            if channel.guild_id == interaction.guild_id:
                 menu.channel_select.add_option(
-                    label=f"#{channel['channel_name']}",
-                    value=str(channel["channel_id"]),
+                    label=f"#{channel.channel_name}",
+                    value=str(channel.channel_id),
                 )
         await interaction.response.send_message(
             "I found a discord file, please select where to repost it",
@@ -1200,9 +1202,8 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             repost_channel = interaction.guild.get_channel(
                 int(menu.channel_select.values[0])
             )
-            query_r = await self.bot.db.fetch(
-                "SELECT * FROM creator_links WHERE user_id = $1 ORDER BY weight DESC",
-                message.author.id,
+            creator_links = await self.creator_link_repo.get_by_user_id(
+                message.author.id
             )
             for image in sorted(os.listdir(f"{interaction.guild_id}_temp_files")):
                 file = discord.File(f"{interaction.guild_id}_temp_files/{image}")
@@ -1211,12 +1212,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                     description=f"{menu.description_item}",
                     url=url,
                 )
-                if query_r:
-                    for credit in query_r:
-                        if repost_channel.is_nsfw() or not credit["nsfw"]:
+                if creator_links:
+                    for link in creator_links:
+                        if repost_channel.is_nsfw() or not link.nsfw:
                             embed.add_field(
-                                name=f"{credit['title']} {' - **NSFW**' if credit['nsfw'] else ''}",
-                                value=credit["link"],
+                                name=f"{link.title} {' - **NSFW**' if link.nsfw else ''}",
+                                value=link.link,
                                 inline=False,
                             )
                 embed.set_thumbnail(url=message.author.display_avatar.url)
@@ -1299,17 +1300,13 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             return
 
         try:
-            # Check if channel exists in database
-            existing = await self.bot.db.fetch(
-                "SELECT * FROM gallery_mementos WHERE channel_id = $1", channel.id
-            )
+            # Check if channel exists in database using repository
+            existing = await self.gallery_mementos_repo.get_by_channel_id(channel.id)
 
             if existing:
-                # Remove existing channel
+                # Remove existing channel using repository
                 try:
-                    await self.bot.db.execute(
-                        "DELETE FROM gallery_mementos WHERE channel_id = $1", channel.id
-                    )
+                    await self.gallery_mementos_repo.delete_by_channel_id(channel.id)
 
                     embed = discord.Embed(
                         title="🗑️ Repost Channel Removed",
@@ -1350,13 +1347,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                     return
 
             else:
-                # Add new channel
+                # Add new channel using repository
                 try:
-                    await self.bot.db.execute(
-                        "INSERT INTO gallery_mementos (channel_name, channel_id, guild_id) VALUES ($1, $2, $3)",
-                        channel.name,
-                        channel.id,
-                        channel.guild.id,
+                    await self.gallery_mementos_repo.create(
+                        channel_name=channel.name,
+                        channel_id=channel.id,
+                        guild_id=channel.guild.id,
                     )
 
                     embed = discord.Embed(
@@ -1405,11 +1401,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             # Send response with embed
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
-            # Refresh cache
+            # Refresh cache using repository
             try:
-                self.repost_cache = await self.bot.db.fetch(
-                    "SELECT * FROM gallery_mementos"
-                )
+                self.repost_cache = await self.gallery_mementos_repo.get_all()
 
                 self.logger.info(
                     f"Refreshed repost cache, now contains {len(self.repost_cache)} channels",
