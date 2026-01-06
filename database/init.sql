@@ -634,7 +634,142 @@ CREATE INDEX IF NOT EXISTS error_telemetry_error_type_index ON error_telemetry (
 CREATE INDEX IF NOT EXISTS error_telemetry_command_name_index ON error_telemetry (command_name);
 
 -- ============================================================================
--- PART 6: GRANT PERMISSIONS (if needed)
+-- PART 6: REPORTS TABLE (for user reports)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS reports
+(
+    id               serial PRIMARY KEY,
+    message_id       bigint NOT NULL,
+    user_id          bigint NOT NULL,
+    reason           varchar(50) NOT NULL,
+    reported_user_id bigint NOT NULL,
+    channel_id       bigint NOT NULL,
+    anonymous        boolean DEFAULT false,
+    additional_info  text,
+    guild_id         bigint,
+    created_at       timestamp DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS reports_guild_id_index ON reports (guild_id);
+CREATE INDEX IF NOT EXISTS reports_user_id_index ON reports (user_id);
+CREATE INDEX IF NOT EXISTS reports_reported_user_id_index ON reports (reported_user_id);
+
+-- ============================================================================
+-- PART 7: EMBEDS TABLES (for message embed tracking)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS embeds
+(
+    id          serial PRIMARY KEY,
+    message_id  bigint NOT NULL,
+    title       text,
+    description text,
+    url         text,
+    color       integer,
+    timestamp   timestamp,
+    footer_text text,
+    footer_icon text,
+    image_url   text,
+    thumbnail   text,
+    author_name text,
+    author_url  text,
+    author_icon text,
+    created_at  timestamp DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS embeds_message_id_index ON embeds (message_id);
+
+CREATE TABLE IF NOT EXISTS embed_fields
+(
+    id       serial PRIMARY KEY,
+    embed_id integer NOT NULL REFERENCES embeds(id) ON DELETE CASCADE,
+    name     text NOT NULL,
+    value    text NOT NULL,
+    inline   boolean DEFAULT false
+);
+
+CREATE INDEX IF NOT EXISTS embed_fields_embed_id_index ON embed_fields (embed_id);
+
+-- ============================================================================
+-- PART 8: ROLE CHANGES TABLE (for tracking role additions/removals)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS role_changes
+(
+    id        serial PRIMARY KEY,
+    user_id   bigint NOT NULL,
+    server_id bigint NOT NULL,
+    role_id   bigint NOT NULL,
+    action    varchar(10) NOT NULL,  -- 'added' or 'removed'
+    timestamp timestamp NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS role_changes_user_id_index ON role_changes (user_id);
+CREATE INDEX IF NOT EXISTS role_changes_server_id_index ON role_changes (server_id);
+CREATE INDEX IF NOT EXISTS role_changes_timestamp_index ON role_changes (timestamp);
+
+-- ============================================================================
+-- PART 9: VOICE ACTIVITY TABLE (for tracking voice channel activity)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS voice_activity
+(
+    id         serial PRIMARY KEY,
+    user_id    bigint NOT NULL,
+    guild_id   bigint NOT NULL,
+    channel_id bigint NOT NULL
+        CONSTRAINT voice_activity_channels_id_fk REFERENCES channels,
+    action     varchar(10) NOT NULL,  -- 'join', 'leave', 'move'
+    timestamp  timestamp NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS voice_activity_user_id_index ON voice_activity (user_id);
+CREATE INDEX IF NOT EXISTS voice_activity_guild_id_index ON voice_activity (guild_id);
+CREATE INDEX IF NOT EXISTS voice_activity_timestamp_index ON voice_activity (timestamp);
+
+-- ============================================================================
+-- PART 10: GALLERY MIGRATION TABLE (for gallery forum migration)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS gallery_migration
+(
+    id                  serial PRIMARY KEY,
+    message_id          bigint UNIQUE NOT NULL,
+    channel_id          bigint NOT NULL,
+    channel_name        varchar(100) NOT NULL,
+    guild_id            bigint NOT NULL,
+    title               text,
+    images              json,
+    creator             varchar(200),
+    tags                json,
+    jump_url            text,
+    author_id           bigint NOT NULL,
+    author_name         varchar(100) NOT NULL,
+    is_bot              boolean NOT NULL DEFAULT false,
+    created_at          timestamp NOT NULL,
+    extracted_at        timestamp NOT NULL DEFAULT now(),
+    migrated            boolean NOT NULL DEFAULT false,
+    migrated_at         timestamp,
+    target_forum        varchar(10),
+    content_type        varchar(50),
+    has_attachments     boolean NOT NULL DEFAULT false,
+    attachment_count    integer NOT NULL DEFAULT 0,
+    needs_manual_review boolean NOT NULL DEFAULT false,
+    reviewed            boolean NOT NULL DEFAULT false,
+    reviewed_by         bigint,
+    reviewed_at         timestamp,
+    raw_embed_data      json,
+    raw_content         text
+);
+
+CREATE INDEX IF NOT EXISTS gallery_migration_message_id_index ON gallery_migration (message_id);
+CREATE INDEX IF NOT EXISTS gallery_migration_channel_id_index ON gallery_migration (channel_id);
+CREATE INDEX IF NOT EXISTS gallery_migration_migrated_index ON gallery_migration (migrated);
+CREATE INDEX IF NOT EXISTS gallery_migration_needs_review_index ON gallery_migration (needs_manual_review, reviewed);
+
+-- ============================================================================
+-- PART 11: GRANT PERMISSIONS (if needed)
 -- ============================================================================
 -- Uncomment and modify if you need to grant permissions to a specific user
 -- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO your_user;
