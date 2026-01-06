@@ -16,9 +16,9 @@ class Quote(Base):
 
     __tablename__ = "quotes"
 
-    # Primary key (serial_id)
-    serial_id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, autoincrement=True
+    # Primary key - default=None for Python object creation (DB auto-generates)
+    serial_id: Mapped[int | None] = mapped_column(
+        Integer, primary_key=True, autoincrement=True, default=None
     )
 
     # Optional fields

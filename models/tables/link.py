@@ -16,8 +16,10 @@ class Link(Base):
 
     __tablename__ = "links"
 
-    # Primary key
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # Primary key - default=None for Python object creation (DB auto-generates)
+    id: Mapped[int | None] = mapped_column(
+        Integer, primary_key=True, autoincrement=True, default=None
+    )
 
     # Optional fields
     content: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
