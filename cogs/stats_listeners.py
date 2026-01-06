@@ -1460,6 +1460,15 @@ class StatsListenersMixin:
             # Handle voice channel join/leave tracking
             current_time = datetime.now().replace(tzinfo=None)
 
+            # Ensure user exists before inserting voice activity (foreign key constraint)
+            await self.bot.db.execute(
+                "INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4) ON CONFLICT (user_id) DO NOTHING",
+                member.id,
+                member.created_at.replace(tzinfo=None),
+                member.bot,
+                member.name,
+            )
+
             # User joined a voice channel
             if before.channel is None and after.channel is not None:
                 await self.ensure_channel_exists(after.channel)
