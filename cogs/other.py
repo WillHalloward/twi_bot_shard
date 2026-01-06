@@ -2929,9 +2929,9 @@ class OtherCogs(commands.Cog, name="Other"):
             A list of up to 25 matching category name choices
         """
         return [
-            app_commands.Choice(name=category, value=category)
+            app_commands.Choice(name=category["category"], value=category["category"])
             for category in self.category_cache
-            if current.lower() in category.lower() or current == ""
+            if current.lower() in category["category"].lower() or current == ""
         ][0:25]
 
     @admin_role.command(
