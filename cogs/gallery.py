@@ -698,10 +698,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                             # Add creator links if available
                             if query_r:
                                 for query in query_r:
-                                    if repost_channel.is_nsfw() or not query.nsfw:
+                                    if repost_channel.is_nsfw() or not query["nsfw"]:
                                         embed.add_field(
-                                            name=f"{query.title} {' - **NSFW**' if query.nsfw else ''}",
-                                            value=query.link,
+                                            name=f"{query['title']} {' - **NSFW**' if query['nsfw'] else ''}",
+                                            value=query["link"],
                                             inline=False,
                                         )
 
@@ -867,10 +867,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                         # Add creator links if available
                         if query_r:
                             for query in query_r:
-                                if repost_channel.is_nsfw() or not query.nsfw:
+                                if repost_channel.is_nsfw() or not query["nsfw"]:
                                     embed.add_field(
-                                        name=f"{query.title} {' - **NSFW**' if query.nsfw else ''}",
-                                        value=query.link,
+                                        name=f"{query['title']} {' - **NSFW**' if query['nsfw'] else ''}",
+                                        value=query["link"],
                                         inline=False,
                                     )
 
@@ -987,10 +987,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             )
             if query_r:
                 for x in query_r:
-                    if repost_channel.is_nsfw() or not x.nsfw:
+                    if repost_channel.is_nsfw() or not x["nsfw"]:
                         embed.add_field(
-                            name=f"{x.title} {' - **NSFW**' if x.nsfw else ''}",
-                            value=x.link,
+                            name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}",
+                            value=x["link"],
                             inline=False,
                         )
             await repost_channel.send(embed=embed)
@@ -1052,10 +1052,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                         embed.set_image(url=f"attachment://{image}")
                         if query_r:
                             for x in query_r:
-                                if repost_channel.is_nsfw() or not x.nsfw:
+                                if repost_channel.is_nsfw() or not x["nsfw"]:
                                     embed.add_field(
-                                        name=f"{x.title} {' - **NSFW**' if x.nsfw else ''}",
-                                        value=x.link,
+                                        name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}",
+                                        value=x["link"],
                                         inline=False,
                                     )
                         embed.set_thumbnail(url=author["profile_image"])
@@ -1069,10 +1069,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                         )
                         if query_r:
                             for x in query_r:
-                                if repost_channel.is_nsfw() or not x.nsfw:
+                                if repost_channel.is_nsfw() or not x["nsfw"]:
                                     embed.add_field(
-                                        name=f"{x.title} {' - **NSFW**' if x.nsfw else ''}",
-                                        value=x.link,
+                                        name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}",
+                                        value=x["link"],
                                         inline=False,
                                     )
                         embed.set_thumbnail(url=author["profile_image"])
@@ -1143,10 +1143,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             )
             if query_r:
                 for x in query_r:
-                    if repost_channel.is_nsfw() or not x.nsfw:
+                    if repost_channel.is_nsfw() or not x["nsfw"]:
                         embed.add_field(
-                            name=f"{x.title} {' - **NSFW**' if x.nsfw else ''}",
-                            value=x.link,
+                            name=f"{x['title']} {' - **NSFW**' if x['nsfw'] else ''}",
+                            value=x["link"],
                             inline=False,
                         )
             embed.set_thumbnail(url=message.author.display_avatar.url)
@@ -1213,10 +1213,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                 )
                 if query_r:
                     for credit in query_r:
-                        if repost_channel.is_nsfw() or not credit.nsfw:
+                        if repost_channel.is_nsfw() or not credit["nsfw"]:
                             embed.add_field(
-                                name=f"{credit.title} {' - **NSFW**' if credit.nsfw else ''}",
-                                value=credit.link,
+                                name=f"{credit['title']} {' - **NSFW**' if credit['nsfw'] else ''}",
+                                value=credit["link"],
                                 inline=False,
                             )
                 embed.set_thumbnail(url=message.author.display_avatar.url)
