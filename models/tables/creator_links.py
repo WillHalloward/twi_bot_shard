@@ -24,12 +24,14 @@ class CreatorLink(Base):
     __tablename__ = "creator_links"
 
     # Required fields (no defaults) must come first for dataclass compatibility
-    serial_id: Mapped[int] = mapped_column(Integer, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     title: Mapped[str] = mapped_column(String(100), nullable=False)
     link: Mapped[str] = mapped_column(String(255))
 
     # Optional fields (with defaults) must come after required fields
+    serial_id: Mapped[int | None] = mapped_column(
+        Integer, autoincrement=True, default=None
+    )
     nsfw: Mapped[bool] = mapped_column(Boolean, default=False)
     weight: Mapped[int] = mapped_column(Integer, default=0)
     feature: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
