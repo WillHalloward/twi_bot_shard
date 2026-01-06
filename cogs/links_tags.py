@@ -2,6 +2,7 @@ import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
+from sqlalchemy.exc import IntegrityError
 
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
@@ -12,6 +13,7 @@ from utils.exceptions import (
     ResourceNotFoundError,
     ValidationError,
 )
+from utils.repositories import LinkRepository
 from utils.validation import validate_url
 
 
@@ -19,9 +21,19 @@ class LinkTags(commands.Cog, name="Links"):
     def __init__(self, bot) -> None:
         self.bot = bot
         self.links_cache = None
+        self.link_repo = LinkRepository(bot.get_db_session)
 
     async def cog_load(self) -> None:
+        # Keep raw SQL for cache - autocomplete expects dictionary format
         self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
+
+    async def _refresh_cache(self) -> None:
+        """Refresh the links cache after modifications."""
+        try:
+            self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
+        except Exception:
+            # Cache update failure shouldn't break the command
+            pass
 
     async def link_autocomplete(
         self,
@@ -92,23 +104,18 @@ class LinkTags(commands.Cog, name="Links"):
         title = title.strip()
 
         try:
-            query_r = await self.bot.db.fetchrow(
-                "SELECT content, title, embed FROM links WHERE lower(title) = lower($1)",
-                title,
-            )
-        except asyncpg.PostgresError as e:
-            raise DatabaseError(f"Failed to retrieve link '{title}'") from e
+            link_entry = await self.link_repo.get_by_title(title)
         except Exception as e:
-            raise QueryError("Unexpected error during link query") from e
+            raise DatabaseError(f"Failed to retrieve link '{title}'") from e
 
-        if query_r:
-            if query_r["embed"]:
+        if link_entry:
+            if link_entry.embed:
                 await interaction.response.send_message(
-                    f"[{query_r['title']}]({query_r['content']})"
+                    f"[{link_entry.title}]({link_entry.content})"
                 )
             else:
                 await interaction.response.send_message(
-                    f"**{query_r['title']}**: {query_r['content']}"
+                    f"**{link_entry.title}**: {link_entry.content}"
                 )
         else:
             raise ResourceNotFoundError(
@@ -150,6 +157,7 @@ class LinkTags(commands.Cog, name="Links"):
             category = category.strip()
 
             try:
+                # Keep raw SQL for complex ORDER BY with regexp_replace
                 # Handle "Uncategorized" as a special case
                 if category.lower() == "uncategorized":
                     query_r = await self.bot.db.fetch(
@@ -188,15 +196,15 @@ class LinkTags(commands.Cog, name="Links"):
         else:
             # Show all categories with counts (original behavior)
             try:
-                # Query to get categories with link counts
+                # Keep raw SQL for complex GROUP BY and COALESCE
                 query_r = await self.bot.db.fetch(
                     """
-                    SELECT 
+                    SELECT
                         COALESCE(tag, 'Uncategorized') as category,
                         COUNT(*) as link_count
-                    FROM links 
-                    GROUP BY tag 
-                    ORDER BY 
+                    FROM links
+                    GROUP BY tag
+                    ORDER BY
                         CASE WHEN tag IS NULL THEN 1 ELSE 0 END,
                         tag
                 """
@@ -297,39 +305,37 @@ class LinkTags(commands.Cog, name="Links"):
             tag = tag.strip()
 
         try:
-            await self.bot.db.execute(
-                "INSERT INTO links(content, tag, user_who_added, id_user_who_added, time_added, title, embed) "
-                "VALUES ($1, $2, $3, $4, now(), $5, $6)",
-                content,
-                tag,
-                interaction.user.display_name,
-                interaction.user.id,
-                title,
-                embed,
+            result = await self.link_repo.create(
+                title=title,
+                content=content,
+                tag=tag,
+                user_who_added=interaction.user.display_name,
+                id_user_who_added=interaction.user.id,
+                embed=embed,
+                guild_id=interaction.guild.id if interaction.guild else None,
             )
 
-            # Update cache
-            try:
-                self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
-            except Exception:
-                # Cache update failure shouldn't break the command
-                pass
+            if result:
+                # Refresh cache
+                await self._refresh_cache()
 
-            await interaction.response.send_message(
-                f"✅ Successfully added link **{title}**\n"
-                f"**Content:** <{content}>\n"
-                f"**Tag:** {tag if tag else 'None'}\n"
-                f"**Embed:** {'Yes' if embed else 'No'}"
-            )
+                await interaction.response.send_message(
+                    f"✅ Successfully added link **{title}**\n"
+                    f"**Content:** <{content}>\n"
+                    f"**Tag:** {tag if tag else 'None'}\n"
+                    f"**Embed:** {'Yes' if embed else 'No'}"
+                )
+            else:
+                raise DatabaseError(f"Failed to add link '{title}'")
 
-        except asyncpg.UniqueViolationError:
+        except IntegrityError:
             raise ResourceAlreadyExistsError(
                 resource_type="link",
                 resource_id=title,
                 message=f"A link with the title **{title}** already exists. Please choose a different title.",
             )
-        except asyncpg.PostgresError as e:
-            raise DatabaseError(f"Failed to add link '{title}'") from e
+        except ResourceAlreadyExistsError:
+            raise
         except Exception as e:
             raise DatabaseError("Unexpected error while adding link") from e
 
@@ -356,10 +362,7 @@ class LinkTags(commands.Cog, name="Links"):
 
         try:
             # First check if the link exists
-            existing_link = await self.bot.db.fetchrow(
-                "SELECT title, user_who_added, id_user_who_added FROM links WHERE lower(title) = lower($1)",
-                title,
-            )
+            existing_link = await self.link_repo.get_by_title(title)
 
             if not existing_link:
                 raise ResourceNotFoundError(
@@ -369,26 +372,18 @@ class LinkTags(commands.Cog, name="Links"):
                 )
 
             # Delete the link
-            await self.bot.db.execute(
-                "DELETE FROM links WHERE lower(title) = lower($1)", title
-            )
+            await self.link_repo.delete_by_title(title)
 
-            # Update cache
-            try:
-                self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
-            except Exception:
-                # Cache update failure shouldn't break the command
-                pass
+            # Refresh cache
+            await self._refresh_cache()
 
             await interaction.response.send_message(
-                f"✅ Successfully deleted link **{existing_link['title']}** (added by {existing_link['user_who_added']})."
+                f"✅ Successfully deleted link **{existing_link.title}** (added by {existing_link.user_who_added})."
             )
 
         except ResourceNotFoundError:
             # Re-raise ResourceNotFoundError as-is
             raise
-        except asyncpg.PostgresError as e:
-            raise DatabaseError(f"Failed to delete link '{title}'") from e
         except Exception as e:
             raise DatabaseError("Unexpected error while deleting link") from e
 
@@ -435,10 +430,7 @@ class LinkTags(commands.Cog, name="Links"):
 
         try:
             # Check if the link exists
-            existing_link = await self.bot.db.fetchrow(
-                "SELECT * FROM links WHERE lower(title) = lower($1)",
-                title,
-            )
+            existing_link = await self.link_repo.get_by_title(title)
 
             if not existing_link:
                 raise ResourceNotFoundError(
@@ -449,37 +441,27 @@ class LinkTags(commands.Cog, name="Links"):
 
             # Check permissions
             if (
-                existing_link["id_user_who_added"] != interaction.user.id
+                existing_link.id_user_who_added != interaction.user.id
                 and not interaction.user.guild_permissions.administrator
             ):
                 raise PermissionError(
-                    message=f"You can only edit links you added yourself. This link was added by {existing_link['user_who_added']}."
+                    message=f"You can only edit links you added yourself. This link was added by {existing_link.user_who_added}."
                 )
 
             # Update the link
-            await self.bot.db.execute(
-                "UPDATE links SET content = $1 WHERE lower(title) = lower($2)",
-                content,
-                title,
-            )
+            await self.link_repo.update(title=title, content=content)
 
-            # Update cache
-            try:
-                self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
-            except Exception:
-                # Cache update failure shouldn't break the command
-                pass
+            # Refresh cache
+            await self._refresh_cache()
 
             await interaction.response.send_message(
-                f"✅ Successfully edited link **{existing_link['title']}**\n"
+                f"✅ Successfully edited link **{existing_link.title}**\n"
                 f"**New Content:** <{content}>"
             )
 
         except (ResourceNotFoundError, PermissionError):
             # Re-raise these exceptions as-is
             raise
-        except asyncpg.PostgresError as e:
-            raise DatabaseError(f"Failed to edit link '{title}'") from e
         except Exception as e:
             raise DatabaseError("Unexpected error while editing link") from e
 
@@ -506,6 +488,7 @@ class LinkTags(commands.Cog, name="Links"):
         tag = tag.strip()
 
         try:
+            # Keep raw SQL for complex ORDER BY with regexp_replace
             query_r = await self.bot.db.fetch(
                 "SELECT title FROM links WHERE lower(tag) = lower($1) ORDER BY NULLIF(regexp_replace(title, '\\D', '', 'g'), '')::int",
                 tag,

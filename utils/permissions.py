@@ -17,6 +17,7 @@ from discord.ext import commands
 
 import config
 from utils.exceptions import OwnerOnlyError, PermissionError, RolePermissionError
+from utils.repositories import ServerSettingsRepository
 
 logger = logging.getLogger("permissions")
 
@@ -587,13 +588,9 @@ async def setup_permissions(bot) -> None:
 
     # Migrate existing admin roles from server_settings
     try:
-        # Get all admin roles from server_settings
-        admin_roles = await bot.db.fetch(
-            """
-            SELECT guild_id, admin_role_id FROM server_settings
-            WHERE admin_role_id IS NOT NULL
-        """
-        )
+        # Get all admin roles from server_settings using repository
+        settings_repo = ServerSettingsRepository(bot.get_db_session)
+        admin_roles = await settings_repo.get_all_admin_roles()
 
         # Set permission level for each admin role
         for record in admin_roles:
