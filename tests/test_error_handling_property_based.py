@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Hypothesis for property-based testing
 try:
-    from hypothesis import HealthCheck, assume, given, settings
+    from hypothesis import given
     from hypothesis import strategies as st
     from hypothesis.strategies import SearchStrategy
 except ImportError:

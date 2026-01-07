@@ -11,6 +11,8 @@ import sys
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from utils.exceptions import DatabaseError, QueryError
+
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 

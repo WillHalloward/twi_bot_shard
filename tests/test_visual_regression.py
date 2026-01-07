@@ -93,7 +93,7 @@ class ImageTestUtils:
         # Try to use a default font, fall back to basic if not available
         try:
             font = ImageFont.load_default()
-        except:
+        except Exception:
             font = None
 
         # Calculate text position (center)

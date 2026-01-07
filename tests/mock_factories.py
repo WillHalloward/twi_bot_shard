@@ -47,9 +47,9 @@ class MockUserFactory:
 
     @staticmethod
     def create(
-        user_id: int = None,
-        name: str = None,
-        discriminator: str = None,
+        user_id: int | None = None,
+        name: str | None = None,
+        discriminator: str | None = None,
         display_name: str | None = None,
         bot: bool = False,
         avatar: str | None = None,

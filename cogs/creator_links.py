@@ -33,7 +33,7 @@ class CreatorLinks(commands.Cog, name="Creator"):
     )
     @handle_interaction_errors
     async def creator_link_get(
-        self, interaction: discord.Interaction, creator: discord.User = None
+        self, interaction: discord.Interaction, creator: discord.User | None = None
     ) -> None:
         """Retrieve and display a creator's links.
 
