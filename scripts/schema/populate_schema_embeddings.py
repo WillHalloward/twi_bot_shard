@@ -137,6 +137,7 @@ async def get_db_pool() -> asyncpg.Pool:
     """Create database connection pool."""
     # Check for DATABASE_URL first (Railway)
     import os
+
     database_url = os.getenv("DATABASE_URL")
 
     if database_url:
@@ -192,9 +193,7 @@ async def ensure_pgvector_setup(pool: asyncpg.Pool) -> None:
 
 
 async def upsert_embeddings(
-    pool: asyncpg.Pool,
-    schema_map: dict[str, str],
-    embeddings: dict[str, list[float]]
+    pool: asyncpg.Pool, schema_map: dict[str, str], embeddings: dict[str, list[float]]
 ) -> None:
     """Upsert schema embeddings into the database."""
     async with pool.acquire() as conn:
@@ -261,7 +260,7 @@ async def main(source: str = "file") -> None:
         all_embeddings = []
 
         for i in range(0, len(descriptions), batch_size):
-            batch = descriptions[i:i + batch_size]
+            batch = descriptions[i : i + batch_size]
             print(f"  Processing batch {i // batch_size + 1}...")
             batch_embeddings = get_embeddings_batch(client, batch)
             all_embeddings.extend(batch_embeddings)

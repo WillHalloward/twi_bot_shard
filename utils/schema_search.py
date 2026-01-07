@@ -209,7 +209,9 @@ async def generate_sql(
     """
     try:
         client = get_openai_client()
-        prompt = build_sql_prompt(question, schema_chunks, server_id, channel_id, user_id)
+        prompt = build_sql_prompt(
+            question, schema_chunks, server_id, channel_id, user_id
+        )
 
         response = client.chat.completions.create(
             model=model,

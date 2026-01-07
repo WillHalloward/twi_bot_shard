@@ -22,14 +22,11 @@ def check_import(module_name) -> bool | None:
         "discord",
         "PIL",  # pillow
         "googleapiclient",  # google-api-python-client
-        "lxml",
         "AO3",  # ao3-api
-        "openpyxl",
         "asyncpg",
         "openai",
-        "setuptools",
+        "sqlalchemy",
         "gallery_dl",
-        "sqlalchemy",  # Added missing dependency
     ],
 )
 def test_import(module_name) -> None:
@@ -43,14 +40,11 @@ def main() -> None:
         "discord",
         "PIL",  # pillow
         "googleapiclient",  # google-api-python-client
-        "lxml",
         "AO3",  # ao3-api
-        "openpyxl",
         "asyncpg",
         "openai",
-        "setuptools",
+        "sqlalchemy",
         "gallery_dl",
-        "sqlalchemy",  # Added missing dependency
     ]
 
     success = True

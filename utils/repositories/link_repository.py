@@ -34,6 +34,38 @@ class LinkRepository:
             self.logger.error(f"Error getting all links: {e}")
             return []
 
+    async def get_all_as_dicts(self) -> list[dict]:
+        """Get all links as dictionaries.
+
+        Useful for caching where dict format is needed (e.g., autocomplete).
+
+        Returns:
+            List of all links as dictionaries.
+        """
+        try:
+            session = await self.session_factory()
+            try:
+                result = await session.execute(select(Link))
+                links = result.scalars().all()
+                return [
+                    {
+                        "title": link.title,
+                        "content": link.content,
+                        "tag": link.tag,
+                        "user_who_added": link.user_who_added,
+                        "id_user_who_added": link.id_user_who_added,
+                        "time_added": link.time_added,
+                        "embed": link.embed,
+                        "guild_id": link.guild_id,
+                    }
+                    for link in links
+                ]
+            finally:
+                await session.close()
+        except Exception as e:
+            self.logger.error(f"Error getting all links as dicts: {e}")
+            return []
+
     async def get_by_title(self, title: str) -> Link | None:
         """Get a link by title (case-insensitive).
 

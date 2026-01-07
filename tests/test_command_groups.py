@@ -19,14 +19,15 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+import cogs.external_services  # noqa: F401 - adds commands to admin group
 import cogs.gallery  # noqa: F401 - adds commands to gallery_admin group
 import cogs.mods  # noqa: F401 - adds commands to mod group
-import cogs.other  # noqa: F401 - adds commands to admin group
 
 # Force import cogs to populate command groups with their commands
 # This ensures the groups have their expected commands before tests run
 # pylint: disable=unused-import
 import cogs.owner  # noqa: F401 - adds commands to admin group
+import cogs.pins  # noqa: F401 - adds commands to admin group
 
 # Import test utilities
 from tests.test_utils import TestSetup

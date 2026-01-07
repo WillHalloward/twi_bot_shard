@@ -24,13 +24,12 @@ class LinkTags(commands.Cog, name="Links"):
         self.link_repo = LinkRepository(bot.get_db_session)
 
     async def cog_load(self) -> None:
-        # Keep raw SQL for cache - autocomplete expects dictionary format
-        self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
+        self.links_cache = await self.link_repo.get_all_as_dicts()
 
     async def _refresh_cache(self) -> None:
         """Refresh the links cache after modifications."""
         try:
-            self.links_cache = await self.bot.db.fetch("SELECT * FROM links")
+            self.links_cache = await self.link_repo.get_all_as_dicts()
         except Exception:
             # Cache update failure shouldn't break the command
             pass

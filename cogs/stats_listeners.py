@@ -671,59 +671,58 @@ class StatsListenersMixin:
             current_time = datetime.now().replace(tzinfo=None)
 
             # Use transaction for consistency
-            async with self.bot.db.pool.acquire() as conn:
-                async with conn.transaction():
-                    if payload.emoji.is_custom_emoji():
-                        await conn.execute(
-                            """
-                            INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
-                            ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
-                            """,
-                            None,
-                            payload.message_id,
-                            payload.user_id,
-                            payload.emoji.name,
-                            payload.emoji.animated,
-                            payload.emoji.id,
-                            f"https://cdn.discordapp.com/emojis/{payload.emoji.id}.{'gif' if payload.emoji.animated else 'png'}",
-                            current_time,
-                            payload.emoji.is_custom_emoji(),
-                        )
-                    elif isinstance(payload.emoji, str):
-                        await conn.execute(
-                            """
-                            INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
-                            ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
-                            """,
-                            payload.emoji,
-                            payload.message_id,
-                            payload.user_id,
-                            None,
-                            False,
-                            None,
-                            None,
-                            current_time,
-                            False,
-                        )
-                    else:
-                        await conn.execute(
-                            """
-                            INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
-                            ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE
-                            """,
-                            payload.emoji.name,
-                            payload.message_id,
-                            payload.user_id,
-                            payload.emoji.name,
-                            None,
-                            None,
-                            None,
-                            current_time,
-                            payload.emoji.is_custom_emoji(),
-                        )
+            async with await self.bot.db.transaction() as trans:
+                if payload.emoji.is_custom_emoji():
+                    await trans.conn.execute(
+                        """
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                        ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
+                        """,
+                        None,
+                        payload.message_id,
+                        payload.user_id,
+                        payload.emoji.name,
+                        payload.emoji.animated,
+                        payload.emoji.id,
+                        f"https://cdn.discordapp.com/emojis/{payload.emoji.id}.{'gif' if payload.emoji.animated else 'png'}",
+                        current_time,
+                        payload.emoji.is_custom_emoji(),
+                    )
+                elif isinstance(payload.emoji, str):
+                    await trans.conn.execute(
+                        """
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                        ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
+                        """,
+                        payload.emoji,
+                        payload.message_id,
+                        payload.user_id,
+                        None,
+                        False,
+                        None,
+                        None,
+                        current_time,
+                        False,
+                    )
+                else:
+                    await trans.conn.execute(
+                        """
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                        ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE
+                        """,
+                        payload.emoji.name,
+                        payload.message_id,
+                        payload.user_id,
+                        payload.emoji.name,
+                        None,
+                        None,
+                        None,
+                        current_time,
+                        payload.emoji.is_custom_emoji(),
+                    )
         except Exception as e:
             logger.exception("reaction_add_error", error=str(e))
 

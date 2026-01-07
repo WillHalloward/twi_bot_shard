@@ -15,18 +15,14 @@ python main.py
 
 ### Linting and formatting
 ```bash
-# Run linter (ruff) to check code style
-python lint.py
-# Or: python scripts/development/lint.py
-
-# Format code using Black
-python format.py
-# Or: python scripts/development/format.py
-
-# Run both ruff and black directly
+# Run linter to check code style
 ruff check .
+
+# Format code
 ruff format .
-black .
+
+# Run type checking
+mypy .
 ```
 
 ### Testing
@@ -61,37 +57,38 @@ mypy .
 
 ### Dependency management (using uv)
 ```bash
-# Install dependencies
+# Install production dependencies only
 uv pip install -e .
 
-# Add new dependency
-uv pip install <package>
-# Then update requirements.txt manually
+# Install with development tools (ruff, pytest, mypy, etc.)
+uv pip install -e ".[dev]"
+
+# Install with ML dependencies (faiss-cpu)
+uv pip install -e ".[ml]"
+
+# Add new dependency - update pyproject.toml then sync
+uv pip install -e .
 ```
 
 ### Database Operations
 ```bash
-# Apply base database optimizations
-psql -U username -d database -f database/optimizations/base.sql
+# Apply all database optimizations
+python scripts/database/optimize.py
 
-# Run optimization scripts
-python scripts/database/apply_optimizations.py
-python scripts/database/apply_additional.py
-```
+# Apply only base optimizations
+python scripts/database/optimize.py --base
 
-### Schema Operations
-```bash
-# Build FAISS index for schema search
-python scripts/schema/build_faiss_index.py
-
-# Query schema with natural language
-python scripts/schema/query_faiss_schema.py
+# Apply only additional optimizations
+python scripts/database/optimize.py --additional
 ```
 
 ### Git Hooks
 ```bash
-# Setup pre-commit hooks
-python scripts/development/setup_hooks.py
+# Setup pre-commit hooks (one-time)
+pre-commit install
+
+# Run all hooks manually
+pre-commit run --all-files
 ```
 
 ## Architecture
@@ -209,7 +206,7 @@ The bot implements automatic recovery for:
 - **Type Hints**: Required for all functions (configured in pyproject.toml)
 - **Async/Await**: All Discord and database operations must be async
 - **Docstrings**: Google-style docstrings for all public functions/classes
-- **Formatting**: Black (line length 88) and Ruff configured in pyproject.toml
+- **Formatting**: Ruff (line length 88) configured in pyproject.toml
 
 ### Testing Practices
 
@@ -235,7 +232,6 @@ The bot implements automatic recovery for:
 - Configuration in `config.py` with proper types
 - Supports different environments: PRODUCTION, DEVELOPMENT, TESTING
 - SSL certificates required for database connection (ssl-cert/)
-- Secret management via `SecretManager` with encryption
 
 ### Deployment & Branching Strategy
 
@@ -278,8 +274,8 @@ The stats module is organized into three specialized components:
 - Use `SecretManager` for sensitive credentials
 - All database queries use parameterized statements
 - Error messages sanitized before showing to users
-- Permission system enforces role-based access control
-- Setup git hooks via `setup_hooks.py` for pre-commit checks
+- Permission system leverages Discord's native permissions with bot owner override
+- Setup git hooks via `pre-commit install` for automated checks
 
 ## Database Schema
 

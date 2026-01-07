@@ -7,7 +7,6 @@ from utils.repositories.creator_link_repository import CreatorLinkRepository
 from utils.repositories.gallery_mementos_repository import GalleryMementosRepository
 from utils.repositories.gallery_migration_repository import GalleryMigrationRepository
 from utils.repositories.link_repository import LinkRepository
-from utils.repositories.quote_repository import QuoteRepository
 from utils.repositories.report_repository import ReportRepository
 from utils.repositories.server_settings_repository import ServerSettingsRepository
 
@@ -16,7 +15,6 @@ __all__ = [
     "GalleryMementosRepository",
     "GalleryMigrationRepository",
     "LinkRepository",
-    "QuoteRepository",
     "ReportRepository",
     "ServerSettingsRepository",
 ]

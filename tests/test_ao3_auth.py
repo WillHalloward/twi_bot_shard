@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 # Import Discord components
 
 # Import the cog to test
-from cogs.other import OtherCogs
+from cogs.external_services import ExternalServices
 
 # Import test utilities
 from tests.mock_factories import MockInteractionFactory
@@ -35,8 +35,8 @@ class TestAO3SessionInitialization:
         # Create a test bot
         bot = await TestSetup.create_test_bot()
 
-        # Create the OtherCogs
-        cog = OtherCogs(bot)
+        # Create the ExternalServices
+        cog = ExternalServices(bot)
 
         # Verify state variables exist
         assert hasattr(cog, "ao3_session")
@@ -57,14 +57,14 @@ class TestAO3SessionInitialization:
         # Create a test bot
         bot = await TestSetup.create_test_bot()
 
-        # Create the OtherCogs
-        cog = OtherCogs(bot)
+        # Create the ExternalServices
+        cog = ExternalServices(bot)
 
         # Mock AO3.Session to return a successful session
         mock_session = MagicMock()
         mock_session.is_authed = True
 
-        with patch("cogs.other.AO3.Session", return_value=mock_session):
+        with patch("cogs.external_services.AO3.Session", return_value=mock_session):
             # Call the initialization method
             await cog._initialize_ao3_session(max_retries=3)
 
@@ -82,8 +82,8 @@ class TestAO3SessionInitialization:
         # Create a test bot
         bot = await TestSetup.create_test_bot()
 
-        # Create the OtherCogs
-        cog = OtherCogs(bot)
+        # Create the ExternalServices
+        cog = ExternalServices(bot)
 
         # Mock AO3.Session to fail first, then succeed
         call_count = 0
@@ -100,7 +100,10 @@ class TestAO3SessionInitialization:
                 mock_session.is_authed = True
                 return mock_session
 
-        with patch("cogs.other.AO3.Session", side_effect=mock_ao3_session_side_effect):
+        with patch(
+            "cogs.external_services.AO3.Session",
+            side_effect=mock_ao3_session_side_effect,
+        ):
             # Mock asyncio.sleep to avoid delays in testing
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 # Call the initialization method
@@ -119,12 +122,13 @@ class TestAO3SessionInitialization:
         # Create a test bot
         bot = await TestSetup.create_test_bot()
 
-        # Create the OtherCogs
-        cog = OtherCogs(bot)
+        # Create the ExternalServices
+        cog = ExternalServices(bot)
 
         # Mock AO3.Session to always fail
         with patch(
-            "cogs.other.AO3.Session", side_effect=Exception("Auth always fails")
+            "cogs.external_services.AO3.Session",
+            side_effect=Exception("Auth always fails"),
         ):
             # Mock asyncio.sleep to avoid delays
             with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -145,14 +149,14 @@ class TestAO3SessionInitialization:
         # Create a test bot
         bot = await TestSetup.create_test_bot()
 
-        # Create the OtherCogs
-        cog = OtherCogs(bot)
+        # Create the ExternalServices
+        cog = ExternalServices(bot)
 
         # Set login_in_progress to True
         cog.ao3_login_in_progress = True
 
         # Mock AO3.Session
-        with patch("cogs.other.AO3.Session") as mock_ao3:
+        with patch("cogs.external_services.AO3.Session") as mock_ao3:
             # Call initialization
             await cog._initialize_ao3_session()
 
@@ -172,8 +176,8 @@ class TestAO3StatusCommand:
         # Create a test bot
         bot = await TestSetup.create_test_bot()
 
-        # Create the OtherCogs
-        cog = OtherCogs(bot)
+        # Create the ExternalServices
+        cog = ExternalServices(bot)
 
         # Set successful login state
         cog.ao3_login_successful = True
@@ -197,8 +201,8 @@ class TestAO3StatusCommand:
         # Create a test bot
         bot = await TestSetup.create_test_bot()
 
-        # Create the OtherCogs
-        cog = OtherCogs(bot)
+        # Create the ExternalServices
+        cog = ExternalServices(bot)
 
         # Set failed login state
         cog.ao3_login_successful = False
@@ -222,8 +226,8 @@ class TestAO3StatusCommand:
         # Create a test bot
         bot = await TestSetup.create_test_bot()
 
-        # Create the OtherCogs
-        cog = OtherCogs(bot)
+        # Create the ExternalServices
+        cog = ExternalServices(bot)
 
         # Set failed login state
         cog.ao3_login_successful = False
@@ -255,8 +259,8 @@ class TestAO3ExecutorPattern:
         # Create a test bot
         bot = await TestSetup.create_test_bot()
 
-        # Create the OtherCogs
-        cog = OtherCogs(bot)
+        # Create the ExternalServices
+        cog = ExternalServices(bot)
 
         # Mock AO3.Session
         mock_session = MagicMock()
@@ -271,7 +275,7 @@ class TestAO3ExecutorPattern:
             # Simulate executor running the blocking function
             return func(*args)
 
-        with patch("cogs.other.AO3.Session", return_value=mock_session):
+        with patch("cogs.external_services.AO3.Session", return_value=mock_session):
             # Get event loop and mock run_in_executor
             loop = asyncio.get_event_loop()
             original_run_in_executor = loop.run_in_executor

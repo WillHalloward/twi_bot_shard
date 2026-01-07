@@ -39,7 +39,7 @@ logging.basicConfig(
 
 # Import test utilities
 # Import cogs for testing
-from cogs.other import OtherCogs
+from cogs.utility import Utility
 from tests.mock_factories import (
     MockChannelFactory,
     MockGuildFactory,
@@ -248,7 +248,7 @@ class CommandExecutionLoadTest:
         bot.db.fetchval = AsyncMock(return_value=100)
         bot.db.fetch = AsyncMock(return_value=[])
 
-        cog = OtherCogs(bot)
+        cog = Utility(bot)
 
         self.metrics.start_test()
 

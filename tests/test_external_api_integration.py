@@ -32,8 +32,8 @@ logging.basicConfig(
 
 
 # Import the cogs we want to test
+from cogs.external_services import ExternalServices
 from cogs.gallery import GalleryCog
-from cogs.other import OtherCogs
 from cogs.twi import TwiCog
 
 # Import test utilities
@@ -302,7 +302,7 @@ class TestAO3APIIntegration:
         # Create mock bot and cog
         bot = MagicMock()
         bot.db = MagicMock()
-        cog = OtherCogs(bot)
+        cog = ExternalServices(bot)
 
         # Create mock interaction
         user = MockUserFactory.create()
@@ -329,7 +329,7 @@ class TestAO3APIIntegration:
         # Create mock bot and cog
         bot = MagicMock()
         bot.db = MagicMock()
-        cog = OtherCogs(bot)
+        cog = ExternalServices(bot)
 
         # Create mock interaction
         user = MockUserFactory.create()

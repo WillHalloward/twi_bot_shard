@@ -169,7 +169,6 @@ class TestBot(commands.Bot):
 
         # Add mock database
         self.db = MockDatabase()
-        self.pg_con = None  # Mock connection pool
 
         # Create a session factory that returns a coroutine that returns a MockAsyncSession
         async def session_factory():
@@ -259,39 +258,27 @@ async def test_load_cogs() -> tuple[list[str], dict[str, Exception]]:
         - List of successfully loaded cogs
         - Dict mapping failed cogs to their exceptions
     """
-    # Get list of cogs from both main.py and owner.py
-    # This ensures we test all cogs that might be used
-    cogs_from_main = [
+    # Get list of cogs from main.py
+    all_cogs = [
         "cogs.gallery",
         "cogs.links_tags",
         "cogs.patreon_poll",
         "cogs.twi",
         "cogs.owner",
-        "cogs.other",
+        "cogs.utility",
+        "cogs.info",
+        "cogs.pins",
+        "cogs.quotes",
+        "cogs.external_services",
+        "cogs.roles",
         "cogs.mods",
         "cogs.stats",
         "cogs.creator_links",
         "cogs.report",
         "cogs.summarization",
         "cogs.settings",
+        "cogs.interactive_help",
     ]
-
-    cogs_from_owner = [
-        "cogs.summarization",
-        "cogs.gallery",
-        "cogs.links_tags",
-        "cogs.patreon_poll",
-        "cogs.twi",
-        "cogs.owner",
-        "cogs.other",
-        "cogs.mods",
-        "cogs.stats",
-        "cogs.creator_links",
-        "cogs.report",
-    ]
-
-    # Combine and deduplicate
-    all_cogs = list(set(cogs_from_main + cogs_from_owner))
 
     # Create a test bot instance
     bot = TestBot()
