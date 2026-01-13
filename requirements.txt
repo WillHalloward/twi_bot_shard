@@ -68,7 +68,7 @@ faiss-cpu==1.13.2
     # via twi-bot-shard (pyproject.toml)
 faker==40.1.0
     # via twi-bot-shard (pyproject.toml)
-filelock==3.20.2
+filelock==3.20.3
     # via virtualenv
 frozenlist==1.6.0
     # via
