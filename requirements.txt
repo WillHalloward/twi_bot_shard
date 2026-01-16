@@ -175,7 +175,7 @@ protobuf==6.31.0
     #   proto-plus
 psutil==7.2.1
     # via twi-bot-shard (pyproject.toml)
-pyasn1==0.6.1
+pyasn1==0.6.2
     # via
     #   pyasn1-modules
     #   rsa
