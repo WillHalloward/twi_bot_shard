@@ -159,3 +159,7 @@ temp_tests/
 
 # AI documentation (local only)
 /ai_docs/
+
+# Claude Code
+.claude/
+.pre-push-review/
