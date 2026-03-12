@@ -28,7 +28,7 @@ attrs==25.3.0
     # via aiohttp
 beautifulsoup4==4.13.4
     # via ao3-api
-black==25.12.0
+black==26.3.1
     # via twi-bot-shard (pyproject.toml)
 cachetools==5.5.2
     # via google-auth
