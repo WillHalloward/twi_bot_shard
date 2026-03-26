@@ -209,7 +209,7 @@ pytokens==0.3.0
     # via black
 pyyaml==6.0.3
     # via pre-commit
-requests==2.32.3
+requests==2.33.0
     # via
     #   ao3-api
     #   gallery-dl
