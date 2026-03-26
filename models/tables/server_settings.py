@@ -23,6 +23,9 @@ class ServerSettings(Base):
     admin_role_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, default=None
     )
+    log_channel_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, default=None
+    )
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, default=None, insert_default=datetime.utcnow
     )

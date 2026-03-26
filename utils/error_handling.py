@@ -865,6 +865,8 @@ async def handle_global_app_command_error(
                 "creator_links": "cogs.creator_links",
                 "report": "cogs.report",
                 "summarization": "cogs.summarization",
+                "set_log_channel": "cogs.message_log",
+                "clear_log_channel": "cogs.message_log",
             }
 
             extension_name = command_to_extension.get(command_name)

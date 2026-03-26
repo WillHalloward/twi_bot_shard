@@ -1057,6 +1057,7 @@ async def main() -> None:
             "cogs.report",
             "cogs.summarization",
             "cogs.settings",
+            "cogs.message_log",
             "cogs.interactive_help",
         ]
 
