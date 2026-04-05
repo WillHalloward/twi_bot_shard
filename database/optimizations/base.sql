@@ -217,9 +217,10 @@ RETURNS void AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW daily_message_stats;
     REFRESH MATERIALIZED VIEW daily_member_stats;
-    REFRESH MATERIALIZED VIEW user_channel_activity;
-    REFRESH MATERIALIZED VIEW weekly_message_stats;
     REFRESH MATERIALIZED VIEW user_activity_stats;
     REFRESH MATERIALIZED VIEW channel_hourly_stats;
 END;
 $$ LANGUAGE plpgsql;
+-- NOTE: additional.sql overrides this function to also refresh
+-- user_channel_activity and weekly_message_stats. Run additional.sql
+-- after base.sql to get the full 6-view version.
