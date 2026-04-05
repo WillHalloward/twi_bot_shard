@@ -163,3 +163,6 @@ temp_tests/
 # Claude Code
 .claude/
 .pre-push-review/
+
+# Database backups (pg_dump files, never commit)
+database/backups/
