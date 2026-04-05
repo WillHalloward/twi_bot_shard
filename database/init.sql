@@ -392,13 +392,15 @@ CREATE TABLE IF NOT EXISTS foliana_interlude
 
 CREATE TABLE IF NOT EXISTS gallery_mementos
 (
-    channel_name varchar NOT NULL
+    channel_name varchar NOT NULL,
+    channel_id   bigint NOT NULL
         CONSTRAINT gallery_mementos_pk PRIMARY KEY,
-    channel_id   bigint NOT NULL,
-    guild_id     bigint
+    guild_id     bigint,
+    CONSTRAINT gallery_mementos_channel_name_key UNIQUE (channel_name)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS gallery_mementos_channel_name_uindex ON gallery_mementos (channel_name);
+-- Note: channel_name uniqueness is now enforced by the UNIQUE constraint
+-- defined in the table DDL above (gallery_mementos_channel_name_key).
 
 CREATE TABLE IF NOT EXISTS invisible_text_twi
 (
@@ -411,13 +413,13 @@ CREATE TABLE IF NOT EXISTS invisible_text_twi
 
 CREATE TABLE IF NOT EXISTS join_leave
 (
-    user_id       bigint,
-    date          timestamp,
-    join_or_leave varchar,
-    server_name   varchar,
-    server_id     bigint,
-    created_at    timestamp,
-    id            serial
+    user_id     bigint,
+    date        timestamp,
+    is_join     boolean NOT NULL,
+    server_name varchar,
+    server_id   bigint,
+    created_at  timestamp,
+    id          serial
         CONSTRAINT join_leave_pkey PRIMARY KEY
 );
 
@@ -515,7 +517,7 @@ CREATE TABLE IF NOT EXISTS twi_reddit
     discord_id       bigint NOT NULL
         CONSTRAINT twi_reddit_pk PRIMARY KEY,
     reddit_username  varchar NOT NULL,
-    currant_patreon  boolean NOT NULL,
+    current_patreon  boolean NOT NULL,
     subreddit        varchar NOT NULL
 );
 
@@ -642,7 +644,7 @@ CREATE TABLE IF NOT EXISTS reports
     id               serial PRIMARY KEY,
     message_id       bigint NOT NULL,
     user_id          bigint NOT NULL,
-    reason           varchar(50) NOT NULL,
+    reason           varchar(500) NOT NULL,
     reported_user_id bigint NOT NULL,
     channel_id       bigint NOT NULL,
     anonymous        boolean DEFAULT false,

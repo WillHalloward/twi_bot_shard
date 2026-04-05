@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Integer, String
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
@@ -20,7 +20,7 @@ class JoinLeave(Base):
     user_id: Mapped[int] = mapped_column(BigInteger)
     server_id: Mapped[int] = mapped_column(BigInteger, index=True)
     date: Mapped[datetime] = mapped_column(DateTime, index=True)
-    join_or_leave: Mapped[str] = mapped_column(String(10), index=True)
+    is_join: Mapped[bool] = mapped_column(Boolean, index=True)
     server_name: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

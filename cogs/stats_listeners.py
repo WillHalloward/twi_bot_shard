@@ -760,11 +760,11 @@ class StatsListenersMixin:
         """
         try:
             await self.bot.db.execute(
-                "INSERT INTO join_leave(user_id, server_id, date, join_or_leave, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
+                "INSERT INTO join_leave(user_id, server_id, date, is_join, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
                 member.id,
                 member.guild.id,
                 datetime.now().replace(tzinfo=None),
-                "join",
+                True,
                 member.guild.name,
                 datetime.now().replace(tzinfo=None),
             )
@@ -780,11 +780,11 @@ class StatsListenersMixin:
         """
         try:
             await self.bot.db.execute(
-                "INSERT INTO join_leave(user_id, server_id, date, join_or_leave, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
+                "INSERT INTO join_leave(user_id, server_id, date, is_join, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
                 member.id,
                 member.guild.id,
                 datetime.now().replace(tzinfo=None),
-                "leave",
+                False,
                 member.guild.name,
                 datetime.now().replace(tzinfo=None),
             )

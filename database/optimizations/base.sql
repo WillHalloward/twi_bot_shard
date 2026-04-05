@@ -178,14 +178,14 @@ CREATE INDEX IF NOT EXISTS idx_messages_user_created ON messages(user_id, create
 -- Indexes for join_leave table
 CREATE INDEX IF NOT EXISTS idx_join_leave_date ON join_leave(date);
 CREATE INDEX IF NOT EXISTS idx_join_leave_server_id ON join_leave(server_id);
-CREATE INDEX IF NOT EXISTS idx_join_leave_join_or_leave ON join_leave(join_or_leave);
+CREATE INDEX IF NOT EXISTS idx_join_leave_is_join ON join_leave(is_join);
 
 -- Indexes for reactions table
 CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id);
 CREATE INDEX IF NOT EXISTS idx_reactions_user_id ON reactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_reactions_date ON reactions(date);
 
--- Materialized view for daily message statistics
+-- Materialized view for daily message statistics (all servers; callers filter by server_id)
 CREATE MATERIALIZED VIEW IF NOT EXISTS daily_message_stats AS
 SELECT
     COUNT(*) AS total,
@@ -194,7 +194,6 @@ SELECT
     server_id
 FROM messages
 WHERE created_at >= NOW() - INTERVAL '1 DAY'
-AND server_id = 346842016480755724
 AND is_bot = FALSE
 GROUP BY channel_id, channel_name, server_id
 ORDER BY total DESC;
@@ -202,18 +201,25 @@ ORDER BY total DESC;
 -- Materialized view for user join/leave statistics
 CREATE MATERIALIZED VIEW IF NOT EXISTS daily_member_stats AS
 SELECT
-    COUNT(*) FILTER (WHERE join_or_leave = 'join') AS joins,
-    COUNT(*) FILTER (WHERE join_or_leave = 'leave') AS leaves,
+    COUNT(*) FILTER (WHERE is_join = TRUE) AS joins,
+    COUNT(*) FILTER (WHERE is_join = FALSE) AS leaves,
     server_id
 FROM join_leave
 WHERE date >= NOW() - INTERVAL '1 DAY'
 GROUP BY server_id;
 
--- Function to refresh materialized views
+-- Function to refresh all materialized views.
+-- NOTE: additional.sql also defines this function with the full view list.
+-- Always run additional.sql AFTER base.sql so this version is overwritten
+-- by the complete version in additional.sql.
 CREATE OR REPLACE FUNCTION refresh_materialized_views()
 RETURNS void AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW daily_message_stats;
     REFRESH MATERIALIZED VIEW daily_member_stats;
+    REFRESH MATERIALIZED VIEW user_channel_activity;
+    REFRESH MATERIALIZED VIEW weekly_message_stats;
+    REFRESH MATERIALIZED VIEW user_activity_stats;
+    REFRESH MATERIALIZED VIEW channel_hourly_stats;
 END;
 $$ LANGUAGE plpgsql;

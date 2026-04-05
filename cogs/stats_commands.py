@@ -1635,8 +1635,8 @@ class StatsQueriesMixin:
             # Query for member join/leave statistics
             member_stats_query = """
             SELECT
-                COUNT(*) FILTER (WHERE date > $1 AND join_or_leave = 'join') as new_joins,
-                COUNT(*) FILTER (WHERE date > $1 AND join_or_leave = 'leave') as leaves
+                COUNT(*) FILTER (WHERE date > $1 AND is_join = TRUE) as new_joins,
+                COUNT(*) FILTER (WHERE date > $1 AND is_join = FALSE) as leaves
             FROM join_leave
             WHERE server_id = $2
             """

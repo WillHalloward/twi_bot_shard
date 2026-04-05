@@ -19,7 +19,7 @@ class Report(Base):
     # Required fields (no defaults) must come first
     message_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    reason: Mapped[str] = mapped_column(String(50), nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
     reported_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 

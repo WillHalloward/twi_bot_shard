@@ -30,7 +30,7 @@ class LinkTags(commands.Cog, name="Links"):
         """Refresh the links cache after modifications."""
         try:
             self.links_cache = await self.link_repo.get_all_as_dicts()
-        except Exception:
+        except Exception:  # nosec B110
             # Cache update failure shouldn't break the command
             pass
 

@@ -23,15 +23,13 @@ create table foliana_interlude
 
 create table gallery_mementos
 (
-    channel_name varchar not null
+    channel_name varchar not null,
+    channel_id   bigint  not null
         constraint gallery_mementos_pk
             primary key,
-    channel_id   bigint  not null,
-    guild_id     bigint
+    guild_id     bigint,
+    constraint gallery_mementos_channel_name_key unique (channel_name)
 );
-
-create unique index gallery_mementos_channel_name_uindex
-    on gallery_mementos (channel_name);
 
 create table invisible_text_twi
 (
@@ -44,13 +42,13 @@ create table invisible_text_twi
 
 create table join_leave
 (
-    user_id       bigint,
-    date          timestamp,
-    join_or_leave varchar,
-    server_name   varchar,
-    server_id     bigint,
-    created_at    timestamp,
-    id            serial
+    user_id     bigint,
+    date        timestamp,
+    is_join     boolean not null,
+    server_name varchar,
+    server_id   bigint,
+    created_at  timestamp,
+    id          serial
         constraint join_leave_pkey
             primary key
 );
@@ -219,7 +217,7 @@ create table twi_reddit
         constraint twi_reddit_pk
             primary key,
     reddit_username  varchar   not null,
-    currant_patreon  boolean   not null,
+    current_patreon  boolean   not null,
     subreddit        varchar   not null
 );
 

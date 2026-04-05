@@ -134,7 +134,7 @@ class Utility(commands.Cog, name="Utility"):
             )
 
             try:
-                rolls = [random.randint(1, dice) for _ in range(amount)]
+                rolls = [random.randint(1, dice) for _ in range(amount)]  # nosec B311
             except Exception as e:
                 logging.error(f"UTILITY ROLL ERROR: Random generation failed: {e}")
                 raise ExternalServiceError(
@@ -349,7 +349,7 @@ class Utility(commands.Cog, name="Utility"):
             "You would pat a being who has slain Archmages? Bold.",
             "I am made of stone. And yet... that was not unpleasant.",
         ]
-        response = random.choice(responses)
+        response = random.choice(responses)  # nosec B311
         logging.info(f"UTILITY PAT: User {interaction.user.id} patted the bot")
         await interaction.response.send_message(response)
 

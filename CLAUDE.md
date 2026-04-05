@@ -105,9 +105,10 @@ pre-commit run --all-files
 2. **Cog System**: Modular feature organization in `cogs/`
    - All cogs inherit from `BaseCog` in `utils/base_cog.py`
    - Cogs access repositories via `self.repo_factory.get_repository(ModelClass)`
-   - Critical cogs loaded at startup; non-critical cogs loaded lazily
-   - Critical cogs: `owner`, `mods`, `stats`, `settings`, `interactive_help`
-   - Stats functionality is split into modular components (commands, listeners, queries, tasks, utils)
+   - In **development/testing**: only `base_critical_cogs` load at startup; all others load lazily on-demand
+   - In **production**: all 19 registered cogs load at startup (the lazy-loading behaviour is bypassed)
+   - `base_critical_cogs`: `owner`, `mods`, `stats`, `settings`, `interactive_help`
+   - Stats functionality uses a mixin architecture — see [Statistics System](#statistics-system) below
 
 3. **Service Container** (`utils/service_container.py`)
    - Centralized dependency injection
@@ -140,7 +141,7 @@ The bot implements a comprehensive error handling strategy:
 
 1. **Repository Pattern**: Database access abstraction with CRUD operations, bulk operations, error handling and retries, timezone-naive datetime handling (all times stored as UTC)
 2. **Dependency Injection**: Service container for loose coupling
-3. **Lazy Loading**: Non-critical cogs loaded on-demand in development
+3. **Lazy Loading**: Non-critical cogs loaded on-demand in development/testing; all cogs load at startup in production
 4. **Command Pattern**: Discord.py's built-in command system
 5. **Async Context Managers**: Used for database transactions, HTTP sessions, resource cleanup
 6. **Type Safety**: Modern Python type hints using `|` union operator, type aliases, SQLAlchemy 2.0-style queries
@@ -253,10 +254,10 @@ The project uses a two-branch deployment strategy with Railway:
 
 ### Statistics System
 
-The stats module is organized into three specialized components:
-- `stats_commands.py`: Owner commands for data management and comprehensive save operations
-- `stats_listeners.py`: Real-time event listeners for message tracking, plus utility functions (`save_message`, `perform_comprehensive_save`)
-- `stats_queries.py`: User-facing query commands for statistics lookups
+The stats module uses a mixin architecture — `stats.py` is the only loadable cog; the other files are mixins it inherits from:
+- `stats_commands.py`: Defines `StatsCommandsMixin` — owner commands for data management and comprehensive save operations
+- `stats_listeners.py`: Defines `StatsListenersMixin` — real-time event listeners for message tracking, plus utility functions (`save_message`, `perform_comprehensive_save`)
+- Only `stats.py` has a `setup()` function and is registered in main.py as `cogs.stats`
 - Stats listeners are unsubscribed in main.py to prevent duplicate handling
 
 ### Performance Considerations

@@ -296,8 +296,8 @@ class StatsCogs(
         user_join_leave_results = await self.bot.db.fetchrow(
             """
             SELECT
-                COUNT(*) FILTER (WHERE join_or_leave = 'join') as "join",
-                COUNT(*) FILTER (WHERE join_or_leave = 'leave') as "leave"
+                COUNT(*) FILTER (WHERE is_join = TRUE) as "join",
+                COUNT(*) FILTER (WHERE is_join = FALSE) as "leave"
             FROM join_leave
             WHERE server_id = 346842016480755724
             AND date >= $1

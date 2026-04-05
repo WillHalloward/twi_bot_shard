@@ -521,7 +521,7 @@ class Quotes(commands.Cog, name="Quotes"):
                     try:
                         formatted_time = quote_time.strftime("%Y-%m-%d %H:%M:%S")
                         author_info += f"\n**Added:** {formatted_time}"
-                    except Exception:
+                    except Exception:  # nosec B110
                         pass
 
                 embed.add_field(name="Author Info", value=author_info, inline=True)
@@ -657,7 +657,7 @@ class Quotes(commands.Cog, name="Quotes"):
                             author_info += "**Status:** Active member\n"
                         else:
                             author_info += "**Status:** No longer in server\n"
-                except Exception:
+                except Exception:  # nosec B110
                     pass
             else:
                 author_info += "**User ID:** *Unknown*\n"
