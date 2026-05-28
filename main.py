@@ -1101,6 +1101,7 @@ async def main() -> None:
             critical_extensions=critical_cogs,
             intents=intents,
             help_command=None,
+            owner_id=config.bot_owner_id,
         ) as bot:
             # Set up auto-kill task if enabled
             if config.kill_after > 0:
