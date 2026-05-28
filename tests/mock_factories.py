@@ -244,9 +244,13 @@ class MockGuildFactory:
         if name is None:
             # Generate a realistic server name
             name_types = [
-                lambda: f"{fake.word().capitalize()} {fake.word().capitalize()}",  # Two words
+                lambda: (
+                    f"{fake.word().capitalize()} {fake.word().capitalize()}"
+                ),  # Two words
                 lambda: fake.company(),  # Company name
-                lambda: f"The {fake.word().capitalize()} {fake.word().capitalize()}s",  # The X Ys
+                lambda: (
+                    f"The {fake.word().capitalize()} {fake.word().capitalize()}s"
+                ),  # The X Ys
                 lambda: f"{fake.first_name()}'s Server",  # Person's Server
                 lambda: f"{fake.word().capitalize()} Community",  # X Community
                 lambda: f"{fake.word().capitalize()} Club",  # X Club
@@ -351,7 +355,9 @@ class MockChannelFactory:
             # Generate a realistic channel name
             channel_types = [
                 lambda: fake.word().lower(),  # Single word
-                lambda: f"{fake.word().lower()}-{fake.word().lower()}",  # Two words with hyphen
+                lambda: (
+                    f"{fake.word().lower()}-{fake.word().lower()}"
+                ),  # Two words with hyphen
                 lambda: random.choice(
                     [
                         "general",
@@ -676,7 +682,9 @@ class MockRoleFactory:
             # Generate a realistic role name
             role_types = [
                 lambda: fake.word().capitalize(),  # Single capitalized word
-                lambda: f"{fake.word().capitalize()} {fake.word().capitalize()}",  # Two capitalized words
+                lambda: (
+                    f"{fake.word().capitalize()} {fake.word().capitalize()}"
+                ),  # Two capitalized words
                 lambda: random.choice(
                     [
                         "Admin",
@@ -922,7 +930,9 @@ class MockInteractionFactory:
             # Generate a realistic command name
             command_types = [
                 lambda: fake.word().lower(),  # Single word
-                lambda: f"{fake.word().lower()}_{fake.word().lower()}",  # Two words with underscore
+                lambda: (
+                    f"{fake.word().lower()}_{fake.word().lower()}"
+                ),  # Two words with underscore
                 lambda: random.choice(
                     [
                         "help",
@@ -1031,7 +1041,9 @@ class MockContextFactory:
             # Generate a realistic command name (similar to interaction commands)
             command_types = [
                 lambda: fake.word().lower(),  # Single word
-                lambda: f"{fake.word().lower()}_{fake.word().lower()}",  # Two words with underscore
+                lambda: (
+                    f"{fake.word().lower()}_{fake.word().lower()}"
+                ),  # Two words with underscore
                 lambda: random.choice(
                     [
                         "help",
