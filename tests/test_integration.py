@@ -302,11 +302,11 @@ async def test_repost_attachment() -> bool:
     # Initialize repost_cache
     cog.repost_cache = []  # Empty list is fine for our test
 
-    # Mock the gallery_repo.get_all method to return an empty list
-    cog.gallery_repo.get_all = AsyncMock(return_value=[])
+    # Mock the gallery_mementos_repo.get_all method to return an empty list
+    cog.gallery_mementos_repo.get_all = AsyncMock(return_value=[])
 
-    # Mock the creator_links_repo.get_by_user_id method to return an empty list
-    cog.creator_links_repo.get_by_user_id = AsyncMock(return_value=[])
+    # Mock the creator_link_repo.get_by_user_id method to return an empty list
+    cog.creator_link_repo.get_by_user_id = AsyncMock(return_value=[])
 
     # Create a test message with an attachment
     user = MockUserFactory.create()
@@ -392,7 +392,7 @@ async def test_repost_attachment() -> bool:
             )
 
             # Continue with the rest of the method
-            await self.creator_links_repo.get_by_user_id(message.author.id)
+            await self.creator_link_repo.get_by_user_id(message.author.id)
 
             # Process attachments and send to the channel
             for attachment in message.attachments:

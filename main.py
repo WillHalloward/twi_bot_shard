@@ -32,7 +32,6 @@ from utils.error_handling import setup_global_exception_handler
 from utils.http_client import HTTPClient
 from utils.permissions import setup_permissions
 from utils.resource_monitor import ResourceMonitor
-from utils.secret_manager import setup_secret_manager
 
 # Define type aliases for complex types
 type DiscordID = int
@@ -110,7 +109,6 @@ class Cognita(commands.Bot):
 
     Attributes:
         initial_extensions (Sequence[str]): List of cog extensions to load on startup
-        pg_con (asyncpg.Pool): PostgreSQL connection pool (kept for backward compatibility)
         db (Database): Database utility for executing SQL queries
         web_client (ClientSession): aiohttp client session for making HTTP requests
         session_maker: SQLAlchemy session maker for ORM operations
@@ -155,8 +153,7 @@ class Cognita(commands.Bot):
             initial_extensions, False
         )
 
-        self.pg_con: asyncpg.Pool = db_pool  # Keep for backward compatibility
-        self.db: Database = Database(db_pool)  # New database utility
+        self.db: Database = Database(db_pool)
         self.http_client: HTTPClient = http_client
         self.web_client = (
             None  # For backward compatibility, will be set to http_client.get_session()
@@ -256,28 +253,6 @@ class Cognita(commands.Bot):
 
         # Wait for all parallel initialization tasks to complete
         await asyncio.gather(*init_tasks)
-
-        # Task 6: Set up secret manager
-        try:
-            start_time = time.time()
-            # Initialize the secret manager with the encryption key from config
-            secret_manager = await setup_secret_manager(
-                self, config.secret_encryption_key
-            )
-            # Register the secret manager in the service container
-            self.container.register("secret_manager", secret_manager)
-            self.startup_times["secret_manager_init"] = time.time() - start_time
-            self.logger.info(
-                f"Secret manager initialized in {self.startup_times['secret_manager_init']:.2f}s"
-            )
-        except Exception as e:
-            error_details = "".join(
-                traceback.format_exception(type(e), e, e.__traceback__)
-            )
-            self.logger.error(
-                f"Failed to initialize secret manager: {e}\n{error_details}"
-            )
-            # Continue without secret manager, but log the error
 
         # Register shared command groups before loading extensions
         start_time = time.time()
@@ -547,7 +522,6 @@ class Cognita(commands.Bot):
             ("web_client_init", "Web client initialization"),
             ("resource_monitoring_init", "Resource monitoring initialization"),
             ("repositories_init", "Repository registration"),
-            ("secret_manager_init", "Secret manager initialization"),
             ("load_extensions_total", "Critical extensions loading"),
             ("exception_handler_init", "Exception handler setup"),
             ("db_optimizations", "Database optimizations"),
@@ -1071,13 +1045,19 @@ async def main() -> None:
             "cogs.patreon_poll",
             "cogs.twi",
             "cogs.owner",
-            "cogs.other",
+            "cogs.utility",
+            "cogs.info",
+            "cogs.pins",
+            "cogs.quotes",
+            "cogs.external_services",
+            "cogs.roles",
             "cogs.mods",
             "cogs.stats",
             "cogs.creator_links",
             "cogs.report",
             "cogs.summarization",
             "cogs.settings",
+            "cogs.message_log",
             "cogs.interactive_help",
         ]
 
@@ -1091,11 +1071,18 @@ async def main() -> None:
             "cogs.interactive_help",  # Interactive help system
         ]
 
-        # In production (live) mode, load all cogs at startup for better performance
-        # In testing mode, use lazy loading to speed up testing and development
-        if config.ENVIRONMENT == config.Environment.PRODUCTION:
-            critical_cogs = cogs  # Load all cogs at startup in production
-            root_logger.info("Production mode: Loading all cogs at startup")
+        # In production and staging, load all cogs at startup so the full
+        # command tree exists and can be synced (slash commands cannot be
+        # lazy-loaded — they must be registered before sync). Development and
+        # testing keep lazy loading for faster startup.
+        if config.ENVIRONMENT in (
+            config.Environment.PRODUCTION,
+            config.Environment.STAGING,
+        ):
+            critical_cogs = cogs  # Load all cogs at startup
+            root_logger.info(
+                f"{str(config.ENVIRONMENT).title()} mode: Loading all cogs at startup"
+            )
         else:
             critical_cogs = (
                 base_critical_cogs  # Use lazy loading in development/testing
@@ -1121,6 +1108,7 @@ async def main() -> None:
             critical_extensions=critical_cogs,
             intents=intents,
             help_command=None,
+            owner_id=config.bot_owner_id,
         ) as bot:
             # Set up auto-kill task if enabled
             if config.kill_after > 0:

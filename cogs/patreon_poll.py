@@ -53,6 +53,33 @@ from utils.permissions import (
 )
 
 
+def _extract_poll_options(json_data: dict) -> list[tuple[str, int, int]]:
+    """Extract poll options from Patreon API response using ID-based matching.
+
+    Builds a lookup from the 'included' array by ID rather than relying on
+    positional indexing, which is fragile if the API reorders items.
+
+    Args:
+        json_data: Parsed JSON response from the Patreon poll API.
+
+    Returns:
+        List of (text_content, num_responses, option_id) tuples.
+        Returns empty list if required fields are missing (e.g. unauthenticated).
+    """
+    included_map = {item["id"]: item for item in json_data.get("included", [])}
+    choices = json_data["data"]["relationships"]["choices"]["data"]
+    options = []
+    for choice in choices:
+        item = included_map.get(choice["id"], {})
+        attrs = item.get("attributes", {})
+        text = attrs.get("text_content")
+        votes = attrs.get("num_responses")
+        if text is None or votes is None:
+            return []
+        options.append((text, int(votes), int(choice["id"])))
+    return options
+
+
 async def fetch(session, url, cookies=None, headers=None):
     """Fetch data from a URL using the provided session.
 
@@ -208,6 +235,23 @@ async def get_poll(bot):
                                     logger, "insert_poll_record"
                                 ) as timing_ctx:
                                     if is_expired:
+                                        # Extract options before inserting — if the API
+                                        # doesn't return full data (missing cookies/auth),
+                                        # we skip this poll entirely rather than saving it
+                                        # without options.
+                                        extracted_options = _extract_poll_options(
+                                            json_data2
+                                        )
+                                        if not extracted_options:
+                                            logger.warning(
+                                                "poll_options_missing_from_api",
+                                                poll_api_id=poll_api_id,
+                                                title=title,
+                                                hint="Patreon API did not return text_content/num_responses — check COOKIES env var",
+                                            )
+                                            stats["errors"] += 1
+                                            continue
+
                                         await bot.db.execute(
                                             "INSERT INTO poll(api_url, poll_url, id, start_date, expire_date, title, total_votes, "
                                             "expired, num_options) "
@@ -229,25 +273,18 @@ async def get_poll(bot):
                                         )
                                         stats["expired_polls_added"] += 1
 
-                                        # Insert poll options for expired polls
-                                        for i in range(num_options):
+                                        for (
+                                            opt_text,
+                                            opt_votes,
+                                            opt_id,
+                                        ) in extracted_options:
                                             await bot.db.execute(
                                                 "INSERT INTO poll_option(option_text, poll_id, num_votes, option_id)"
                                                 "VALUES ($1,$2,$3,$4)",
-                                                json_data2["included"][i]["attributes"][
-                                                    "text_content"
-                                                ],
+                                                opt_text,
                                                 poll_api_id,
-                                                int(
-                                                    json_data2["included"][i][
-                                                        "attributes"
-                                                    ]["num_responses"]
-                                                ),
-                                                int(
-                                                    json_data2["data"]["relationships"][
-                                                        "choices"
-                                                    ]["data"][i]["id"]
-                                                ),
+                                                opt_votes,
+                                                opt_id,
                                             )
                                             stats["poll_options_added"] += 1
                                     else:
@@ -364,52 +401,49 @@ async def check_and_update_expired_polls(bot, polls):
                 html = await fetch(session, poll["api_url"])
                 json_data = json.loads(html)
 
-                # Calculate total votes
-                total_votes = int(json_data["data"]["attributes"]["num_responses"])
+                # Extract options first — if this fails, don't mark the poll as expired
+                extracted_options = _extract_poll_options(json_data)
+                if not extracted_options:
+                    logger.warning(
+                        "poll_expiration_skipped_no_options",
+                        poll_id=poll["id"],
+                        poll_title=poll["title"],
+                        hint="Patreon API did not return text_content/num_responses — check COOKIES env var",
+                    )
+                    updated_polls.append(poll)
+                    continue
 
-                # Update poll as expired in database
+                # Save poll options with final vote counts
+                for opt_text, opt_votes, opt_id in extracted_options:
+                    existing_option = await bot.db.fetch(
+                        "SELECT option_id FROM poll_option WHERE option_id = $1",
+                        opt_id,
+                    )
+
+                    if not existing_option:
+                        await bot.db.execute(
+                            "INSERT INTO poll_option(option_text, poll_id, num_votes, option_id) "
+                            "VALUES ($1, $2, $3, $4)",
+                            opt_text,
+                            poll["id"],
+                            opt_votes,
+                            opt_id,
+                        )
+                    else:
+                        await bot.db.execute(
+                            "UPDATE poll_option SET num_votes = $1 WHERE option_id = $2",
+                            opt_votes,
+                            opt_id,
+                        )
+
+                # Only mark expired after options are successfully saved
+                total_votes = int(json_data["data"]["attributes"]["num_responses"])
                 await bot.db.execute(
                     "UPDATE poll SET expired = TRUE, total_votes = $1 WHERE id = $2",
                     total_votes,
                     poll["id"],
                 )
 
-                # Save poll options with final vote counts
-                num_options = len(json_data["data"]["relationships"]["choices"]["data"])
-                for i in range(num_options):
-                    option_text = json_data["included"][i]["attributes"]["text_content"]
-                    num_votes = int(
-                        json_data["included"][i]["attributes"]["num_responses"]
-                    )
-                    option_id = int(
-                        json_data["data"]["relationships"]["choices"]["data"][i]["id"]
-                    )
-
-                    # Check if option already exists
-                    existing_option = await bot.db.fetch(
-                        "SELECT option_id FROM poll_option WHERE option_id = $1",
-                        option_id,
-                    )
-
-                    if not existing_option:
-                        # Insert new option
-                        await bot.db.execute(
-                            "INSERT INTO poll_option(option_text, poll_id, num_votes, option_id) "
-                            "VALUES ($1, $2, $3, $4)",
-                            option_text,
-                            poll["id"],
-                            num_votes,
-                            option_id,
-                        )
-                    else:
-                        # Update existing option
-                        await bot.db.execute(
-                            "UPDATE poll_option SET num_votes = $1 WHERE option_id = $2",
-                            num_votes,
-                            option_id,
-                        )
-
-                # Update the poll record to reflect new status
                 updated_poll = dict(poll)
                 updated_poll["expired"] = True
                 updated_poll["total_votes"] = total_votes
@@ -420,7 +454,7 @@ async def check_and_update_expired_polls(bot, polls):
                     poll_id=poll["id"],
                     poll_title=poll["title"],
                     total_votes=total_votes,
-                    num_options=num_options,
+                    num_options=len(extracted_options),
                 )
 
             except Exception as e:
@@ -469,22 +503,24 @@ async def p_poll(polls, interaction, bot) -> None:
                 # Fetch live poll data from Patreon API
                 logger.info("fetching_live_poll_data", poll_id=poll["id"])
                 try:
-                    # Use the bot's shared HTTP client session for connection pooling
                     session = await bot.http_client.get_session_with_retry()
                     html = await fetch(session, poll["api_url"])
                     json_data = json.loads(html)
 
-                    # Extract poll options and vote counts
-                    options = []
-                    for i in range(
-                        0, len(json_data["data"]["relationships"]["choices"]["data"])
-                    ):
-                        data = (
-                            json_data["included"][i]["attributes"]["text_content"],
-                            json_data["included"][i]["attributes"]["num_responses"],
+                    extracted = _extract_poll_options(json_data)
+                    if extracted:
+                        options = [(text, votes) for text, votes, _ in extracted]
+                        options = sorted(options, key=itemgetter(1), reverse=True)
+                    else:
+                        logger.warning(
+                            "live_poll_data_incomplete",
+                            poll_id=poll["id"],
+                            hint="API did not return text_content — falling back to database",
                         )
-                        options.append(data)
-                    options = sorted(options, key=itemgetter(1), reverse=True)
+                        options = await bot.db.fetch(
+                            "SELECT option_text, num_votes FROM poll_option WHERE poll_id = $1 ORDER BY num_votes DESC",
+                            poll["id"],
+                        )
 
                     logger.debug(
                         "live_poll_data_processed",
@@ -546,22 +582,31 @@ async def p_poll(polls, interaction, bot) -> None:
                 )
 
             # Add poll options as embed fields
-            total_votes = sum(option[1] for option in options)
-            for i, option in enumerate(options):
-                percentage = (option[1] / total_votes * 100) if total_votes > 0 else 0
+            if not options:
                 embed.add_field(
-                    name=f"{'🥇' if i == 0 else '🥈' if i == 1 else '🥉' if i == 2 else '📊'} {option[0]}",
-                    value=f"**{option[1]}** votes ({percentage:.1f}%)",
+                    name="⚠️ No Options Available",
+                    value="Poll option data is unavailable. An admin can run `/getpoll` to refresh.",
                     inline=False,
                 )
+                embed.color = discord.Color.orange()
+            else:
+                total_votes = sum(option[1] for option in options)
+                for i, option in enumerate(options):
+                    percentage = (
+                        (option[1] / total_votes * 100) if total_votes > 0 else 0
+                    )
+                    embed.add_field(
+                        name=f"{'🥇' if i == 0 else '🥈' if i == 1 else '🥉' if i == 2 else '📊'} {option[0]}",
+                        value=f"**{option[1]}** votes ({percentage:.1f}%)",
+                        inline=False,
+                    )
 
-            # Add total votes information
-            if total_votes > 0:
-                embed.add_field(
-                    name="📈 Total Votes",
-                    value=f"**{total_votes}** total votes cast",
-                    inline=False,
-                )
+                if total_votes > 0:
+                    embed.add_field(
+                        name="📈 Total Votes",
+                        value=f"**{total_votes}** total votes cast",
+                        inline=False,
+                    )
 
             await interaction.response.send_message(embed=embed)
 

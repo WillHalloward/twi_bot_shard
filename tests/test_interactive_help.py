@@ -8,7 +8,7 @@ an interactive help system for the bot's commands.
 import asyncio
 import os
 import sys
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -97,11 +97,14 @@ async def test_category_select() -> bool:
     # Mock the response methods
     interaction.response.edit_message = AsyncMock()
 
-    # Set the selected values
-    category_select.values = ["General"]
+    # Mock the values property using PropertyMock
+    with patch.object(
+        type(category_select), "values", new_callable=PropertyMock
+    ) as mock_values:
+        mock_values.return_value = ["General"]
 
-    # Call the callback
-    await category_select.callback(interaction)
+        # Call the callback
+        await category_select.callback(interaction)
 
     # Verify that the interaction response was edited
     interaction.response.edit_message.assert_called_once()

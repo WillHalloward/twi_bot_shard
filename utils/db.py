@@ -957,7 +957,7 @@ class Database:
     async def apply_additional_optimizations(self) -> None:
         """Apply additional database optimizations.
 
-        This method executes the SQL script in database/additional_optimizations.sql
+        This method executes the SQL script in database/optimizations/additional.sql
         to apply additional indexes, materialized views, and other optimizations.
 
         Raises:
@@ -965,7 +965,7 @@ class Database:
             FileNotFoundError: If the optimization script is not found.
         """
         try:
-            script_path = "database/additional_optimizations.sql"
+            script_path = "database/optimizations/additional.sql"
             self.logger.info(
                 f"Applying additional database optimizations from {script_path}"
             )

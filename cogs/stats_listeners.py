@@ -153,6 +153,15 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
             message.author.name,
         )
 
+        # Ensure server exists before inserting message (FK requirement)
+        if message.guild:
+            await bot.db.execute(
+                "INSERT INTO servers(server_id, server_name, creation_date) VALUES($1,$2,$3) ON CONFLICT (server_id) DO NOTHING",
+                message.guild.id,
+                message.guild.name,
+                message.guild.created_at.replace(tzinfo=None),
+            )
+
         # Insert the message (with conflict handling for duplicates)
         await bot.db.execute(
             """
@@ -196,65 +205,6 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
                 "INSERT INTO attachments(id, filename, url, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
                 attachment_data,
             )
-
-        # Handle embeds
-        if message.embeds:
-            for embed in message.embeds:
-                # Insert embed data into the embeds table
-                embed_id = await bot.db.fetchval(
-                    """
-                    INSERT INTO embeds (message_id, title, description, url, timestamp, color, footer_text, footer_icon_url,
-                                      image_url, image_proxy_url, image_height, image_width, thumbnail_url, thumbnail_proxy_url,
-                                      thumbnail_height, thumbnail_width, video_url, video_proxy_url, video_height, video_width,
-                                      provider_name, provider_url, author_name, author_url, author_icon_url, created_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
-                    RETURNING id
-                    """,
-                    message.id,
-                    embed.title,
-                    embed.description,
-                    embed.url,
-                    embed.timestamp.replace(tzinfo=None) if embed.timestamp else None,
-                    embed.color.value if embed.color else None,
-                    embed.footer.text if embed.footer else None,
-                    embed.footer.icon_url if embed.footer else None,
-                    embed.image.url if embed.image else None,
-                    embed.image.proxy_url if embed.image else None,
-                    embed.image.height if embed.image else None,
-                    embed.image.width if embed.image else None,
-                    embed.thumbnail.url if embed.thumbnail else None,
-                    embed.thumbnail.proxy_url if embed.thumbnail else None,
-                    embed.thumbnail.height if embed.thumbnail else None,
-                    embed.thumbnail.width if embed.thumbnail else None,
-                    embed.video.url if embed.video else None,
-                    embed.video.proxy_url if embed.video else None,
-                    embed.video.height if embed.video else None,
-                    embed.video.width if embed.video else None,
-                    embed.provider.name if embed.provider else None,
-                    embed.provider.url if embed.provider else None,
-                    embed.author.name if embed.author else None,
-                    embed.author.url if embed.author else None,
-                    embed.author.icon_url if embed.author else None,
-                    message.created_at.replace(tzinfo=None),
-                )
-
-                # Insert embed fields if any
-                if embed.fields:
-                    field_data = [
-                        (
-                            embed_id,
-                            field.name,
-                            field.value,
-                            field.inline,
-                            i,  # field_order
-                        )
-                        for i, field in enumerate(embed.fields)
-                    ]
-
-                    await bot.db.execute_many(
-                        "INSERT INTO embed_fields (embed_id, name, value, inline, field_order) VALUES ($1, $2, $3, $4, $5)",
-                        field_data,
-                    )
 
         # Handle user mentions
         if message.mentions:
@@ -671,59 +621,58 @@ class StatsListenersMixin:
             current_time = datetime.now().replace(tzinfo=None)
 
             # Use transaction for consistency
-            async with self.bot.db.pool.acquire() as conn:
-                async with conn.transaction():
-                    if payload.emoji.is_custom_emoji():
-                        await conn.execute(
-                            """
-                            INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
-                            ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
-                            """,
-                            None,
-                            payload.message_id,
-                            payload.user_id,
-                            payload.emoji.name,
-                            payload.emoji.animated,
-                            payload.emoji.id,
-                            f"https://cdn.discordapp.com/emojis/{payload.emoji.id}.{'gif' if payload.emoji.animated else 'png'}",
-                            current_time,
-                            payload.emoji.is_custom_emoji(),
-                        )
-                    elif isinstance(payload.emoji, str):
-                        await conn.execute(
-                            """
-                            INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
-                            ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
-                            """,
-                            payload.emoji,
-                            payload.message_id,
-                            payload.user_id,
-                            None,
-                            False,
-                            None,
-                            None,
-                            current_time,
-                            False,
-                        )
-                    else:
-                        await conn.execute(
-                            """
-                            INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji) 
-                            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) 
-                            ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE
-                            """,
-                            payload.emoji.name,
-                            payload.message_id,
-                            payload.user_id,
-                            payload.emoji.name,
-                            None,
-                            None,
-                            None,
-                            current_time,
-                            payload.emoji.is_custom_emoji(),
-                        )
+            async with await self.bot.db.transaction() as trans:
+                if payload.emoji.is_custom_emoji():
+                    await trans.conn.execute(
+                        """
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                        ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
+                        """,
+                        None,
+                        payload.message_id,
+                        payload.user_id,
+                        payload.emoji.name,
+                        payload.emoji.animated,
+                        payload.emoji.id,
+                        f"https://cdn.discordapp.com/emojis/{payload.emoji.id}.{'gif' if payload.emoji.animated else 'png'}",
+                        current_time,
+                        payload.emoji.is_custom_emoji(),
+                    )
+                elif isinstance(payload.emoji, str):
+                    await trans.conn.execute(
+                        """
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                        ON CONFLICT (message_id, user_id, emoji_id) DO UPDATE SET removed = FALSE
+                        """,
+                        payload.emoji,
+                        payload.message_id,
+                        payload.user_id,
+                        None,
+                        False,
+                        None,
+                        None,
+                        current_time,
+                        False,
+                    )
+                else:
+                    await trans.conn.execute(
+                        """
+                        INSERT INTO reactions(unicode_emoji, message_id, user_id, emoji_name, animated, emoji_id, url, date, is_custom_emoji)
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                        ON CONFLICT (message_id, user_id, unicode_emoji) DO UPDATE SET removed = FALSE
+                        """,
+                        payload.emoji.name,
+                        payload.message_id,
+                        payload.user_id,
+                        payload.emoji.name,
+                        None,
+                        None,
+                        None,
+                        current_time,
+                        payload.emoji.is_custom_emoji(),
+                    )
         except Exception as e:
             logger.exception("reaction_add_error", error=str(e))
 
@@ -761,11 +710,11 @@ class StatsListenersMixin:
         """
         try:
             await self.bot.db.execute(
-                "INSERT INTO join_leave(user_id, server_id, date, join_or_leave, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
+                "INSERT INTO join_leave(user_id, server_id, date, is_join, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
                 member.id,
                 member.guild.id,
                 datetime.now().replace(tzinfo=None),
-                "join",
+                True,
                 member.guild.name,
                 datetime.now().replace(tzinfo=None),
             )
@@ -781,11 +730,11 @@ class StatsListenersMixin:
         """
         try:
             await self.bot.db.execute(
-                "INSERT INTO join_leave(user_id, server_id, date, join_or_leave, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
+                "INSERT INTO join_leave(user_id, server_id, date, is_join, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
                 member.id,
                 member.guild.id,
                 datetime.now().replace(tzinfo=None),
-                "leave",
+                False,
                 member.guild.name,
                 datetime.now().replace(tzinfo=None),
             )

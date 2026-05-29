@@ -27,7 +27,9 @@ class UserInputError(CognitaError):
 class ValidationError(UserInputError):
     """Errors caused by input validation failures."""
 
-    def __init__(self, field: str = None, message: str = None, *args, **kwargs) -> None:
+    def __init__(
+        self, field: str | None = None, message: str | None = None, *args, **kwargs
+    ) -> None:
         self.field = field
         if field and not message:
             message = f"Invalid value for {field}"
@@ -45,7 +47,7 @@ class ExternalServiceError(CognitaError):
     def __init__(
         self,
         service_name: str = "external service",
-        message: str = None,
+        message: str | None = None,
         *args,
         **kwargs,
     ) -> None:
@@ -61,9 +63,9 @@ class APIError(ExternalServiceError):
     def __init__(
         self,
         service_name: str = "API",
-        status_code: int = None,
-        response_body: str = None,
-        message: str = None,
+        status_code: int | None = None,
+        response_body: str | None = None,
+        message: str | None = None,
         *args,
         **kwargs,
     ) -> None:

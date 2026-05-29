@@ -2,7 +2,7 @@ import asyncio
 import logging
 import re
 import shlex
-import subprocess
+import subprocess  # nosec B404
 from typing import Literal
 
 import asyncpg
@@ -10,14 +10,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-# Import pgvector schema search functions
-from utils.schema_search import (
-    SchemaSearchError,
-    check_schema_embeddings_exist,
-    extract_sql_from_response,
-    generate_sql,
-    search_schema,
-)
 from utils.command_groups import admin
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
@@ -26,6 +18,15 @@ from utils.exceptions import (
     PermissionError,
     QueryError,
     ValidationError,
+)
+
+# Import pgvector schema search functions
+from utils.schema_search import (
+    SchemaSearchError,
+    check_schema_embeddings_exist,
+    extract_sql_from_response,
+    generate_sql,
+    search_schema,
 )
 
 cogs = [
@@ -639,7 +640,7 @@ class OwnerCog(commands.Cog, name="Owner"):
 
         try:
             # Execute the command with timeout and security restrictions
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603
                 args_array,
                 capture_output=True,
                 text=True,
@@ -1394,7 +1395,9 @@ class OwnerCog(commands.Cog, name="Owner"):
                 )
             except SchemaSearchError as e:
                 logging.error(f"OWNER ASK_DB ERROR: AI SQL generation failed: {e}")
-                raise ExternalServiceError(message=f"❌ AI SQL generation failed: {str(e)}")
+                raise ExternalServiceError(
+                    message=f"❌ AI SQL generation failed: {str(e)}"
+                )
             except Exception as e:
                 logging.error(f"OWNER ASK_DB ERROR: AI SQL generation failed: {e}")
                 if "rate limit" in str(e).lower():

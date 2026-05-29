@@ -10,6 +10,7 @@ import asyncio
 import os
 import sys
 from typing import Any
+from unittest.mock import MagicMock
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))

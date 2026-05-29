@@ -116,33 +116,32 @@ class ExampleCog(commands.Cog, name="Example"):
         # Example of a complex operation that should use a transaction
         if "!example" in message.content:
             try:
-                async with self.bot.db.pool.acquire() as conn:
-                    async with conn.transaction():
-                        # Multiple related operations that should be atomic
-                        await conn.execute(
-                            "INSERT INTO example_messages(message_id, content, author_id) VALUES($1, $2, $3)",
-                            message.id,
-                            message.content,
+                async with await self.bot.db.transaction() as trans:
+                    # Multiple related operations that should be atomic
+                    await trans.conn.execute(
+                        "INSERT INTO example_messages(message_id, content, author_id) VALUES($1, $2, $3)",
+                        message.id,
+                        message.content,
+                        message.author.id,
+                    )
+
+                    await trans.conn.execute(
+                        "UPDATE example_user_stats SET message_count = message_count + 1 WHERE user_id = $1",
+                        message.author.id,
+                    )
+
+                    # This could fail if the user doesn't exist in the stats table
+                    rows_updated = await trans.conn.fetchval(
+                        "SELECT COUNT(*) FROM example_user_stats WHERE user_id = $1",
+                        message.author.id,
+                    )
+
+                    if rows_updated == 0:
+                        # Insert a new record if the user doesn't exist
+                        await trans.conn.execute(
+                            "INSERT INTO example_user_stats(user_id, message_count) VALUES($1, 1)",
                             message.author.id,
                         )
-
-                        await conn.execute(
-                            "UPDATE example_user_stats SET message_count = message_count + 1 WHERE user_id = $1",
-                            message.author.id,
-                        )
-
-                        # This could fail if the user doesn't exist in the stats table
-                        rows_updated = await conn.fetchval(
-                            "SELECT COUNT(*) FROM example_user_stats WHERE user_id = $1",
-                            message.author.id,
-                        )
-
-                        if rows_updated == 0:
-                            # Insert a new record if the user doesn't exist
-                            await conn.execute(
-                                "INSERT INTO example_user_stats(user_id, message_count) VALUES($1, 1)",
-                                message.author.id,
-                            )
             except Exception as e:
                 # Log the error but don't disrupt the bot's operation
                 self.logger.error(f"Error processing message in example_listener: {e}")

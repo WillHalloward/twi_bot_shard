@@ -10,6 +10,7 @@ This document provides comprehensive documentation for all features and commands
 - [The Wandering Inn](#the-wandering-inn)
 - [Patreon Polls](#patreon-polls)
 - [Utility Commands](#utility-commands)
+- [External Services (AO3)](#external-services-ao3)
 - [Self-Assignable Roles](#self-assignable-roles)
 - [Quotes](#quotes)
 - [Moderation](#moderation)
@@ -443,19 +444,6 @@ Rolls dice with customizable parameters.
 
 **Example:** `/roll 20 2 5` (rolls 2d20+5)
 
-### /ao3
-
-Retrieves and displays detailed information about an AO3 work.
-
-**Usage:** `/ao3 <ao3_url>`
-
-**Parameters:**
-- `ao3_url` (required): The URL of the AO3 work
-
-**Permissions:** Everyone
-
-**Example:** `/ao3 https://archiveofourown.org/works/12345678`
-
 ### /pat
 
 Give Cognita a pat for a job well done.
@@ -484,6 +472,38 @@ Adds or removes a channel from the list of channels where messages can be pinned
 **Permissions:** Administrator
 
 **Example:** `/admin set_pin_channels #announcements`
+
+---
+
+## External Services (AO3)
+
+Commands for interacting with Archive of Our Own (AO3). The bot maintains an authenticated AO3 session on startup to allow rich work lookups.
+
+### /ao3
+
+Retrieves and displays detailed information about an AO3 work, including title, author(s), summary, rating, fandoms, characters, relationships, warnings, word count, chapters, kudos, hits, and publication dates.
+
+**Usage:** `/ao3 <ao3_url>`
+
+**Parameters:**
+- `ao3_url` (required): The full URL of the AO3 work (e.g. `https://archiveofourown.org/works/12345678`)
+
+**Permissions:** Everyone
+
+**Example:** `/ao3 https://archiveofourown.org/works/12345678`
+
+### /admin ao3_status
+
+Checks the current AO3 authentication status or triggers a manual re-login attempt. Useful when AO3 lookups start failing due to session expiry.
+
+**Usage:** `/admin ao3_status [retry]`
+
+**Parameters:**
+- `retry` (optional): Set to `True` to trigger a new login attempt (default: `False`)
+
+**Permissions:** Administrator
+
+**Example:** `/admin ao3_status retry:True`
 
 ---
 

@@ -40,11 +40,10 @@ logging.basicConfig(
 import discord
 from discord.ext import commands
 
-from cogs.other import OtherCogs
-
 # Import cogs for testing
 from cogs.stats import StatsCogs
 from cogs.twi import TwiCog
+from cogs.utility import Utility
 
 # Import test utilities
 from tests.mock_factories import (
@@ -323,7 +322,7 @@ class ChaosEngineeringTests:
 
         try:
             bot = await self.setup_test_bot()
-            other_cog = OtherCogs(bot)
+            other_cog = Utility(bot)
 
             # Record initial memory usage
             process = psutil.Process(os.getpid())
@@ -451,7 +450,7 @@ class ChaosEngineeringTests:
 
         try:
             bot = await self.setup_test_bot()
-            other_cog = OtherCogs(bot)
+            other_cog = Utility(bot)
 
             # Create intermittent failure function
             await self.injector.intermittent_failure(failure_rate=0.3)
@@ -512,7 +511,7 @@ class ChaosEngineeringTests:
 
         try:
             bot = await self.setup_test_bot()
-            other_cog = OtherCogs(bot)
+            other_cog = Utility(bot)
 
             # Mock slow database responses
             async def slow_execute(*args, **kwargs) -> None:

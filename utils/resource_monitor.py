@@ -90,6 +90,11 @@ class ResourceMonitor:
             self._memory_snapshots: list[tuple[datetime, tracemalloc.Snapshot]] = []
             self._memory_growth: dict[str, int] = {}
             self._potential_leaks: set[str] = set()
+            # Exclude tracemalloc's own allocations — they grow with the
+            # snapshot list itself and surface as false-positive leaks.
+            self._snapshot_filters: tuple[tracemalloc.Filter, ...] = (
+                tracemalloc.Filter(False, tracemalloc.__file__),
+            )
 
         # Initialize connection tracking
         self._connection_stats = {
@@ -347,7 +352,9 @@ class ResourceMonitor:
 
         # Memory leak detection
         if self.enable_memory_leak_detection and hasattr(self, "_memory_snapshots"):
-            current_snapshot = tracemalloc.take_snapshot()
+            current_snapshot = tracemalloc.take_snapshot().filter_traces(
+                self._snapshot_filters
+            )
             current_time = datetime.now()
 
             # Keep only the last 5 snapshots

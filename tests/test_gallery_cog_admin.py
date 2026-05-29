@@ -90,9 +90,13 @@ class TestSetRepostCommand:
         # Mock repository - channel exists
         mock_existing = MagicMock()
         mock_existing.channel_name = channel.name
-        cog.gallery_repo = MagicMock()
-        cog.gallery_repo.get_by_field = AsyncMock(return_value=[mock_existing])
-        cog.gallery_repo.delete = AsyncMock()
+        mock_existing.channel_id = channel.id
+        cog.gallery_mementos_repo = MagicMock()
+        cog.gallery_mementos_repo.get_by_channel_id = AsyncMock(
+            return_value=mock_existing
+        )
+        cog.gallery_mementos_repo.delete_by_channel_id = AsyncMock(return_value=True)
+        cog.gallery_mementos_repo.get_all = AsyncMock(return_value=[])
 
         await cog.set_repost.callback(cog, interaction, channel)
 

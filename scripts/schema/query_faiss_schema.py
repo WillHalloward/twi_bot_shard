@@ -37,9 +37,9 @@ def query_faiss(
 def build_prompt(
     question: str,
     schema_chunks: list[str],
-    server_id: int = None,
-    channel_id: int = None,
-    user_id: int = None,
+    server_id: int | None = None,
+    channel_id: int | None = None,
+    user_id: int | None = None,
 ) -> str:
     context_info = ""
     if server_id or channel_id or user_id:
@@ -54,7 +54,7 @@ def build_prompt(
         context_info += "- When users ask about 'this server' or 'here', they are referring to the Server ID above\n"
         context_info += "- When users ask about 'this channel', they are referring to the Channel ID above\n"
 
-    return f"""
+    return f"""  # nosec B608 - this is an LLM prompt string, not an executed query
 You are a PostgreSQL SQL query generator for Cognita, a Discord bot that helps users interact with their Discord server data.
 
 Context:

@@ -38,7 +38,7 @@ import discord
 
 # Import cogs for testing
 from cogs.gallery import GalleryCog
-from cogs.other import OtherCogs
+from cogs.info import Info
 
 # Import test utilities
 from tests.mock_factories import (
@@ -93,7 +93,7 @@ class ImageTestUtils:
         # Try to use a default font, fall back to basic if not available
         try:
             font = ImageFont.load_default()
-        except:
+        except Exception:
             font = None
 
         # Calculate text position (center)
@@ -411,7 +411,7 @@ class AvatarVisualTests:
             # Create mock bot and cog
             bot = MagicMock()
             bot.db = MagicMock()
-            cog = OtherCogs(bot)
+            cog = Info(bot)
 
             # Create mock user and interaction
             user = MockUserFactory.create()

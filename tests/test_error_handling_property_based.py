@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Hypothesis for property-based testing
 try:
-    from hypothesis import HealthCheck, assume, given, settings
+    from hypothesis import given
     from hypothesis import strategies as st
     from hypothesis.strategies import SearchStrategy
 except ImportError:
@@ -54,12 +54,9 @@ sensitive_string_strategy = st.one_of(
     st.from_regex(r"M[A-Za-z\d]{23}\.[\w-]{6}\.[\w-]{27}", fullmatch=True),
     # Database connection strings
     st.builds(
-        lambda db,
-        user,
-        password,
-        host,
-        port,
-        name: f"{db}://{user}:{password}@{host}:{port}/{name}",
+        lambda db, user, password, host, port, name: (
+            f"{db}://{user}:{password}@{host}:{port}/{name}"
+        ),
         db=st.sampled_from(["postgres", "mysql", "mongodb", "redis"]),
         user=st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=3, max_size=10),
         password=st.text(

@@ -432,16 +432,14 @@ class TestOwnerCogAskDB:
         # Create a mock interaction
         interaction = MockInteractionFactory.create()
 
-        # Mock the FAISS query functions
+        # Mock the schema search functions
         with (
-            patch("cogs.owner.query_faiss") as mock_query,
-            patch("cogs.owner.build_prompt") as mock_prompt,
+            patch("cogs.owner.search_schema") as mock_search,
             patch("cogs.owner.generate_sql") as mock_generate,
             patch("cogs.owner.extract_sql_from_response") as mock_extract,
         ):
-            # Set up mocks
-            mock_query.return_value = ["table: users", "column: id"]
-            mock_prompt.return_value = "Generate SQL"
+            # Set up mocks - search_schema is async
+            mock_search.return_value = [{"table_name": "users", "column_name": "id"}]
             mock_generate.return_value = "SQL response"
             mock_extract.return_value = "SELECT COUNT(*) FROM users"
 
@@ -450,7 +448,7 @@ class TestOwnerCogAskDB:
 
             # Verify some processing happened
             assert (
-                mock_query.called
+                mock_search.called
                 or mock_extract.called
                 or interaction.response.defer.called
             )

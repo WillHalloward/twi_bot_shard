@@ -9,6 +9,7 @@ from utils.exceptions import (
     DatabaseError,
     ValidationError,
 )
+from utils.repositories import ReportRepository
 
 
 class ReportModal(discord.ui.Modal):
@@ -45,10 +46,13 @@ class ReportModal(discord.ui.Modal):
 
 
 class ReportView(discord.ui.View):
-    def __init__(self, message: discord.Message, bot) -> None:
+    def __init__(
+        self, message: discord.Message, bot, report_repo: ReportRepository
+    ) -> None:
         super().__init__(timeout=300)  # 5 minutes timeout
         self.message = message
         self.bot = bot
+        self.report_repo = report_repo
         self.logger = logging.getLogger("report_view")
 
         # Store user selections
@@ -194,17 +198,19 @@ class ReportView(discord.ui.View):
     async def _submit_report(self, interaction: discord.Interaction) -> None:
         """Submit the report to the database."""
         try:
-            await self.bot.db.execute(
-                "INSERT INTO reports (message_id, user_id, reason, anonymous, additional_info, reported_user_id, guild_id, channel_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())",
-                self.message.id,
-                interaction.user.id,
-                self.selected_reason,
-                self.is_anonymous,
-                self.additional_info_text,
-                self.message.author.id,
-                interaction.guild.id if interaction.guild else None,
-                self.message.channel.id,
+            result = await self.report_repo.create(
+                message_id=self.message.id,
+                user_id=interaction.user.id,
+                reason=self.selected_reason,
+                anonymous=self.is_anonymous,
+                additional_info=self.additional_info_text,
+                reported_user_id=self.message.author.id,
+                guild_id=interaction.guild.id if interaction.guild else None,
+                channel_id=self.message.channel.id,
             )
+
+            if not result:
+                raise DatabaseError("Failed to create report")
 
             # Log the report submission
             self.logger.info(
@@ -241,6 +247,7 @@ class ReportCog(commands.Cog, name="report"):
     def __init__(self, bot) -> None:
         self.bot = bot
         self.logger = logging.getLogger("report_cog")
+        self.report_repo = ReportRepository(bot.get_db_session)
         self.report = app_commands.ContextMenu(
             name="Report Message", callback=self.report
         )
@@ -278,13 +285,11 @@ class ReportCog(commands.Cog, name="report"):
 
         # Check if user has already reported this message
         try:
-            existing_report = await self.bot.db.fetchrow(
-                "SELECT id FROM reports WHERE message_id = $1 AND user_id = $2",
-                message.id,
-                interaction.user.id,
+            already_reported = await self.report_repo.exists(
+                message.id, interaction.user.id
             )
 
-            if existing_report:
+            if already_reported:
                 raise ValidationError(message="You have already reported this message")
 
         except Exception as e:
@@ -295,7 +300,7 @@ class ReportCog(commands.Cog, name="report"):
 
         # Create and send the report view
         try:
-            view = ReportView(message, self.bot)
+            view = ReportView(message, self.bot, self.report_repo)
 
             embed = discord.Embed(
                 title="🚨 Report Message",

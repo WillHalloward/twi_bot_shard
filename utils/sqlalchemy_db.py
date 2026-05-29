@@ -14,14 +14,22 @@ def create_ssl_context():
     """Create SSL context for database connection.
 
     Returns:
-        SSL context for GCP Cloud SQL, or string 'require' for Railway.
+        SSL context for GCP Cloud SQL, False for Railway pgvector, or override value.
     """
+    # Check for DB_SSL override (same as main.py)
+    db_ssl_override = os.getenv("DB_SSL", "").lower()
+
+    if db_ssl_override in ("disable", "false", "no", "off"):
+        # Explicitly disabled (e.g., Railway pgvector template)
+        return False
+
     # Check if we're on Railway (which provides DATABASE_URL)
     database_url = os.getenv("DATABASE_URL")
 
     if database_url:
-        # Railway environment - use simple SSL requirement
-        return "require"
+        # Railway environment - default to no SSL for pgvector compatibility
+        # Set DB_SSL=require if using standard Railway Postgres with SSL
+        return db_ssl_override if db_ssl_override else False
     else:
         # GCP Cloud SQL - use custom SSL certificates
         context = ssl.create_default_context()
@@ -41,10 +49,11 @@ else:
     # Build from individual components for GCP/local development
     DATABASE_URL = f"postgresql+asyncpg://{config.DB_user}:{config.DB_password}@{config.host}/{config.database}"
 
-# Create engine with SSL
+# Create engine with SSL config matching main.py asyncpg pool
+ssl_context = create_ssl_context()
 engine = create_async_engine(
     DATABASE_URL,
-    connect_args={"ssl": create_ssl_context()},
+    connect_args={"ssl": ssl_context} if ssl_context else {},
     echo=False,  # Set to True for SQL query logging
     poolclass=None,  # Use default pooling
     pool_size=20,  # Maximum number of connections

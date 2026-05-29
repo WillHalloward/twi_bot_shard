@@ -1471,11 +1471,9 @@ class StatsQueriesMixin:
                 COUNT(*) as total_messages,
                 COUNT(DISTINCT user_id) as unique_users,
                 AVG(LENGTH(content)) as avg_message_length,
-                COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments,
-                COUNT(*) FILTER (WHERE embeds.id IS NOT NULL) as messages_with_embeds
+                COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments
             FROM messages
             LEFT JOIN attachments ON messages.message_id = attachments.message_id
-            LEFT JOIN embeds ON messages.message_id = embeds.message_id
             WHERE messages.created_at > $1 AND messages.channel_id = $2
             """
 
@@ -1526,12 +1524,6 @@ class StatsQueriesMixin:
             embed.add_field(
                 name="📎 Messages with Attachments",
                 value=f"**{results['messages_with_attachments']:,}**",
-                inline=True,
-            )
-
-            embed.add_field(
-                name="🎨 Messages with Embeds",
-                value=f"**{results['messages_with_embeds']:,}**",
                 inline=True,
             )
 
@@ -1635,8 +1627,8 @@ class StatsQueriesMixin:
             # Query for member join/leave statistics
             member_stats_query = """
             SELECT
-                COUNT(*) FILTER (WHERE date > $1 AND join_or_leave = 'join') as new_joins,
-                COUNT(*) FILTER (WHERE date > $1 AND join_or_leave = 'leave') as leaves
+                COUNT(*) FILTER (WHERE date > $1 AND is_join = TRUE) as new_joins,
+                COUNT(*) FILTER (WHERE date > $1 AND is_join = FALSE) as leaves
             FROM join_leave
             WHERE server_id = $2
             """
@@ -1784,11 +1776,9 @@ class StatsQueriesMixin:
                 COUNT(*) as total_messages,
                 COUNT(DISTINCT channel_id) as active_channels,
                 AVG(LENGTH(content)) as avg_message_length,
-                COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments,
-                COUNT(*) FILTER (WHERE embeds.id IS NOT NULL) as messages_with_embeds
+                COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments
             FROM messages
             LEFT JOIN attachments ON messages.message_id = attachments.message_id
-            LEFT JOIN embeds ON messages.message_id = embeds.message_id
             WHERE messages.created_at > $1 AND messages.user_id = $2 AND messages.server_id = $3
             """
 
@@ -1847,12 +1837,6 @@ class StatsQueriesMixin:
             embed.add_field(
                 name="📎 Messages with Attachments",
                 value=f"**{results['messages_with_attachments']:,}**",
-                inline=True,
-            )
-
-            embed.add_field(
-                name="🎨 Messages with Embeds",
-                value=f"**{results['messages_with_embeds']:,}**",
                 inline=True,
             )
 
@@ -2145,11 +2129,9 @@ class StatsQueriesMixin:
                 COUNT(DISTINCT user_id) as unique_users,
                 COUNT(DISTINCT channel_id) as active_channels,
                 AVG(LENGTH(content)) as avg_message_length,
-                COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments,
-                COUNT(*) FILTER (WHERE embeds.id IS NOT NULL) as messages_with_embeds
+                COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments
             FROM messages
             LEFT JOIN attachments ON messages.message_id = attachments.message_id
-            LEFT JOIN embeds ON messages.message_id = embeds.message_id
             WHERE messages.created_at > $1 AND messages.channel_id = ANY($2)
             """
 
@@ -2224,12 +2206,6 @@ class StatsQueriesMixin:
             embed.add_field(
                 name="📎 Messages with Attachments",
                 value=f"**{results['messages_with_attachments']:,}**",
-                inline=True,
-            )
-
-            embed.add_field(
-                name="🎨 Messages with Embeds",
-                value=f"**{results['messages_with_embeds']:,}**",
                 inline=True,
             )
 
@@ -2313,11 +2289,9 @@ class StatsQueriesMixin:
                 COUNT(*) as total_messages,
                 COUNT(DISTINCT user_id) as unique_users,
                 AVG(LENGTH(content)) as avg_message_length,
-                COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments,
-                COUNT(*) FILTER (WHERE embeds.id IS NOT NULL) as messages_with_embeds
+                COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments
             FROM messages
             LEFT JOIN attachments ON messages.message_id = attachments.message_id
-            LEFT JOIN embeds ON messages.message_id = embeds.message_id
             WHERE messages.created_at > $1 AND messages.channel_id = $2
             """
 
@@ -2368,12 +2342,6 @@ class StatsQueriesMixin:
             embed.add_field(
                 name="📎 Messages with Attachments",
                 value=f"**{results['messages_with_attachments']:,}**",
-                inline=True,
-            )
-
-            embed.add_field(
-                name="🎨 Messages with Embeds",
-                value=f"**{results['messages_with_embeds']:,}**",
                 inline=True,
             )
 

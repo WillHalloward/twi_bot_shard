@@ -15,18 +15,14 @@ python main.py
 
 ### Linting and formatting
 ```bash
-# Run linter (ruff) to check code style
-python lint.py
-# Or: python scripts/development/lint.py
-
-# Format code using Black
-python format.py
-# Or: python scripts/development/format.py
-
-# Run both ruff and black directly
+# Run linter to check code style
 ruff check .
+
+# Format code
 ruff format .
-black .
+
+# Run type checking
+mypy .
 ```
 
 ### Testing
@@ -61,37 +57,38 @@ mypy .
 
 ### Dependency management (using uv)
 ```bash
-# Install dependencies
+# Install production dependencies only
 uv pip install -e .
 
-# Add new dependency
-uv pip install <package>
-# Then update requirements.txt manually
+# Install with development tools (ruff, pytest, mypy, etc.)
+uv pip install -e ".[dev]"
+
+# Install with ML dependencies (faiss-cpu)
+uv pip install -e ".[ml]"
+
+# Add new dependency - update pyproject.toml then sync
+uv pip install -e .
 ```
 
 ### Database Operations
 ```bash
-# Apply base database optimizations
-psql -U username -d database -f database/optimizations/base.sql
+# Apply all database optimizations
+python scripts/database/optimize.py
 
-# Run optimization scripts
-python scripts/database/apply_optimizations.py
-python scripts/database/apply_additional.py
-```
+# Apply only base optimizations
+python scripts/database/optimize.py --base
 
-### Schema Operations
-```bash
-# Build FAISS index for schema search
-python scripts/schema/build_faiss_index.py
-
-# Query schema with natural language
-python scripts/schema/query_faiss_schema.py
+# Apply only additional optimizations
+python scripts/database/optimize.py --additional
 ```
 
 ### Git Hooks
 ```bash
-# Setup pre-commit hooks
-python scripts/development/setup_hooks.py
+# Setup pre-commit hooks (one-time)
+pre-commit install
+
+# Run all hooks manually
+pre-commit run --all-files
 ```
 
 ## Architecture
@@ -108,9 +105,10 @@ python scripts/development/setup_hooks.py
 2. **Cog System**: Modular feature organization in `cogs/`
    - All cogs inherit from `BaseCog` in `utils/base_cog.py`
    - Cogs access repositories via `self.repo_factory.get_repository(ModelClass)`
-   - Critical cogs loaded at startup; non-critical cogs loaded lazily
-   - Critical cogs: `owner`, `mods`, `stats`, `settings`, `interactive_help`
-   - Stats functionality is split into modular components (commands, listeners, queries, tasks, utils)
+   - In **development/testing**: only `base_critical_cogs` load at startup; all others load lazily on-demand
+   - In **production**: all 19 registered cogs load at startup (the lazy-loading behaviour is bypassed)
+   - `base_critical_cogs`: `owner`, `mods`, `stats`, `settings`, `interactive_help`
+   - Stats functionality uses a mixin architecture — see [Statistics System](#statistics-system) below
 
 3. **Service Container** (`utils/service_container.py`)
    - Centralized dependency injection
@@ -143,7 +141,7 @@ The bot implements a comprehensive error handling strategy:
 
 1. **Repository Pattern**: Database access abstraction with CRUD operations, bulk operations, error handling and retries, timezone-naive datetime handling (all times stored as UTC)
 2. **Dependency Injection**: Service container for loose coupling
-3. **Lazy Loading**: Non-critical cogs loaded on-demand in development
+3. **Lazy Loading**: Non-critical cogs loaded on-demand in development/testing; all cogs load at startup in production
 4. **Command Pattern**: Discord.py's built-in command system
 5. **Async Context Managers**: Used for database transactions, HTTP sessions, resource cleanup
 6. **Type Safety**: Modern Python type hints using `|` union operator, type aliases, SQLAlchemy 2.0-style queries
@@ -209,7 +207,7 @@ The bot implements automatic recovery for:
 - **Type Hints**: Required for all functions (configured in pyproject.toml)
 - **Async/Await**: All Discord and database operations must be async
 - **Docstrings**: Google-style docstrings for all public functions/classes
-- **Formatting**: Black (line length 88) and Ruff configured in pyproject.toml
+- **Formatting**: Ruff (line length 88) configured in pyproject.toml
 
 ### Testing Practices
 
@@ -235,7 +233,6 @@ The bot implements automatic recovery for:
 - Configuration in `config.py` with proper types
 - Supports different environments: PRODUCTION, DEVELOPMENT, TESTING
 - SSL certificates required for database connection (ssl-cert/)
-- Secret management via `SecretManager` with encryption
 
 ### Deployment & Branching Strategy
 
@@ -257,10 +254,10 @@ The project uses a two-branch deployment strategy with Railway:
 
 ### Statistics System
 
-The stats module is organized into three specialized components:
-- `stats_commands.py`: Owner commands for data management and comprehensive save operations
-- `stats_listeners.py`: Real-time event listeners for message tracking, plus utility functions (`save_message`, `perform_comprehensive_save`)
-- `stats_queries.py`: User-facing query commands for statistics lookups
+The stats module uses a mixin architecture — `stats.py` is the only loadable cog; the other files are mixins it inherits from:
+- `stats_commands.py`: Defines `StatsCommandsMixin` — owner commands for data management and comprehensive save operations
+- `stats_listeners.py`: Defines `StatsListenersMixin` — real-time event listeners for message tracking, plus utility functions (`save_message`, `perform_comprehensive_save`)
+- Only `stats.py` has a `setup()` function and is registered in main.py as `cogs.stats`
 - Stats listeners are unsubscribed in main.py to prevent duplicate handling
 
 ### Performance Considerations
@@ -278,8 +275,8 @@ The stats module is organized into three specialized components:
 - Use `SecretManager` for sensitive credentials
 - All database queries use parameterized statements
 - Error messages sanitized before showing to users
-- Permission system enforces role-based access control
-- Setup git hooks via `setup_hooks.py` for pre-commit checks
+- Permission system leverages Discord's native permissions with bot owner override
+- Setup git hooks via `pre-commit install` for automated checks
 
 ## Database Schema
 

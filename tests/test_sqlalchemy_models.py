@@ -76,8 +76,8 @@ class GalleryMementos(ModelBase):
 
     __tablename__ = "gallery_mementos"
 
-    channel_name: Mapped[str] = mapped_column(String(100), primary_key=True)
-    channel_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    channel_name: Mapped[str] = mapped_column(String(100))
+    channel_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     guild_id: Mapped[int] = mapped_column(BigInteger)
 
 

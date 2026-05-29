@@ -114,6 +114,19 @@ class StatsCogs(
         to a hardcoded channel ID (871486325692432464).
         """
         self.logger.info("stats_loop_starting", task="daily_stats")
+
+        # Skip when the bot isn't a member of the target guild (e.g. staging
+        # instances). Without this guard the loop logs no_messages_found and
+        # stats_channel_not_found every day for environments that have no
+        # business reporting on this guild.
+        if self.bot.get_guild(346842016480755724) is None:
+            self.logger.info(
+                "stats_loop_skipped",
+                reason="bot_not_in_target_guild",
+                guild_id=346842016480755724,
+            )
+            return
+
         message = ""
 
         # Refresh materialized views before querying them
@@ -296,8 +309,8 @@ class StatsCogs(
         user_join_leave_results = await self.bot.db.fetchrow(
             """
             SELECT
-                COUNT(*) FILTER (WHERE join_or_leave = 'join') as "join",
-                COUNT(*) FILTER (WHERE join_or_leave = 'leave') as "leave"
+                COUNT(*) FILTER (WHERE is_join = TRUE) as "join",
+                COUNT(*) FILTER (WHERE is_join = FALSE) as "leave"
             FROM join_leave
             WHERE server_id = 346842016480755724
             AND date >= $1
