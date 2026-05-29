@@ -33,6 +33,7 @@ dev = [
     "pytest-asyncio>=1.0.0",
     "faker>=24.4.0",
     "hypothesis>=6.135.26",
+    "aiosqlite>=0.20.0",
 ]
 ml = [
     "faiss-cpu>=1.13.2",
