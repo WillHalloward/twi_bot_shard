@@ -1071,11 +1071,18 @@ async def main() -> None:
             "cogs.interactive_help",  # Interactive help system
         ]
 
-        # In production (live) mode, load all cogs at startup for better performance
-        # In testing mode, use lazy loading to speed up testing and development
-        if config.ENVIRONMENT == config.Environment.PRODUCTION:
-            critical_cogs = cogs  # Load all cogs at startup in production
-            root_logger.info("Production mode: Loading all cogs at startup")
+        # In production and staging, load all cogs at startup so the full
+        # command tree exists and can be synced (slash commands cannot be
+        # lazy-loaded — they must be registered before sync). Development and
+        # testing keep lazy loading for faster startup.
+        if config.ENVIRONMENT in (
+            config.Environment.PRODUCTION,
+            config.Environment.STAGING,
+        ):
+            critical_cogs = cogs  # Load all cogs at startup
+            root_logger.info(
+                f"{str(config.ENVIRONMENT).title()} mode: Loading all cogs at startup"
+            )
         else:
             critical_cogs = (
                 base_critical_cogs  # Use lazy loading in development/testing
