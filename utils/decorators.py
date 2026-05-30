@@ -88,14 +88,14 @@ def require_bot_channel() -> Callable[[CommandT], CommandT]:
             # For app commands, use the app_commands.check decorator
             from utils.permissions import app_is_bot_channel
 
-            func = app_commands.check(app_is_bot_channel)(func)  # type: ignore
+            func = app_commands.check(app_is_bot_channel)(func)
         else:
             # For traditional commands, use the commands.check decorator
             from utils.permissions import is_bot_channel_wrapper
 
-            func = is_bot_channel_wrapper(func)  # type: ignore
+            func = is_bot_channel_wrapper(func)
 
-        return cast(CommandT, func)
+        return func
 
     return decorator
 
@@ -115,13 +115,13 @@ def require_admin() -> Callable[[CommandT], CommandT]:
             # For app commands, use the app_commands.check decorator
             from utils.permissions import app_admin_or_me_check
 
-            func = app_commands.check(app_admin_or_me_check)(func)  # type: ignore
+            func = app_commands.check(app_admin_or_me_check)(func)
         else:
             # For traditional commands, use the commands.check decorator
             from utils.permissions import admin_or_me_check_wrapper
 
-            func = admin_or_me_check_wrapper(func)  # type: ignore
+            func = admin_or_me_check_wrapper(func)
 
-        return cast(CommandT, func)
+        return func
 
     return decorator

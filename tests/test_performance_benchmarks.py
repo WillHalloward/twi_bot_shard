@@ -11,7 +11,7 @@ import statistics
 import sys
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
 # Add the project root to the Python path
@@ -33,6 +33,9 @@ from tests.mock_factories import (
     MockMessageFactory,
 )
 from tests.test_utils import TestSetup, TestTeardown
+
+if TYPE_CHECKING:
+    from tests.test_cogs import TestBot
 
 
 class PerformanceBenchmark:
@@ -513,7 +516,7 @@ async def benchmark_startup_performance() -> bool:
     print("\n🔍 Benchmarking startup performance...")
 
     # Benchmark bot creation
-    async def create_bot():
+    async def create_bot() -> "TestBot":
         return await TestSetup.create_test_bot()
 
     results = await PerformanceBenchmark.benchmark_async_function(

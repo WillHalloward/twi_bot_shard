@@ -24,23 +24,23 @@ from itertools import cycle
 
 import asyncpg
 import discord
+from aiohttp import ClientSession
 from discord.ext import commands
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import config
 from utils.command_groups import admin, gallery_admin, mod
+from utils.db import Database
 from utils.error_handling import setup_global_exception_handler
 from utils.http_client import HTTPClient
 from utils.permissions import setup_permissions
 from utils.resource_monitor import ResourceMonitor
+from utils.service_container import ServiceContainer
+from utils.sqlalchemy_db import async_session_maker
 
 # Define type aliases for complex types
 type DiscordID = int
 type CommandName = str
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from utils.db import Database
-from utils.service_container import ServiceContainer
-from utils.sqlalchemy_db import async_session_maker
 
 # Status messages with optional environment prefix for non-production
 _status_prefix = config.get_bot_status_prefix()
@@ -119,7 +119,7 @@ class Cognita(commands.Bot):
         self,
         *args,
         initial_extensions: Sequence[str],
-        critical_extensions: Sequence[str] = None,
+        critical_extensions: Sequence[str] | None = None,
         db_pool: asyncpg.Pool,
         http_client: HTTPClient,
         **kwargs,
@@ -155,7 +155,7 @@ class Cognita(commands.Bot):
 
         self.db: Database = Database(db_pool)
         self.http_client: HTTPClient = http_client
-        self.web_client = (
+        self.web_client: ClientSession | None = (
             None  # For backward compatibility, will be set to http_client.get_session()
         )
         self.session_maker = async_session_maker  # SQLAlchemy session maker
@@ -648,7 +648,9 @@ class Cognita(commands.Bot):
 
     @commands.command(name="sync")
     @commands.is_owner()
-    async def prefix_sync(self, ctx: commands.Context, guild_id: int | None = None):
+    async def prefix_sync(
+        self, ctx: commands.Context, guild_id: int | None = None
+    ) -> None:
         """Sync slash commands globally or to a specific guild. Owner only.
 
         Usage:
@@ -855,6 +857,7 @@ class Cognita(commands.Bot):
 
     async def periodic_cleanup(self) -> None:
         """Perform periodic cleanup tasks to maintain bot health.
+
         Now uses a smarter approach that doesn't interfere with active operations.
         """
         while not self.is_closed():
@@ -996,6 +999,7 @@ async def main() -> None:
     database_url = os.getenv("DATABASE_URL")
     db_ssl_override = os.getenv("DB_SSL", "").lower()
 
+    ssl_config: bool | str | ssl.SSLContext
     if db_ssl_override in ("disable", "false", "no", "off"):
         # Explicitly disabled (e.g., Railway pgvector template)
         ssl_config = False

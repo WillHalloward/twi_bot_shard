@@ -106,9 +106,11 @@ async def test_cog_load() -> bool:
     cog = await TestSetup.setup_cog(bot, TwiCog)
 
     # Mock file operations
-    with patch("builtins.open", mock_open(read_data='{"test": "data"}')):
-        with patch("os.path.exists", return_value=True):
-            await cog.cog_load()
+    with (
+        patch("builtins.open", mock_open(read_data='{"test": "data"}')),
+        patch("os.path.exists", return_value=True),
+    ):
+        await cog.cog_load()
 
     # Verify that the method completed without error
     assert True  # If we get here, the method didn't raise an exception
@@ -144,16 +146,18 @@ async def test_password_command() -> bool:
         }
     }
 
-    with patch(
-        "builtins.open",
-        mock_open(
-            read_data='{"passwords": {"test_chapter": {"password": "test_password", "link": "https://example.com/test"}}}'
+    with (
+        patch(
+            "builtins.open",
+            mock_open(
+                read_data='{"passwords": {"test_chapter": {"password": "test_password", "link": "https://example.com/test"}}}'
+            ),
         ),
+        patch("json.load", return_value=mock_data),
+        patch("os.path.exists", return_value=True),
     ):
-        with patch("json.load", return_value=mock_data):
-            with patch("os.path.exists", return_value=True):
-                # Call the command's callback directly
-                await cog.password.callback(cog, interaction)
+        # Call the command's callback directly
+        await cog.password.callback(cog, interaction)
 
     # Verify the response was sent
     interaction.response.send_message.assert_called_once()
@@ -190,7 +194,7 @@ async def test_find_command() -> bool:
     interaction = MockInteractionFactory.create()
 
     # Mock the google_search function
-    def mock_google_search(query, api_key, cse_id, **kwargs):
+    def mock_google_search(query, api_key, cse_id, **kwargs) -> dict:
         if "test_query" in query:
             return {
                 "searchInformation": {"totalResults": "1"},
@@ -267,11 +271,13 @@ async def test_invis_text_command() -> bool:
     interaction = MockInteractionFactory.create()
 
     # Mock file operations
-    with patch("builtins.open", mock_open(read_data="Test invisible text content")):
-        with patch("os.path.exists", return_value=True):
-            with patch("os.listdir", return_value=["test_chapter.txt"]):
-                # Call the command's callback directly
-                await cog.invis_text.callback(cog, interaction, "test_chapter")
+    with (
+        patch("builtins.open", mock_open(read_data="Test invisible text content")),
+        patch("os.path.exists", return_value=True),
+        patch("os.listdir", return_value=["test_chapter.txt"]),
+    ):
+        # Call the command's callback directly
+        await cog.invis_text.callback(cog, interaction, "test_chapter")
 
     # Verify the response was sent
     interaction.response.send_message.assert_called_once()
@@ -304,10 +310,12 @@ async def test_colored_text_command() -> bool:
         mock_image.save = MagicMock()
         mock_image_open.return_value = mock_image
 
-        with patch("os.path.exists", return_value=True):
-            with patch("os.listdir", return_value=["test_image.png"]):
-                # Call the command's callback directly
-                await cog.colored_text.callback(cog, interaction)
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("os.listdir", return_value=["test_image.png"]),
+        ):
+            # Call the command's callback directly
+            await cog.colored_text.callback(cog, interaction)
 
     # Verify the response was sent
     interaction.response.send_message.assert_called_once()

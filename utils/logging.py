@@ -10,7 +10,8 @@ import logging.handlers
 import sys
 import time
 import uuid
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 import structlog
 from structlog.contextvars import merge_contextvars
@@ -19,7 +20,9 @@ from structlog.stdlib import LoggerFactory
 import config
 
 # Create a context variable to store the request ID
-request_id_var = contextvars.ContextVar("request_id", default=None)
+request_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "request_id", default=None
+)
 
 
 def generate_request_id() -> str:
@@ -66,7 +69,7 @@ def configure_stdlib_logging(
         log_level: The logging level to use.
         log_file: Optional path to a log file.
     """
-    handlers = [logging.StreamHandler(sys.stdout)]
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
 
     if log_file:
         import os
@@ -95,7 +98,7 @@ def configure_structlog(
         enable_colors: Whether to enable colors in console output.
     """
     # Common processors for all formats
-    processors = [
+    processors: list[Any] = [
         # Add log level name
         structlog.stdlib.add_log_level,
         # Add timestamp
@@ -135,7 +138,7 @@ def configure_structlog(
 
 # Initialize logging
 def init_logging(
-    log_level: int = None,
+    log_level: int | None = None,
     log_file: str | None = None,
     log_format: str | None = None,
 ) -> structlog.stdlib.BoundLogger:
@@ -150,7 +153,7 @@ def init_logging(
     Returns:
         A structlog logger instance.
     """
-    level = log_level or getattr(config, "logging_level", logging.INFO)
+    level: int = log_level or cast(int, getattr(config, "logging_level", logging.INFO))
     file = log_file or getattr(config, "logfile", None)
     format_value = log_format
 
@@ -167,7 +170,7 @@ def init_logging(
     configure_stdlib_logging(level, file)
     configure_structlog(format_value)
 
-    return structlog.get_logger()
+    return cast(structlog.stdlib.BoundLogger, structlog.get_logger())
 
 
 # Create a logger for use throughout the application
@@ -216,7 +219,9 @@ class RequestContext:
 
     def __enter__(self) -> "RequestContext":
         """Enter the context manager."""
-        self.token = set_request_id(self.request_id)
+        self.token = set_request_id(  # type: ignore[func-returns-value]  # returns None
+            self.request_id
+        )
         self.logger.info(f"{self.operation_name}_started", request_id=self.request_id)
         return self
 
@@ -245,7 +250,9 @@ class RequestContext:
 
 
 # Utility function for timing operations
-def log_timing(logger: structlog.stdlib.BoundLogger, operation_name: str):
+def log_timing(
+    logger: structlog.stdlib.BoundLogger, operation_name: str
+) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
     """Decorator for logging the execution time of functions.
 
     Args:
@@ -256,8 +263,10 @@ def log_timing(logger: structlog.stdlib.BoundLogger, operation_name: str):
         The decorated function.
     """
 
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
+    def decorator(
+        func: Callable[..., Awaitable[Any]],
+    ) -> Callable[..., Awaitable[Any]]:
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
             try:
                 result = await func(*args, **kwargs)
@@ -307,8 +316,8 @@ class TimingContext:
         """
         self.logger = logger
         self.operation_name = operation_name
-        self.start_time = None
-        self.additional_info = {}
+        self.start_time: float | None = None
+        self.additional_info: dict[str, Any] = {}
 
     def add_info(self, **kwargs: Any) -> None:
         """Add additional information to be logged.
@@ -325,7 +334,7 @@ class TimingContext:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit the async context manager."""
-        duration = time.time() - self.start_time
+        duration = time.time() - cast(float, self.start_time)
 
         if exc_type is None:
             self.logger.info(

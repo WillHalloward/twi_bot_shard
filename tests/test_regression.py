@@ -10,6 +10,8 @@ import importlib
 import json
 import os
 import sys
+from collections.abc import Iterator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -34,7 +36,7 @@ from tests.test_utils import TestSetup, TestTeardown
 
 
 @pytest.fixture(autouse=True)
-def reload_twi_module():
+def reload_twi_module() -> Iterator[None]:
     """Reload cogs.twi module before each test to ensure clean state."""
     if "cogs.twi" in sys.modules:
         importlib.reload(sys.modules["cogs.twi"])
@@ -87,7 +89,7 @@ async def test_wiki_command() -> bool:
     )
 
     # Test with results
-    async def mock_fetch_func(session, url):
+    async def mock_fetch_func(session: Any, url: str) -> str:
         if "generator=search" in url:
             return wiki_search_response
         else:

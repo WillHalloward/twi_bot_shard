@@ -1,6 +1,7 @@
 # generate_sql_from_question.py
 
 import json
+import re
 
 import faiss
 import numpy as np
@@ -95,9 +96,6 @@ def generate_sql(prompt: str) -> str:
         temperature=0,
     )
     return response.choices[0].message.content.strip()
-
-
-import re
 
 
 def extract_sql_from_response(text: str) -> str:

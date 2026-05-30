@@ -16,7 +16,7 @@ from collections.abc import Callable, Coroutine
 from re import Pattern
 from typing import (
     Any,
-    TypeVar,
+    cast,
 )
 
 import discord
@@ -36,9 +36,6 @@ from utils.exceptions import (
     UserInputError,
     ValidationError,
 )
-
-T = TypeVar("T")
-CommandT = TypeVar("CommandT", bound=Callable[..., Coroutine[Any, Any, Any]])
 
 logger = logging.getLogger("error_handling")
 
@@ -420,17 +417,14 @@ def get_error_response(
             response_copy = response.copy()
 
             # Sanitize the message template if needed
-            if "message" in response_copy:
-                # Check if this is a sensitive error type
-                if type(error) in SENSITIVE_ERROR_TYPES or detect_sensitive_info(
-                    str(error)
-                ):
-                    # Use a sanitized message
-                    response_copy["message"] = sanitize_error_message(
-                        error, security_level
-                    )
-                    # Ensure the message is marked as already sanitized
-                    response_copy["sanitized"] = True
+            if "message" in response_copy and (
+                type(error) in SENSITIVE_ERROR_TYPES
+                or detect_sensitive_info(str(error))
+            ):
+                # Use a sanitized message
+                response_copy["message"] = sanitize_error_message(error, security_level)
+                # Ensure the message is marked as already sanitized
+                response_copy["sanitized"] = True
 
             return response_copy
 
@@ -462,8 +456,10 @@ async def track_error(
         The ID of the inserted error record
     """
     try:
-        return await bot.db.fetchval(
-            """
+        return cast(
+            int,
+            await bot.db.fetchval(
+                """
             INSERT INTO error_telemetry(
                 error_type, command_name, user_id, error_message,
                 guild_id, channel_id, timestamp
@@ -471,13 +467,14 @@ async def track_error(
             VALUES($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
             """,
-            error_type,
-            command_name,
-            user_id,
-            str(error_message),
-            guild_id,
-            channel_id,
-            datetime.datetime.now(),
+                error_type,
+                command_name,
+                user_id,
+                str(error_message),
+                guild_id,
+                channel_id,
+                datetime.datetime.now(),
+            ),
         )
     except Exception as e:
         logger.error(f"Failed to record error telemetry: {e}")
@@ -568,7 +565,9 @@ def log_error(
         )
 
 
-def handle_command_errors(func: CommandT) -> CommandT:
+def handle_command_errors[CommandT: Callable[..., Coroutine[Any, Any, Any]]](
+    func: CommandT,
+) -> CommandT:
     """Decorator for command handlers to standardize error handling.
 
     This decorator catches exceptions raised by command handlers and provides
@@ -582,16 +581,19 @@ def handle_command_errors(func: CommandT) -> CommandT:
     """
 
     @functools.wraps(func)
-    async def wrapper(self, ctx, *args, **kwargs):
+    async def wrapper(self, ctx, *args, **kwargs) -> Any:
         try:
             return await func(self, ctx, *args, **kwargs)
         except Exception as error:
             # Determine security level based on user role
             security_level = ErrorSecurityLevel.NORMAL
-            if hasattr(ctx, "author") and hasattr(ctx.author, "guild_permissions"):
+            if (
+                hasattr(ctx, "author")
+                and hasattr(ctx.author, "guild_permissions")
+                and ctx.author.guild_permissions.administrator
+            ):
                 # Use more detailed errors for administrators
-                if ctx.author.guild_permissions.administrator:
-                    security_level = ErrorSecurityLevel.DEBUG
+                security_level = ErrorSecurityLevel.DEBUG
 
             # Get the appropriate error response with security level
             response = get_error_response(error, security_level)
@@ -635,10 +637,12 @@ def handle_command_errors(func: CommandT) -> CommandT:
                     ctx.channel.id if ctx.channel else None,
                 )
 
-    return wrapper
+    return cast(CommandT, wrapper)
 
 
-def handle_interaction_errors(func: CommandT) -> CommandT:
+def handle_interaction_errors[CommandT: Callable[..., Coroutine[Any, Any, Any]]](
+    func: CommandT,
+) -> CommandT:
     """Decorator for application command callbacks to standardize error handling.
 
     This decorator catches exceptions raised by application command callbacks and provides
@@ -652,18 +656,19 @@ def handle_interaction_errors(func: CommandT) -> CommandT:
     """
 
     @functools.wraps(func)
-    async def wrapper(self, interaction: discord.Interaction, *args, **kwargs):
+    async def wrapper(self, interaction: discord.Interaction, *args, **kwargs) -> Any:
         try:
             return await func(self, interaction, *args, **kwargs)
         except Exception as error:
             # Determine security level based on user role
             security_level = ErrorSecurityLevel.NORMAL
-            if hasattr(interaction, "user") and hasattr(
-                interaction.user, "guild_permissions"
+            if (
+                hasattr(interaction, "user")
+                and hasattr(interaction.user, "guild_permissions")
+                and interaction.user.guild_permissions.administrator
             ):
                 # Use more detailed errors for administrators
-                if interaction.user.guild_permissions.administrator:
-                    security_level = ErrorSecurityLevel.DEBUG
+                security_level = ErrorSecurityLevel.DEBUG
 
             # Get the appropriate error response with security level
             response = get_error_response(error, security_level)
@@ -716,7 +721,7 @@ def handle_interaction_errors(func: CommandT) -> CommandT:
                     interaction.channel.id if interaction.channel else None,
                 )
 
-    return wrapper
+    return cast(CommandT, wrapper)
 
 
 async def handle_global_command_error(ctx: commands.Context, error: Exception) -> None:
@@ -731,29 +736,29 @@ async def handle_global_command_error(ctx: commands.Context, error: Exception) -
     """
     # Skip CommandNotFound errors for ! commands (admin commands)
     # to avoid false positives when people write Spanish text with exclamation marks
-    if isinstance(error, commands.CommandNotFound):
-        # Check if the message starts with ! (admin command prefix)
-        if ctx.message.content.startswith("!"):
-            # Don't send error message for ! commands, just log and track
-            log_error(
-                error=error,
-                command_name="unknown_admin_command",
-                user_id=ctx.author.id,
-                log_level=logging.DEBUG,  # Use DEBUG level since this is expected behavior
-            )
+    if isinstance(error, commands.CommandNotFound) and ctx.message.content.startswith(
+        "!"
+    ):
+        # Don't send error message for ! commands, just log and track
+        log_error(
+            error=error,
+            command_name="unknown_admin_command",
+            user_id=ctx.author.id,
+            log_level=logging.DEBUG,  # Use DEBUG level since this is expected behavior
+        )
 
-            # Record error telemetry
-            if hasattr(ctx, "bot"):
-                await track_error(
-                    ctx.bot,
-                    type(error).__name__,
-                    "unknown_admin_command",
-                    ctx.author.id,
-                    getattr(error, "message", str(error)),
-                    ctx.guild.id if ctx.guild else None,
-                    ctx.channel.id if ctx.channel else None,
-                )
-            return
+        # Record error telemetry
+        if hasattr(ctx, "bot"):
+            await track_error(
+                ctx.bot,
+                type(error).__name__,
+                "unknown_admin_command",
+                ctx.author.id,
+                getattr(error, "message", str(error)),
+                ctx.guild.id if ctx.guild else None,
+                ctx.channel.id if ctx.channel else None,
+            )
+        return
 
     # Get the appropriate error response
     response = get_error_response(error)
@@ -945,7 +950,7 @@ async def handle_global_app_command_error(
                                             )
                                             raise Exception(
                                                 "No known invocation method"
-                                            )
+                                            ) from None
 
                                     logger.info(
                                         f"Successfully executed command {command_name} after lazy loading"

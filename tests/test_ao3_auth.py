@@ -9,6 +9,7 @@ exponential backoff, and the ao3_status admin command.
 import asyncio
 import os
 import sys
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -30,7 +31,7 @@ class TestAO3SessionInitialization:
     """Tests for AO3 session initialization."""
 
     @pytest.mark.asyncio
-    async def test_ao3_session_state_initialization(self):
+    async def test_ao3_session_state_initialization(self) -> None:
         """Test that AO3 session state variables are initialized."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -52,7 +53,7 @@ class TestAO3SessionInitialization:
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_initialize_ao3_session_success_first_try(self):
+    async def test_initialize_ao3_session_success_first_try(self) -> None:
         """Test successful AO3 auth on first attempt."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -77,7 +78,7 @@ class TestAO3SessionInitialization:
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_initialize_ao3_session_retry_logic(self):
+    async def test_initialize_ao3_session_retry_logic(self) -> None:
         """Test that AO3 auth retries on failure."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -88,7 +89,7 @@ class TestAO3SessionInitialization:
         # Mock AO3.Session to fail first, then succeed
         call_count = 0
 
-        def mock_ao3_session_side_effect(*args, **kwargs):
+        def mock_ao3_session_side_effect(*args, **kwargs) -> MagicMock:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -100,24 +101,26 @@ class TestAO3SessionInitialization:
                 mock_session.is_authed = True
                 return mock_session
 
-        with patch(
-            "cogs.external_services.AO3.Session",
-            side_effect=mock_ao3_session_side_effect,
-        ):
+        with (
+            patch(
+                "cogs.external_services.AO3.Session",
+                side_effect=mock_ao3_session_side_effect,
+            ),
             # Mock asyncio.sleep to avoid delays in testing
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                # Call the initialization method
-                await cog._initialize_ao3_session(max_retries=3)
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            # Call the initialization method
+            await cog._initialize_ao3_session(max_retries=3)
 
-                # Verify it retried and succeeded
-                assert call_count == 2
-                assert cog.ao3_login_successful is True
+            # Verify it retried and succeeded
+            assert call_count == 2
+            assert cog.ao3_login_successful is True
 
         # Cleanup
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_initialize_ao3_session_all_retries_fail(self):
+    async def test_initialize_ao3_session_all_retries_fail(self) -> None:
         """Test that AO3 auth handles all retries failing."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -126,25 +129,27 @@ class TestAO3SessionInitialization:
         cog = ExternalServices(bot)
 
         # Mock AO3.Session to always fail
-        with patch(
-            "cogs.external_services.AO3.Session",
-            side_effect=Exception("Auth always fails"),
-        ):
+        with (
+            patch(
+                "cogs.external_services.AO3.Session",
+                side_effect=Exception("Auth always fails"),
+            ),
             # Mock asyncio.sleep to avoid delays
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                # Call the initialization method
-                await cog._initialize_ao3_session(max_retries=3)
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            # Call the initialization method
+            await cog._initialize_ao3_session(max_retries=3)
 
-                # Verify all retries failed
-                assert cog.ao3_session is None
-                assert cog.ao3_login_successful is False
-                assert cog.ao3_login_in_progress is False
+            # Verify all retries failed
+            assert cog.ao3_session is None
+            assert cog.ao3_login_successful is False
+            assert cog.ao3_login_in_progress is False
 
         # Cleanup
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_initialize_ao3_session_prevents_concurrent_init(self):
+    async def test_initialize_ao3_session_prevents_concurrent_init(self) -> None:
         """Test that concurrent initialization attempts are prevented."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -171,7 +176,7 @@ class TestAO3StatusCommand:
     """Tests for the /admin ao3_status command."""
 
     @pytest.mark.asyncio
-    async def test_ao3_status_when_logged_in(self):
+    async def test_ao3_status_when_logged_in(self) -> None:
         """Test ao3_status command when session is active."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -196,7 +201,7 @@ class TestAO3StatusCommand:
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_ao3_status_when_not_logged_in(self):
+    async def test_ao3_status_when_not_logged_in(self) -> None:
         """Test ao3_status command when session is not active."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -221,7 +226,7 @@ class TestAO3StatusCommand:
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_ao3_status_manual_retry(self):
+    async def test_ao3_status_manual_retry(self) -> None:
         """Test manual retry from ao3_status command."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -254,7 +259,7 @@ class TestAO3ExecutorPattern:
     """Tests for the executor pattern used in AO3 auth."""
 
     @pytest.mark.asyncio
-    async def test_ao3_uses_executor_for_blocking_call(self):
+    async def test_ao3_uses_executor_for_blocking_call(self) -> None:
         """Test that AO3.Session is called in executor, not main loop."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -269,7 +274,7 @@ class TestAO3ExecutorPattern:
         # Track if run_in_executor was called
         executor_called = False
 
-        async def mock_run_in_executor(executor, func, *args):
+        async def mock_run_in_executor(executor, func, *args) -> Any:
             nonlocal executor_called
             executor_called = True
             # Simulate executor running the blocking function

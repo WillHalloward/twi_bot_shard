@@ -14,6 +14,7 @@ maintain visual consistency across different scenarios.
 """
 
 import asyncio
+import contextlib
 import hashlib
 import os
 import sys
@@ -33,15 +34,16 @@ logging.basicConfig(
 )
 
 # Import config normally
+# Imports below occur after sys.path setup so project modules resolve correctly.
 
-import discord
+import discord  # noqa: E402
 
 # Import cogs for testing
-from cogs.gallery import GalleryCog
-from cogs.info import Info
+from cogs.gallery import GalleryCog  # noqa: E402
+from cogs.info import Info  # noqa: E402
 
 # Import test utilities
-from tests.mock_factories import (
+from tests.mock_factories import (  # noqa: E402
     MockChannelFactory,
     MockGuildFactory,
     MockInteractionFactory,
@@ -422,11 +424,9 @@ class AvatarVisualTests:
             )
 
             # Test avatar command (mocked)
-            try:
-                # This will fail due to mocking, but we can test the setup
+            # This will fail due to mocking, but we can test the setup
+            with contextlib.suppress(Exception):
                 await cog.av(interaction, user)
-            except Exception:
-                pass  # Expected due to mocking
 
             # Test that user has avatar properties
             if hasattr(user, "display_avatar"):
@@ -512,7 +512,7 @@ class EmbedVisualTests:
             return False
 
 
-async def run_all_visual_regression_tests():
+async def run_all_visual_regression_tests() -> bool:
     """Run all visual regression tests and generate comprehensive report."""
     print("🎨 Starting Visual Regression Testing Suite...")
     print("=" * 70)

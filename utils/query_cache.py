@@ -126,7 +126,7 @@ class QueryCache:
             A tuple that can be used as a cache key.
         """
 
-        def make_hashable(obj):
+        def make_hashable(obj: Any) -> Any:
             """Convert unhashable types to hashable equivalents."""
             if isinstance(obj, list):
                 return tuple(make_hashable(item) for item in obj)
@@ -297,6 +297,12 @@ class QueryCache:
             and not self._cleanup_task.done()
         ):
             self._cleanup_task.cancel()
+
+
+# Module-level global cache instance, lazily created in cached_query.
+# Bare annotation (no assignment) so it is not bound in globals() until set,
+# preserving the "not in globals()" runtime check below.
+_global_cache: QueryCache
 
 
 def cached_query(

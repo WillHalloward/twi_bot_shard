@@ -6,6 +6,7 @@ This module provides commands for interacting with external services like AO3.
 import asyncio
 import logging
 import re
+from typing import Any
 
 import AO3
 import discord
@@ -22,12 +23,12 @@ from utils.exceptions import (
 )
 
 
-class ExternalServices(BaseCog, name="ExternalServices"):
+class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-arg]
     """Commands for interacting with external services."""
 
     def __init__(self, bot: commands.Bot) -> None:
         super().__init__(bot)
-        self.ao3_session = None
+        self.ao3_session: Any = None
         self.ao3_login_successful = False
         self.ao3_login_in_progress = False
 
@@ -133,7 +134,9 @@ class ExternalServices(BaseCog, name="ExternalServices"):
                     content="AO3 login successful!"
                 )
             elif self.ao3_login_in_progress:
-                await interaction.edit_original_response(
+                # Defensive: flag is set True by the background init task,
+                # which mypy cannot see across the create_task boundary.
+                await interaction.edit_original_response(  # type: ignore[unreachable]
                     content="AO3 login in progress... Check status again in a moment."
                 )
             else:
@@ -194,7 +197,7 @@ class ExternalServices(BaseCog, name="ExternalServices"):
             except AO3.utils.InvalidIdError:
                 raise ValidationError(
                     message="Could not find that work on AO3. Please check the URL and try again."
-                )
+                ) from None
             except Exception as e:
                 logging.error(
                     f"EXTERNAL AO3 ERROR: Failed to create work object for user {interaction.user.id}: {e}"

@@ -112,11 +112,9 @@ def clean_mocks() -> Generator[None, None, None]:
         if hasattr(_patch, "_active_patches"):
             current_patches = list(_patch._active_patches)
             for patcher in current_patches:
-                try:
+                # Patch might already be stopped or invalid
+                with contextlib.suppress(RuntimeError, AttributeError):
                     patcher.stop()
-                except (RuntimeError, AttributeError):
-                    # Patch might already be stopped or invalid
-                    pass
 
             # Clear the active patches list to ensure clean state
             _patch._active_patches.clear()

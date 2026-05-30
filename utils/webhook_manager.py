@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from discord import Webhook
@@ -10,7 +11,7 @@ import config
 class _DisabledWebhook:
     """A no-op webhook that silently ignores all operations when webhooks are disabled."""
 
-    async def send(self, *args, **kwargs):
+    async def send(self, *args, **kwargs) -> None:
         """Silently ignore send operations."""
         pass
 
@@ -22,7 +23,9 @@ class WebhookManager:
         self._disabled_webhook = _DisabledWebhook()
 
     @asynccontextmanager
-    async def get_webhook(self, webhook_url: str, max_retries: int = 2):
+    async def get_webhook(
+        self, webhook_url: str, max_retries: int = 2
+    ) -> AsyncIterator[Webhook | _DisabledWebhook]:
         """Context manager for webhook operations with automatic session management.
 
         Args:

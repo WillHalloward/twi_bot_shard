@@ -9,6 +9,10 @@ import asyncio
 import logging
 import os
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from unittest.mock import AsyncMock
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -35,11 +39,11 @@ class MockScalars:
     def __init__(self, items=None) -> None:
         self.items = items or []
 
-    def all(self):
+    def all(self) -> list:
         """Return all items."""
         return self.items
 
-    def first(self):
+    def first(self) -> object | None:
         """Return the first item or None."""
         return self.items[0] if self.items else None
 
@@ -50,15 +54,15 @@ class MockResult:
     def __init__(self, items=None) -> None:
         self.items = items or []
 
-    def scalars(self):
+    def scalars(self) -> MockScalars:
         """Return a MockScalars object."""
         return MockScalars(self.items)
 
-    def all(self):
+    def all(self) -> list:
         """Return all items."""
         return self.items
 
-    def first(self):
+    def first(self) -> object | None:
         """Return the first item or None."""
         return self.items[0] if self.items else None
 
@@ -74,7 +78,7 @@ class MockDatabase:
         """Mock execute method."""
         return None
 
-    async def fetch(self, query, *args, **kwargs):
+    async def fetch(self, query, *args, **kwargs) -> list:
         """Mock fetch method."""
         return []
 
@@ -94,7 +98,7 @@ class MockDatabase:
         """Mock execute_many method."""
         return None
 
-    async def prepare_statement(self, name, query):
+    async def prepare_statement(self, name, query) -> "AsyncMock":
         """Mock prepare_statement method."""
         from unittest.mock import AsyncMock
 
@@ -102,7 +106,7 @@ class MockDatabase:
         mock_stmt.execute = AsyncMock()
         return mock_stmt
 
-    async def transaction(self):
+    async def transaction(self) -> "AsyncMock":
         """Mock transaction method."""
         from unittest.mock import AsyncMock
 
@@ -119,10 +123,10 @@ class MockDatabase:
 class MockAsyncSession:
     """Mock AsyncSession class for testing."""
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "MockAsyncSession":
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         pass
 
     async def commit(self) -> None:
@@ -137,11 +141,11 @@ class MockAsyncSession:
         """Mock close method."""
         pass
 
-    async def execute(self, query, *args, **kwargs):
+    async def execute(self, query, *args, **kwargs) -> MockResult:
         """Mock execute method that returns a MockResult."""
         return MockResult([])
 
-    async def fetch(self, query, *args, **kwargs):
+    async def fetch(self, query, *args, **kwargs) -> list:
         """Mock fetch method."""
         return []
 
@@ -171,7 +175,7 @@ class TestBot(commands.Bot):
         self.db = MockDatabase()
 
         # Create a session factory that returns a coroutine that returns a MockAsyncSession
-        async def session_factory():
+        async def session_factory() -> MockAsyncSession:
             return MockAsyncSession()
 
         # Add mock session maker
@@ -216,7 +220,7 @@ class TestBot(commands.Bot):
         # Add initial_extensions list (needed by sync command)
         self.initial_extensions = []
 
-    async def get_db_session(self):
+    async def get_db_session(self) -> MockAsyncSession:
         """
         Get a new SQLAlchemy database session (mock version).
 
@@ -231,7 +235,7 @@ class TestBot(commands.Bot):
         return self._latency
 
     @property
-    def guilds(self):
+    def guilds(self) -> list:
         """Mock guilds property."""
         return self._guilds
 

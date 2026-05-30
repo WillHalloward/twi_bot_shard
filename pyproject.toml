@@ -83,6 +83,25 @@ select = [
     "SIM", # flake8-simplify
 ]
 
+# Pragmatic baseline: the formatter owns code line length, and a handful of
+# flake8-annotations/pydocstyle rules are treated as opt-in rather than hard
+# gates. Real type/return-type errors, correctness lints (B, SIM, N, UP) and
+# docstring *formatting* rules (D2xx/D4xx) are still enforced.
+ignore = [
+    "E501",   # line-too-long — enforced on code by `ruff format`; don't flag long strings/comments/URLs
+    "ANN001", # missing type for function argument — too noisy for Discord handlers (ctx/interaction)
+    "ANN002", # missing type for *args
+    "ANN003", # missing type for **kwargs
+    "ANN401", # dynamically-typed Any — allowed where genuinely needed
+    "C901",   # function is too complex — tracked as tech debt, not a CI gate
+    "D100",   # missing docstring in public module
+    "D101",   # missing docstring in public class
+    "D102",   # missing docstring in public method
+    "D103",   # missing docstring in public function
+    "D104",   # missing docstring in public package
+    "D107",   # missing docstring in __init__
+]
+
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 

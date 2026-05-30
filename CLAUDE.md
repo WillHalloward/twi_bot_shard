@@ -104,7 +104,7 @@ pre-commit run --all-files
 
 2. **Cog System**: Modular feature organization in `cogs/`
    - All cogs inherit from `BaseCog` in `utils/base_cog.py`
-   - Cogs access repositories via `self.repo_factory.get_repository(ModelClass)`
+   - Cogs that need a repository instantiate it in `__init__`, passing the bot's session factory, e.g. `self.link_repo = LinkRepository(bot.get_db_session)`
    - In **development/testing**: only `base_critical_cogs` load at startup; all others load lazily on-demand
    - In **production**: all 19 registered cogs load at startup (the lazy-loading behaviour is bypassed)
    - `base_critical_cogs`: `owner`, `mods`, `stats`, `settings`, `interactive_help`
@@ -116,16 +116,16 @@ pre-commit run --all-files
    - Factory pattern for database sessions
    - Access via `bot.container.get("service_name")`
 
-4. **Repository Pattern** (`utils/repository.py`)
-   - Base repository provides CRUD operations
-   - Specialized repositories in `utils/repositories/`
-   - Access via `bot.repo_factory.get_repository(ModelClass)`
+4. **Repository Pattern** (`utils/repositories/`)
+   - Each model has its own concrete repository class (e.g. `LinkRepository`, `ReportRepository`) — there is no shared base class or factory
+   - Each repository takes a session factory (`Callable[[], Awaitable[AsyncSession]]`) and acquires/closes a session per method
+   - Instantiate directly with `bot.get_db_session`; repositories are exported from `utils/repositories/__init__.py`
    - Encapsulates database logic and enforces business rules
 
 5. **Database Layer**: Three-tier database access
    - **Raw SQL**: Direct asyncpg queries via `utils.db.Database`
    - **SQLAlchemy ORM**: Models in `models/tables/` with async session management
-   - **Repository Pattern**: Abstraction layer in `utils/repositories/` for common operations
+   - **Repository Pattern**: Concrete per-model repositories in `utils/repositories/`
    - Transaction support via `async with await bot.db.transaction():`
 
 ### Error Handling Architecture
@@ -154,7 +154,7 @@ The bot implements a comprehensive error handling strategy:
    - Inherit from `BaseCog` in `utils/base_cog.py`
    - Include `async def setup(bot)` function at module level (required for cog loading)
    - Use `self.logger` for structured logging
-   - Access repositories via `self.get_repository(ModelClass)`
+   - If the cog needs a repository, instantiate it in `__init__`, e.g. `self.link_repo = LinkRepository(bot.get_db_session)`
    - Use `@commands.Cog.listener()` decorator for event handlers
    - Use `@commands.command()` for prefix commands or `@app_commands.command()` for slash commands
    - Follow patterns in `cogs/example_cog.py`
@@ -164,8 +164,8 @@ The bot implements a comprehensive error handling strategy:
 2. **New Database Model**:
    - Create model in `models/tables/` inheriting from `Base`
    - Use modern type hints: `Mapped[str]`, `Mapped[int | None]`
-   - Create repository in `utils/repositories/` if custom queries needed
-   - Register repository in `utils/repositories/__init__.py`
+   - Create a concrete repository class in `utils/repositories/` accepting a session factory (`Callable[[], Awaitable[AsyncSession]]`)
+   - Export the repository from `utils/repositories/__init__.py`
    - Run migrations or update schema in database
 
 3. **Database Operations**:
@@ -188,10 +188,14 @@ timestamp = datetime.datetime.now()  # Uses local timezone
 
 ### Bulk Operations
 
-When inserting multiple records, always use bulk operations:
+When inserting multiple records, always use bulk operations instead of
+individual inserts:
 ```python
-# Use repository bulk_create instead of individual inserts
-await repository.bulk_create(entities)
+# Batch parameterized inserts
+await bot.db.execute_many(query, list_of_param_tuples)
+
+# Or bulk-copy rows into a table (fastest for large batches)
+await bot.db.copy_records_to_table("table_name", records=rows, columns=cols)
 ```
 
 ### Error Recovery
@@ -401,9 +405,12 @@ async def ban(self, ctx, member: discord.Member, reason: str = "No reason"):
 
 ```python
 class MyCog(BaseCog):
+    def __init__(self, bot):
+        super().__init__(bot)
+        self.gallery_repo = GalleryMementosRepository(bot.get_db_session)
+
     async def some_command(self, ctx):
-        repo = self.get_repository(GalleryMementos)
-        items = await repo.find_by(guild_id=ctx.guild.id)
+        items = await self.gallery_repo.get_all()
 ```
 
 ### Using Database Transactions
@@ -438,7 +445,7 @@ async def my_command(self, ctx, arg: str):
 - `main.py`: Bot initialization and lifecycle
 - `config/__init__.py`: Environment configuration with Pydantic validation
 - `utils/base_cog.py`: Base class for all cogs
-- `utils/repository.py`: Base repository implementation
+- `utils/repositories/`: Concrete per-model repository classes
 - `utils/error_handling.py`: Global error handling setup
 - `utils/service_container.py`: Dependency injection
 - `models/base.py`: SQLAlchemy base configuration

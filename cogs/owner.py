@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 import re
 import shlex
@@ -45,7 +46,7 @@ cogs = [
 ]
 
 
-class OwnerCog(commands.Cog, name="Owner"):
+class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     def __init__(self, bot) -> None:
         self.bot = bot
 
@@ -135,17 +136,16 @@ class OwnerCog(commands.Cog, name="Owner"):
 
             # Auto-delete after 10 seconds for cleaner chat
             await asyncio.sleep(10)
-            try:
+            with contextlib.suppress(discord.NotFound):
+                # Message already deleted
                 await interaction.delete_original_response()
-            except discord.NotFound:
-                pass  # Message already deleted
 
         except commands.ExtensionNotFound:
             error_msg = f"❌ **Cog not found**\n**Cog:** `{cog}`\n**Error:** Extension file does not exist"
             logging.error(
                 f"OWNER COG ERROR: Cog '{cog}' not found for user {interaction.user.id}"
             )
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from None
 
         except commands.ExtensionAlreadyLoaded:
             # This shouldn't happen due to our check above, but handle it anyway
@@ -161,21 +161,21 @@ class OwnerCog(commands.Cog, name="Owner"):
             logging.error(
                 f"OWNER COG ERROR: No entry point for cog '{cog}' for user {interaction.user.id}"
             )
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from None
 
         except commands.ExtensionFailed as e:
             error_msg = f"❌ **Cog loading failed**\n**Cog:** `{cog}`\n**Error:** {str(e.original)}"
             logging.error(
                 f"OWNER COG ERROR: Extension failed for cog '{cog}' for user {interaction.user.id}: {e.original}"
             )
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from e
 
         except Exception as e:
             error_msg = f"❌ **Unexpected error**\n**Cog:** `{cog}`\n**Error:** {type(e).__name__}: {str(e)}"
             logging.error(
                 f"OWNER COG ERROR: Unexpected error loading cog '{cog}' for user {interaction.user.id}: {e}"
             )
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from e
 
     @load_cog.autocomplete("cog")
     async def load_cog_autocomplete(
@@ -250,10 +250,9 @@ class OwnerCog(commands.Cog, name="Owner"):
 
         # Auto-delete after 15 seconds for cleaner chat
         await asyncio.sleep(15)
-        try:
+        with contextlib.suppress(discord.NotFound):
+            # Message already deleted
             await interaction.delete_original_response()
-        except discord.NotFound:
-            pass  # Message already deleted
 
     @admin.command(name="unload", description="Unload a Discord bot extension/cog")
     @commands.is_owner()
@@ -321,10 +320,9 @@ class OwnerCog(commands.Cog, name="Owner"):
 
             # Auto-delete after 10 seconds for cleaner chat
             await asyncio.sleep(10)
-            try:
+            with contextlib.suppress(discord.NotFound):
+                # Message already deleted
                 await interaction.delete_original_response()
-            except discord.NotFound:
-                pass  # Message already deleted
 
         except commands.ExtensionNotLoaded:
             # This shouldn't happen due to our check above, but handle it anyway
@@ -340,14 +338,14 @@ class OwnerCog(commands.Cog, name="Owner"):
             logging.error(
                 f"OWNER COG ERROR: Extension failed during unload for cog '{cog}' for user {interaction.user.id}: {e.original}"
             )
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from e
 
         except Exception as e:
             error_msg = f"❌ **Unexpected error**\n**Cog:** `{cog}`\n**Error:** {type(e).__name__}: {str(e)}"
             logging.error(
                 f"OWNER COG ERROR: Unexpected error unloading cog '{cog}' for user {interaction.user.id}: {e}"
             )
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from e
 
     @unload_cog.autocomplete("cog")
     async def unload_cog_autocomplete(
@@ -424,7 +422,7 @@ class OwnerCog(commands.Cog, name="Owner"):
                 logging.error(
                     f"OWNER COG ERROR: Failed to unload cog '{cog}' during reload for user {interaction.user.id}: {e}"
                 )
-                raise ExternalServiceError(message=error_msg)
+                raise ExternalServiceError(message=error_msg) from e
 
             # Step 2: Load the extension
             try:
@@ -437,25 +435,25 @@ class OwnerCog(commands.Cog, name="Owner"):
                 logging.error(
                     f"OWNER COG ERROR: Cog '{cog}' not found during reload for user {interaction.user.id}"
                 )
-                raise ExternalServiceError(message=error_msg)
+                raise ExternalServiceError(message=error_msg) from None
             except commands.NoEntryPointError:
                 error_msg = f"❌ **Reload failed during load**\n**Cog:** `{cog}`\n**Error:** No setup function found"
                 logging.error(
                     f"OWNER COG ERROR: No entry point for cog '{cog}' during reload for user {interaction.user.id}"
                 )
-                raise ExternalServiceError(message=error_msg)
+                raise ExternalServiceError(message=error_msg) from None
             except commands.ExtensionFailed as e:
                 error_msg = f"❌ **Reload failed during load**\n**Cog:** `{cog}`\n**Error:** {str(e.original)}"
                 logging.error(
                     f"OWNER COG ERROR: Extension failed for cog '{cog}' during reload for user {interaction.user.id}: {e.original}"
                 )
-                raise ExternalServiceError(message=error_msg)
+                raise ExternalServiceError(message=error_msg) from e
             except Exception as e:
                 error_msg = f"❌ **Reload failed during load**\n**Cog:** `{cog}`\n**Error:** {type(e).__name__}: {str(e)}"
                 logging.error(
                     f"OWNER COG ERROR: Unexpected error loading cog '{cog}' during reload for user {interaction.user.id}: {e}"
                 )
-                raise ExternalServiceError(message=error_msg)
+                raise ExternalServiceError(message=error_msg) from e
 
             # Success response with details
             success_msg = (
@@ -472,10 +470,9 @@ class OwnerCog(commands.Cog, name="Owner"):
 
             # Auto-delete after 10 seconds for cleaner chat
             await asyncio.sleep(10)
-            try:
+            with contextlib.suppress(discord.NotFound):
+                # Message already deleted
                 await interaction.delete_original_response()
-            except discord.NotFound:
-                pass  # Message already deleted
 
         except ExternalServiceError:
             # Re-raise our custom errors
@@ -486,7 +483,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             logging.error(
                 f"OWNER COG ERROR: Unexpected error during reload of cog '{cog}' for user {interaction.user.id}: {e}"
             )
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from e
 
     @reload_cog.autocomplete("cog")
     async def reload_cog_autocomplete(
@@ -517,7 +514,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             ExternalServiceError: If the system command execution fails
         """
         # Whitelist of allowed commands for security
-        ALLOWED_COMMANDS = {
+        ALLOWED_COMMANDS = {  # noqa: N806 - in-function security constant
             "ls",
             "dir",
             "pwd",
@@ -548,7 +545,7 @@ class OwnerCog(commands.Cog, name="Owner"):
         }
 
         # Blacklist of dangerous commands
-        DANGEROUS_COMMANDS = {
+        DANGEROUS_COMMANDS = {  # noqa: N806 - in-function security constant
             "rm",
             "del",
             "rmdir",
@@ -590,7 +587,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             # Parse arguments safely using shlex
             args_array = shlex.split(args)
         except ValueError as e:
-            raise ValidationError(message=f"Invalid command syntax: {str(e)}")
+            raise ValidationError(message=f"Invalid command syntax: {str(e)}") from e
 
         if not args_array:
             raise ValidationError(message="No command specified")
@@ -687,26 +684,26 @@ class OwnerCog(commands.Cog, name="Owner"):
             logging.warning(
                 f"OWNER COMMAND TIMEOUT: Command '{full_command}' timed out"
             )
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from None
 
         except subprocess.SubprocessError as e:
             error_msg = f"❌ Subprocess error: {str(e)}"
             logging.error(
                 f"OWNER COMMAND ERROR: Subprocess error for '{full_command}': {e}"
             )
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from e
 
         except OSError as e:
             error_msg = f"❌ System error: {str(e)}"
             logging.error(f"OWNER COMMAND ERROR: OS error for '{full_command}': {e}")
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from e
 
         except Exception as e:
             error_msg = "❌ Unexpected error executing command"
             logging.error(
                 f"OWNER COMMAND ERROR: Unexpected error for '{full_command}': {e}"
             )
-            raise ExternalServiceError(message=error_msg)
+            raise ExternalServiceError(message=error_msg) from e
 
     @admin.command(name="sync", description="Sync the bot's command tree")
     @commands.is_owner()
@@ -751,7 +748,9 @@ class OwnerCog(commands.Cog, name="Owner"):
                         )
         except Exception as e:
             logging.error(f"OWNER SYNC ERROR: Error during extension loading: {e}")
-            raise ExternalServiceError(message=f"❌ Error loading extensions: {str(e)}")
+            raise ExternalServiceError(
+                message=f"❌ Error loading extensions: {str(e)}"
+            ) from e
 
         # Prepare status message about extension loading
         status_parts = []
@@ -897,14 +896,14 @@ class OwnerCog(commands.Cog, name="Owner"):
             except AttributeError:
                 raise ExternalServiceError(
                     message="❌ Resource monitor is not available"
-                )
+                ) from None
             except Exception as e:
                 logging.error(
                     f"OWNER RESOURCES ERROR: Failed to get current resource stats: {e}"
                 )
                 raise ExternalServiceError(
                     message=f"❌ Failed to retrieve current resource statistics: {str(e)}"
-                )
+                ) from e
 
             try:
                 summary_stats = self.bot.resource_monitor.get_summary_stats()
@@ -1008,7 +1007,7 @@ class OwnerCog(commands.Cog, name="Owner"):
                 )
                 raise DatabaseError(
                     message=f"❌ Failed to retrieve database cache statistics: {str(e)}"
-                )
+                ) from e
 
             # Add detailed information if requested
             if detail_level == "detailed" or detail_level == "system":
@@ -1116,8 +1115,13 @@ class OwnerCog(commands.Cog, name="Owner"):
         query_upper = query.upper().strip()
 
         # Define allowed and dangerous query types
-        READ_ONLY_OPERATIONS = {"SELECT", "WITH", "EXPLAIN", "ANALYZE"}
-        MODIFICATION_OPERATIONS = {
+        READ_ONLY_OPERATIONS = {  # noqa: N806 - in-function security constant
+            "SELECT",
+            "WITH",
+            "EXPLAIN",
+            "ANALYZE",
+        }
+        MODIFICATION_OPERATIONS = {  # noqa: N806 - in-function security constant
             "INSERT",
             "UPDATE",
             "DELETE",
@@ -1126,7 +1130,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             "CREATE",
             "ALTER",
         }
-        DANGEROUS_OPERATIONS = {
+        DANGEROUS_OPERATIONS = {  # noqa: N806 - in-function security constant
             "DROP",
             "TRUNCATE",
             "DELETE FROM",
@@ -1139,14 +1143,13 @@ class OwnerCog(commands.Cog, name="Owner"):
         first_word = query_upper.split()[0] if query_upper.split() else ""
 
         # Security checks
-        if not allow_modifications:
-            if first_word in MODIFICATION_OPERATIONS:
-                logging.warning(
-                    f"SECURITY: Modification query '{first_word}' attempted by owner {interaction.user.id} without permission"
-                )
-                raise PermissionError(
-                    message=f"Query type '{first_word}' requires allow_modifications=True for safety"
-                )
+        if not allow_modifications and first_word in MODIFICATION_OPERATIONS:
+            logging.warning(
+                f"SECURITY: Modification query '{first_word}' attempted by owner {interaction.user.id} without permission"
+            )
+            raise PermissionError(
+                message=f"Query type '{first_word}' requires allow_modifications=True for safety"
+            )
 
         if first_word in DANGEROUS_OPERATIONS and not allow_modifications:
             logging.warning(
@@ -1361,12 +1364,16 @@ class OwnerCog(commands.Cog, name="Owner"):
                 )
             except SchemaSearchError as e:
                 logging.error(f"OWNER ASK_DB ERROR: Schema search failed: {e}")
-                raise ExternalServiceError(message=f"❌ Schema search failed: {str(e)}")
+                raise ExternalServiceError(
+                    message=f"❌ Schema search failed: {str(e)}"
+                ) from e
             except ExternalServiceError:
                 raise  # Re-raise our own errors without wrapping
             except Exception as e:
                 logging.error(f"OWNER ASK_DB ERROR: Schema search failed: {e}")
-                raise ExternalServiceError(message=f"❌ Schema search failed: {str(e)}")
+                raise ExternalServiceError(
+                    message=f"❌ Schema search failed: {str(e)}"
+                ) from e
 
             # Step 2: Generate SQL using OpenAI
             await interaction.edit_original_response(
@@ -1397,21 +1404,21 @@ class OwnerCog(commands.Cog, name="Owner"):
                 logging.error(f"OWNER ASK_DB ERROR: AI SQL generation failed: {e}")
                 raise ExternalServiceError(
                     message=f"❌ AI SQL generation failed: {str(e)}"
-                )
+                ) from e
             except Exception as e:
                 logging.error(f"OWNER ASK_DB ERROR: AI SQL generation failed: {e}")
                 if "rate limit" in str(e).lower():
                     raise ExternalServiceError(
                         message="❌ AI service rate limit exceeded. Please try again later."
-                    )
+                    ) from e
                 elif "api key" in str(e).lower():
                     raise ExternalServiceError(
                         message="❌ AI service authentication failed. Please contact administrator."
-                    )
+                    ) from e
                 else:
                     raise ExternalServiceError(
                         message=f"❌ AI SQL generation failed: {str(e)}"
-                    )
+                    ) from e
 
             # Step 3: Extract clean SQL from response
             await interaction.edit_original_response(
@@ -1429,7 +1436,7 @@ class OwnerCog(commands.Cog, name="Owner"):
                 )
             except Exception as e:
                 logging.error(f"OWNER ASK_DB ERROR: SQL extraction failed: {e}")
-                raise QueryError(message=f"❌ SQL extraction failed: {str(e)}")
+                raise QueryError(message=f"❌ SQL extraction failed: {str(e)}") from e
 
             # Step 4.5: Check for soft error (AI couldn't generate a query)
             if sql_query == "COGNITA_NO_QUERY_POSSIBLE":
@@ -1460,7 +1467,9 @@ class OwnerCog(commands.Cog, name="Owner"):
                 logging.error(
                     f"OWNER ASK_DB ERROR: Database query execution failed: {e}"
                 )
-                raise DatabaseError(message=f"❌ Query execution failed: {str(e)}")
+                raise DatabaseError(
+                    message=f"❌ Query execution failed: {str(e)}"
+                ) from e
 
             if not results:
                 response = f"**Question:** {question}\n\n**Generated SQL:**\n```sql\n{sql_query}\n```\n\n**Result:** ✅ Query executed successfully but returned no results."

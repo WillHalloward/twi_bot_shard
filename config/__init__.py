@@ -9,13 +9,21 @@ validation to ensure all required values are present and properly formatted.
 import json
 import logging
 import os
-from enum import Enum
+from enum import StrEnum
+from typing import cast
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from dotenv import load_dotenv
+from pydantic import (
+    BaseModel,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 
 # Define environment types
-class Environment(str, Enum):
+class Environment(StrEnum):
     """Environment types for the bot configuration."""
 
     DEVELOPMENT = "development"
@@ -25,7 +33,7 @@ class Environment(str, Enum):
 
 
 # Define log format types
-class LogFormat(str, Enum):
+class LogFormat(StrEnum):
     """Log format options for the bot logging system."""
 
     JSON = "json"
@@ -34,8 +42,6 @@ class LogFormat(str, Enum):
 
 
 # Load environment from .env file first
-from dotenv import load_dotenv
-
 load_dotenv()
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", Environment.DEVELOPMENT)
@@ -261,7 +267,7 @@ class BotConfig(BaseModel):
 
     @field_validator("bot_token")
     @classmethod
-    def bot_token_must_not_be_empty(cls, v):
+    def bot_token_must_not_be_empty(cls, v: str) -> str:
         """Validate that the bot token is not empty."""
         if not v:
             raise ValueError("Bot token must not be empty")
@@ -269,7 +275,7 @@ class BotConfig(BaseModel):
 
     @field_validator("host", "db_user", "db_password", "database")
     @classmethod
-    def db_settings_must_not_be_empty(cls, v, info):
+    def db_settings_must_not_be_empty(cls, v: str, info: ValidationInfo) -> str:
         """Validate that database settings are not empty."""
         if not v:
             raise ValueError(f"{info.field_name} must not be empty")
@@ -277,7 +283,7 @@ class BotConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def check_api_keys_consistency(cls, values):
+    def check_api_keys_consistency(cls, values: dict) -> dict:
         """Validate that API keys are consistent (e.g., if one Twitter key is provided, all should be).
 
         This validator ensures that if one part of a multi-part API credential is provided,
@@ -373,7 +379,9 @@ def load_from_env() -> BotConfig:
     missing_vars = []
 
     # Helper function to get environment variables with validation
-    def get_env(name, default=None, required=False):
+    def get_env(
+        name: str, default: str | None = None, required: bool = False
+    ) -> str | None:
         value = os.getenv(name, default)
         if required and (value is None or value == ""):
             missing_vars.append(name)
@@ -387,11 +395,11 @@ def load_from_env() -> BotConfig:
         from urllib.parse import urlparse
 
         parsed = urlparse(database_url)
-        host = parsed.hostname
-        port_str = str(parsed.port) if parsed.port else "5432"
-        db_user = parsed.username
-        db_password = parsed.password
-        database = parsed.path[1:]  # Remove leading '/'
+        host: str | None = parsed.hostname
+        port_str: str | None = str(parsed.port) if parsed.port else "5432"
+        db_user: str | None = parsed.username
+        db_password: str | None = parsed.password
+        database: str | None = parsed.path[1:]  # Remove leading '/'
 
         # Bot token still required
         bot_token = get_env("BOT_TOKEN", "", required=True)
@@ -417,10 +425,10 @@ def load_from_env() -> BotConfig:
             missing_vars.append("DATABASE or PGDATABASE")
 
     # Get optional environment variables with defaults
-    port = port_str if database_url else (get_env("PORT") or "5432")
-    kill_after = get_env("KILL_AFTER", "0")
-    logfile = get_env("LOGFILE", "test")
-    log_format = get_env("LOG_FORMAT", LogFormat.CONSOLE)
+    port = cast(str, port_str) if database_url else (get_env("PORT") or "5432")
+    kill_after = cast(str, get_env("KILL_AFTER", "0"))
+    logfile = cast(str, get_env("LOGFILE", "test"))
+    log_format = cast(str, get_env("LOG_FORMAT", LogFormat.CONSOLE))
 
     # Get optional API keys and credentials
     google_api_key = get_env("GOOGLE_API_KEY")
@@ -455,9 +463,9 @@ def load_from_env() -> BotConfig:
     # Staging environment settings
     staging_guild_id_str = get_env("STAGING_GUILD_ID")
     staging_guild_id = int(staging_guild_id_str) if staging_guild_id_str else None
-    webhooks_enabled_str = get_env("WEBHOOKS_ENABLED", "true")
+    webhooks_enabled_str = cast(str, get_env("WEBHOOKS_ENABLED", "true"))
     webhooks_enabled = webhooks_enabled_str.lower() not in ("false", "0", "no")
-    sync_on_start_str = get_env("SYNC_ON_START", "false")
+    sync_on_start_str = cast(str, get_env("SYNC_ON_START", "false"))
     sync_on_start = sync_on_start_str.lower() in ("true", "1", "yes")
 
     # Check for missing required variables
@@ -468,47 +476,51 @@ def load_from_env() -> BotConfig:
 
     # Load complex structures from JSON with error handling
     try:
-        cookies = json.loads(get_env("COOKIES", "{}"))
+        cookies = json.loads(cast(str, get_env("COOKIES", "{}")))
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in COOKIES environment variable: {e}")
+        raise ValueError(f"Invalid JSON in COOKIES environment variable: {e}") from e
 
     try:
-        headers = json.loads(get_env("HEADERS", "{}"))
+        headers = json.loads(cast(str, get_env("HEADERS", "{}")))
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in HEADERS environment variable: {e}")
+        raise ValueError(f"Invalid JSON in HEADERS environment variable: {e}") from e
 
     # Load channel IDs and role IDs with error handling
     try:
-        channel_ids = json.loads(get_env("CHANNEL_IDS", "{}"))
+        channel_ids = json.loads(cast(str, get_env("CHANNEL_IDS", "{}")))
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in CHANNEL_IDS environment variable: {e}")
+        raise ValueError(
+            f"Invalid JSON in CHANNEL_IDS environment variable: {e}"
+        ) from e
 
     try:
-        role_ids = json.loads(get_env("ROLE_IDS", "{}"))
+        role_ids = json.loads(cast(str, get_env("ROLE_IDS", "{}")))
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in ROLE_IDS environment variable: {e}")
+        raise ValueError(f"Invalid JSON in ROLE_IDS environment variable: {e}") from e
 
     # Parse numeric values with error handling
     try:
         port_int = int(port)
     except ValueError:
-        raise ValueError(f"Invalid PORT value: {port}. Must be an integer.")
+        raise ValueError(f"Invalid PORT value: {port}. Must be an integer.") from None
 
     try:
         kill_after_int = int(kill_after)
     except ValueError:
-        raise ValueError(f"Invalid KILL_AFTER value: {kill_after}. Must be an integer.")
+        raise ValueError(
+            f"Invalid KILL_AFTER value: {kill_after}. Must be an integer."
+        ) from None
 
     # Create configuration object
     try:
-        config = BotConfig(
-            bot_token=bot_token,
+        config = BotConfig(  # type: ignore[call-arg]  # pydantic Field defaults
+            bot_token=cast(str, bot_token),
             google_api_key=google_api_key,
             google_cse_id=google_cse_id,
-            host=host,
-            db_user=db_user,
-            db_password=db_password,
-            database=database,
+            host=cast(str, host),
+            db_user=cast(str, db_user),
+            db_password=cast(str, db_password),
+            database=cast(str, database),
             port=port_int,
             kill_after=kill_after_int,
             client_id=client_id,
@@ -539,7 +551,7 @@ def load_from_env() -> BotConfig:
         )
     except ValueError as e:
         # Add more context to validation errors
-        raise ValueError(f"Configuration validation error: {e}")
+        raise ValueError(f"Configuration validation error: {e}") from e
 
     # Log a warning if no encryption key is provided
     if not secret_encryption_key:

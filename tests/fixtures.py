@@ -6,6 +6,7 @@ test environments, particularly for database testing.
 """
 
 import asyncio
+import contextlib
 import os
 import sys
 from collections.abc import AsyncGenerator, Callable
@@ -20,7 +21,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker
 
 # Import all models to ensure they're registered with Base.metadata
-from models import *
+from models import *  # noqa: F403  (star import re-exports all ORM models)
 
 # Import models
 from models.base import Base
@@ -83,11 +84,9 @@ class DatabaseFixture:
                 # Create tables one by one, skipping problematic ones
                 if "autoincrement" in str(e).lower() or "composite" in str(e).lower():
                     for table in Base.metadata.sorted_tables:
-                        try:
+                        # Skip tables that can't be created in SQLite
+                        with contextlib.suppress(Exception):
                             await conn.run_sync(table.create, checkfirst=True)
-                        except Exception:
-                            # Skip tables that can't be created in SQLite
-                            pass
                 else:
                     raise
 

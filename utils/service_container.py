@@ -6,7 +6,7 @@ and better testability.
 """
 
 from collections.abc import Callable
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -114,7 +114,7 @@ class ServiceContainer:
             raise TypeError(
                 f"Service '{service_id}' is not of type {expected_type.__name__}"
             )
-        return cast(expected_type, service)
+        return service
 
     def has(self, service_id: str) -> bool:
         """Check if a service is registered.

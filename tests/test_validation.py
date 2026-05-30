@@ -22,7 +22,7 @@ from utils.validation import (
 )
 
 
-def test_validate_string_basic():
+def test_validate_string_basic() -> None:
     """Test basic string validation."""
     # Valid string
     result = validate_string("test")
@@ -41,7 +41,7 @@ def test_validate_string_basic():
         validate_string("")
 
 
-def test_validate_string_length():
+def test_validate_string_length() -> None:
     """Test string length validation."""
     # Min length
     result = validate_string("test", min_length=3)
@@ -58,7 +58,7 @@ def test_validate_string_length():
         validate_string("very long string", max_length=5)
 
 
-def test_validate_string_pattern():
+def test_validate_string_pattern() -> None:
     """Test string pattern validation."""
     # Email pattern
     email_pattern = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
@@ -70,7 +70,7 @@ def test_validate_string_pattern():
         validate_string("invalid-email", pattern=email_pattern)
 
 
-def test_validate_integer_basic():
+def test_validate_integer_basic() -> None:
     """Test basic integer validation."""
     # Valid integer
     result = validate_integer(42)
@@ -85,7 +85,7 @@ def test_validate_integer_basic():
         validate_integer("not a number")
 
 
-def test_validate_integer_range():
+def test_validate_integer_range() -> None:
     """Test integer range validation."""
     # Within range
     result = validate_integer(5, min_value=0, max_value=10)
@@ -100,7 +100,7 @@ def test_validate_integer_range():
         validate_integer(15, max_value=10)
 
 
-def test_sanitize_string_basic():
+def test_sanitize_string_basic() -> None:
     """Test basic string sanitization."""
     from utils.validation import ValidationLevel
 
@@ -119,7 +119,7 @@ def test_sanitize_string_basic():
     assert "Test" in result
 
 
-def test_sanitize_json():
+def test_sanitize_json() -> None:
     """Test JSON sanitization - returns JSON string."""
     # Valid JSON - sanitize_json returns a JSON string
     data = {"key": "value", "number": 42}
@@ -133,7 +133,7 @@ def test_sanitize_json():
     # Should either return stringified version or null
 
 
-def test_validate_string_allow_empty():
+def test_validate_string_allow_empty() -> None:
     """Test string validation with allow_empty flag."""
     # Should allow None and empty strings when allow_empty=True
     result = validate_string(None, allow_empty=True)
@@ -146,7 +146,7 @@ def test_validate_string_allow_empty():
     assert result == ""
 
 
-def test_validate_string_custom_error():
+def test_validate_string_custom_error() -> None:
     """Test string validation with custom error message."""
     custom_message = "Custom validation error"
 

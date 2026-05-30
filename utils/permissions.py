@@ -5,7 +5,8 @@ with bot owner override support.
 """
 
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Coroutine
+from typing import TYPE_CHECKING, Any, cast
 
 import discord
 from discord import app_commands
@@ -71,7 +72,9 @@ async def is_admin(
     # Check configured admin role from settings
     settings_cog = bot.get_cog("Settings")
     if settings_cog:
-        return await settings_cog.is_admin(bot, guild_id, user_id, user_roles)
+        return cast(
+            bool, await settings_cog.is_admin(bot, guild_id, user_id, user_roles)
+        )
 
     return False
 
@@ -107,7 +110,7 @@ async def is_moderator(
     if not member:
         return False
 
-    return member.guild_permissions.ban_members
+    return cast(bool, member.guild_permissions.ban_members)
 
 
 # =============================================================================
@@ -158,7 +161,9 @@ def admin_or_me_check_wrapper(func: commands.Command) -> commands.Command:
     return commands.check(predicate)(func)
 
 
-def app_admin_or_me_check(interaction: discord.Interaction) -> bool:
+def app_admin_or_me_check(
+    interaction: discord.Interaction,
+) -> Coroutine[Any, Any, bool]:
     """Wrapper for admin_or_me_check to use with @app_commands.check decorator."""
     return admin_or_me_check(interaction)
 
@@ -205,7 +210,9 @@ def moderator_check_wrapper(func: commands.Command) -> commands.Command:
     return commands.check(predicate)(func)
 
 
-def app_moderator_check(interaction: discord.Interaction) -> bool:
+def app_moderator_check(
+    interaction: discord.Interaction,
+) -> Coroutine[Any, Any, bool]:
     """Wrapper for moderator_check to use with @app_commands.check decorator."""
     return moderator_check(interaction)
 
@@ -226,7 +233,7 @@ async def is_bot_channel(
     Returns:
         True if in bot channel
     """
-    return ctx_or_interaction.channel.id == config.bot_channel_id
+    return bool(ctx_or_interaction.channel.id == config.bot_channel_id)
 
 
 def is_bot_channel_wrapper(func: commands.Command) -> commands.Command:

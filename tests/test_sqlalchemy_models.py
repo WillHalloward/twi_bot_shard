@@ -7,6 +7,7 @@ This script imports all SQLAlchemy models and tests basic functionality.
 import asyncio
 import os
 import sys
+from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
 
 import pytest
@@ -32,9 +33,18 @@ from sqlalchemy import (
     Table,
     text,
 )
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    create_async_engine,
+)
 from sqlalchemy.future import select
-from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import (
+    Mapped,
+    declarative_base,
+    mapped_column,
+    sessionmaker,
+)
 
 # Create an in-memory SQLite database for testing
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -43,8 +53,6 @@ TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 test_metadata = MetaData()
 
 # Create a separate declarative base for testing
-from sqlalchemy.orm import declarative_base
-
 ModelBase = declarative_base(metadata=test_metadata)
 
 # Define required tables for foreign key references
@@ -128,7 +136,7 @@ class CreatorLink(ModelBase):
     feature: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
-async def create_test_engine():
+async def create_test_engine() -> AsyncEngine:
     """Create a test engine and tables."""
     # Create engine with foreign key support
     engine = create_async_engine(
@@ -270,7 +278,7 @@ async def test_creator_links(session) -> bool:
 
 
 @pytest_asyncio.fixture
-async def session():
+async def session() -> AsyncGenerator[AsyncSession, None]:
     """Create a test session."""
     # Create test engine and session
     engine = await create_test_engine()

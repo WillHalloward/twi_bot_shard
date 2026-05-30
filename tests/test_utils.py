@@ -9,7 +9,7 @@ test data, and cleaning up after tests.
 import asyncio
 import os
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 # Add the project root to the Python path
@@ -34,6 +34,9 @@ from tests.mock_factories import (
 )
 from tests.test_cogs import TestBot
 
+if TYPE_CHECKING:
+    from utils.db import Database
+
 
 class TestSetup:
     """
@@ -56,7 +59,7 @@ class TestSetup:
         return bot
 
     @staticmethod
-    async def create_test_database():
+    async def create_test_database() -> "Database":
         """
         Create a test database instance for transaction testing.
 

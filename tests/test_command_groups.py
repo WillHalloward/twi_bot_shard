@@ -8,6 +8,7 @@ to share common command namespaces for better organization.
 
 import os
 import sys
+from collections.abc import Iterator
 
 import pytest
 
@@ -37,7 +38,7 @@ from utils.command_groups import admin, gallery_admin, mod
 
 
 @pytest.fixture
-def reset_command_groups():
+def reset_command_groups() -> Iterator[None]:
     """Reset command groups before and after tests to prevent pollution.
 
     This fixture clears all commands from the groups before the test
@@ -67,7 +68,7 @@ def reset_command_groups():
 class TestCommandGroupDefinitions:
     """Tests for command group definitions and structure."""
 
-    def test_admin_group_exists(self):
+    def test_admin_group_exists(self) -> None:
         """Test that admin group is properly defined."""
         assert admin is not None
         assert isinstance(admin, app_commands.Group)
@@ -77,7 +78,7 @@ class TestCommandGroupDefinitions:
             or "administration" in admin.description.lower()
         )
 
-    def test_mod_group_exists(self):
+    def test_mod_group_exists(self) -> None:
         """Test that mod group is properly defined."""
         assert mod is not None
         assert isinstance(mod, app_commands.Group)
@@ -87,14 +88,14 @@ class TestCommandGroupDefinitions:
             or "server" in mod.description.lower()
         )
 
-    def test_gallery_admin_group_exists(self):
+    def test_gallery_admin_group_exists(self) -> None:
         """Test that gallery_admin group is properly defined."""
         assert gallery_admin is not None
         assert isinstance(gallery_admin, app_commands.Group)
         assert gallery_admin.name == "gallery_admin"
         assert "gallery" in gallery_admin.description.lower()
 
-    def test_groups_are_distinct(self):
+    def test_groups_are_distinct(self) -> None:
         """Test that each group is a separate object."""
         assert admin is not mod
         assert admin is not gallery_admin
@@ -105,7 +106,7 @@ class TestCommandGroupRegistration:
     """Tests for command group registration with the bot."""
 
     @pytest.mark.asyncio
-    async def test_groups_can_be_registered_to_tree(self):
+    async def test_groups_can_be_registered_to_tree(self) -> None:
         """Test that groups can be added to command tree."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -135,7 +136,7 @@ class TestCommandGroupRegistration:
         await bot.close()
 
     @pytest.mark.asyncio
-    async def test_groups_registered_before_cogs(self):
+    async def test_groups_registered_before_cogs(self) -> None:
         """Test that groups are registered before cog loading (as in main.py)."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -166,16 +167,16 @@ class TestCommandGroupUsage:
     """Tests for using command groups in cogs."""
 
     @pytest.mark.asyncio
-    async def test_commands_can_be_added_to_admin_group(self):
+    async def test_commands_can_be_added_to_admin_group(self) -> None:
         """Test that commands can be added to admin group."""
 
         # Create a simple test cog with a command in admin group
         class TestCog(commands.Cog):
-            def __init__(self, bot):
+            def __init__(self, bot) -> None:
                 self.bot = bot
 
             @admin.command(name="test_cmd", description="Test command in admin group")
-            async def test_command(self, interaction: discord.Interaction):
+            async def test_command(self, interaction: discord.Interaction) -> None:
                 """Test command."""
                 await interaction.response.send_message("Test response")
 
@@ -203,16 +204,16 @@ class TestCommandGroupUsage:
         await bot.close()
 
     @pytest.mark.asyncio
-    async def test_commands_can_be_added_to_mod_group(self):
+    async def test_commands_can_be_added_to_mod_group(self) -> None:
         """Test that commands can be added to mod group."""
 
         # Create a simple test cog with a command in mod group
         class TestModCog(commands.Cog):
-            def __init__(self, bot):
+            def __init__(self, bot) -> None:
                 self.bot = bot
 
             @mod.command(name="test_mod", description="Test moderation command")
-            async def test_mod_command(self, interaction: discord.Interaction):
+            async def test_mod_command(self, interaction: discord.Interaction) -> None:
                 """Test mod command."""
                 await interaction.response.send_message("Mod test response")
 
@@ -239,24 +240,24 @@ class TestCommandGroupUsage:
         await bot.close()
 
     @pytest.mark.asyncio
-    async def test_multiple_cogs_can_use_same_group(self):
+    async def test_multiple_cogs_can_use_same_group(self) -> None:
         """Test that multiple cogs can add commands to the same group."""
 
         # Create two cogs that both use the admin group
         class TestCog1(commands.Cog):
-            def __init__(self, bot):
+            def __init__(self, bot) -> None:
                 self.bot = bot
 
             @admin.command(name="cmd1", description="Command from cog 1")
-            async def command1(self, interaction: discord.Interaction):
+            async def command1(self, interaction: discord.Interaction) -> None:
                 await interaction.response.send_message("Cog 1")
 
         class TestCog2(commands.Cog):
-            def __init__(self, bot):
+            def __init__(self, bot) -> None:
                 self.bot = bot
 
             @admin.command(name="cmd2", description="Command from cog 2")
-            async def command2(self, interaction: discord.Interaction):
+            async def command2(self, interaction: discord.Interaction) -> None:
                 await interaction.response.send_message("Cog 2")
 
         # Create bot and register group
@@ -290,7 +291,7 @@ class TestCommandGroupIntegration:
     """Integration tests for command groups in real cog scenarios."""
 
     @pytest.mark.asyncio
-    async def test_owner_cog_uses_admin_group(self):
+    async def test_owner_cog_uses_admin_group(self) -> None:
         """Test that OwnerCog commands are in admin group."""
         from cogs.owner import OwnerCog
 
@@ -322,7 +323,7 @@ class TestCommandGroupIntegration:
         await bot.close()
 
     @pytest.mark.asyncio
-    async def test_mods_cog_uses_mod_group(self):
+    async def test_mods_cog_uses_mod_group(self) -> None:
         """Test that ModsCog commands are in mod group."""
         from cogs.mods import ModCogs
 
@@ -354,7 +355,7 @@ class TestCommandGroupIntegration:
         await bot.close()
 
     @pytest.mark.asyncio
-    async def test_gallery_cog_uses_gallery_admin_group(self):
+    async def test_gallery_cog_uses_gallery_admin_group(self) -> None:
         """Test that GalleryCog commands are in gallery_admin group."""
         from cogs.gallery import GalleryCog
 
@@ -391,19 +392,21 @@ class TestCommandGroupInvocation:
     """Tests for invoking commands through groups."""
 
     @pytest.mark.asyncio
-    async def test_grouped_command_callback_pattern(self):
+    async def test_grouped_command_callback_pattern(self) -> None:
         """Test the callback pattern for invoking grouped commands."""
 
         from tests.mock_factories import MockInteractionFactory
 
         # Create a test cog with a grouped command
         class TestInvokeCog(commands.Cog):
-            def __init__(self, bot):
+            def __init__(self, bot) -> None:
                 self.bot = bot
                 self.command_called = False
 
             @admin.command(name="invoke_test", description="Test invocation")
-            async def test_invoke(self, interaction: discord.Interaction, value: str):
+            async def test_invoke(
+                self, interaction: discord.Interaction, value: str
+            ) -> None:
                 """Test command invocation."""
                 self.command_called = True
                 await interaction.response.send_message(f"Received: {value}")
@@ -432,17 +435,17 @@ class TestCommandGroupInvocation:
         await bot.close()
 
     @pytest.mark.asyncio
-    async def test_grouped_command_with_defer(self):
+    async def test_grouped_command_with_defer(self) -> None:
         """Test grouped command that defers response."""
         from tests.mock_factories import MockInteractionFactory
 
         # Create a test cog
         class TestDeferCog(commands.Cog):
-            def __init__(self, bot):
+            def __init__(self, bot) -> None:
                 self.bot = bot
 
             @admin.command(name="defer_test", description="Test defer")
-            async def test_defer(self, interaction: discord.Interaction):
+            async def test_defer(self, interaction: discord.Interaction) -> None:
                 """Test deferred response."""
                 await interaction.response.defer()
                 await interaction.followup.send("Deferred response")
@@ -481,15 +484,15 @@ class TestCommandGroupBinding:
     """
 
     @pytest.mark.asyncio
-    async def test_external_group_commands_need_manual_binding(self):
+    async def test_external_group_commands_need_manual_binding(self) -> None:
         """Test that commands in external groups start with binding=None."""
 
         class TestCog(commands.Cog):
-            def __init__(self, bot):
+            def __init__(self, bot) -> None:
                 self.bot = bot
 
             @admin.command(name="binding_test", description="Test binding")
-            async def binding_test(self, interaction: discord.Interaction):
+            async def binding_test(self, interaction: discord.Interaction) -> None:
                 await interaction.response.send_message("Test")
 
         # Create bot and register group
@@ -513,11 +516,11 @@ class TestCommandGroupBinding:
         await bot.close()
 
     @pytest.mark.asyncio
-    async def test_cog_load_binds_commands(self):
+    async def test_cog_load_binds_commands(self) -> None:
         """Test that cog_load() properly binds commands to cog instance."""
 
         class TestBindingCog(commands.Cog):
-            def __init__(self, bot):
+            def __init__(self, bot) -> None:
                 self.bot = bot
 
             async def cog_load(self) -> None:
@@ -527,7 +530,7 @@ class TestCommandGroupBinding:
                         cmd.binding = self
 
             @admin.command(name="bound_cmd", description="Test bound command")
-            async def bound_command(self, interaction: discord.Interaction):
+            async def bound_command(self, interaction: discord.Interaction) -> None:
                 await interaction.response.send_message("Bound!")
 
         # Create bot and register group
@@ -557,12 +560,12 @@ class TestCommandGroupBinding:
         await bot.close()
 
     @pytest.mark.asyncio
-    async def test_bound_command_can_access_self(self):
+    async def test_bound_command_can_access_self(self) -> None:
         """Test that properly bound commands can access self (cog instance)."""
         from tests.mock_factories import MockInteractionFactory
 
         class TestSelfAccessCog(commands.Cog):
-            def __init__(self, bot):
+            def __init__(self, bot) -> None:
                 self.bot = bot
                 self.was_called = False
 
@@ -572,7 +575,7 @@ class TestCommandGroupBinding:
                         cmd.binding = self
 
             @admin.command(name="self_access", description="Test self access")
-            async def self_access_cmd(self, interaction: discord.Interaction):
+            async def self_access_cmd(self, interaction: discord.Interaction) -> None:
                 # This should work because self is properly bound
                 self.was_called = True
                 await interaction.response.send_message(f"Bot: {self.bot}")

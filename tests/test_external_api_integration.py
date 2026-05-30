@@ -32,12 +32,13 @@ logging.basicConfig(
 
 
 # Import the cogs we want to test
-from cogs.external_services import ExternalServices
-from cogs.gallery import GalleryCog
-from cogs.twi import TwiCog
+# Imports below occur after sys.path setup so project modules resolve correctly.
+from cogs.external_services import ExternalServices  # noqa: E402
+from cogs.gallery import GalleryCog  # noqa: E402
+from cogs.twi import TwiCog  # noqa: E402
 
 # Import test utilities
-from tests.mock_factories import (
+from tests.mock_factories import (  # noqa: E402
     MockChannelFactory,
     MockGuildFactory,
     MockInteractionFactory,
@@ -239,7 +240,7 @@ class TestTwitterAPIIntegration:
 class TestAO3APIIntegration:
     """Test AO3 API integration."""
 
-    def mock_ao3_work_success(self):
+    def mock_ao3_work_success(self) -> MagicMock:
         """Mock successful AO3 work response."""
         mock_work = MagicMock()
         mock_work.title = "Test Fanfiction"
@@ -387,7 +388,7 @@ class TestAO3APIIntegration:
             return False
 
 
-async def run_all_external_api_tests():
+async def run_all_external_api_tests() -> bool:
     """Run all external API integration tests."""
     print("🧪 Starting External API Integration Tests...")
     print("=" * 60)

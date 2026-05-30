@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+from typing import cast
 
 import discord
 from discord import app_commands
@@ -102,7 +103,7 @@ class ModCogs(commands.Cog):
         except Exception as e:
             raise ValidationError(
                 message=f"Failed to reset cooldown for command **{command}**: {str(e)}"
-            )
+            ) from e
 
     @mod.command(name="state", description="Post an official moderator message")
     @app_commands.default_permissions(ban_members=True)
@@ -165,11 +166,13 @@ class ModCogs(commands.Cog):
             )
 
         except discord.HTTPException as e:
-            raise ValidationError(message=f"Failed to post moderator message: {str(e)}")
+            raise ValidationError(
+                message=f"Failed to post moderator message: {str(e)}"
+            ) from e
         except Exception as e:
             raise ValidationError(
                 message=f"Unexpected error posting moderator message: {str(e)}"
-            )
+            ) from e
 
     @Cog.listener("on_message")
     async def log_attachment(self, message) -> None:
@@ -181,7 +184,7 @@ class ModCogs(commands.Cog):
             for attachment in message.attachments:
                 try:
                     async with self.webhook_manager.get_webhook(
-                        config.webhook
+                        cast(str, config.webhook)
                     ) as webhook:
                         embed = discord.Embed(
                             title="New attachment",
@@ -230,7 +233,7 @@ class ModCogs(commands.Cog):
                 for attachment in message.attachments:
                     try:
                         async with self.webhook_manager.get_webhook(
-                            config.webhook_testing_log
+                            cast(str, config.webhook_testing_log)
                         ) as webhook:
                             embed = discord.Embed(
                                 title="New attachment",
@@ -261,7 +264,7 @@ class ModCogs(commands.Cog):
             else:
                 try:
                     async with self.webhook_manager.get_webhook(
-                        config.webhook_testing_log
+                        cast(str, config.webhook_testing_log)
                     ) as webhook:
                         embed = discord.Embed(
                             title="New message",
@@ -296,38 +299,36 @@ class ModCogs(commands.Cog):
             not isinstance(message.channel, discord.channel.DMChannel)
             and not message.author.bot
             and message.guild.id == 346842016480755724
-        ):
-            if re.search(
+            and re.search(
                 r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
                 message.content,
-            ):
-                try:
-                    async with self.webhook_manager.get_webhook(
-                        config.webhook
-                    ) as webhook:
-                        await webhook.send(
-                            f"Link detected: {message.content[0:1600]}\n"
-                            f"User: {message.author.name} {message.author.id}\n"
-                            f"Channel: {message.channel.mention}\n"
-                            f"Jump Url: {message.jump_url}",
-                            allowed_mentions=discord.AllowedMentions(
-                                everyone=False, roles=False, users=False
-                            ),
-                        )
-                except Exception as e:
-                    # Use standardized error logging with context
-                    error = ExternalServiceError(
-                        f"Failed to log link detection: {str(e)}"
+            )
+        ):
+            try:
+                async with self.webhook_manager.get_webhook(
+                    cast(str, config.webhook)
+                ) as webhook:
+                    await webhook.send(
+                        f"Link detected: {message.content[0:1600]}\n"
+                        f"User: {message.author.name} {message.author.id}\n"
+                        f"Channel: {message.channel.mention}\n"
+                        f"Jump Url: {message.jump_url}",
+                        allowed_mentions=discord.AllowedMentions(
+                            everyone=False, roles=False, users=False
+                        ),
                     )
-                    log_error(
-                        error=error,
-                        command_name="find_links",
-                        user_id=message.author.id,
-                        log_level=logging.ERROR,
-                        additional_context=f"Link in message: {message.id}, Guild: {message.guild.id}",
-                        guild_id=message.guild.id,
-                        channel_id=message.channel.id,
-                    )
+            except Exception as e:
+                # Use standardized error logging with context
+                error = ExternalServiceError(f"Failed to log link detection: {str(e)}")
+                log_error(
+                    error=error,
+                    command_name="find_links",
+                    user_id=message.author.id,
+                    log_level=logging.ERROR,
+                    additional_context=f"Link in message: {message.id}, Guild: {message.guild.id}",
+                    guild_id=message.guild.id,
+                    channel_id=message.channel.id,
+                )
 
     @Cog.listener("on_member_join")
     async def filter_new_users(self, member) -> None:

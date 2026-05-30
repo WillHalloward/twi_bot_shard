@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,7 +38,7 @@ class ReportRepository:
                         Report.message_id == message_id, Report.user_id == user_id
                     )
                 )
-                return result.scalar_one_or_none()
+                return cast(Report | None, result.scalar_one_or_none())
             finally:
                 await session.close()
         except Exception as e:

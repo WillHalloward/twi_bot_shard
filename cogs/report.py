@@ -1,4 +1,5 @@
 import logging
+from typing import cast
 
 import discord
 from discord import app_commands
@@ -201,8 +202,8 @@ class ReportView(discord.ui.View):
             result = await self.report_repo.create(
                 message_id=self.message.id,
                 user_id=interaction.user.id,
-                reason=self.selected_reason,
-                anonymous=self.is_anonymous,
+                reason=cast(str, self.selected_reason),
+                anonymous=cast(bool, self.is_anonymous),
                 additional_info=self.additional_info_text,
                 reported_user_id=self.message.author.id,
                 guild_id=interaction.guild.id if interaction.guild else None,
@@ -224,7 +225,7 @@ class ReportView(discord.ui.View):
 
             await interaction.response.send_message(
                 "✅ **Report submitted successfully!**\n"
-                f"**Reason:** {self.selected_reason.replace('_', ' ').title()}\n"
+                f"**Reason:** {cast(str, self.selected_reason).replace('_', ' ').title()}\n"
                 f"**Anonymous:** {'Yes' if self.is_anonymous else 'No'}\n"
                 "Thank you for helping keep our community safe.",
                 ephemeral=True,
@@ -243,12 +244,12 @@ class ReportView(discord.ui.View):
             item.disabled = True
 
 
-class ReportCog(commands.Cog, name="report"):
+class ReportCog(commands.Cog, name="report"):  # type: ignore[call-arg]  # stub
     def __init__(self, bot) -> None:
         self.bot = bot
         self.logger = logging.getLogger("report_cog")
         self.report_repo = ReportRepository(bot.get_db_session)
-        self.report = app_commands.ContextMenu(
+        self.report = app_commands.ContextMenu(  # type: ignore[method-assign]
             name="Report Message", callback=self.report
         )
         self.bot.tree.add_command(self.report)
@@ -340,7 +341,10 @@ class ReportCog(commands.Cog, name="report"):
         """Called when the cog is unloaded."""
         self.logger.info("Report cog unloading")
         try:
-            self.bot.tree.remove_command(self.report.name, type=self.report.type)
+            self.bot.tree.remove_command(
+                self.report.name,  # type: ignore[attr-defined]
+                type=self.report.type,  # type: ignore[attr-defined]
+            )
             self.logger.info("Report context menu removed successfully")
         except Exception as e:
             self.logger.error(f"Error removing report context menu: {e}")

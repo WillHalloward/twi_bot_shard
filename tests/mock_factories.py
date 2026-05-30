@@ -868,17 +868,17 @@ class MockReactionFactory:
                 self.users_list = users_list
                 self.index = 0
 
-            def __aiter__(self):
+            def __aiter__(self) -> "AsyncUserIterator":
                 return self
 
-            async def __anext__(self):
+            async def __anext__(self) -> Any:
                 if self.index >= len(self.users_list):
                     raise StopAsyncIteration
                 user = self.users_list[self.index]
                 self.index += 1
                 return user
 
-        def get_users():
+        def get_users() -> "AsyncUserIterator":
             return AsyncUserIterator(users)
 
         reaction.users = MagicMock(side_effect=get_users)

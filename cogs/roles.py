@@ -6,6 +6,7 @@ This module provides commands for self-assignable roles and role administration.
 import logging
 import re
 from itertools import groupby
+from typing import Any, cast
 
 import discord
 from discord import app_commands
@@ -22,12 +23,12 @@ from utils.exceptions import (
 from utils.permissions import app_admin_or_me_check
 
 
-class Roles(commands.Cog, name="Roles"):
+class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
     """Role management commands."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.category_cache = None
+        self.category_cache: list[Any] | None = None
 
     async def cog_load(self) -> None:
         """Load category cache on cog load."""
@@ -36,7 +37,7 @@ class Roles(commands.Cog, name="Roles"):
                 "SELECT DISTINCT (category) FROM roles WHERE category IS NOT NULL"
             )
             logging.info(
-                f"ROLES: Successfully loaded category cache with {len(self.category_cache)} categories"
+                f"ROLES: Successfully loaded category cache with {len(cast(list[Any], self.category_cache))} categories"
             )
         except Exception as e:
             logging.error(f"ROLES: Failed to load category cache: {e}")
@@ -348,7 +349,7 @@ class Roles(commands.Cog, name="Roles"):
         role: discord.role.Role,
         category: str = "Uncategorized",
         auto_replace: bool = False,
-        required_roles: str = None,
+        required_roles: str | None = None,
     ) -> None:
         """Add a role to the self-assignable roles list."""
         try:
@@ -480,7 +481,7 @@ class Roles(commands.Cog, name="Roles"):
         """Provide autocomplete suggestions for role categories."""
         return [
             app_commands.Choice(name=category["category"], value=category["category"])
-            for category in self.category_cache
+            for category in cast(list[Any], self.category_cache)
             if current.lower() in category["category"].lower() or current == ""
         ][0:25]
 

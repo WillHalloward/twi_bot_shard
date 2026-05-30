@@ -26,8 +26,8 @@ from utils.exceptions import ValidationError
 
 logger = logging.getLogger("validation")
 
-# Type variables for generic functions
-T = TypeVar("T")
+# Type variable for the command decorators below (validate_choice uses an
+# inline PEP 695 type parameter instead).
 CommandT = TypeVar("CommandT", bound=Callable)
 
 
@@ -79,7 +79,7 @@ def validate_string(
         except Exception:
             raise ValidationError(
                 error_message or f"Expected string, got {type(value).__name__}"
-            )
+            ) from None
 
     if strip:
         value = value.strip()
@@ -102,7 +102,7 @@ def validate_string(
             error_message or "Value does not match the required pattern"
         )
 
-    return value
+    return cast(str, value)
 
 
 def validate_integer(
@@ -135,7 +135,7 @@ def validate_integer(
     except (ValueError, TypeError):
         raise ValidationError(
             error_message or f"Expected integer, got {type(value).__name__}"
-        )
+        ) from None
 
     if min_value is not None and int_value < min_value:
         raise ValidationError(error_message or f"Value must be at least {min_value}")
@@ -178,7 +178,7 @@ def validate_float(
     except (ValueError, TypeError):
         raise ValidationError(
             error_message or f"Expected float, got {type(value).__name__}"
-        )
+        ) from None
 
     if min_value is not None and float_value < min_value:
         raise ValidationError(error_message or f"Value must be at least {min_value}")
@@ -229,7 +229,7 @@ def validate_date(
     value: Any,
     min_date: datetime | None = None,
     max_date: datetime | None = None,
-    formats: list[str] = None,
+    formats: list[str] | None = None,
     error_message: str | None = None,
 ) -> datetime:
     """Validate a date value.
@@ -289,7 +289,7 @@ def validate_date(
     return date_value
 
 
-def validate_choice(
+def validate_choice[T](
     value: Any,
     choices: list[T],
     case_sensitive: bool = False,
@@ -314,7 +314,7 @@ def validate_choice(
 
     # Direct comparison
     if value in choices:
-        return value
+        return cast(T, value)
 
     # Case-insensitive string comparison
     if isinstance(value, str) and not case_sensitive:
@@ -364,12 +364,12 @@ def validate_email(value: Any, error_message: str | None = None) -> str:
     if not pattern.match(value):
         raise ValidationError(error_message or "Invalid email address format")
 
-    return value
+    return cast(str, value)
 
 
 def validate_url(
     value: Any,
-    allowed_schemes: list[str] = None,
+    allowed_schemes: list[str] | None = None,
     error_message: str | None = None,
 ) -> str:
     """Validate a URL.
@@ -417,7 +417,7 @@ def validate_url(
             error_message or f"URL scheme must be one of: {', '.join(allowed_schemes)}"
         )
 
-    return value
+    return cast(str, value)
 
 
 def validate_discord_id(value: Any, error_message: str | None = None) -> int:
@@ -450,7 +450,7 @@ def validate_discord_id(value: Any, error_message: str | None = None) -> int:
 
         return id_value
     except (ValueError, TypeError):
-        raise ValidationError(error_message or "Invalid Discord ID format")
+        raise ValidationError(error_message or "Invalid Discord ID format") from None
 
 
 # Database input sanitization
@@ -469,10 +469,10 @@ def sanitize_string(
         The sanitized string
     """
     if value is None:
-        return ""
+        return ""  # type: ignore[unreachable]  # defensive
 
     if not isinstance(value, str):
-        value = str(value)
+        value = str(value)  # type: ignore[unreachable]  # defensive
 
     # Basic sanitization
     value = value.strip()
@@ -504,7 +504,7 @@ def sanitize_sql_identifier(value: str) -> str:
         raise ValueError("SQL identifier cannot be None")
 
     if not isinstance(value, str):
-        value = str(value)
+        value = str(value)  # type: ignore[unreachable]  # defensive
 
     # Allow only alphanumeric and underscore
     value = re.sub(r"[^\w]", "", value)
@@ -543,7 +543,9 @@ def sanitize_json(value: Any) -> str:
 # Validation decorators
 
 
-def validate_command_params(**param_validators: dict[str, Callable[[Any], Any]]):
+def validate_command_params(
+    **param_validators: Callable[[Any], Any],
+) -> Callable[[CommandT], CommandT]:
     """Decorator for validating command parameters.
 
     Args:
@@ -555,7 +557,7 @@ def validate_command_params(**param_validators: dict[str, Callable[[Any], Any]])
 
     def decorator(command_func: CommandT) -> CommandT:
         @wraps(command_func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs) -> Any:
             # Extract context from args
             ctx = args[0] if len(args) > 0 else None
 
@@ -577,7 +579,9 @@ def validate_command_params(**param_validators: dict[str, Callable[[Any], Any]])
     return decorator
 
 
-def validate_interaction_params(**param_validators: dict[str, Callable[[Any], Any]]):
+def validate_interaction_params(
+    **param_validators: Callable[[Any], Any],
+) -> Callable[[CommandT], CommandT]:
     """Decorator for validating app command interaction parameters.
 
     Args:
@@ -589,7 +593,9 @@ def validate_interaction_params(**param_validators: dict[str, Callable[[Any], An
 
     def decorator(command_func: CommandT) -> CommandT:
         @wraps(command_func)
-        async def wrapper(self, interaction: discord.Interaction, *args, **kwargs):
+        async def wrapper(
+            self, interaction: discord.Interaction, *args, **kwargs
+        ) -> Any:
             # Validate each parameter
             for param_name, validator in param_validators.items():
                 if param_name in kwargs:

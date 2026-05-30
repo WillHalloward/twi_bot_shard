@@ -13,6 +13,7 @@ performance bottlenecks before they impact users.
 """
 
 import asyncio
+import contextlib
 import os
 import statistics
 import sys
@@ -39,8 +40,8 @@ logging.basicConfig(
 
 # Import test utilities
 # Import cogs for testing
-from cogs.utility import Utility
-from tests.mock_factories import (
+from cogs.utility import Utility  # noqa: E402 - after sys.path setup above
+from tests.mock_factories import (  # noqa: E402 - after sys.path setup above
     MockChannelFactory,
     MockGuildFactory,
     MockInteractionFactory,
@@ -296,24 +297,21 @@ class CommandExecutionLoadTest:
 
     async def _simulate_ping_command(self, cog, interaction) -> None:
         """Simulate ping command execution."""
-        try:
+        with contextlib.suppress(Exception):
+            # Expected due to mocking
             await cog.ping(interaction)
-        except Exception:
-            pass  # Expected due to mocking
 
     async def _simulate_info_command(self, cog, interaction) -> None:
         """Simulate info command execution."""
-        try:
+        with contextlib.suppress(Exception):
+            # Expected due to mocking
             await cog.info_user(interaction, interaction.user)
-        except Exception:
-            pass  # Expected due to mocking
 
     async def _simulate_avatar_command(self, cog, interaction) -> None:
         """Simulate avatar command execution."""
-        try:
+        with contextlib.suppress(Exception):
+            # Expected due to mocking
             await cog.av(interaction, interaction.user)
-        except Exception:
-            pass  # Expected due to mocking
 
 
 class DatabaseLoadTest:
@@ -339,7 +337,7 @@ class DatabaseLoadTest:
             await asyncio.sleep(0.002)  # 2ms delay
             return None
 
-        async def mock_fetch_with_delay(*args, **kwargs):
+        async def mock_fetch_with_delay(*args, **kwargs) -> list:
             await asyncio.sleep(0.005)  # 5ms delay
             return []
 
@@ -409,7 +407,7 @@ class DatabaseLoadTest:
         await db.execute("DELETE FROM test_table WHERE id = $1", operation_id)
 
 
-async def run_all_load_tests():
+async def run_all_load_tests() -> bool:
     """Run all load tests and generate comprehensive report."""
     print("🚀 Starting Comprehensive Load Testing Suite...")
     print("=" * 70)

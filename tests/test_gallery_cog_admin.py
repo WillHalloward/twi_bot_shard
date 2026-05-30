@@ -8,7 +8,9 @@ update_tags, and mark_reviewed commands.
 
 import os
 import sys
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -36,7 +38,7 @@ class TestSetRepostCommand:
     """Tests for /gallery_admin set_repost command."""
 
     @pytest.mark.asyncio
-    async def test_set_repost_add_channel(self):
+    async def test_set_repost_add_channel(self) -> None:
         """Test adding a channel to repost channels."""
         # Create test bot and cog
         bot = await TestSetup.create_test_bot()
@@ -73,7 +75,7 @@ class TestSetRepostCommand:
         assert "Added" in embed.title or "Repost Channel Added" in embed.title
 
     @pytest.mark.asyncio
-    async def test_set_repost_remove_channel(self):
+    async def test_set_repost_remove_channel(self) -> None:
         """Test removing a channel from repost channels."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -108,7 +110,7 @@ class TestSetRepostCommand:
         assert "Removed" in embed.title or "Repost Channel Removed" in embed.title
 
     @pytest.mark.asyncio
-    async def test_set_repost_no_permissions(self):
+    async def test_set_repost_no_permissions(self) -> None:
         """Test set_repost when bot lacks permissions."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -137,7 +139,7 @@ class TestExtractDataCommand:
     """Tests for /gallery_admin extract_data command."""
 
     @pytest.mark.asyncio
-    async def test_extract_data_basic(self):
+    async def test_extract_data_basic(self) -> None:
         """Test basic data extraction from a channel."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -148,12 +150,12 @@ class TestExtractDataCommand:
 
         # Mock message history
         mock_messages = []
-        for i in range(5):
+        for _i in range(5):
             msg = MockMessageFactory.create(channel=channel)
             mock_messages.append(msg)
 
         # Mock channel history
-        async def mock_history(**kwargs):
+        async def mock_history(**kwargs: Any) -> AsyncGenerator[Any, None]:
             for msg in mock_messages:
                 yield msg
 
@@ -178,7 +180,7 @@ class TestExtractDataCommand:
         assert interaction.followup.send.called
 
     @pytest.mark.asyncio
-    async def test_extract_data_with_date_filter(self):
+    async def test_extract_data_with_date_filter(self) -> None:
         """Test extraction with after_date filter."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -188,7 +190,7 @@ class TestExtractDataCommand:
         interaction = MockInteractionFactory.create(guild=guild, channel=channel)
 
         # Mock empty channel
-        async def mock_history(**kwargs):
+        async def mock_history(**kwargs: Any) -> AsyncGenerator[Any, None]:
             return
             yield  # Make it a generator
 
@@ -207,7 +209,7 @@ class TestExtractDataCommand:
         interaction.response.defer.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_extract_data_invalid_date(self):
+    async def test_extract_data_invalid_date(self) -> None:
         """Test extraction with invalid date format."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -226,7 +228,7 @@ class TestExtractDataCommand:
         assert "Invalid date format" in args[0]
 
     @pytest.mark.asyncio
-    async def test_extract_data_chunk_size_limit(self):
+    async def test_extract_data_chunk_size_limit(self) -> None:
         """Test that chunk_size is limited to 1000."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -236,7 +238,7 @@ class TestExtractDataCommand:
         interaction = MockInteractionFactory.create(guild=guild, channel=channel)
 
         # Mock empty channel
-        async def mock_history(**kwargs):
+        async def mock_history(**kwargs: Any) -> AsyncGenerator[Any, None]:
             return
             yield
 
@@ -262,7 +264,7 @@ class TestMigrationStatsCommand:
     """Tests for /gallery_admin migration_stats command."""
 
     @pytest.mark.asyncio
-    async def test_migration_stats_display(self):
+    async def test_migration_stats_display(self) -> None:
         """Test displaying migration statistics."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -302,7 +304,7 @@ class TestReviewEntriesCommand:
     """Tests for /gallery_admin review_entries command."""
 
     @pytest.mark.asyncio
-    async def test_review_entries_pagination(self):
+    async def test_review_entries_pagination(self) -> None:
         """Test reviewing entries with pagination."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -338,7 +340,7 @@ class TestReviewEntriesCommand:
         interaction.followup.send.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_review_entries_no_entries(self):
+    async def test_review_entries_no_entries(self) -> None:
         """Test review_entries when no entries exist."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -365,7 +367,7 @@ class TestUpdateTagsCommand:
     """Tests for /gallery_admin update_tags command."""
 
     @pytest.mark.asyncio
-    async def test_update_tags_success(self):
+    async def test_update_tags_success(self) -> None:
         """Test successfully updating tags for an entry."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -394,7 +396,7 @@ class TestUpdateTagsCommand:
         )
 
     @pytest.mark.asyncio
-    async def test_update_tags_entry_not_found(self):
+    async def test_update_tags_entry_not_found(self) -> None:
         """Test update_tags with non-existent entry."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -427,7 +429,7 @@ class TestMarkReviewedCommand:
     """Tests for /gallery_admin mark_reviewed command."""
 
     @pytest.mark.asyncio
-    async def test_mark_reviewed_success(self):
+    async def test_mark_reviewed_success(self) -> None:
         """Test successfully marking an entry as reviewed."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -451,7 +453,7 @@ class TestMarkReviewedCommand:
         )
 
     @pytest.mark.asyncio
-    async def test_mark_reviewed_entry_not_found(self):
+    async def test_mark_reviewed_entry_not_found(self) -> None:
         """Test mark_reviewed with non-existent entry."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -478,7 +480,7 @@ class TestGalleryAdminEdgeCases:
     """Tests for edge cases and error handling."""
 
     @pytest.mark.asyncio
-    async def test_command_with_database_error(self):
+    async def test_command_with_database_error(self) -> None:
         """Test handling of database errors."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -503,7 +505,7 @@ class TestGalleryAdminEdgeCases:
         interaction.response.send_message.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_extract_data_with_processing_errors(self):
+    async def test_extract_data_with_processing_errors(self) -> None:
         """Test extract_data when message processing has errors."""
         bot = await TestSetup.create_test_bot()
         cog = GalleryCog(bot)
@@ -513,8 +515,8 @@ class TestGalleryAdminEdgeCases:
         interaction = MockInteractionFactory.create(guild=guild, channel=channel)
 
         # Mock messages
-        async def mock_history(**kwargs):
-            for i in range(3):
+        async def mock_history(**kwargs: Any) -> AsyncGenerator[Any, None]:
+            for _i in range(3):
                 yield MockMessageFactory.create(channel=channel)
 
         channel.history = MagicMock(return_value=mock_history())

@@ -8,11 +8,13 @@ This module contains:
 
 import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import discord
 import structlog
 from discord.ext.commands import Cog
+
+from .stats_base import StatsMixinBase
 
 if TYPE_CHECKING:
     from discord.ext import commands
@@ -49,7 +51,7 @@ async def save_reaction(bot: "commands.Bot", reaction: discord.Reaction) -> None
         match reaction.emoji:
             case str() as emoji_str:
                 # String emoji (Unicode emoji)
-                reaction_data = [
+                reaction_data: list[tuple[Any, ...]] = [
                     (
                         emoji_str,
                         reaction.message.id,
@@ -460,7 +462,7 @@ async def perform_comprehensive_save(
     end_time = datetime.now()
     total_time = end_time - start_time
 
-    results = {
+    results: dict[str, Any] = {
         "guilds_processed": guilds_processed,
         "total_guilds": total_guilds,
         "channels_processed": total_channels_processed,
@@ -537,7 +539,7 @@ async def perform_comprehensive_save(
 # ============================================================================
 
 
-class StatsListenersMixin:
+class StatsListenersMixin(StatsMixinBase):
     """Mixin class containing all stats-related event listeners."""
 
     @Cog.listener("on_message")
@@ -872,6 +874,7 @@ class StatsListenersMixin:
     @Cog.listener("on_thread_create")
     async def thread_created(self, thread: discord.Thread) -> None:
         """Listen for thread creation and save new threads to the database.
+
         Also ping a role in new threads (except in excluded channels).
 
         Args:

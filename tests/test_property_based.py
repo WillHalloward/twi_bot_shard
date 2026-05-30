@@ -269,7 +269,7 @@ def test_log_error_does_not_raise_exceptions(
     try:
         log_error(error, command_name, user_id, log_level)
     except Exception as e:
-        raise AssertionError(f"log_error raised an exception: {e}")
+        raise AssertionError(f"log_error raised an exception: {e}") from e
 
 
 # Main function to run the tests

@@ -22,7 +22,7 @@ class SummarizationCog(commands.Cog):
         self.server_rules = server_rules
         self.logger = structlog.get_logger("cogs.summarization")
 
-    async def summarize_messages(self, messages):
+    async def summarize_messages(self, messages: list[discord.Message]) -> str:
         """Summarize a list of Discord messages using OpenAI API.
 
         Args:
@@ -113,7 +113,7 @@ class SummarizationCog(commands.Cog):
                 "Unexpected error occurred during summarization"
             ) from e
 
-    async def moderate_conversation(self, messages):
+    async def moderate_conversation(self, messages: list[discord.Message]) -> str:
         """Moderate a list of Discord messages using OpenAI API to check for rule violations.
 
         Args:
@@ -279,7 +279,7 @@ class SummarizationCog(commands.Cog):
         except discord.Forbidden:
             raise ValidationError(
                 message="I don't have permission to read message history in this channel"
-            )
+            ) from None
         except Exception as e:
             self.logger.error(f"Unexpected error in summarize command: {e}")
             raise ExternalServiceError(
@@ -361,7 +361,7 @@ class SummarizationCog(commands.Cog):
         except discord.Forbidden:
             raise ValidationError(
                 message="I don't have permission to read message history in this channel"
-            )
+            ) from None
         except Exception as e:
             self.logger.error(f"Unexpected error in moderate command: {e}")
             raise ExternalServiceError(

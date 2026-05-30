@@ -1,3 +1,5 @@
+import contextlib
+
 import asyncpg
 import discord
 from discord import app_commands
@@ -17,10 +19,10 @@ from utils.repositories import LinkRepository
 from utils.validation import validate_url
 
 
-class LinkTags(commands.Cog, name="Links"):
+class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord.py stubs reject name=
     def __init__(self, bot) -> None:
         self.bot = bot
-        self.links_cache = None
+        self.links_cache: list[dict] | None = None
         self.link_repo = LinkRepository(bot.get_db_session)
 
     async def cog_load(self) -> None:
@@ -28,11 +30,9 @@ class LinkTags(commands.Cog, name="Links"):
 
     async def _refresh_cache(self) -> None:
         """Refresh the links cache after modifications."""
-        try:
+        # Cache update failure shouldn't break the command
+        with contextlib.suppress(Exception):  # nosec B110
             self.links_cache = await self.link_repo.get_all_as_dicts()
-        except Exception:  # nosec B110
-            # Cache update failure shouldn't break the command
-            pass
 
     async def link_autocomplete(
         self,
@@ -40,7 +40,7 @@ class LinkTags(commands.Cog, name="Links"):
         current: str,
     ) -> list[app_commands.Choice[str]]:
         ln = []
-        for x in self.links_cache:
+        for x in self.links_cache:  # type: ignore[union-attr]  # cache set in cog_load
             ln.append({"title": x["title"], "content": x["content"]})
         return [
             app_commands.Choice(
@@ -64,7 +64,7 @@ class LinkTags(commands.Cog, name="Links"):
         Returns:
             List of app_commands.Choice objects for categories
         """
-        categories = set()
+        categories: set[str] = set()
         if self.links_cache:
             for link in self.links_cache:
                 tag = link.get("tag")
@@ -130,11 +130,14 @@ class LinkTags(commands.Cog, name="Links"):
     @app_commands.autocomplete(category=category_autocomplete)
     @handle_interaction_errors
     async def link_list(
-        self, interaction: discord.Interaction, category: str = None
+        self, interaction: discord.Interaction, category: str | None = None
     ) -> None:
-        """Display a list of all link categories with the number of links in each category,
-        or show all links within a specific category if one is provided.
-        This is optimized for handling large amounts of links within Discord's character limit.
+        """Display link categories, or links within a specific category.
+
+        Shows all link categories with the number of links in each category,
+        or all links within a specific category if one is provided.
+        This is optimized for handling large amounts of links within Discord's
+        character limit.
 
         Args:
             interaction: The Discord interaction object
@@ -251,7 +254,7 @@ class LinkTags(commands.Cog, name="Links"):
         interaction: discord.Interaction,
         content: str,
         title: str,
-        tag: str = None,
+        tag: str | None = None,
         embed: bool = True,
     ) -> None:
         """Add a new link with the given title, content, and optional tag.
@@ -332,7 +335,7 @@ class LinkTags(commands.Cog, name="Links"):
                 resource_type="link",
                 resource_id=title,
                 message=f"A link with the title **{title}** already exists. Please choose a different title.",
-            )
+            ) from None
         except ResourceAlreadyExistsError:
             raise
         except Exception as e:
