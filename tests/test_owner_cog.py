@@ -31,7 +31,7 @@ class TestOwnerCogLoad:
     """Tests for the /admin load command."""
 
     @pytest.mark.asyncio
-    async def test_load_cog_success(self):
+    async def test_load_cog_success(self) -> None:
         """Test successfully loading a cog."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -62,7 +62,7 @@ class TestOwnerCogLoad:
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_load_cog_already_loaded(self):
+    async def test_load_cog_already_loaded(self) -> None:
         """Test loading a cog that's already loaded."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -99,7 +99,7 @@ class TestOwnerCogLoad:
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_load_cog_validation(self):
+    async def test_load_cog_validation(self) -> None:
         """Test load validation - empty cog name should send error message."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -128,7 +128,7 @@ class TestOwnerCogUnload:
     """Tests for the /admin unload command."""
 
     @pytest.mark.asyncio
-    async def test_unload_cog_success(self):
+    async def test_unload_cog_success(self) -> None:
         """Test successfully unloading a cog."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -159,7 +159,7 @@ class TestOwnerCogUnload:
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_unload_cog_not_loaded(self):
+    async def test_unload_cog_not_loaded(self) -> None:
         """Test unloading a cog that's not loaded."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -187,7 +187,7 @@ class TestOwnerCogUnload:
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_unload_cannot_unload_owner(self):
+    async def test_unload_cannot_unload_owner(self) -> None:
         """Test that owner cog cannot unload itself."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -222,7 +222,7 @@ class TestOwnerCogReload:
     """Tests for the /admin reload command."""
 
     @pytest.mark.asyncio
-    async def test_reload_cog_success(self):
+    async def test_reload_cog_success(self) -> None:
         """Test successfully reloading a cog."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -259,7 +259,7 @@ class TestOwnerCogCmd:
     """Tests for the /admin cmd command (shell execution)."""
 
     @pytest.mark.asyncio
-    async def test_cmd_execution(self):
+    async def test_cmd_execution(self) -> None:
         """Test executing a shell command."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -290,7 +290,7 @@ class TestOwnerCogSync:
     """Tests for the /admin sync command."""
 
     @pytest.mark.asyncio
-    async def test_sync_command(self):
+    async def test_sync_command(self) -> None:
         """Test syncing commands."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -320,7 +320,7 @@ class TestOwnerCogExit:
     """Tests for the /admin exit command."""
 
     @pytest.mark.asyncio
-    async def test_exit_command(self):
+    async def test_exit_command(self) -> None:
         """Test bot exit command."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -345,7 +345,7 @@ class TestOwnerCogResources:
     """Tests for the /admin resources command."""
 
     @pytest.mark.asyncio
-    async def test_resources_command(self):
+    async def test_resources_command(self) -> None:
         """Test resource monitoring command."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -386,7 +386,7 @@ class TestOwnerCogSQL:
     """Tests for the /admin sql command."""
 
     @pytest.mark.asyncio
-    async def test_sql_select_query(self):
+    async def test_sql_select_query(self) -> None:
         """Test executing a SELECT query."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -418,7 +418,7 @@ class TestOwnerCogAskDB:
     """Tests for the /admin ask_db command."""
 
     @pytest.mark.asyncio
-    async def test_ask_db_basic(self):
+    async def test_ask_db_basic(self) -> None:
         """Test asking database a natural language question."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()

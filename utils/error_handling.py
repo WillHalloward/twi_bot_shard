@@ -16,7 +16,6 @@ from collections.abc import Callable, Coroutine
 from re import Pattern
 from typing import (
     Any,
-    TypeVar,
 )
 
 import discord
@@ -36,9 +35,6 @@ from utils.exceptions import (
     UserInputError,
     ValidationError,
 )
-
-T = TypeVar("T")
-CommandT = TypeVar("CommandT", bound=Callable[..., Coroutine[Any, Any, Any]])
 
 logger = logging.getLogger("error_handling")
 
@@ -568,7 +564,9 @@ def log_error(
         )
 
 
-def handle_command_errors(func: CommandT) -> CommandT:
+def handle_command_errors[CommandT: Callable[..., Coroutine[Any, Any, Any]]](
+    func: CommandT,
+) -> CommandT:
     """Decorator for command handlers to standardize error handling.
 
     This decorator catches exceptions raised by command handlers and provides
@@ -638,7 +636,9 @@ def handle_command_errors(func: CommandT) -> CommandT:
     return wrapper
 
 
-def handle_interaction_errors(func: CommandT) -> CommandT:
+def handle_interaction_errors[CommandT: Callable[..., Coroutine[Any, Any, Any]]](
+    func: CommandT,
+) -> CommandT:
     """Decorator for application command callbacks to standardize error handling.
 
     This decorator catches exceptions raised by application command callbacks and provides

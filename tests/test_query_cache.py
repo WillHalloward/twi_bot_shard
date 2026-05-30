@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 from utils.query_cache import QueryCache
 
 
-def test_query_cache_get_set():
+def test_query_cache_get_set() -> None:
     """Test basic get and set operations."""
     cache = QueryCache(max_size=10, default_ttl=60)
 
@@ -43,7 +43,7 @@ def test_query_cache_get_set():
 
 
 @pytest.mark.asyncio
-async def test_query_cache_expiry():
+async def test_query_cache_expiry() -> None:
     """Test that cached items expire after TTL."""
     cache = QueryCache(max_size=10, default_ttl=1)  # 1 second TTL
 
@@ -66,7 +66,7 @@ async def test_query_cache_expiry():
     assert result is None
 
 
-def test_query_cache_max_size():
+def test_query_cache_max_size() -> None:
     """Test that cache respects max_size limit."""
     cache = QueryCache(max_size=3, default_ttl=60)
 
@@ -93,7 +93,7 @@ def test_query_cache_max_size():
     assert stats.evictions == 1
 
 
-def test_query_cache_invalidate():
+def test_query_cache_invalidate() -> None:
     """Test cache invalidation."""
     cache = QueryCache(max_size=10, default_ttl=60)
 
@@ -120,7 +120,7 @@ def test_query_cache_invalidate():
     assert stats.invalidations >= 1
 
 
-def test_query_cache_clear():
+def test_query_cache_clear() -> None:
     """Test clearing the entire cache."""
     cache = QueryCache(max_size=10, default_ttl=60)
 
@@ -142,7 +142,7 @@ def test_query_cache_clear():
         assert result is None
 
 
-def test_query_cache_stats():
+def test_query_cache_stats() -> None:
     """Test cache statistics tracking."""
     cache = QueryCache(max_size=10, default_ttl=60)
 

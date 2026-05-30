@@ -10,7 +10,7 @@ import config
 class _DisabledWebhook:
     """A no-op webhook that silently ignores all operations when webhooks are disabled."""
 
-    async def send(self, *args, **kwargs):
+    async def send(self, *args, **kwargs) -> None:
         """Silently ignore send operations."""
         pass
 

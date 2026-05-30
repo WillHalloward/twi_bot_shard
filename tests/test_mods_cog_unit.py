@@ -37,7 +37,7 @@ class TestResetCommand:
     """Tests for /mod reset command."""
 
     @pytest.mark.asyncio
-    async def test_reset_success(self):
+    async def test_reset_success(self) -> None:
         """Test successfully resetting a command cooldown."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)
@@ -65,7 +65,7 @@ class TestStateCommand:
     """Tests for /mod state command."""
 
     @pytest.mark.asyncio
-    async def test_state_success(self):
+    async def test_state_success(self) -> None:
         """Test successfully posting a moderator message."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)
@@ -89,7 +89,7 @@ class TestLogAttachmentListener:
     """Tests for log_attachment event listener."""
 
     @pytest.mark.asyncio
-    async def test_log_attachment_success(self):
+    async def test_log_attachment_success(self) -> None:
         """Test logging an attachment to webhook."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)
@@ -121,7 +121,7 @@ class TestLogAttachmentListener:
         assert cog.webhook_manager.get_webhook.called
 
     @pytest.mark.asyncio
-    async def test_log_attachment_ignores_bot_messages(self):
+    async def test_log_attachment_ignores_bot_messages(self) -> None:
         """Test that bot messages are ignored."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)
@@ -143,7 +143,7 @@ class TestLogAttachmentListener:
         cog.webhook_manager.get_webhook.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_log_attachment_no_attachments(self):
+    async def test_log_attachment_no_attachments(self) -> None:
         """Test that messages without attachments are ignored."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)
@@ -167,7 +167,7 @@ class TestDMWatchListener:
     """Tests for dm_watch event listener."""
 
     @pytest.mark.asyncio
-    async def test_dm_watch_webhook_manager_called(self):
+    async def test_dm_watch_webhook_manager_called(self) -> None:
         """Test that webhook manager is called for DM messages."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)
@@ -200,7 +200,7 @@ class TestFindLinksListener:
     """Tests for find_links event listener."""
 
     @pytest.mark.asyncio
-    async def test_find_links_detects_link(self):
+    async def test_find_links_detects_link(self) -> None:
         """Test detecting links in messages from the correct guild."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)
@@ -230,7 +230,7 @@ class TestFindLinksListener:
         assert cog.webhook_manager.get_webhook.called
 
     @pytest.mark.asyncio
-    async def test_find_links_no_link_in_message(self):
+    async def test_find_links_no_link_in_message(self) -> None:
         """Test that messages without links are ignored."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)
@@ -257,7 +257,7 @@ class TestFilterNewUsersListener:
     """Tests for filter_new_users event listener."""
 
     @pytest.mark.asyncio
-    async def test_filter_new_users_adds_verified_role(self):
+    async def test_filter_new_users_adds_verified_role(self) -> None:
         """Test auto-verifying users with accounts older than 72 hours."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)
@@ -282,7 +282,7 @@ class TestFilterNewUsersListener:
         member.add_roles.assert_called_once_with(verified_role)
 
     @pytest.mark.asyncio
-    async def test_filter_new_users_skips_new_accounts(self):
+    async def test_filter_new_users_skips_new_accounts(self) -> None:
         """Test that new accounts (< 72 hours) are not auto-verified."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)
@@ -311,7 +311,7 @@ class TestModsEdgeCases:
     """Tests for edge cases and error handling."""
 
     @pytest.mark.asyncio
-    async def test_log_attachment_webhook_error(self):
+    async def test_log_attachment_webhook_error(self) -> None:
         """Test handling of webhook errors in log_attachment."""
         bot = await TestSetup.create_test_bot()
         cog = ModCogs(bot)

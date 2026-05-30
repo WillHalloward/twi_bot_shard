@@ -26,8 +26,8 @@ from utils.exceptions import ValidationError
 
 logger = logging.getLogger("validation")
 
-# Type variables for generic functions
-T = TypeVar("T")
+# Type variable for the command decorators below (validate_choice uses an
+# inline PEP 695 type parameter instead).
 CommandT = TypeVar("CommandT", bound=Callable)
 
 
@@ -289,7 +289,7 @@ def validate_date(
     return date_value
 
 
-def validate_choice(
+def validate_choice[T](
     value: Any,
     choices: list[T],
     case_sensitive: bool = False,

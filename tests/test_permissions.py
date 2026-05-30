@@ -16,14 +16,14 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 class MockRole:
     """Mock role class for testing."""
 
-    def __init__(self, role_id):
+    def __init__(self, role_id) -> None:
         self.id = role_id
 
 
 class MockGuildPermissions:
     """Mock guild permissions for testing."""
 
-    def __init__(self, administrator=False, ban_members=False):
+    def __init__(self, administrator=False, ban_members=False) -> None:
         self.administrator = administrator
         self.ban_members = ban_members
 
@@ -31,7 +31,9 @@ class MockGuildPermissions:
 class MockMember:
     """Mock member class for testing."""
 
-    def __init__(self, user_id, roles=None, administrator=False, ban_members=False):
+    def __init__(
+        self, user_id, roles=None, administrator=False, ban_members=False
+    ) -> None:
         self.id = user_id
         self.roles = roles or []
         self.guild_permissions = MockGuildPermissions(administrator, ban_members)
@@ -40,7 +42,7 @@ class MockMember:
 class MockUser:
     """Mock user class for testing."""
 
-    def __init__(self, user_id, roles=None):
+    def __init__(self, user_id, roles=None) -> None:
         self.id = user_id
         self.roles = roles or []
 
@@ -48,7 +50,7 @@ class MockUser:
 class MockGuild:
     """Mock guild class for testing."""
 
-    def __init__(self, guild_id, members=None):
+    def __init__(self, guild_id, members=None) -> None:
         self.id = guild_id
         self.roles = []
         self._members = members or {}
@@ -60,14 +62,14 @@ class MockGuild:
 class MockChannel:
     """Mock channel class for testing."""
 
-    def __init__(self, channel_id):
+    def __init__(self, channel_id) -> None:
         self.id = channel_id
 
 
 class MockContext:
     """Mock context class for testing traditional commands."""
 
-    def __init__(self, user_id, guild, channel_id, roles=None, bot=None):
+    def __init__(self, user_id, guild, channel_id, roles=None, bot=None) -> None:
         self.author = MockUser(user_id, roles)
         self.guild = guild
         self.channel = MockChannel(channel_id)
@@ -77,7 +79,7 @@ class MockContext:
 class MockInteraction:
     """Mock interaction class for testing app commands."""
 
-    def __init__(self, user_id, guild, channel_id, roles=None, client=None):
+    def __init__(self, user_id, guild, channel_id, roles=None, client=None) -> None:
         self.user = MockUser(user_id, roles)
         # Also set author for compatibility with code that checks isinstance
         # When isinstance check fails, code may fall back to author
@@ -109,7 +111,7 @@ def mock_config():
 
 
 @pytest.mark.asyncio
-async def test_is_bot_owner(mock_config):
+async def test_is_bot_owner(mock_config) -> None:
     """Test the is_bot_owner function."""
     from utils.permissions import is_bot_owner
 
@@ -118,7 +120,7 @@ async def test_is_bot_owner(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_is_admin_bot_owner(mock_config, mock_bot):
+async def test_is_admin_bot_owner(mock_config, mock_bot) -> None:
     """Test is_admin returns True for bot owner."""
     from utils.permissions import is_admin
 
@@ -127,7 +129,7 @@ async def test_is_admin_bot_owner(mock_config, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_is_admin_discord_admin(mock_config, mock_bot):
+async def test_is_admin_discord_admin(mock_config, mock_bot) -> None:
     """Test is_admin returns True for Discord administrators."""
     from utils.permissions import is_admin
 
@@ -141,7 +143,7 @@ async def test_is_admin_discord_admin(mock_config, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_is_admin_settings_cog(mock_config, mock_bot):
+async def test_is_admin_settings_cog(mock_config, mock_bot) -> None:
     """Test is_admin delegates to settings cog for non-Discord admins."""
     from utils.permissions import is_admin
 
@@ -158,7 +160,7 @@ async def test_is_admin_settings_cog(mock_config, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_is_admin_regular_user(mock_config, mock_bot):
+async def test_is_admin_regular_user(mock_config, mock_bot) -> None:
     """Test is_admin returns False for regular users."""
     from utils.permissions import is_admin
 
@@ -175,7 +177,7 @@ async def test_is_admin_regular_user(mock_config, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_is_moderator_bot_owner(mock_config, mock_bot):
+async def test_is_moderator_bot_owner(mock_config, mock_bot) -> None:
     """Test is_moderator returns True for bot owner."""
     from utils.permissions import is_moderator
 
@@ -184,7 +186,7 @@ async def test_is_moderator_bot_owner(mock_config, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_is_moderator_ban_members(mock_config, mock_bot):
+async def test_is_moderator_ban_members(mock_config, mock_bot) -> None:
     """Test is_moderator returns True for users with ban_members permission."""
     from utils.permissions import is_moderator
 
@@ -197,7 +199,7 @@ async def test_is_moderator_ban_members(mock_config, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_admin_or_me_check_admin(mock_config, mock_bot):
+async def test_admin_or_me_check_admin(mock_config, mock_bot) -> None:
     """Test admin_or_me_check passes for admins."""
     from utils.permissions import admin_or_me_check
 
@@ -220,7 +222,7 @@ async def test_admin_or_me_check_admin(mock_config, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_admin_or_me_check_bot_owner(mock_config, mock_bot):
+async def test_admin_or_me_check_bot_owner(mock_config, mock_bot) -> None:
     """Test admin_or_me_check passes for bot owner."""
     from utils.permissions import admin_or_me_check
 
@@ -239,7 +241,7 @@ async def test_admin_or_me_check_bot_owner(mock_config, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_admin_or_me_check_no_permission(mock_config, mock_bot):
+async def test_admin_or_me_check_no_permission(mock_config, mock_bot) -> None:
     """Test admin_or_me_check raises for regular users."""
     from utils.exceptions import PermissionError
     from utils.permissions import admin_or_me_check
@@ -262,7 +264,7 @@ async def test_admin_or_me_check_no_permission(mock_config, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_admin_check_wrappers(mock_config, mock_bot):
+async def test_admin_check_wrappers(mock_config, mock_bot) -> None:
     """Test the admin check wrapper functions."""
     from utils.permissions import admin_or_me_check_wrapper, app_admin_or_me_check
 
@@ -273,7 +275,7 @@ async def test_admin_check_wrappers(mock_config, mock_bot):
 
     # Test that wrapper is a decorator that can be applied to a function
     # The wrapper expects a command function, not a context
-    async def dummy_command(ctx):
+    async def dummy_command(ctx) -> None:
         pass
 
     # The wrapper should return a decorated command when used properly
@@ -289,7 +291,7 @@ async def test_admin_check_wrappers(mock_config, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_is_bot_channel(mock_config):
+async def test_is_bot_channel(mock_config) -> None:
     """Test the is_bot_channel function."""
     from utils.permissions import is_bot_channel
 
@@ -307,7 +309,7 @@ async def test_is_bot_channel(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_bot_channel_wrappers(mock_config):
+async def test_bot_channel_wrappers(mock_config) -> None:
     """Test the bot channel wrapper functions."""
     from utils.permissions import app_is_bot_channel, is_bot_channel_wrapper
 
@@ -324,7 +326,7 @@ async def test_bot_channel_wrappers(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_owner_only_check(mock_config):
+async def test_owner_only_check(mock_config) -> None:
     """Test owner_only_check function."""
     from utils.exceptions import OwnerOnlyError
     from utils.permissions import owner_only_check
@@ -342,7 +344,7 @@ async def test_owner_only_check(mock_config):
         await owner_only_check(ctx)
 
 
-def main():
+def main() -> None:
     """Run tests with pytest."""
     pytest.main([__file__, "-v"])
 

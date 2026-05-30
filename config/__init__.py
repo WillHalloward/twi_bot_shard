@@ -9,13 +9,13 @@ validation to ensure all required values are present and properly formatted.
 import json
 import logging
 import os
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # Define environment types
-class Environment(str, Enum):
+class Environment(StrEnum):
     """Environment types for the bot configuration."""
 
     DEVELOPMENT = "development"
@@ -25,7 +25,7 @@ class Environment(str, Enum):
 
 
 # Define log format types
-class LogFormat(str, Enum):
+class LogFormat(StrEnum):
     """Log format options for the bot logging system."""
 
     JSON = "json"

@@ -34,7 +34,7 @@ class TestRepostModal:
     """Tests for RepostModal UI component."""
 
     @pytest.mark.asyncio
-    async def test_repost_modal_initialization(self):
+    async def test_repost_modal_initialization(self) -> None:
         """Test that RepostModal initializes correctly."""
         mention = "@testuser"
         jump_url = "https://discord.com/channels/123/456/789"
@@ -48,7 +48,7 @@ class TestRepostModal:
         assert title in modal.title_item.default
 
     @pytest.mark.asyncio
-    async def test_repost_modal_with_extra_description(self):
+    async def test_repost_modal_with_extra_description(self) -> None:
         """Test RepostModal with extra description."""
         mention = "@testuser"
         jump_url = "https://discord.com/channels/123/456/789"
@@ -61,7 +61,7 @@ class TestRepostModal:
         assert extra in modal.description_item.default
 
     @pytest.mark.asyncio
-    async def test_repost_modal_on_submit(self):
+    async def test_repost_modal_on_submit(self) -> None:
         """Test RepostModal submission."""
         mention = "@testuser"
         jump_url = "https://discord.com/channels/123/456/789"
@@ -83,7 +83,7 @@ class TestRepostMenu:
     """Tests for RepostMenu UI component."""
 
     @pytest.mark.asyncio
-    async def test_repost_menu_initialization(self):
+    async def test_repost_menu_initialization(self) -> None:
         """Test that RepostMenu initializes correctly."""
         mention = "@testuser"
         jump_url = "https://discord.com/channels/123/456/789"
@@ -104,7 +104,7 @@ class TestGalleryRepostCache:
     """Tests for gallery repost cache management."""
 
     @pytest.mark.asyncio
-    async def test_repost_cache_initialization(self):
+    async def test_repost_cache_initialization(self) -> None:
         """Test that repost cache exists and can be set."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -125,7 +125,7 @@ class TestGalleryRepostCache:
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_repost_cache_stores_data(self):
+    async def test_repost_cache_stores_data(self) -> None:
         """Test that repost cache can store channel data."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -155,7 +155,7 @@ class TestGalleryRepostValidation:
     """Tests for repost attachment validation."""
 
     @pytest.mark.asyncio
-    async def test_repost_requires_attachments(self):
+    async def test_repost_requires_attachments(self) -> None:
         """Test that repost fails gracefully with no attachments."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()
@@ -184,7 +184,7 @@ class TestGalleryRepostValidation:
         await TestTeardown.teardown_bot(bot)
 
     @pytest.mark.asyncio
-    async def test_repost_requires_supported_content_type(self):
+    async def test_repost_requires_supported_content_type(self) -> None:
         """Test that repost validates content types."""
         # Create a test bot
         bot = await TestSetup.create_test_bot()

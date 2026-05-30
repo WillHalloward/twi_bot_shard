@@ -266,7 +266,7 @@ async def main(source: str = "file") -> None:
             all_embeddings.extend(batch_embeddings)
 
         # Create embedding map
-        embeddings_map = dict(zip(table_names, all_embeddings))
+        embeddings_map = dict(zip(table_names, all_embeddings, strict=False))
 
         # Upsert to database
         print("Upserting embeddings to database...")

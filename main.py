@@ -648,7 +648,9 @@ class Cognita(commands.Bot):
 
     @commands.command(name="sync")
     @commands.is_owner()
-    async def prefix_sync(self, ctx: commands.Context, guild_id: int | None = None):
+    async def prefix_sync(
+        self, ctx: commands.Context, guild_id: int | None = None
+    ) -> None:
         """Sync slash commands globally or to a specific guild. Owner only.
 
         Usage:
