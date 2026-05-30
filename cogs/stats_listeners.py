@@ -14,6 +14,8 @@ import discord
 import structlog
 from discord.ext.commands import Cog
 
+from .stats_base import StatsMixinBase
+
 if TYPE_CHECKING:
     from discord.ext import commands
 
@@ -537,7 +539,7 @@ async def perform_comprehensive_save(
 # ============================================================================
 
 
-class StatsListenersMixin:
+class StatsListenersMixin(StatsMixinBase):
     """Mixin class containing all stats-related event listeners."""
 
     @Cog.listener("on_message")

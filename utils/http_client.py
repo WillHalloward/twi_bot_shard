@@ -84,7 +84,7 @@ class RateLimiter:
             self._buckets[domain] = (0, now)
 
             # Create a future to wait on
-            future = asyncio.Future()
+            future: asyncio.Future[Any] = asyncio.Future()
             self._waiting_requests[domain].append(future)
 
             self.logger.debug(f"Rate limited for {domain}, waiting {wait_time:.2f}s")
@@ -257,7 +257,7 @@ class HTTPClient:
         self._session: ClientSession | None = None
         self._lock = asyncio.Lock()
         self._request_semaphore = asyncio.Semaphore(max_concurrent_requests)
-        self._stats = {
+        self._stats: dict[str, Any] = {
             "requests": 0,
             "errors": 0,
             "timeouts": 0,
@@ -399,6 +399,9 @@ class HTTPClient:
                     # Either not a session error, or we've exhausted retries
                     raise
 
+        # Unreachable for max_retries >= 0, but guarantees a return/raise path.
+        raise aiohttp.ClientError("Failed to obtain a usable session")
+
     async def close(self) -> None:
         """Close the shared ClientSession."""
         if self._session and not self._session.closed:
@@ -411,7 +414,7 @@ class HTTPClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         timeout: int | None = None,
-        retry_for_statuses: list[int] = None,
+        retry_for_statuses: list[int] | None = None,
         no_circuit_breaker: bool = False,
         no_rate_limit: bool = False,
         **kwargs,
@@ -600,7 +603,7 @@ class HTTPClient:
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         timeout: int | None = None,
-        retry_for_statuses: list[int] = None,
+        retry_for_statuses: list[int] | None = None,
         no_circuit_breaker: bool = False,
         no_rate_limit: bool = False,
         **kwargs,
@@ -791,7 +794,7 @@ class HTTPClient:
         headers: dict[str, str] | None = None,
         timeout: int | None = None,
         chunk_size: int = 8192,
-        retry_for_statuses: list[int] = None,
+        retry_for_statuses: list[int] | None = None,
         no_circuit_breaker: bool = False,
         no_rate_limit: bool = False,
     ) -> bool:
@@ -1007,8 +1010,8 @@ class HTTPClient:
             A dictionary with endpoint statistics.
         """
         if endpoint:
-            return self._stats.get("endpoints", {}).get(endpoint, {}).copy()
-        return self._stats.get("endpoints", {}).copy()
+            return dict(self._stats.get("endpoints", {}).get(endpoint, {}))
+        return dict(self._stats.get("endpoints", {}))
 
     def reset_stats(self) -> None:
         """Reset statistics."""

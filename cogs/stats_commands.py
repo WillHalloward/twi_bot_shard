@@ -17,6 +17,7 @@ from discord.ext import commands
 from utils.error_handling import handle_command_errors, handle_interaction_errors
 from utils.exceptions import DatabaseError, QueryError, ValidationError
 
+from .stats_base import StatsMixinBase
 from .stats_listeners import perform_comprehensive_save, save_message
 
 if TYPE_CHECKING:
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
     from discord.ext.commands import Context
 
 
-class StatsCommandsMixin:
+class StatsCommandsMixin(StatsMixinBase):
     """Mixin class containing all stats-related command methods."""
 
     @commands.command(name="save_users", hidden=True)
@@ -1324,7 +1325,7 @@ class StatsCommandsMixin:
             ) from e
 
 
-class StatsQueriesMixin:
+class StatsQueriesMixin(StatsMixinBase):
     """Mixin class containing all stats-related query commands."""
 
     @app_commands.command(
