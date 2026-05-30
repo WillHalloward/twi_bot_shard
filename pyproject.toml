@@ -20,6 +20,7 @@ dependencies = [
     "psutil>=5.9.0",
     "cryptography>=45.0.5",
     "gallery_dl>=1.29.4",
+    "sentry-sdk>=2.0.0",
 ]
 
 [project.optional-dependencies]
