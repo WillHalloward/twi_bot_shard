@@ -136,6 +136,7 @@ The bot implements a comprehensive error handling strategy:
 - **Decorators**: `@handle_command_errors` for regular commands, `@handle_interaction_errors` for slash commands
 - **Global Handlers**: Set up via `setup_global_exception_handler()` in main.py
 - **Error Telemetry**: Tracks error patterns in database for proactive resolution
+- **Sentry Reporting**: Unexpected errors are forwarded to Sentry from `log_error()` and the uncaught-exception hook (see [Observability & Monitoring](#observability--monitoring-sentry))
 
 ### Key Design Patterns
 
@@ -304,6 +305,52 @@ are at zero, remove the `continue-on-error: true` from that job's run step.
 Note: job-level `continue-on-error` alone is **not** enough — it spares the
 overall run but the named check still reports red, so the flag must be on the
 step.
+
+### Observability & Monitoring (Sentry)
+
+Runtime error reporting and liveness monitoring run through
+[Sentry](https://sentry.io). The integration lives in
+`utils/sentry_setup.py` and is **a no-op unless `SENTRY_DSN` is set**, so local
+development and the test suite are unaffected.
+
+**Initialisation** — `init_sentry()` is called early in `main.py` (right after
+logging is configured). It is gated on `SENTRY_DSN` and tags every event with
+the deployment `environment` and the git SHA as the `release`. Defaults are
+privacy-conservative: `send_default_pii=False` and performance tracing off
+(`traces_sample_rate=0.0`, tunable via `SENTRY_TRACES_SAMPLE_RATE`).
+
+**Error reporting** — `capture_exception()` is fired from the existing
+`log_error()` choke point (so it rides on the same filter that excludes
+expected errors like cooldowns/check-failures/`CognitaError`) and from the
+uncaught-exception hook in `setup_global_exception_handler()`. A `before_send`
+hook runs the event's exception value and log message through
+`redact_sensitive_info()`, so secrets are scrubbed before leaving the process.
+Note: `before_send` does **not** scrub stack-frame local variables — rely on
+Sentry's server-side data-scrubbing for those, or set
+`include_local_variables=False` if needed.
+
+**Liveness heartbeat** (`cogs/heartbeat.py`) — a dead-man's-switch for the
+"unreachable but not throwing errors" failure mode (hang, OOM-kill, silent
+gateway disconnect). While connected, the bot sends a Sentry cron check-in
+every 5 minutes (`send_heartbeat()`, monitor slug `twi-bot-heartbeat`, created
+automatically on first check-in). Sentry — externally — raises a missed
+check-in issue after ~15 min (interval 5 + margin 10) when they stop. Because
+the alert is driven by Sentry reacting to the *absence* of a signal, it fires
+even when the bot itself is dead. The cog loads in staging/production (not in
+test mode, where the loop is skipped).
+
+**Configuration & alerting** — `SENTRY_DSN` is set as a Railway env var on both
+the `staging` and `production` environments (same DSN; the `environment` tag
+differentiates them). Issues route to Discord via Sentry **issue-alert rules**
+("a new issue is created", filtered per environment) configured in the Sentry
+UI — the MCP/API does not create alert rules.
+
+**Gotcha** — running code locally with `SENTRY_DSN` set will report uncaught
+exceptions to the shared project via Sentry's default excepthook integration.
+Normal local dev tags them `development` (ignored by the staging/production
+alert rules), but manual test scripts that force `environment='staging'`/
+`'production'` will trip the real Discord alerts. Tag throwaway test events with
+a distinct environment (e.g. `local-test`).
 
 ## Database Schema
 
