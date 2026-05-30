@@ -102,7 +102,7 @@ def validate_string(
             error_message or "Value does not match the required pattern"
         )
 
-    return value
+    return cast(str, value)
 
 
 def validate_integer(
@@ -229,7 +229,7 @@ def validate_date(
     value: Any,
     min_date: datetime | None = None,
     max_date: datetime | None = None,
-    formats: list[str] = None,
+    formats: list[str] | None = None,
     error_message: str | None = None,
 ) -> datetime:
     """Validate a date value.
@@ -314,7 +314,7 @@ def validate_choice[T](
 
     # Direct comparison
     if value in choices:
-        return value
+        return cast(T, value)
 
     # Case-insensitive string comparison
     if isinstance(value, str) and not case_sensitive:
@@ -364,12 +364,12 @@ def validate_email(value: Any, error_message: str | None = None) -> str:
     if not pattern.match(value):
         raise ValidationError(error_message or "Invalid email address format")
 
-    return value
+    return cast(str, value)
 
 
 def validate_url(
     value: Any,
-    allowed_schemes: list[str] = None,
+    allowed_schemes: list[str] | None = None,
     error_message: str | None = None,
 ) -> str:
     """Validate a URL.
@@ -417,7 +417,7 @@ def validate_url(
             error_message or f"URL scheme must be one of: {', '.join(allowed_schemes)}"
         )
 
-    return value
+    return cast(str, value)
 
 
 def validate_discord_id(value: Any, error_message: str | None = None) -> int:
@@ -469,10 +469,10 @@ def sanitize_string(
         The sanitized string
     """
     if value is None:
-        return ""
+        return ""  # type: ignore[unreachable]  # defensive
 
     if not isinstance(value, str):
-        value = str(value)
+        value = str(value)  # type: ignore[unreachable]  # defensive
 
     # Basic sanitization
     value = value.strip()
@@ -504,7 +504,7 @@ def sanitize_sql_identifier(value: str) -> str:
         raise ValueError("SQL identifier cannot be None")
 
     if not isinstance(value, str):
-        value = str(value)
+        value = str(value)  # type: ignore[unreachable]  # defensive
 
     # Allow only alphanumeric and underscore
     value = re.sub(r"[^\w]", "", value)
@@ -544,7 +544,7 @@ def sanitize_json(value: Any) -> str:
 
 
 def validate_command_params(
-    **param_validators: dict[str, Callable[[Any], Any]],
+    **param_validators: Callable[[Any], Any],
 ) -> Callable[[CommandT], CommandT]:
     """Decorator for validating command parameters.
 
@@ -580,7 +580,7 @@ def validate_command_params(
 
 
 def validate_interaction_params(
-    **param_validators: dict[str, Callable[[Any], Any]],
+    **param_validators: Callable[[Any], Any],
 ) -> Callable[[CommandT], CommandT]:
     """Decorator for validating app command interaction parameters.
 

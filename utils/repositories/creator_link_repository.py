@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import cast
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -82,7 +83,7 @@ class CreatorLinkRepository:
                         func.lower(CreatorLink.title) == func.lower(title),
                     )
                 )
-                return result.scalar_one_or_none()
+                return cast(CreatorLink | None, result.scalar_one_or_none())
             finally:
                 await session.close()
         except Exception as e:

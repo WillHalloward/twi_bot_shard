@@ -8,7 +8,7 @@ from utils.error_handling import handle_interaction_errors
 from utils.repositories import ServerSettingsRepository
 
 
-class SettingsCog(commands.Cog, name="Settings"):
+class SettingsCog(commands.Cog, name="Settings"):  # type: ignore[call-arg]  # stub
     """Cog for managing server-specific settings."""
 
     def __init__(self, bot) -> None:

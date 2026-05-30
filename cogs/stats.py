@@ -19,7 +19,7 @@ Architecture:
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from discord.ext import commands, tasks
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from discord.ext.commands import Bot
 
 
-class StatsCogs(
+class StatsCogs(  # type: ignore[call-arg]  # discord.py Cog name= kwarg
     StatsCommandsMixin,
     StatsListenersMixin,
     StatsQueriesMixin,
@@ -204,7 +204,7 @@ class StatsCogs(
             self.logger.debug("messages_found", count=len(messages_result))
 
             # Calculate category totals and organize data
-            category_data = {}
+            category_data: dict[Any, dict[str, Any]] = {}
             max_count = 0
 
             for result in messages_result:

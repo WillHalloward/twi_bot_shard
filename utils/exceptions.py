@@ -9,7 +9,9 @@ in command handlers and middleware.
 class CognitaError(Exception):
     """Base exception for all bot errors."""
 
-    def __init__(self, message: str = "An error occurred", *args, **kwargs) -> None:
+    def __init__(
+        self, message: str | None = "An error occurred", *args, **kwargs
+    ) -> None:
         self.message = message
         super().__init__(message, *args, **kwargs)
 
@@ -86,7 +88,7 @@ class PermissionError(CognitaError):
 
     def __init__(
         self,
-        message: str = "You don't have permission to perform this action",
+        message: str | None = "You don't have permission to perform this action",
         *args,
         **kwargs,
     ) -> None:
@@ -97,7 +99,11 @@ class RolePermissionError(PermissionError):
     """Errors related to role-based permissions."""
 
     def __init__(
-        self, required_role: str = None, message: str = None, *args, **kwargs
+        self,
+        required_role: str | None = None,
+        message: str | None = None,
+        *args,
+        **kwargs,
     ) -> None:
         self.required_role = required_role
         if required_role and not message:
@@ -171,7 +177,7 @@ class DatabaseError(CognitaError):
     """Errors related to database operations."""
 
     def __init__(
-        self, message: str = "Database operation failed", *args, **kwargs
+        self, message: str | None = "Database operation failed", *args, **kwargs
     ) -> None:
         super().__init__(message, *args, **kwargs)
 
@@ -179,7 +185,13 @@ class DatabaseError(CognitaError):
 class QueryError(DatabaseError):
     """Errors related to database queries."""
 
-    def __init__(self, query: str = None, message: str = None, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        query: str | None = None,
+        message: str | None = None,
+        *args,
+        **kwargs,
+    ) -> None:
         self.query = query
         if not message:
             message = "Database query failed"

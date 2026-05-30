@@ -12,6 +12,7 @@ import ssl
 
 import asyncpg
 import discord
+from aiohttp import ClientSession
 from discord.ext import commands
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -181,9 +182,9 @@ class SyncBot(commands.Bot):
 
         self.db = Database(db_pool)
         self.http_client = http_client
-        self.web_client = None
+        self.web_client: ClientSession | None = None
         self.session_maker = async_session_maker
-        self.startup_times = {}
+        self.startup_times: dict[str, float] = {}
         self.logger = logging.getLogger("sync_bot")
         self.resource_monitor = ResourceMonitor(
             check_interval=300,

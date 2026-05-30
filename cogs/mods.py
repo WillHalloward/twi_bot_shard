@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+from typing import cast
 
 import discord
 from discord import app_commands
@@ -183,7 +184,7 @@ class ModCogs(commands.Cog):
             for attachment in message.attachments:
                 try:
                     async with self.webhook_manager.get_webhook(
-                        config.webhook
+                        cast(str, config.webhook)
                     ) as webhook:
                         embed = discord.Embed(
                             title="New attachment",
@@ -232,7 +233,7 @@ class ModCogs(commands.Cog):
                 for attachment in message.attachments:
                     try:
                         async with self.webhook_manager.get_webhook(
-                            config.webhook_testing_log
+                            cast(str, config.webhook_testing_log)
                         ) as webhook:
                             embed = discord.Embed(
                                 title="New attachment",
@@ -263,7 +264,7 @@ class ModCogs(commands.Cog):
             else:
                 try:
                     async with self.webhook_manager.get_webhook(
-                        config.webhook_testing_log
+                        cast(str, config.webhook_testing_log)
                     ) as webhook:
                         embed = discord.Embed(
                             title="New message",
@@ -304,7 +305,9 @@ class ModCogs(commands.Cog):
             )
         ):
             try:
-                async with self.webhook_manager.get_webhook(config.webhook) as webhook:
+                async with self.webhook_manager.get_webhook(
+                    cast(str, config.webhook)
+                ) as webhook:
                     await webhook.send(
                         f"Link detected: {message.content[0:1600]}\n"
                         f"User: {message.author.name} {message.author.id}\n"

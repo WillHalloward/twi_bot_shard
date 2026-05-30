@@ -8,6 +8,7 @@ and other TWI-specific functionality.
 import datetime
 import json
 import logging
+from typing import Any, cast
 
 import discord
 from discord import app_commands
@@ -43,10 +44,10 @@ def google_search(search_term, api_key, cse_id, **kwargs) -> dict:
     """
     service = build("customsearch", "v1", developerKey=api_key)
     res = service.cse().list(q=search_term, cx=cse_id, num=9, **kwargs).execute()
-    return res
+    return cast(dict[Any, Any], res)
 
 
-class TwiCog(commands.Cog, name="The Wandering Inn"):
+class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
     """Cog providing commands related to The Wandering Inn web serial.
 
     This cog includes commands for retrieving Patreon passwords, searching the TWI wiki,
@@ -67,7 +68,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
         """
         self.bot = bot
         self.logger = logging.getLogger("cogs.twi")
-        self.invis_text_cache = None
+        self.invis_text_cache: list[Any] | None = None
         self.last_run = datetime.datetime.now() - datetime.timedelta(minutes=10)
 
     async def cog_load(self) -> None:
@@ -609,7 +610,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
     )
     @handle_interaction_errors
     async def invis_text(
-        self, interaction: discord.Interaction, chapter: str = None
+        self, interaction: discord.Interaction, chapter: str | None = None
     ) -> None:
         """Retrieve invisible text from The Wandering Inn chapters.
 
@@ -843,7 +844,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):
             A list of up to 25 matching chapter name choices
         """
         ln = []
-        for x in self.invis_text_cache:
+        for x in cast(list[Any], self.invis_text_cache):
             ln.append(x["title"])
         return [
             app_commands.Choice(name=title, value=title)

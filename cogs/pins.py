@@ -4,6 +4,7 @@ This module provides commands for pinning messages in designated channels.
 """
 
 import logging
+from typing import Any, cast
 
 import discord
 from discord import app_commands
@@ -19,12 +20,12 @@ from utils.exceptions import (
 )
 
 
-class Pins(commands.Cog, name="Pins"):
+class Pins(commands.Cog, name="Pins"):  # type: ignore[call-arg]  # stub
     """Pin management commands."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.pin_cache = None
+        self.pin_cache: list[Any] | None = None
         self.pin_context = app_commands.ContextMenu(
             name="Pin",
             callback=self.pin_callback,
@@ -61,7 +62,9 @@ class Pins(commands.Cog, name="Pins"):
                 f"PINS: User {interaction.user.id} attempting to pin message {message.id}"
             )
 
-            if message.channel.id not in [x["id"] for x in self.pin_cache]:
+            if message.channel.id not in [
+                x["id"] for x in cast(list[Any], self.pin_cache)
+            ]:
                 raise PermissionError(
                     message="You can't pin messages in this channel. An admin needs to enable pins for this channel first."
                 )
@@ -167,7 +170,9 @@ class Pins(commands.Cog, name="Pins"):
                 f"PINS: User {interaction.user.id} toggling pin permissions for channel {channel.id}"
             )
 
-            is_currently_allowed = channel.id in [x["id"] for x in self.pin_cache]
+            is_currently_allowed = channel.id in [
+                x["id"] for x in cast(list[Any], self.pin_cache)
+            ]
             action = "remove" if is_currently_allowed else "add"
 
             try:
@@ -226,7 +231,7 @@ class Pins(commands.Cog, name="Pins"):
                     name="👤 Modified By", value=interaction.user.mention, inline=True
                 )
 
-                total_allowed = len(self.pin_cache)
+                total_allowed = len(cast(list[Any], self.pin_cache))
                 embed.add_field(
                     name="📊 Total Allowed Channels",
                     value=f"{total_allowed} channel{'s' if total_allowed != 1 else ''}",

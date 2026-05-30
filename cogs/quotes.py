@@ -6,6 +6,7 @@ This module provides commands for managing and retrieving quotes from the databa
 import logging
 import re
 from datetime import UTC
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -20,12 +21,12 @@ from utils.exceptions import (
 )
 
 
-class Quotes(commands.Cog, name="Quotes"):
+class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.py stubs reject name=
     """Quote management commands."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.quote_cache = None
+        self.quote_cache: list[Any] | None = None
 
     async def cog_load(self) -> None:
         """Load quote cache on cog load."""
@@ -409,7 +410,7 @@ class Quotes(commands.Cog, name="Quotes"):
     ) -> list[app_commands.Choice[int]]:
         """Provide autocomplete suggestions for the quote delete command."""
         ln = []
-        for x in self.quote_cache:
+        for x in self.quote_cache:  # type: ignore[union-attr]  # cache set in cog_load
             ln.append({"quote": x["quote"], "row_number": x["row_number"]})
         return [
             app_commands.Choice(
@@ -426,7 +427,7 @@ class Quotes(commands.Cog, name="Quotes"):
     )
     @handle_interaction_errors
     async def quote_get(
-        self, interaction: discord.Interaction, index: int = None
+        self, interaction: discord.Interaction, index: int | None = None
     ) -> None:
         """Retrieve and display a quote from the database."""
         try:
@@ -562,7 +563,7 @@ class Quotes(commands.Cog, name="Quotes"):
     ) -> list[app_commands.Choice[int]]:
         """Provide autocomplete suggestions for the quote get command."""
         ln = []
-        for x in self.quote_cache:
+        for x in self.quote_cache:  # type: ignore[union-attr]  # cache set in cog_load
             ln.append({"quote": x["quote"], "row_number": x["row_number"]})
         return [
             app_commands.Choice(
@@ -739,7 +740,7 @@ class Quotes(commands.Cog, name="Quotes"):
     ) -> list[app_commands.Choice[int]]:
         """Provide autocomplete suggestions for the quote who command."""
         ln = []
-        for x in self.quote_cache:
+        for x in self.quote_cache:  # type: ignore[union-attr]  # cache set in cog_load
             ln.append({"quote": x["quote"], "row_number": x["row_number"]})
         return [
             app_commands.Choice(

@@ -38,7 +38,7 @@ discord_file_pattern = (
 )
 
 
-class RepostModal(discord.ui.Modal, title="Repost"):
+class RepostModal(discord.ui.Modal, title="Repost"):  # type: ignore[call-arg]  # discord.py stubs reject title=
     def __init__(
         self, mention: str, jump_url: str, title: str, extra_description=None
     ) -> None:
@@ -81,8 +81,8 @@ class RepostMenu(discord.ui.View):
         self, mention: str, jump_url: str, title: str, description_item=None
     ) -> None:
         super().__init__()
-        self.message = None
-        self.title_item = None
+        self.message: discord.Message | None = None
+        self.title_item: str | None = None
         self.description_item = description_item
         self.mention = mention
         self.jump_url = jump_url
@@ -126,7 +126,7 @@ class RepostMenu(discord.ui.View):
         self.title_item = modal.title_item.value
         self.description_item = modal.description_item.value
         self.submit_button.disabled = False
-        await self.message.edit(view=self)
+        await self.message.edit(view=self)  # type: ignore[union-attr]  # message set after init
 
     async def submit_callback(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer()
@@ -136,9 +136,9 @@ class RepostMenu(discord.ui.View):
 class ButtonView(discord.ui.View):
     def __init__(self, invoker) -> None:
         super().__init__()
-        self.repost_choice = None
+        self.repost_choice: int | None = None
         self.invoker = invoker
-        self.interaction = None
+        self.interaction: discord.Interaction | None = None
 
     @discord.ui.button(
         label="Attachment",
@@ -216,7 +216,7 @@ class ButtonView(discord.ui.View):
             self.interaction = interaction
 
 
-class GalleryCog(BaseCog, name="Gallery & Mementos"):
+class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg]  # discord.py stubs reject name=
     def __init__(self, bot) -> None:
         super().__init__(bot)
         self.bot = bot
@@ -472,7 +472,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                         case 6:
                             await self.repost_discord_file(view.interaction, message)
                         case _:  # default
-                            await view.interaction.response.send_message(
+                            await view.interaction.response.send_message(  # type: ignore[union-attr]  # set in button callback
                                 "❌ Invalid repost option selected. Please try again.",
                                 ephemeral=True,
                             )
@@ -487,12 +487,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
                         },
                     )
                     try:
-                        await view.interaction.response.send_message(
+                        await view.interaction.response.send_message(  # type: ignore[union-attr]  # set in button callback
                             "❌ An error occurred during the repost operation. Please try again.",
                             ephemeral=True,
                         )
                     except discord.InteractionResponded:
-                        await view.interaction.followup.send(
+                        await view.interaction.followup.send(  # type: ignore[union-attr]  # set in button callback
                             "❌ An error occurred during the repost operation. Please try again.",
                             ephemeral=True,
                         )
@@ -941,7 +941,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
         self.logger.debug(f"Processing AO3 message: {message.content}")
-        url = re.search(ao3_pattern, message.content).group(0)
+        url = re.search(ao3_pattern, message.content).group(0)  # type: ignore[union-attr]  # match guaranteed by caller
         self.logger.debug(f"Extracted AO3 URL: {url}")
         work = AO3.Work(AO3.utils.workid_from_url(url))
         menu = RepostMenu(
@@ -1002,7 +1002,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
     async def repost_twitter(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
-        url = re.search(twitter_pattern, message.content).group(0)
+        url = re.search(twitter_pattern, message.content).group(0)  # type: ignore[union-attr]  # match guaranteed by caller
         gallery_dl.config.load()
         tweet = gallery_dl.job.DownloadJob(url)
         tweet_content = None
@@ -1447,7 +1447,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         self,
         interaction: discord.Interaction,
         channel: discord.TextChannel,
-        after_date: str = None,
+        after_date: str | None = None,
         chunk_size: int = 500,
         store_in_db: bool = True,
     ) -> None:
@@ -1609,7 +1609,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         messages: list[discord.Message],
         chunk_number: int,
         channel_name: str,
-    ) -> tuple[list[dict], list[dict], list[dict]]:
+    ) -> tuple[list[dict], list[dict], list[str]]:
         """Process a chunk of messages and extract gallery migration data."""
         extracted_data = []
         db_data = []

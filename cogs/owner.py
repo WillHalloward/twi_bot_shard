@@ -46,7 +46,7 @@ cogs = [
 ]
 
 
-class OwnerCog(commands.Cog, name="Owner"):
+class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     def __init__(self, bot) -> None:
         self.bot = bot
 

@@ -19,10 +19,10 @@ from utils.repositories import LinkRepository
 from utils.validation import validate_url
 
 
-class LinkTags(commands.Cog, name="Links"):
+class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord.py stubs reject name=
     def __init__(self, bot) -> None:
         self.bot = bot
-        self.links_cache = None
+        self.links_cache: list[dict] | None = None
         self.link_repo = LinkRepository(bot.get_db_session)
 
     async def cog_load(self) -> None:
@@ -40,7 +40,7 @@ class LinkTags(commands.Cog, name="Links"):
         current: str,
     ) -> list[app_commands.Choice[str]]:
         ln = []
-        for x in self.links_cache:
+        for x in self.links_cache:  # type: ignore[union-attr]  # cache set in cog_load
             ln.append({"title": x["title"], "content": x["content"]})
         return [
             app_commands.Choice(
@@ -64,7 +64,7 @@ class LinkTags(commands.Cog, name="Links"):
         Returns:
             List of app_commands.Choice objects for categories
         """
-        categories = set()
+        categories: set[str] = set()
         if self.links_cache:
             for link in self.links_cache:
                 tag = link.get("tag")
@@ -130,7 +130,7 @@ class LinkTags(commands.Cog, name="Links"):
     @app_commands.autocomplete(category=category_autocomplete)
     @handle_interaction_errors
     async def link_list(
-        self, interaction: discord.Interaction, category: str = None
+        self, interaction: discord.Interaction, category: str | None = None
     ) -> None:
         """Display link categories, or links within a specific category.
 
@@ -254,7 +254,7 @@ class LinkTags(commands.Cog, name="Links"):
         interaction: discord.Interaction,
         content: str,
         title: str,
-        tag: str = None,
+        tag: str | None = None,
         embed: bool = True,
     ) -> None:
         """Add a new link with the given title, content, and optional tag.

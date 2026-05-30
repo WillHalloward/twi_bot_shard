@@ -40,6 +40,7 @@ Version: Enhanced with comprehensive logging and documentation
 import json
 from datetime import UTC, datetime
 from operator import itemgetter
+from typing import cast
 
 import discord
 import structlog
@@ -96,7 +97,7 @@ async def fetch(session, url, cookies=None, headers=None) -> str:
     headers = headers or config.headers
 
     async with session.get(url, cookies=cookies, headers=headers) as response:
-        return await response.text()
+        return cast(str, await response.text())
 
 
 async def get_poll(bot) -> dict:
@@ -757,7 +758,7 @@ async def search_poll(bot, query: str) -> discord.Embed:
         return error_embed
 
 
-class PollCog(commands.Cog, name="Poll"):
+class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
     """A Discord cog for managing and displaying Patreon polls.
 
     This cog provides commands for:
@@ -788,7 +789,9 @@ class PollCog(commands.Cog, name="Poll"):
         poll_id="Optional: Specific poll ID to display (defaults to latest active or most recent poll)"
     )
     @app_commands.checks.cooldown(1, 60.0, key=lambda i: (i.user.id, i.channel.id))
-    async def poll(self, interaction: discord.Interaction, poll_id: int = None) -> None:
+    async def poll(
+        self, interaction: discord.Interaction, poll_id: int | None = None
+    ) -> None:
         """Display poll information to the user.
 
         This command shows either the latest active poll or a specific poll by ID.

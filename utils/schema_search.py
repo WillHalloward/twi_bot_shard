@@ -5,7 +5,7 @@ using PostgreSQL's pgvector extension, replacing the previous FAISS implementati
 """
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from openai import OpenAI
 
@@ -116,7 +116,7 @@ async def check_schema_embeddings_exist(db: "Database") -> bool:
 
         # Check if there's data
         count = await db.fetchval("SELECT COUNT(*) FROM schema_embeddings")
-        return count > 0
+        return cast(int, count) > 0
 
     except Exception as e:
         logger.warning(f"Failed to check schema embeddings: {e}")
@@ -225,7 +225,7 @@ async def generate_sql(
             temperature=0,
         )
 
-        return response.choices[0].message.content.strip()
+        return cast(str, response.choices[0].message.content).strip()
 
     except Exception as e:
         logger.error(f"SQL generation failed: {e}")

@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import cast
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +33,7 @@ class ServerSettingsRepository:
                 result = await session.execute(
                     select(ServerSettings).where(ServerSettings.guild_id == guild_id)
                 )
-                return result.scalar_one_or_none()
+                return cast(ServerSettings | None, result.scalar_one_or_none())
             finally:
                 await session.close()
         except Exception as e:

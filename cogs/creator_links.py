@@ -14,7 +14,7 @@ from utils.repositories import CreatorLinkRepository
 from utils.validation import validate_url
 
 
-class CreatorLinks(commands.Cog, name="Creator"):
+class CreatorLinks(commands.Cog, name="Creator"):  # type: ignore[call-arg]  # stub
     def __init__(self, bot) -> None:
         self.links_cache: list = []
         self.bot = bot

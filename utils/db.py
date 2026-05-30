@@ -8,8 +8,8 @@ and query caching.
 import asyncio
 import logging
 import time
-from collections.abc import AsyncGenerator, Callable, Sequence
-from typing import Any, TypeVar
+from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
+from typing import Any, TypeVar, cast
 
 # Python 3.11+ has asyncio.timeout
 try:
@@ -62,7 +62,7 @@ class DatabaseTransaction:
             db: The Database instance to use for the transaction.
         """
         self.db = db
-        self.transaction = None
+        self.transaction: Any = None
 
     async def __aenter__(self) -> "DatabaseTransaction":
         """Enter the context manager, starting a new transaction.
@@ -99,7 +99,7 @@ class Database:
         """
         self.pool = pool
         self.logger = logging.getLogger("database")
-        self.prepared_statements = {}
+        self.prepared_statements: dict[str, Any] = {}
         self.slow_query_threshold = 0.5  # Log queries taking more than 500ms
 
         # Initialize query cache
@@ -156,7 +156,7 @@ class Database:
             async def execute(self, *args, **kwargs) -> str:
                 """Execute the prepared statement with the given arguments."""
                 async with self.db.pool.acquire() as conn:
-                    return await conn.execute(self.query, *args, **kwargs)
+                    return cast(str, await conn.execute(self.query, *args, **kwargs))
 
             async def fetchval(self, *args, column=0, **kwargs) -> Any:
                 """Execute the prepared statement and return a single value."""
@@ -173,7 +173,7 @@ class Database:
             async def fetch(self, *args, **kwargs) -> list:
                 """Execute the prepared statement and return all rows."""
                 async with self.db.pool.acquire() as conn:
-                    return await conn.fetch(self.query, *args, **kwargs)
+                    return cast(list, await conn.fetch(self.query, *args, **kwargs))
 
         if name not in self.prepared_statements:
             async with self.pool.acquire() as conn:
@@ -221,11 +221,11 @@ class Database:
                 result = await self.pool.execute(query, *args, timeout=timeout)
 
                 if monitor:
-                    duration = time.time() - start_time
+                    duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
                         self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
 
-                return result
+                return cast("str | None", result)
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
                 if isinstance(
                     e,
@@ -286,7 +286,7 @@ class Database:
             self.logger.debug(f"Invalidated cache for table: {table_name}")
 
     @cached_query(ttl=300)  # Cache results for 5 minutes by default
-    async def fetch(
+    async def fetch(  # type: ignore[return]  # falls through to implicit None on retry exhaustion
         self,
         query: str,
         *args,
@@ -320,11 +320,11 @@ class Database:
                 result = await self.pool.fetch(query, *args, timeout=timeout)
 
                 if monitor:
-                    duration = time.time() - start_time
+                    duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
                         self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
 
-                return result
+                return cast("Sequence[Record]", result)
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
                 if isinstance(
                     e,
@@ -347,7 +347,7 @@ class Database:
                 raise DatabaseError(f"Failed to execute query: {e}") from e
 
     @cached_query(ttl=300)  # Cache results for 5 minutes by default
-    async def fetchrow(
+    async def fetchrow(  # type: ignore[return]  # falls through to implicit None on retry exhaustion
         self,
         query: str,
         *args,
@@ -381,7 +381,7 @@ class Database:
                 result = await self.pool.fetchrow(query, *args, timeout=timeout)
 
                 if monitor:
-                    duration = time.time() - start_time
+                    duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
                         self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
 
@@ -446,7 +446,7 @@ class Database:
                 )
 
                 if monitor:
-                    duration = time.time() - start_time
+                    duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
                         self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
 
@@ -574,7 +574,7 @@ class Database:
                     await conn.executemany(query, args_list, timeout=timeout)
 
                 if monitor:
-                    duration = time.time() - start_time
+                    duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
                         self.logger.warning(
                             f"Slow batch query ({duration:.2f}s): {query} with {len(args_list)} records"
@@ -640,7 +640,7 @@ class Database:
                     )
 
                 if monitor:
-                    duration = time.time() - start_time
+                    duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
                         self.logger.warning(
                             f"Slow COPY operation ({duration:.2f}s): COPY {len(records)} records to {table_name}{column_str}"
@@ -668,7 +668,7 @@ class Database:
                 raise DatabaseError(f"Failed to copy records to table: {e}") from e
 
     async def execute_with_callback(
-        self, callback: Callable[..., T], *args, **kwargs
+        self, callback: Callable[..., Awaitable[T]], *args, **kwargs
     ) -> T:
         """Execute a callback function with a database connection.
 
@@ -724,7 +724,7 @@ class Database:
                         await conn.execute(script, timeout=timeout)
 
                     if monitor:
-                        duration = time.time() - start_time
+                        duration = time.time() - cast(float, start_time)
                         if duration > self.slow_query_threshold:
                             self.logger.warning(
                                 f"Slow script execution ({duration:.2f}s): {script_path}"
@@ -770,7 +770,7 @@ class Database:
             self.logger.error(f"Script file not found: {script_path}")
             raise
 
-    async def fetch_with_timeout(
+    async def fetch_with_timeout(  # type: ignore[return]  # falls through to implicit None on retry exhaustion
         self,
         query: str,
         *args,
@@ -806,11 +806,11 @@ class Database:
                     result = await self.pool.fetch(query, *args)
 
                 if monitor:
-                    duration = time.time() - start_time
+                    duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
                         self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
 
-                return result
+                return cast("Sequence[Record]", result)
             except TimeoutError:
                 self.logger.error(f"Query timed out after {timeout_seconds}s: {query}")
                 raise
@@ -835,7 +835,7 @@ class Database:
                 self.logger.error(f"Database error: {e}")
                 raise DatabaseError(f"Failed to execute query: {e}") from e
 
-    async def fetchrow_with_timeout(
+    async def fetchrow_with_timeout(  # type: ignore[return]  # falls through to implicit None on retry exhaustion
         self,
         query: str,
         *args,
@@ -871,7 +871,7 @@ class Database:
                     result = await self.pool.fetchrow(query, *args)
 
                 if monitor:
-                    duration = time.time() - start_time
+                    duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
                         self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
 

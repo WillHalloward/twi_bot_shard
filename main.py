@@ -24,6 +24,7 @@ from itertools import cycle
 
 import asyncpg
 import discord
+from aiohttp import ClientSession
 from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -118,7 +119,7 @@ class Cognita(commands.Bot):
         self,
         *args,
         initial_extensions: Sequence[str],
-        critical_extensions: Sequence[str] = None,
+        critical_extensions: Sequence[str] | None = None,
         db_pool: asyncpg.Pool,
         http_client: HTTPClient,
         **kwargs,
@@ -154,7 +155,7 @@ class Cognita(commands.Bot):
 
         self.db: Database = Database(db_pool)
         self.http_client: HTTPClient = http_client
-        self.web_client = (
+        self.web_client: ClientSession | None = (
             None  # For backward compatibility, will be set to http_client.get_session()
         )
         self.session_maker = async_session_maker  # SQLAlchemy session maker
@@ -998,6 +999,7 @@ async def main() -> None:
     database_url = os.getenv("DATABASE_URL")
     db_ssl_override = os.getenv("DB_SSL", "").lower()
 
+    ssl_config: bool | str | ssl.SSLContext
     if db_ssl_override in ("disable", "false", "no", "off"):
         # Explicitly disabled (e.g., Railway pgvector template)
         ssl_config = False

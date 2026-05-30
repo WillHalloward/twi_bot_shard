@@ -3,7 +3,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -120,7 +120,7 @@ class GalleryMigrationRepository:
                         GalleryMigration.message_id == message_id
                     )
                 )
-                return result.scalar_one_or_none()
+                return cast(GalleryMigration | None, result.scalar_one_or_none())
             finally:
                 await session.close()
         except Exception as e:

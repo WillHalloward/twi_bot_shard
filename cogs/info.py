@@ -177,7 +177,7 @@ async def user_info_function(
         ) from e
 
 
-class Info(commands.Cog, name="Info"):
+class Info(commands.Cog, name="Info"):  # type: ignore[call-arg]  # stub
     """Information commands for users, servers, and roles."""
 
     def __init__(self, bot: commands.Bot) -> None:

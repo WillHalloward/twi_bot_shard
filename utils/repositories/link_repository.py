@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,7 +82,7 @@ class LinkRepository:
                 result = await session.execute(
                     select(Link).where(func.lower(Link.title) == func.lower(title))
                 )
-                return result.scalar_one_or_none()
+                return cast(Link | None, result.scalar_one_or_none())
             finally:
                 await session.close()
         except Exception as e:
@@ -221,7 +222,7 @@ class LinkRepository:
         try:
             session = await self.session_factory()
             try:
-                values = {}
+                values: dict[str, Any] = {}
                 if content is not None:
                     values["content"] = content
                 if tag is not None:

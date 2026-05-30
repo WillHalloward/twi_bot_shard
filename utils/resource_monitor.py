@@ -18,7 +18,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-import psutil
+import psutil  # type: ignore[import-untyped]  # types-psutil not installed
 
 
 class ResourceMonitor:
@@ -65,7 +65,7 @@ class ResourceMonitor:
         self.logger = logger or logging.getLogger("resource_monitor")
 
         # Initialize monitoring state
-        self._monitoring_task = None
+        self._monitoring_task: asyncio.Task[None] | None = None
         self._process = psutil.Process(os.getpid())
         self._stats_history: list[dict[str, Any]] = []
         self._max_history_size = 60  # Keep history for 60 intervals
@@ -97,7 +97,7 @@ class ResourceMonitor:
             )
 
         # Initialize connection tracking
-        self._connection_stats = {
+        self._connection_stats: dict[str, defaultdict[Any, int]] = {
             "by_type": defaultdict(int),
             "by_status": defaultdict(int),
             "by_remote_ip": defaultdict(int),
@@ -355,17 +355,17 @@ class ResourceMonitor:
             current_snapshot = tracemalloc.take_snapshot().filter_traces(
                 self._snapshot_filters
             )
-            current_time = datetime.now()
+            snapshot_time = datetime.now()
 
             # Keep only the last 5 snapshots
-            self._memory_snapshots.append((current_time, current_snapshot))
+            self._memory_snapshots.append((snapshot_time, current_snapshot))
             if len(self._memory_snapshots) > 5:
                 self._memory_snapshots.pop(0)
 
             # Compare with previous snapshot if available
             if len(self._memory_snapshots) > 1:
-                prev_time, prev_snapshot = self._memory_snapshots[-2]
-                current_time, current_snapshot = self._memory_snapshots[-1]
+                _prev_time, prev_snapshot = self._memory_snapshots[-2]
+                _current_time, current_snapshot = self._memory_snapshots[-1]
 
                 # Get top 10 differences
                 top_stats = current_snapshot.compare_to(prev_snapshot, "lineno")

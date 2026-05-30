@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Awaitable, Callable
+from typing import cast
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -74,7 +75,7 @@ class GalleryMementosRepository:
                         GalleryMementos.channel_id == channel_id
                     )
                 )
-                return result.scalar_one_or_none()
+                return cast(GalleryMementos | None, result.scalar_one_or_none())
             finally:
                 await session.close()
         except Exception as e:

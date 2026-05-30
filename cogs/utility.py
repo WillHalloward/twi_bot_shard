@@ -20,7 +20,7 @@ from utils.exceptions import (
 )
 
 
-class Utility(commands.Cog, name="Utility"):
+class Utility(commands.Cog, name="Utility"):  # type: ignore[call-arg]  # stub
     """Utility commands for bot interaction and fun."""
 
     def __init__(self, bot: commands.Bot) -> None:

@@ -8,7 +8,7 @@ This module contains:
 
 import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import discord
 import structlog
@@ -51,7 +51,7 @@ async def save_reaction(bot: "commands.Bot", reaction: discord.Reaction) -> None
         match reaction.emoji:
             case str() as emoji_str:
                 # String emoji (Unicode emoji)
-                reaction_data = [
+                reaction_data: list[tuple[Any, ...]] = [
                     (
                         emoji_str,
                         reaction.message.id,
@@ -462,7 +462,7 @@ async def perform_comprehensive_save(
     end_time = datetime.now()
     total_time = end_time - start_time
 
-    results = {
+    results: dict[str, Any] = {
         "guilds_processed": guilds_processed,
         "total_guilds": total_guilds,
         "channels_processed": total_channels_processed,

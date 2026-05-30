@@ -16,6 +16,7 @@ from collections.abc import Callable, Coroutine
 from re import Pattern
 from typing import (
     Any,
+    cast,
 )
 
 import discord
@@ -455,8 +456,10 @@ async def track_error(
         The ID of the inserted error record
     """
     try:
-        return await bot.db.fetchval(
-            """
+        return cast(
+            int,
+            await bot.db.fetchval(
+                """
             INSERT INTO error_telemetry(
                 error_type, command_name, user_id, error_message,
                 guild_id, channel_id, timestamp
@@ -464,13 +467,14 @@ async def track_error(
             VALUES($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
             """,
-            error_type,
-            command_name,
-            user_id,
-            str(error_message),
-            guild_id,
-            channel_id,
-            datetime.datetime.now(),
+                error_type,
+                command_name,
+                user_id,
+                str(error_message),
+                guild_id,
+                channel_id,
+                datetime.datetime.now(),
+            ),
         )
     except Exception as e:
         logger.error(f"Failed to record error telemetry: {e}")
@@ -633,7 +637,7 @@ def handle_command_errors[CommandT: Callable[..., Coroutine[Any, Any, Any]]](
                     ctx.channel.id if ctx.channel else None,
                 )
 
-    return wrapper
+    return cast(CommandT, wrapper)
 
 
 def handle_interaction_errors[CommandT: Callable[..., Coroutine[Any, Any, Any]]](
@@ -717,7 +721,7 @@ def handle_interaction_errors[CommandT: Callable[..., Coroutine[Any, Any, Any]]]
                     interaction.channel.id if interaction.channel else None,
                 )
 
-    return wrapper
+    return cast(CommandT, wrapper)
 
 
 async def handle_global_command_error(ctx: commands.Context, error: Exception) -> None:

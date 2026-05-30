@@ -299,6 +299,12 @@ class QueryCache:
             self._cleanup_task.cancel()
 
 
+# Module-level global cache instance, lazily created in cached_query.
+# Bare annotation (no assignment) so it is not bound in globals() until set,
+# preserving the "not in globals()" runtime check below.
+_global_cache: QueryCache
+
+
 def cached_query(
     ttl: int | None = None, cache_instance: QueryCache | None = None
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:

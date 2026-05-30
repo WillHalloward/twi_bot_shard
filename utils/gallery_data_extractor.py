@@ -121,7 +121,7 @@ class GalleryDataExtractor:
 
     async def _extract_from_embeds(self, embeds: list[discord.Embed]) -> dict[str, Any]:
         """Extract data from Discord embeds."""
-        data = {"title": None, "images": [], "creator": None}
+        data: dict[str, Any] = {"title": None, "images": [], "creator": None}
 
         for embed in embeds:
             # Extract title
@@ -171,7 +171,7 @@ class GalleryDataExtractor:
 
     async def _extract_from_content(self, content: str) -> dict[str, Any]:
         """Extract data from message content (manual posts)."""
-        data = {"title": None, "creator": None}
+        data: dict[str, Any] = {"title": None, "creator": None}
 
         # Try to extract creator
         creator = await self._extract_creator_from_text(content)
@@ -303,7 +303,7 @@ class GalleryDataExtractor:
         return "sfw"  # Default to SFW
 
     async def extract_and_prepare_for_db(
-        self, message: discord.Message, channel_name: str = None
+        self, message: discord.Message, channel_name: str | None = None
     ) -> dict[str, Any]:
         """Extract data and prepare it for database insertion.
 

@@ -10,7 +10,7 @@ from discord import app_commands
 from discord.ext import commands
 
 
-class ExampleCog(commands.Cog, name="Example"):
+class ExampleCog(commands.Cog, name="Example"):  # type: ignore[call-arg]  # stub
     """Example cog demonstrating best practices for database operations."""
 
     def __init__(self, bot) -> None:
