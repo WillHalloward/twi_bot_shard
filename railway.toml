@@ -1,0 +1,11 @@
+# Railway configuration (config-as-code).
+# Only fields set here override the dashboard; everything else (builder,
+# start command, etc.) continues to use the service's dashboard settings.
+
+[deploy]
+# Run pending SQL schema migrations before the new code goes live, so code and
+# database schema stay in sync. Heavy/locking migrations are excluded via
+# MANUAL_MIGRATIONS in the script and applied by hand in a maintenance window.
+# A non-zero exit here aborts the deploy (intended: don't ship code against an
+# un-migrated schema).
+preDeployCommand = "python scripts/database/apply_migrations.py"
