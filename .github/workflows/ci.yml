@@ -43,11 +43,11 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    # Informational only for now: the repo has a large pre-existing ruff/mypy
-    # backlog (~1800 ruff, ~450 mypy). Kept non-blocking so it reports without
-    # failing CI. Remove `continue-on-error` once `ruff check .` and `mypy .`
-    # are clean to make lint a hard gate.
-    continue-on-error: true
+    # Hard gate: `ruff check .`, `ruff format --check .`, and `mypy .` are all
+    # clean, so any new lint/format/type regression fails the build. If a large
+    # backlog ever returns and you need to unblock merges temporarily, add
+    # `continue-on-error: true` to the offending *step* (not the job — job-level
+    # only spares the overall run while the named check still reports red).
 
     steps:
     - uses: actions/checkout@v4

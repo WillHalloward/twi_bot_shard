@@ -564,6 +564,19 @@ def log_error(
             log_level, f"Traceback for {error_type} in {command_name}:\n{error_details}"
         )
 
+        # Report genuinely unexpected errors to Sentry (no-op unless enabled).
+        # Imported lazily to avoid a circular import at module load.
+        from utils.sentry_setup import capture_exception as _sentry_capture
+
+        _sentry_capture(
+            error,
+            command_name=command_name,
+            user_id=user_id,
+            guild_id=guild_id,
+            channel_id=channel_id,
+            additional_context=additional_context or None,
+        )
+
 
 def handle_command_errors[CommandT: Callable[..., Coroutine[Any, Any, Any]]](
     func: CommandT,
@@ -1107,6 +1120,15 @@ def setup_global_exception_handler(bot: commands.Bot) -> None:
         logger.critical(
             "".join(traceback.format_exception(exctype, value, traceback_obj))
         )
+
+        # Report uncaught exceptions to Sentry (no-op unless enabled). These
+        # never reach log_error(), so capture them here. Limit to Exception so
+        # we don't report SystemExit/KeyboardInterrupt as bugs.
+        if isinstance(value, Exception):
+            from utils.sentry_setup import capture_exception as _sentry_capture
+
+            _sentry_capture(value, command_name="<uncaught>")
+
         sys.__excepthook__(exctype, value, traceback_obj)
 
     sys.excepthook = global_exception_handler

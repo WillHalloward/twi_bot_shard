@@ -35,6 +35,7 @@ from utils.error_handling import setup_global_exception_handler
 from utils.http_client import HTTPClient
 from utils.permissions import setup_permissions
 from utils.resource_monitor import ResourceMonitor
+from utils.sentry_setup import init_sentry
 from utils.service_container import ServiceContainer
 from utils.sqlalchemy_db import async_session_maker
 
@@ -987,6 +988,9 @@ async def main() -> None:
         f"git={build['git']}"
     )
 
+    # Initialise Sentry error reporting (no-op unless SENTRY_DSN is set).
+    init_sentry(environment=str(config.get_environment()), release=_get_git_sha())
+
     # Log the KILL_AFTER setting
     if config.kill_after > 0:
         root_logger.info(
@@ -1063,6 +1067,7 @@ async def main() -> None:
             "cogs.settings",
             "cogs.message_log",
             "cogs.interactive_help",
+            "cogs.heartbeat",
         ]
 
         # Define critical cogs that must be loaded at startup
