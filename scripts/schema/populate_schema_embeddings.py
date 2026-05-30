@@ -20,10 +20,10 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-import asyncpg
-from openai import OpenAI
+import asyncpg  # noqa: E402  (import after sys.path setup for project imports)
+from openai import OpenAI  # noqa: E402
 
-import config
+import config  # noqa: E402
 
 SCHEMA_FILE = project_root / ".cache/faiss/schema_descriptions.txt"
 EMBEDDING_MODEL = "text-embedding-3-small"

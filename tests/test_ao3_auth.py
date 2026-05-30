@@ -9,6 +9,7 @@ exponential backoff, and the ao3_status admin command.
 import asyncio
 import os
 import sys
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -88,7 +89,7 @@ class TestAO3SessionInitialization:
         # Mock AO3.Session to fail first, then succeed
         call_count = 0
 
-        def mock_ao3_session_side_effect(*args, **kwargs):
+        def mock_ao3_session_side_effect(*args, **kwargs) -> MagicMock:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -100,18 +101,20 @@ class TestAO3SessionInitialization:
                 mock_session.is_authed = True
                 return mock_session
 
-        with patch(
-            "cogs.external_services.AO3.Session",
-            side_effect=mock_ao3_session_side_effect,
-        ):
+        with (
+            patch(
+                "cogs.external_services.AO3.Session",
+                side_effect=mock_ao3_session_side_effect,
+            ),
             # Mock asyncio.sleep to avoid delays in testing
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                # Call the initialization method
-                await cog._initialize_ao3_session(max_retries=3)
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            # Call the initialization method
+            await cog._initialize_ao3_session(max_retries=3)
 
-                # Verify it retried and succeeded
-                assert call_count == 2
-                assert cog.ao3_login_successful is True
+            # Verify it retried and succeeded
+            assert call_count == 2
+            assert cog.ao3_login_successful is True
 
         # Cleanup
         await TestTeardown.teardown_bot(bot)
@@ -126,19 +129,21 @@ class TestAO3SessionInitialization:
         cog = ExternalServices(bot)
 
         # Mock AO3.Session to always fail
-        with patch(
-            "cogs.external_services.AO3.Session",
-            side_effect=Exception("Auth always fails"),
-        ):
+        with (
+            patch(
+                "cogs.external_services.AO3.Session",
+                side_effect=Exception("Auth always fails"),
+            ),
             # Mock asyncio.sleep to avoid delays
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                # Call the initialization method
-                await cog._initialize_ao3_session(max_retries=3)
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            # Call the initialization method
+            await cog._initialize_ao3_session(max_retries=3)
 
-                # Verify all retries failed
-                assert cog.ao3_session is None
-                assert cog.ao3_login_successful is False
-                assert cog.ao3_login_in_progress is False
+            # Verify all retries failed
+            assert cog.ao3_session is None
+            assert cog.ao3_login_successful is False
+            assert cog.ao3_login_in_progress is False
 
         # Cleanup
         await TestTeardown.teardown_bot(bot)
@@ -269,7 +274,7 @@ class TestAO3ExecutorPattern:
         # Track if run_in_executor was called
         executor_called = False
 
-        async def mock_run_in_executor(executor, func, *args):
+        async def mock_run_in_executor(executor, func, *args) -> Any:
             nonlocal executor_called
             executor_called = True
             # Simulate executor running the blocking function

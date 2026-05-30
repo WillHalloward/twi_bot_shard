@@ -25,22 +25,21 @@ from itertools import cycle
 import asyncpg
 import discord
 from discord.ext import commands
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import config
 from utils.command_groups import admin, gallery_admin, mod
+from utils.db import Database
 from utils.error_handling import setup_global_exception_handler
 from utils.http_client import HTTPClient
 from utils.permissions import setup_permissions
 from utils.resource_monitor import ResourceMonitor
+from utils.service_container import ServiceContainer
+from utils.sqlalchemy_db import async_session_maker
 
 # Define type aliases for complex types
 type DiscordID = int
 type CommandName = str
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from utils.db import Database
-from utils.service_container import ServiceContainer
-from utils.sqlalchemy_db import async_session_maker
 
 # Status messages with optional environment prefix for non-production
 _status_prefix = config.get_bot_status_prefix()
@@ -857,6 +856,7 @@ class Cognita(commands.Bot):
 
     async def periodic_cleanup(self) -> None:
         """Perform periodic cleanup tasks to maintain bot health.
+
         Now uses a smarter approach that doesn't interfere with active operations.
         """
         while not self.is_closed():

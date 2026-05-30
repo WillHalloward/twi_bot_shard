@@ -10,6 +10,7 @@ import logging.handlers
 import sys
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import structlog
@@ -245,7 +246,9 @@ class RequestContext:
 
 
 # Utility function for timing operations
-def log_timing(logger: structlog.stdlib.BoundLogger, operation_name: str):
+def log_timing(
+    logger: structlog.stdlib.BoundLogger, operation_name: str
+) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
     """Decorator for logging the execution time of functions.
 
     Args:
@@ -256,8 +259,10 @@ def log_timing(logger: structlog.stdlib.BoundLogger, operation_name: str):
         The decorated function.
     """
 
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
+    def decorator(
+        func: Callable[..., Awaitable[Any]],
+    ) -> Callable[..., Awaitable[Any]]:
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
             try:
                 result = await func(*args, **kwargs)

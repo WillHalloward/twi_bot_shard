@@ -18,6 +18,7 @@ import os
 import random
 import sys
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any, Never
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -37,16 +38,16 @@ logging.basicConfig(
 
 # Import config normally
 
-import discord
-from discord.ext import commands
+import discord  # noqa: E402 - after sys.path setup above
+from discord.ext import commands  # noqa: E402 - after sys.path setup above
 
 # Import cogs for testing
-from cogs.stats import StatsCogs
-from cogs.twi import TwiCog
-from cogs.utility import Utility
+from cogs.stats import StatsCogs  # noqa: E402 - after sys.path setup above
+from cogs.twi import TwiCog  # noqa: E402 - after sys.path setup above
+from cogs.utility import Utility  # noqa: E402 - after sys.path setup above
 
 # Import test utilities
-from tests.mock_factories import (
+from tests.mock_factories import (  # noqa: E402 - after sys.path setup above
     MockChannelFactory,
     MockGuildFactory,
     MockInteractionFactory,
@@ -150,7 +151,9 @@ class ChaosInjector:
     """Utility class for injecting various types of failures."""
 
     @staticmethod
-    async def database_failure(duration: float = 1.0):
+    async def database_failure(
+        duration: float = 1.0,
+    ) -> Callable[..., Awaitable[Never]]:
         """Simulate database connection failure."""
 
         async def failing_execute(*args, **kwargs) -> Never:
@@ -160,7 +163,9 @@ class ChaosInjector:
         return failing_execute
 
     @staticmethod
-    async def network_failure(duration: float = 1.0):
+    async def network_failure(
+        duration: float = 1.0,
+    ) -> Callable[..., Awaitable[Never]]:
         """Simulate network failure for external APIs."""
 
         async def failing_request(*args, **kwargs) -> Never:
@@ -170,14 +175,16 @@ class ChaosInjector:
         return failing_request
 
     @staticmethod
-    async def memory_pressure():
+    async def memory_pressure() -> bytearray:
         """Simulate memory pressure by consuming memory."""
         # Allocate 100MB of memory
         memory_hog = bytearray(100 * 1024 * 1024)
         return memory_hog
 
     @staticmethod
-    async def slow_response(delay: float = 5.0):
+    async def slow_response(
+        delay: float = 5.0,
+    ) -> Callable[..., Awaitable[str]]:
         """Simulate slow response times."""
 
         async def slow_function(*args, **kwargs) -> str:
@@ -187,7 +194,9 @@ class ChaosInjector:
         return slow_function
 
     @staticmethod
-    async def intermittent_failure(failure_rate: float = 0.5):
+    async def intermittent_failure(
+        failure_rate: float = 0.5,
+    ) -> Callable[..., Awaitable[str]]:
         """Simulate intermittent failures."""
 
         async def intermittent_function(*args, **kwargs) -> str:
@@ -384,58 +393,60 @@ class ChaosEngineeringTests:
             failing_execute = await self.injector.database_failure()
             memory_hog = await self.injector.memory_pressure()
 
-            with patch.object(bot.db, "execute", side_effect=failing_execute):
-                with patch(
+            with (
+                patch.object(bot.db, "execute", side_effect=failing_execute),
+                patch(
                     "aiohttp.ClientSession.get",
                     side_effect=Exception("Network failure"),
-                ):
-                    start_time = time.time()
+                ),
+            ):
+                start_time = time.time()
 
-                    try:
-                        # Test multiple commands concurrently under failure conditions
-                        ctx = MagicMock()
-                        ctx.send = AsyncMock()
-                        ctx.author = MockUserFactory.create()
-                        ctx.guild = MockGuildFactory.create()
+                try:
+                    # Test multiple commands concurrently under failure conditions
+                    ctx = MagicMock()
+                    ctx.send = AsyncMock()
+                    ctx.author = MockUserFactory.create()
+                    ctx.guild = MockGuildFactory.create()
 
-                        # Run multiple commands concurrently
-                        channel = MockChannelFactory.create_text_channel()
-                        tasks = [
-                            stats_cog.message_count.callback(
-                                stats_cog, ctx, channel=channel, hours=24
-                            ),
-                            stats_cog.message_count.callback(
-                                stats_cog, ctx, channel=channel, hours=24
-                            ),
-                            stats_cog.message_count.callback(
-                                stats_cog, ctx, channel=channel, hours=24
-                            ),
-                        ]
+                    # Run multiple commands concurrently
+                    channel = MockChannelFactory.create_text_channel()
+                    tasks = [
+                        stats_cog.message_count.callback(
+                            stats_cog, ctx, channel=channel, hours=24
+                        ),
+                        stats_cog.message_count.callback(
+                            stats_cog, ctx, channel=channel, hours=24
+                        ),
+                        stats_cog.message_count.callback(
+                            stats_cog, ctx, channel=channel, hours=24
+                        ),
+                    ]
 
-                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                        recovery_time = time.time() - start_time
-                        self.metrics.record_recovery_time(recovery_time)
+                    recovery_time = time.time() - start_time
+                    self.metrics.record_recovery_time(recovery_time)
 
-                        # Check if at least some commands handled failures gracefully
-                        successful_responses = sum(
-                            1 for result in results if not isinstance(result, Exception)
-                        )
+                    # Check if at least some commands handled failures gracefully
+                    successful_responses = sum(
+                        1 for result in results if not isinstance(result, Exception)
+                    )
 
-                        if successful_responses > 0:
-                            self.metrics.record_success(scenario)
-                            return True
-                        else:
-                            self.metrics.record_error(scenario)
-                            return False
-
-                    except Exception as e:
-                        self.logger.error(f"Concurrent failure test failed: {e}")
+                    if successful_responses > 0:
+                        self.metrics.record_success(scenario)
+                        return True
+                    else:
                         self.metrics.record_error(scenario)
                         return False
-                    finally:
-                        # Clean up memory
-                        del memory_hog
+
+                except Exception as e:
+                    self.logger.error(f"Concurrent failure test failed: {e}")
+                    self.metrics.record_error(scenario)
+                    return False
+                finally:
+                    # Clean up memory
+                    del memory_hog
 
         except Exception as e:
             self.logger.error(f"Concurrent failure test setup failed: {e}")

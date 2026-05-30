@@ -126,7 +126,7 @@ class QueryCache:
             A tuple that can be used as a cache key.
         """
 
-        def make_hashable(obj):
+        def make_hashable(obj: Any) -> Any:
             """Convert unhashable types to hashable equivalents."""
             if isinstance(obj, list):
                 return tuple(make_hashable(item) for item in obj)

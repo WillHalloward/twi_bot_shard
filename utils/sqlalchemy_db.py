@@ -10,7 +10,7 @@ import config
 
 
 # Create SSL context
-def create_ssl_context():
+def create_ssl_context() -> bool | str | ssl.SSLContext:
     """Create SSL context for database connection.
 
     Returns:

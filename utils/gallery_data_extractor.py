@@ -224,9 +224,11 @@ class GalleryDataExtractor:
 
         # Check for content type keywords
         for tag, keywords in self.content_keywords.items():
-            if any(keyword in combined_text for keyword in keywords):
-                if tag not in extracted_data["tags"]:
-                    suggested_tags.append(tag)
+            if (
+                any(keyword in combined_text for keyword in keywords)
+                and tag not in extracted_data["tags"]
+            ):
+                suggested_tags.append(tag)
 
         return suggested_tags
 

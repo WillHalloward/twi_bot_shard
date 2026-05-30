@@ -196,12 +196,13 @@ class CircuitBreaker:
         self._failures[endpoint] = self._failures.get(endpoint, 0) + 1
         self._last_failure_time[endpoint] = time.time()
 
-        if self._failures[endpoint] >= self.failure_threshold:
-            if not self._open_circuits.get(endpoint, False):
-                self.logger.warning(
-                    f"Circuit opened for {endpoint} after {self._failures[endpoint]} failures"
-                )
-                self._open_circuits[endpoint] = True
+        if self._failures[
+            endpoint
+        ] >= self.failure_threshold and not self._open_circuits.get(endpoint, False):
+            self.logger.warning(
+                f"Circuit opened for {endpoint} after {self._failures[endpoint]} failures"
+            )
+            self._open_circuits[endpoint] = True
 
 
 class HTTPClient:
@@ -322,6 +323,7 @@ class HTTPClient:
 
     async def get_fresh_session(self) -> ClientSession:
         """Get a fresh ClientSession for operations that need guaranteed availability.
+
         This creates a new session each time to avoid race conditions with cleanup.
 
         Returns:

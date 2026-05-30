@@ -1158,10 +1158,8 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
         boost_level = interaction.guild.premium_tier
-        if boost_level >= 2:
-            max_file_size = 50 * 1024 * 1024  # 50 MB
-        else:
-            max_file_size = 8 * 1024 * 1024  # 8 MB
+        # 50 MB for boost level 2+, otherwise 8 MB
+        max_file_size = 50 * 1024 * 1024 if boost_level >= 2 else 8 * 1024 * 1024
         menu = RepostMenu(
             jump_url=message.jump_url,
             mention=message.author.mention,
@@ -1606,7 +1604,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
             store_in_db,
         )
 
-    async def _process_gallery_chunk(self, messages, chunk_number, channel_name):
+    async def _process_gallery_chunk(
+        self,
+        messages: list[discord.Message],
+        chunk_number: int,
+        channel_name: str,
+    ) -> tuple[list[dict], list[dict], list[dict]]:
         """Process a chunk of messages and extract gallery migration data."""
         extracted_data = []
         db_data = []
@@ -1953,6 +1956,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         """Update tags for a gallery migration entry.
 
         Args:
+            interaction: The Discord interaction that triggered the command
             message_id: The Discord message ID
             tags: Comma-separated list of tags
         """
@@ -2010,6 +2014,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):
         """Mark a gallery migration entry as reviewed.
 
         Args:
+            interaction: The Discord interaction that triggered the command
             message_id: The Discord message ID
         """
         await interaction.response.defer(ephemeral=True)

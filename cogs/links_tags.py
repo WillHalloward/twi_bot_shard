@@ -1,3 +1,5 @@
+import contextlib
+
 import asyncpg
 import discord
 from discord import app_commands
@@ -28,11 +30,9 @@ class LinkTags(commands.Cog, name="Links"):
 
     async def _refresh_cache(self) -> None:
         """Refresh the links cache after modifications."""
-        try:
+        # Cache update failure shouldn't break the command
+        with contextlib.suppress(Exception):  # nosec B110
             self.links_cache = await self.link_repo.get_all_as_dicts()
-        except Exception:  # nosec B110
-            # Cache update failure shouldn't break the command
-            pass
 
     async def link_autocomplete(
         self,
@@ -132,9 +132,12 @@ class LinkTags(commands.Cog, name="Links"):
     async def link_list(
         self, interaction: discord.Interaction, category: str = None
     ) -> None:
-        """Display a list of all link categories with the number of links in each category,
-        or show all links within a specific category if one is provided.
-        This is optimized for handling large amounts of links within Discord's character limit.
+        """Display link categories, or links within a specific category.
+
+        Shows all link categories with the number of links in each category,
+        or all links within a specific category if one is provided.
+        This is optimized for handling large amounts of links within Discord's
+        character limit.
 
         Args:
             interaction: The Discord interaction object

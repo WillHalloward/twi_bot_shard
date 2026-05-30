@@ -872,6 +872,7 @@ class StatsListenersMixin:
     @Cog.listener("on_thread_create")
     async def thread_created(self, thread: discord.Thread) -> None:
         """Listen for thread creation and save new threads to the database.
+
         Also ping a role in new threads (except in excluded channels).
 
         Args:

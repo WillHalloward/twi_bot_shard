@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 import re
 import shlex
@@ -135,10 +136,9 @@ class OwnerCog(commands.Cog, name="Owner"):
 
             # Auto-delete after 10 seconds for cleaner chat
             await asyncio.sleep(10)
-            try:
+            with contextlib.suppress(discord.NotFound):
+                # Message already deleted
                 await interaction.delete_original_response()
-            except discord.NotFound:
-                pass  # Message already deleted
 
         except commands.ExtensionNotFound:
             error_msg = f"❌ **Cog not found**\n**Cog:** `{cog}`\n**Error:** Extension file does not exist"
@@ -250,10 +250,9 @@ class OwnerCog(commands.Cog, name="Owner"):
 
         # Auto-delete after 15 seconds for cleaner chat
         await asyncio.sleep(15)
-        try:
+        with contextlib.suppress(discord.NotFound):
+            # Message already deleted
             await interaction.delete_original_response()
-        except discord.NotFound:
-            pass  # Message already deleted
 
     @admin.command(name="unload", description="Unload a Discord bot extension/cog")
     @commands.is_owner()
@@ -321,10 +320,9 @@ class OwnerCog(commands.Cog, name="Owner"):
 
             # Auto-delete after 10 seconds for cleaner chat
             await asyncio.sleep(10)
-            try:
+            with contextlib.suppress(discord.NotFound):
+                # Message already deleted
                 await interaction.delete_original_response()
-            except discord.NotFound:
-                pass  # Message already deleted
 
         except commands.ExtensionNotLoaded:
             # This shouldn't happen due to our check above, but handle it anyway
@@ -472,10 +470,9 @@ class OwnerCog(commands.Cog, name="Owner"):
 
             # Auto-delete after 10 seconds for cleaner chat
             await asyncio.sleep(10)
-            try:
+            with contextlib.suppress(discord.NotFound):
+                # Message already deleted
                 await interaction.delete_original_response()
-            except discord.NotFound:
-                pass  # Message already deleted
 
         except ExternalServiceError:
             # Re-raise our custom errors
@@ -517,7 +514,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             ExternalServiceError: If the system command execution fails
         """
         # Whitelist of allowed commands for security
-        ALLOWED_COMMANDS = {
+        ALLOWED_COMMANDS = {  # noqa: N806 - in-function security constant
             "ls",
             "dir",
             "pwd",
@@ -548,7 +545,7 @@ class OwnerCog(commands.Cog, name="Owner"):
         }
 
         # Blacklist of dangerous commands
-        DANGEROUS_COMMANDS = {
+        DANGEROUS_COMMANDS = {  # noqa: N806 - in-function security constant
             "rm",
             "del",
             "rmdir",
@@ -1118,8 +1115,13 @@ class OwnerCog(commands.Cog, name="Owner"):
         query_upper = query.upper().strip()
 
         # Define allowed and dangerous query types
-        READ_ONLY_OPERATIONS = {"SELECT", "WITH", "EXPLAIN", "ANALYZE"}
-        MODIFICATION_OPERATIONS = {
+        READ_ONLY_OPERATIONS = {  # noqa: N806 - in-function security constant
+            "SELECT",
+            "WITH",
+            "EXPLAIN",
+            "ANALYZE",
+        }
+        MODIFICATION_OPERATIONS = {  # noqa: N806 - in-function security constant
             "INSERT",
             "UPDATE",
             "DELETE",
@@ -1128,7 +1130,7 @@ class OwnerCog(commands.Cog, name="Owner"):
             "CREATE",
             "ALTER",
         }
-        DANGEROUS_OPERATIONS = {
+        DANGEROUS_OPERATIONS = {  # noqa: N806 - in-function security constant
             "DROP",
             "TRUNCATE",
             "DELETE FROM",
@@ -1141,14 +1143,13 @@ class OwnerCog(commands.Cog, name="Owner"):
         first_word = query_upper.split()[0] if query_upper.split() else ""
 
         # Security checks
-        if not allow_modifications:
-            if first_word in MODIFICATION_OPERATIONS:
-                logging.warning(
-                    f"SECURITY: Modification query '{first_word}' attempted by owner {interaction.user.id} without permission"
-                )
-                raise PermissionError(
-                    message=f"Query type '{first_word}' requires allow_modifications=True for safety"
-                )
+        if not allow_modifications and first_word in MODIFICATION_OPERATIONS:
+            logging.warning(
+                f"SECURITY: Modification query '{first_word}' attempted by owner {interaction.user.id} without permission"
+            )
+            raise PermissionError(
+                message=f"Query type '{first_word}' requires allow_modifications=True for safety"
+            )
 
         if first_word in DANGEROUS_OPERATIONS and not allow_modifications:
             logging.warning(

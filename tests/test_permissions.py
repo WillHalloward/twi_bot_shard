@@ -5,6 +5,7 @@ This script tests the permission functions in utils/permissions.py with proper m
 
 import os
 import sys
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -55,7 +56,7 @@ class MockGuild:
         self.roles = []
         self._members = members or {}
 
-    def get_member(self, user_id):
+    def get_member(self, user_id: int) -> "MockUser | None":
         return self._members.get(user_id)
 
 
@@ -92,7 +93,7 @@ class MockInteraction:
 
 
 @pytest.fixture
-def mock_bot():
+def mock_bot() -> MagicMock:
     """Create a mock bot with settings cog."""
     bot = MagicMock()
     mock_settings_cog = MagicMock()
@@ -102,7 +103,7 @@ def mock_bot():
 
 
 @pytest.fixture
-def mock_config():
+def mock_config() -> Iterator[MagicMock]:
     """Fixture to mock config module."""
     with patch("utils.permissions.config") as cfg:
         cfg.bot_owner_id = 268608466690506753

@@ -11,7 +11,14 @@ import logging
 import os
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from dotenv import load_dotenv
+from pydantic import (
+    BaseModel,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 
 # Define environment types
@@ -34,8 +41,6 @@ class LogFormat(StrEnum):
 
 
 # Load environment from .env file first
-from dotenv import load_dotenv
-
 load_dotenv()
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", Environment.DEVELOPMENT)
@@ -261,7 +266,7 @@ class BotConfig(BaseModel):
 
     @field_validator("bot_token")
     @classmethod
-    def bot_token_must_not_be_empty(cls, v):
+    def bot_token_must_not_be_empty(cls, v: str) -> str:
         """Validate that the bot token is not empty."""
         if not v:
             raise ValueError("Bot token must not be empty")
@@ -269,7 +274,7 @@ class BotConfig(BaseModel):
 
     @field_validator("host", "db_user", "db_password", "database")
     @classmethod
-    def db_settings_must_not_be_empty(cls, v, info):
+    def db_settings_must_not_be_empty(cls, v: str, info: ValidationInfo) -> str:
         """Validate that database settings are not empty."""
         if not v:
             raise ValueError(f"{info.field_name} must not be empty")
@@ -277,7 +282,7 @@ class BotConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def check_api_keys_consistency(cls, values):
+    def check_api_keys_consistency(cls, values: dict) -> dict:
         """Validate that API keys are consistent (e.g., if one Twitter key is provided, all should be).
 
         This validator ensures that if one part of a multi-part API credential is provided,
@@ -373,7 +378,9 @@ def load_from_env() -> BotConfig:
     missing_vars = []
 
     # Helper function to get environment variables with validation
-    def get_env(name, default=None, required=False):
+    def get_env(
+        name: str, default: str | None = None, required: bool = False
+    ) -> str | None:
         value = os.getenv(name, default)
         if required and (value is None or value == ""):
             missing_vars.append(name)

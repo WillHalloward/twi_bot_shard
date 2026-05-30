@@ -80,7 +80,7 @@ def _extract_poll_options(json_data: dict) -> list[tuple[str, int, int]]:
     return options
 
 
-async def fetch(session, url, cookies=None, headers=None):
+async def fetch(session, url, cookies=None, headers=None) -> str:
     """Fetch data from a URL using the provided session.
 
     Args:
@@ -99,7 +99,7 @@ async def fetch(session, url, cookies=None, headers=None):
         return await response.text()
 
 
-async def get_poll(bot):
+async def get_poll(bot) -> dict:
     """Fetch and process polls from Patreon API with comprehensive logging and statistics.
 
     Args:
@@ -364,7 +364,7 @@ async def get_poll(bot):
         return stats
 
 
-async def check_and_update_expired_polls(bot, polls):
+async def check_and_update_expired_polls(bot, polls) -> list:
     """Check if any polls have expired and update them in the database.
 
     This function checks polls that are marked as not expired in the database
@@ -648,7 +648,7 @@ async def p_poll(polls, interaction, bot) -> None:
         raise
 
 
-async def search_poll(bot, query: str):
+async def search_poll(bot, query: str) -> discord.Embed:
     """Search for polls containing the specified query in their options.
 
     This function performs a full-text search on poll options using PostgreSQL's
@@ -1189,7 +1189,7 @@ class PollCog(commands.Cog, name="Poll"):
             raise
 
     @poll_list.error
-    async def isError(self, interaction: discord.Interaction, error) -> None:
+    async def is_error(self, interaction: discord.Interaction, error) -> None:
         if isinstance(error, commands.CheckFailure):
             self.logger.info(
                 "poll_list_permission_denied",

@@ -8,7 +8,9 @@ update_tags, and mark_reviewed commands.
 
 import os
 import sys
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -153,7 +155,7 @@ class TestExtractDataCommand:
             mock_messages.append(msg)
 
         # Mock channel history
-        async def mock_history(**kwargs):
+        async def mock_history(**kwargs: Any) -> AsyncGenerator[Any, None]:
             for msg in mock_messages:
                 yield msg
 
@@ -188,7 +190,7 @@ class TestExtractDataCommand:
         interaction = MockInteractionFactory.create(guild=guild, channel=channel)
 
         # Mock empty channel
-        async def mock_history(**kwargs):
+        async def mock_history(**kwargs: Any) -> AsyncGenerator[Any, None]:
             return
             yield  # Make it a generator
 
@@ -236,7 +238,7 @@ class TestExtractDataCommand:
         interaction = MockInteractionFactory.create(guild=guild, channel=channel)
 
         # Mock empty channel
-        async def mock_history(**kwargs):
+        async def mock_history(**kwargs: Any) -> AsyncGenerator[Any, None]:
             return
             yield
 
@@ -513,7 +515,7 @@ class TestGalleryAdminEdgeCases:
         interaction = MockInteractionFactory.create(guild=guild, channel=channel)
 
         # Mock messages
-        async def mock_history(**kwargs):
+        async def mock_history(**kwargs: Any) -> AsyncGenerator[Any, None]:
             for _i in range(3):
                 yield MockMessageFactory.create(channel=channel)
 

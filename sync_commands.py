@@ -1,4 +1,5 @@
 """Quick script to sync slash commands to Discord.
+
 This script mirrors the main bot setup so cogs that require the database can load.
 Run this locally with the bot token and database env vars configured.
 """
@@ -13,6 +14,7 @@ import asyncpg
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import AsyncSession
 from utils.repository_factory import RepositoryFactory
 
 import config
@@ -201,7 +203,7 @@ class SyncBot(commands.Bot):
 
         self.repo_factory = RepositoryFactory(self.container, self.get_db_session)
 
-    async def get_db_session(self):
+    async def get_db_session(self) -> AsyncSession:
         return self.session_maker()
 
     async def setup_hook(self) -> None:
@@ -227,7 +229,7 @@ class SyncBot(commands.Bot):
         await super().close()
 
 
-def build_ssl_config():
+def build_ssl_config() -> str | ssl.SSLContext:
     if os.getenv("DATABASE_URL"):
         return "require"
 

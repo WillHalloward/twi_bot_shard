@@ -64,7 +64,7 @@ class DatabaseTransaction:
         self.db = db
         self.transaction = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "DatabaseTransaction":
         """Enter the context manager, starting a new transaction.
 
         Returns:
@@ -74,7 +74,7 @@ class DatabaseTransaction:
         await self.transaction.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit the context manager, committing or rolling back the transaction.
 
         Args:
@@ -153,24 +153,24 @@ class Database:
                 self.stmt = stmt
                 self.query = query
 
-            async def execute(self, *args, **kwargs):
+            async def execute(self, *args, **kwargs) -> str:
                 """Execute the prepared statement with the given arguments."""
                 async with self.db.pool.acquire() as conn:
                     return await conn.execute(self.query, *args, **kwargs)
 
-            async def fetchval(self, *args, column=0, **kwargs):
+            async def fetchval(self, *args, column=0, **kwargs) -> Any:
                 """Execute the prepared statement and return a single value."""
                 async with self.db.pool.acquire() as conn:
                     return await conn.fetchval(
                         self.query, *args, column=column, **kwargs
                     )
 
-            async def fetchrow(self, *args, **kwargs):
+            async def fetchrow(self, *args, **kwargs) -> Any:
                 """Execute the prepared statement and return a single row."""
                 async with self.db.pool.acquire() as conn:
                     return await conn.fetchrow(self.query, *args, **kwargs)
 
-            async def fetch(self, *args, **kwargs):
+            async def fetch(self, *args, **kwargs) -> list:
                 """Execute the prepared statement and return all rows."""
                 async with self.db.pool.acquire() as conn:
                     return await conn.fetch(self.query, *args, **kwargs)
@@ -472,7 +472,7 @@ class Database:
                 self.logger.error(f"Database error: {e}")
                 raise DatabaseError(f"Failed to execute query: {e}") from e
 
-    async def transaction(self):
+    async def transaction(self) -> Any:
         """Start a new transaction.
 
         Returns:
@@ -488,11 +488,11 @@ class Database:
                 self.conn = conn
                 self.transaction = transaction
 
-            async def __aenter__(self):
+            async def __aenter__(self) -> "TransactionWrapper":
                 await self.transaction.__aenter__()
                 return self
 
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
+            async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
                 try:
                     await self.transaction.__aexit__(exc_type, exc_val, exc_tb)
                 finally:
@@ -520,25 +520,27 @@ class Database:
         """
         for attempt in range(retries):
             try:
-                async with self.pool.acquire() as conn:
-                    async with conn.transaction():
-                        for query, args in queries:
-                            await conn.execute(query, *args)
+                async with self.pool.acquire() as conn, conn.transaction():
+                    for query, args in queries:
+                        await conn.execute(query, *args)
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(
-                    e,
-                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
-                ):
+                if (
+                    isinstance(
+                        e,
+                        asyncpg.DeadlockDetectedError
+                        | asyncpg.ConnectionDoesNotExistError,
+                    )
                     # These errors are retryable
-                    if attempt < retries - 1:
-                        self.logger.warning(
-                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
-                        )
-                        await asyncio.sleep(
-                            retry_delay * (2**attempt)
-                        )  # Exponential backoff
-                        continue
+                    and attempt < retries - 1
+                ):
+                    self.logger.warning(
+                        f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                    )
+                    await asyncio.sleep(
+                        retry_delay * (2**attempt)
+                    )  # Exponential backoff
+                    continue
                 self.logger.error(f"Transaction error: {e}")
                 raise DatabaseError(f"Failed to execute transaction: {e}") from e
 
@@ -646,19 +648,22 @@ class Database:
 
                 return
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
-                if isinstance(
-                    e,
-                    asyncpg.DeadlockDetectedError | asyncpg.ConnectionDoesNotExistError,
-                ):
+                if (
+                    isinstance(
+                        e,
+                        asyncpg.DeadlockDetectedError
+                        | asyncpg.ConnectionDoesNotExistError,
+                    )
                     # These errors are retryable
-                    if attempt < retries - 1:
-                        self.logger.warning(
-                            f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
-                        )
-                        await asyncio.sleep(
-                            retry_delay * (2**attempt)
-                        )  # Exponential backoff
-                        continue
+                    and attempt < retries - 1
+                ):
+                    self.logger.warning(
+                        f"Retryable error on attempt {attempt + 1}/{retries}: {e}"
+                    )
+                    await asyncio.sleep(
+                        retry_delay * (2**attempt)
+                    )  # Exponential backoff
+                    continue
                 self.logger.error(f"Database error in COPY operation: {e}")
                 raise DatabaseError(f"Failed to copy records to table: {e}") from e
 

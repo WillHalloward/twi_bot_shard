@@ -298,38 +298,34 @@ class ModCogs(commands.Cog):
             not isinstance(message.channel, discord.channel.DMChannel)
             and not message.author.bot
             and message.guild.id == 346842016480755724
-        ):
-            if re.search(
+            and re.search(
                 r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
                 message.content,
-            ):
-                try:
-                    async with self.webhook_manager.get_webhook(
-                        config.webhook
-                    ) as webhook:
-                        await webhook.send(
-                            f"Link detected: {message.content[0:1600]}\n"
-                            f"User: {message.author.name} {message.author.id}\n"
-                            f"Channel: {message.channel.mention}\n"
-                            f"Jump Url: {message.jump_url}",
-                            allowed_mentions=discord.AllowedMentions(
-                                everyone=False, roles=False, users=False
-                            ),
-                        )
-                except Exception as e:
-                    # Use standardized error logging with context
-                    error = ExternalServiceError(
-                        f"Failed to log link detection: {str(e)}"
+            )
+        ):
+            try:
+                async with self.webhook_manager.get_webhook(config.webhook) as webhook:
+                    await webhook.send(
+                        f"Link detected: {message.content[0:1600]}\n"
+                        f"User: {message.author.name} {message.author.id}\n"
+                        f"Channel: {message.channel.mention}\n"
+                        f"Jump Url: {message.jump_url}",
+                        allowed_mentions=discord.AllowedMentions(
+                            everyone=False, roles=False, users=False
+                        ),
                     )
-                    log_error(
-                        error=error,
-                        command_name="find_links",
-                        user_id=message.author.id,
-                        log_level=logging.ERROR,
-                        additional_context=f"Link in message: {message.id}, Guild: {message.guild.id}",
-                        guild_id=message.guild.id,
-                        channel_id=message.channel.id,
-                    )
+            except Exception as e:
+                # Use standardized error logging with context
+                error = ExternalServiceError(f"Failed to log link detection: {str(e)}")
+                log_error(
+                    error=error,
+                    command_name="find_links",
+                    user_id=message.author.id,
+                    log_level=logging.ERROR,
+                    additional_context=f"Link in message: {message.id}, Guild: {message.guild.id}",
+                    guild_id=message.guild.id,
+                    channel_id=message.channel.id,
+                )
 
     @Cog.listener("on_member_join")
     async def filter_new_users(self, member) -> None:

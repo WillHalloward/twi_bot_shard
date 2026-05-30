@@ -21,17 +21,18 @@ sys.modules["config"].INVITE_CHANNEL = 123456789
 sys.modules["config"].NEW_USER_CHANNEL = 123456789
 sys.modules["config"].logfile = "test"
 
-import discord
-from discord.ext import commands
+# Imports below must follow the config mock above (cogs read config at import).
+import discord  # noqa: E402
+from discord.ext import commands  # noqa: E402
 
-from cogs.gallery import GalleryCog, RepostMenu
-from cogs.mods import ModCogs
+from cogs.gallery import GalleryCog, RepostMenu  # noqa: E402
+from cogs.mods import ModCogs  # noqa: E402
 
 # Import the cogs we want to test
 
 
 # Define simplified versions of save_message and save_reaction for testing
-async def save_message(message, db):
+async def save_message(message, db) -> dict:
     """Simplified version of save_message for testing."""
     # Extract basic information from the message
     message_data = {
@@ -64,7 +65,7 @@ async def save_message(message, db):
     return message_data
 
 
-async def save_reaction(reaction, db):
+async def save_reaction(reaction, db) -> dict:
     """Simplified version of save_reaction for testing."""
     # Extract basic information from the reaction
     reaction_data = {
@@ -91,7 +92,7 @@ async def save_reaction(reaction, db):
 
 # Import test utilities
 # Import database models
-from tests.mock_factories import (
+from tests.mock_factories import (  # noqa: E402
     MockChannelFactory,
     MockGuildFactory,
     MockInteractionFactory,
@@ -161,7 +162,7 @@ class TestBot(commands.Bot):
         self.container.register("web_client", None)  # Mock web client
 
         # Create a session factory that returns a coroutine that returns a MockAsyncSession
-        async def session_factory():
+        async def session_factory() -> MagicMock:
             return MagicMock()
 
         self.session_maker = session_factory
@@ -182,7 +183,7 @@ class TestBot(commands.Bot):
         # Mock the latency property to return a valid float instead of NaN
         self._latency = 0.05  # 50ms latency
 
-    async def get_db_session(self):
+    async def get_db_session(self) -> MagicMock:
         """Get a new SQLAlchemy database session (mock version).
 
         Returns:
@@ -196,7 +197,7 @@ class TestBot(commands.Bot):
         return self._latency
 
     @property
-    def user(self):
+    def user(self) -> MagicMock:
         """Override the user property to return our mock user."""
         return self._user
 

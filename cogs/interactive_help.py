@@ -631,7 +631,7 @@ class InteractiveHelp(commands.Cog):
         """
         if command_name:
             # Search for the command in all categories
-            for category, commands in self.commands_db.items():
+            for _category, commands in self.commands_db.items():
                 for cmd in commands:
                     if cmd["name"] == command_name:
                         embed = discord.Embed(
@@ -696,7 +696,7 @@ class InteractiveHelp(commands.Cog):
         """
         if command:
             # Search for the command in all categories
-            for category, commands in self.commands_db.items():
+            for _category, commands in self.commands_db.items():
                 for cmd in commands:
                     if cmd["name"] == command:
                         embed = discord.Embed(

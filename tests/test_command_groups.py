@@ -8,6 +8,7 @@ to share common command namespaces for better organization.
 
 import os
 import sys
+from collections.abc import Iterator
 
 import pytest
 
@@ -37,7 +38,7 @@ from utils.command_groups import admin, gallery_admin, mod
 
 
 @pytest.fixture
-def reset_command_groups():
+def reset_command_groups() -> Iterator[None]:
     """Reset command groups before and after tests to prevent pollution.
 
     This fixture clears all commands from the groups before the test

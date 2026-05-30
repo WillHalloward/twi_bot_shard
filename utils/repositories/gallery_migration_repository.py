@@ -382,13 +382,15 @@ class GalleryMigrationRepository:
                                 and processed_entry[field] is not None
                             ):
                                 dt_value = processed_entry[field]
-                                if isinstance(dt_value, datetime):
-                                    if dt_value.tzinfo is not None:
-                                        # Convert timezone-aware to timezone-naive (assume UTC)
-                                        processed_entry[field] = dt_value.replace(
-                                            tzinfo=None
-                                        )
-                                    # If already timezone-naive, keep as is
+                                # Convert timezone-aware to timezone-naive (assume UTC);
+                                # if already timezone-naive, keep as is
+                                if (
+                                    isinstance(dt_value, datetime)
+                                    and dt_value.tzinfo is not None
+                                ):
+                                    processed_entry[field] = dt_value.replace(
+                                        tzinfo=None
+                                    )
 
                         # Ensure extracted_at is always set with timezone-naive datetime
                         if (

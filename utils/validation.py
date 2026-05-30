@@ -543,7 +543,9 @@ def sanitize_json(value: Any) -> str:
 # Validation decorators
 
 
-def validate_command_params(**param_validators: dict[str, Callable[[Any], Any]]):
+def validate_command_params(
+    **param_validators: dict[str, Callable[[Any], Any]],
+) -> Callable[[CommandT], CommandT]:
     """Decorator for validating command parameters.
 
     Args:
@@ -555,7 +557,7 @@ def validate_command_params(**param_validators: dict[str, Callable[[Any], Any]])
 
     def decorator(command_func: CommandT) -> CommandT:
         @wraps(command_func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs) -> Any:
             # Extract context from args
             ctx = args[0] if len(args) > 0 else None
 
@@ -577,7 +579,9 @@ def validate_command_params(**param_validators: dict[str, Callable[[Any], Any]])
     return decorator
 
 
-def validate_interaction_params(**param_validators: dict[str, Callable[[Any], Any]]):
+def validate_interaction_params(
+    **param_validators: dict[str, Callable[[Any], Any]],
+) -> Callable[[CommandT], CommandT]:
     """Decorator for validating app command interaction parameters.
 
     Args:
@@ -589,7 +593,9 @@ def validate_interaction_params(**param_validators: dict[str, Callable[[Any], An
 
     def decorator(command_func: CommandT) -> CommandT:
         @wraps(command_func)
-        async def wrapper(self, interaction: discord.Interaction, *args, **kwargs):
+        async def wrapper(
+            self, interaction: discord.Interaction, *args, **kwargs
+        ) -> Any:
             # Validate each parameter
             for param_name, validator in param_validators.items():
                 if param_name in kwargs:

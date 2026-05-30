@@ -5,6 +5,7 @@ This module contains:
 - User-facing query commands (StatsQueriesMixin)
 """
 
+import contextlib
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -1068,7 +1069,8 @@ class StatsCommandsMixin:
             elapsed_time,
             current_guild_name,
         ) -> None:
-            try:
+            # If we can't edit the message, continue anyway
+            with contextlib.suppress(discord.HTTPException):
                 await progress_msg.edit(
                     content=f"🔄 **Message save operation in progress**\n"
                     f"**Guilds processed:** {guilds_processed}/{total_guilds}\n"
@@ -1078,9 +1080,6 @@ class StatsCommandsMixin:
                     f"**Elapsed time:** {str(elapsed_time).split('.')[0]}\n"
                     f"**Current guild:** {current_guild_name}"
                 )
-            except discord.HTTPException:
-                # If we can't edit the message, continue anyway
-                pass
 
         # Define completion callback for final UI update and owner notification
         async def completion_callback(results) -> None:

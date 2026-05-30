@@ -29,7 +29,7 @@ from utils.permissions import (
 )
 
 
-def google_search(search_term, api_key, cse_id, **kwargs):
+def google_search(search_term, api_key, cse_id, **kwargs) -> dict:
     """Perform a Google Custom Search using the provided API credentials.
 
     Args:

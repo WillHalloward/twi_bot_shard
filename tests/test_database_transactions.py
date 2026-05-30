@@ -20,7 +20,7 @@ import asyncpg
 from tests.test_utils import TestSetup
 
 
-def setup_mock_database_with_pool(db, mock_conn, mock_transaction=None):
+def setup_mock_database_with_pool(db, mock_conn, mock_transaction=None) -> MagicMock:
     """Helper function to set up mock database with proper async context manager support."""
 
     # Create a proper async context manager for pool.acquire()
@@ -28,10 +28,10 @@ def setup_mock_database_with_pool(db, mock_conn, mock_transaction=None):
         def __init__(self, conn) -> None:
             self.conn = conn
 
-        async def __aenter__(self):
+        async def __aenter__(self) -> object:
             return self.conn
 
-        async def __aexit__(self, exc_type, exc_val, exc_tb):
+        async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
             pass
 
     # Mock pool - use MagicMock instead of AsyncMock for the pool itself
@@ -189,16 +189,16 @@ async def test_concurrent_transactions() -> bool:
         def __init__(self, conn) -> None:
             self.conn = conn
 
-        async def __aenter__(self):
+        async def __aenter__(self) -> object:
             return self.conn
 
-        async def __aexit__(self, exc_type, exc_val, exc_tb):
+        async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
             pass
 
     # Create a counter to alternate between connections
     connection_counter = 0
 
-    def get_connection():
+    def get_connection() -> MockAcquire:
         nonlocal connection_counter
         if connection_counter == 0:
             connection_counter = 1
@@ -309,9 +309,11 @@ async def test_transaction_isolation_levels() -> bool:
     isolation_levels = ["read_committed", "repeatable_read", "serializable"]
 
     for isolation_level in isolation_levels:
-        async with db.pool.acquire() as conn:
-            async with conn.transaction(isolation=isolation_level):
-                await conn.execute("SELECT * FROM test_table")
+        async with (
+            db.pool.acquire() as conn,
+            conn.transaction(isolation=isolation_level),
+        ):
+            await conn.execute("SELECT * FROM test_table")
 
     # Verify transactions were called with isolation levels
     assert mock_conn.transaction.call_count == len(isolation_levels)
