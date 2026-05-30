@@ -470,34 +470,38 @@ def load_from_env() -> BotConfig:
     try:
         cookies = json.loads(get_env("COOKIES", "{}"))
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in COOKIES environment variable: {e}")
+        raise ValueError(f"Invalid JSON in COOKIES environment variable: {e}") from e
 
     try:
         headers = json.loads(get_env("HEADERS", "{}"))
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in HEADERS environment variable: {e}")
+        raise ValueError(f"Invalid JSON in HEADERS environment variable: {e}") from e
 
     # Load channel IDs and role IDs with error handling
     try:
         channel_ids = json.loads(get_env("CHANNEL_IDS", "{}"))
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in CHANNEL_IDS environment variable: {e}")
+        raise ValueError(
+            f"Invalid JSON in CHANNEL_IDS environment variable: {e}"
+        ) from e
 
     try:
         role_ids = json.loads(get_env("ROLE_IDS", "{}"))
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in ROLE_IDS environment variable: {e}")
+        raise ValueError(f"Invalid JSON in ROLE_IDS environment variable: {e}") from e
 
     # Parse numeric values with error handling
     try:
         port_int = int(port)
     except ValueError:
-        raise ValueError(f"Invalid PORT value: {port}. Must be an integer.")
+        raise ValueError(f"Invalid PORT value: {port}. Must be an integer.") from None
 
     try:
         kill_after_int = int(kill_after)
     except ValueError:
-        raise ValueError(f"Invalid KILL_AFTER value: {kill_after}. Must be an integer.")
+        raise ValueError(
+            f"Invalid KILL_AFTER value: {kill_after}. Must be an integer."
+        ) from None
 
     # Create configuration object
     try:
@@ -539,7 +543,7 @@ def load_from_env() -> BotConfig:
         )
     except ValueError as e:
         # Add more context to validation errors
-        raise ValueError(f"Configuration validation error: {e}")
+        raise ValueError(f"Configuration validation error: {e}") from e
 
     # Log a warning if no encryption key is provided
     if not secret_encryption_key:

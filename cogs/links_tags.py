@@ -332,7 +332,7 @@ class LinkTags(commands.Cog, name="Links"):
                 resource_type="link",
                 resource_id=title,
                 message=f"A link with the title **{title}** already exists. Please choose a different title.",
-            )
+            ) from None
         except ResourceAlreadyExistsError:
             raise
         except Exception as e:

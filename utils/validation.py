@@ -79,7 +79,7 @@ def validate_string(
         except Exception:
             raise ValidationError(
                 error_message or f"Expected string, got {type(value).__name__}"
-            )
+            ) from None
 
     if strip:
         value = value.strip()
@@ -135,7 +135,7 @@ def validate_integer(
     except (ValueError, TypeError):
         raise ValidationError(
             error_message or f"Expected integer, got {type(value).__name__}"
-        )
+        ) from None
 
     if min_value is not None and int_value < min_value:
         raise ValidationError(error_message or f"Value must be at least {min_value}")
@@ -178,7 +178,7 @@ def validate_float(
     except (ValueError, TypeError):
         raise ValidationError(
             error_message or f"Expected float, got {type(value).__name__}"
-        )
+        ) from None
 
     if min_value is not None and float_value < min_value:
         raise ValidationError(error_message or f"Value must be at least {min_value}")
@@ -450,7 +450,7 @@ def validate_discord_id(value: Any, error_message: str | None = None) -> int:
 
         return id_value
     except (ValueError, TypeError):
-        raise ValidationError(error_message or "Invalid Discord ID format")
+        raise ValidationError(error_message or "Invalid Discord ID format") from None
 
 
 # Database input sanitization

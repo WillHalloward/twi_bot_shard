@@ -945,7 +945,7 @@ async def handle_global_app_command_error(
                                             )
                                             raise Exception(
                                                 "No known invocation method"
-                                            )
+                                            ) from None
 
                                     logger.info(
                                         f"Successfully executed command {command_name} after lazy loading"

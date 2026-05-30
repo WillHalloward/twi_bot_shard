@@ -102,7 +102,7 @@ class ModCogs(commands.Cog):
         except Exception as e:
             raise ValidationError(
                 message=f"Failed to reset cooldown for command **{command}**: {str(e)}"
-            )
+            ) from e
 
     @mod.command(name="state", description="Post an official moderator message")
     @app_commands.default_permissions(ban_members=True)
@@ -165,11 +165,13 @@ class ModCogs(commands.Cog):
             )
 
         except discord.HTTPException as e:
-            raise ValidationError(message=f"Failed to post moderator message: {str(e)}")
+            raise ValidationError(
+                message=f"Failed to post moderator message: {str(e)}"
+            ) from e
         except Exception as e:
             raise ValidationError(
                 message=f"Unexpected error posting moderator message: {str(e)}"
-            )
+            ) from e
 
     @Cog.listener("on_message")
     async def log_attachment(self, message) -> None:

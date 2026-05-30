@@ -279,7 +279,7 @@ class SummarizationCog(commands.Cog):
         except discord.Forbidden:
             raise ValidationError(
                 message="I don't have permission to read message history in this channel"
-            )
+            ) from None
         except Exception as e:
             self.logger.error(f"Unexpected error in summarize command: {e}")
             raise ExternalServiceError(
@@ -361,7 +361,7 @@ class SummarizationCog(commands.Cog):
         except discord.Forbidden:
             raise ValidationError(
                 message="I don't have permission to read message history in this channel"
-            )
+            ) from None
         except Exception as e:
             self.logger.error(f"Unexpected error in moderate command: {e}")
             raise ExternalServiceError(

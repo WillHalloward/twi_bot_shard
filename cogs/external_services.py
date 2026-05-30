@@ -194,7 +194,7 @@ class ExternalServices(BaseCog, name="ExternalServices"):
             except AO3.utils.InvalidIdError:
                 raise ValidationError(
                     message="Could not find that work on AO3. Please check the URL and try again."
-                )
+                ) from None
             except Exception as e:
                 logging.error(
                     f"EXTERNAL AO3 ERROR: Failed to create work object for user {interaction.user.id}: {e}"
