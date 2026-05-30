@@ -1122,8 +1122,9 @@ def setup_global_exception_handler(bot: commands.Bot) -> None:
         )
 
         # Report uncaught exceptions to Sentry (no-op unless enabled). These
-        # never reach log_error(), so capture them here.
-        if isinstance(value, BaseException):
+        # never reach log_error(), so capture them here. Limit to Exception so
+        # we don't report SystemExit/KeyboardInterrupt as bugs.
+        if isinstance(value, Exception):
             from utils.sentry_setup import capture_exception as _sentry_capture
 
             _sentry_capture(value, command_name="<uncaught>")

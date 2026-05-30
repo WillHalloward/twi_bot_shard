@@ -15,8 +15,16 @@ Environment variables:
         Defaults to 0.0 (error reporting only, no performance overhead/quota).
 """
 
+from __future__ import annotations
+
 import logging
 import os
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    # Type-only import; avoids a hard runtime dependency on sentry_sdk so the
+    # module still imports cleanly when the package is absent.
+    from sentry_sdk.types import Event, Hint
 
 logger = logging.getLogger("sentry")
 
@@ -25,7 +33,7 @@ logger = logging.getLogger("sentry")
 _initialized: bool = False
 
 
-def _before_send(event: dict, hint: dict) -> dict | None:
+def _before_send(event: Event, hint: Hint) -> Event | None:
     """Scrub sensitive data from outgoing Sentry events.
 
     Runs exception messages and the log entry message through the project's
@@ -45,12 +53,17 @@ def _before_send(event: dict, hint: dict) -> dict | None:
 
     try:
         for value in event.get("exception", {}).get("values", []):
-            if value.get("value"):
-                value["value"] = redact_sensitive_info(value["value"])
+            message = value.get("value")
+            if isinstance(message, str):
+                value["value"] = redact_sensitive_info(message)
 
-        logentry = event.get("logentry")
-        if logentry and logentry.get("message"):
-            logentry["message"] = redact_sensitive_info(logentry["message"])
+        # Typed as a read-only Mapping in Sentry's stubs, but a mutable dict at
+        # runtime; annotate Any so the in-place scrub type-checks.
+        logentry: Any = event.get("logentry")
+        if logentry:
+            message = logentry.get("message")
+            if isinstance(message, str):
+                logentry["message"] = redact_sensitive_info(message)
     except Exception as exc:  # pragma: no cover - defensive; never block sending
         logger.debug(f"Sentry before_send scrubbing failed: {exc}")
 
