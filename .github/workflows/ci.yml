@@ -26,6 +26,12 @@ jobs:
     - name: Install dependencies
       run: uv pip install --system -e ".[dev]"
 
+    - name: Provide test environment config
+      # config/__init__.py validates required env vars at import time. Locally
+      # these come from a developer's .env; in CI use the committed dummy
+      # values in .env.test (tests use SQLite/mocks, not a real database).
+      run: cp .env.test .env
+
     - name: Run tests
       run: python -m pytest tests/ --cov=. --cov-report=xml
 
