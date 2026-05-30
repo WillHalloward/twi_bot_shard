@@ -282,6 +282,29 @@ The stats module uses a mixin architecture — `stats.py` is the only loadable c
 - Permission system leverages Discord's native permissions with bot owner override
 - Setup git hooks via `pre-commit install` for automated checks
 
+### Security Scanning (CI)
+
+`.github/workflows/security-scan.yml` runs on push/PR to `staging` and
+`production`, plus a weekly schedule. It has three jobs:
+
+- **Dependency Vulnerability Scan** (`pip-audit`) — **advisory**. Uploads
+  `pip-audit-report.json`; the step uses `continue-on-error: true` so known
+  advisories (including un-patchable transitive ones) don't block merges.
+- **Static Security Analysis** (`bandit`) — **advisory**. Scans the repo
+  (excluding `tests` and `.venv`), uploads `bandit-report.json`, and likewise
+  uses step-level `continue-on-error: true` so findings don't block merges.
+- **Secret Scanning** (`gitleaks`) — **hard gate**. This one *should* fail the
+  build if a secret is detected. It checks out with `fetch-depth: 0` so
+  gitleaks can scan full history (a shallow clone makes it error with
+  "stderr is not empty").
+
+Advisory means the check reports green and the finding lives in the uploaded
+artifact for triage. To promote a scanner to a blocking gate once its findings
+are at zero, remove the `continue-on-error: true` from that job's run step.
+Note: job-level `continue-on-error` alone is **not** enough — it spares the
+overall run but the named check still reports red, so the flag must be on the
+step.
+
 ## Database Schema
 
 The bot uses PostgreSQL with optimized schemas including:
