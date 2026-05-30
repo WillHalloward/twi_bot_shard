@@ -1067,6 +1067,7 @@ async def main() -> None:
             "cogs.settings",
             "cogs.message_log",
             "cogs.interactive_help",
+            "cogs.heartbeat",
         ]
 
         # Define critical cogs that must be loaded at startup

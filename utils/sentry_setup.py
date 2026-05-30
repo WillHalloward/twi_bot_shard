@@ -162,3 +162,38 @@ def capture_exception(
             scope.set_context("additional", {"info": additional_context})
 
         sentry_sdk.capture_exception(error)
+
+
+# Slug for the liveness heartbeat cron monitor. Sentry auto-creates the monitor
+# from the monitor_config on the first check-in (upsert), so no UI setup needed.
+HEARTBEAT_MONITOR_SLUG = "twi-bot-heartbeat"
+
+
+def send_heartbeat() -> None:
+    """Send a liveness check-in to Sentry's cron monitoring, if Sentry is enabled.
+
+    Acts as a dead-man's-switch: a background task calls this on a fixed
+    interval while the bot is connected. Sentry expects a check-in every 5
+    minutes and tolerates a 10-minute margin; if check-ins stop (process dead,
+    hung, OOM-killed, or disconnected), Sentry raises a missed-check-in issue
+    (~15 min) which routes to Discord like any other issue.
+
+    A cheap no-op when Sentry is not initialised.
+    """
+    if not _initialized:
+        return
+
+    from sentry_sdk.crons import capture_checkin
+
+    capture_checkin(
+        monitor_slug=HEARTBEAT_MONITOR_SLUG,
+        status="ok",
+        monitor_config={
+            "schedule": {"type": "interval", "value": 5, "unit": "minute"},
+            "checkin_margin": 10,  # minutes of tolerance (covers redeploys)
+            "max_runtime": 2,
+            "timezone": "UTC",
+            "failure_issue_threshold": 1,
+            "recovery_threshold": 1,
+        },
+    )
