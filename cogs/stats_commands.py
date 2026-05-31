@@ -907,7 +907,7 @@ class StatsCommandsMixin(StatsMixinBase):
             f"**Existing users skipped:** {users_processed - users_added}"
         )
 
-    @commands.command(name="save_channels_from_messages", hidden=True)
+    @commands.command(name="save_users_from_messages", hidden=True)
     @commands.is_owner()
     @handle_command_errors
     async def save_users_from_messages(self, ctx: "Context") -> None:
@@ -957,20 +957,18 @@ class StatsCommandsMixin(StatsMixinBase):
                 message_id = message_record["message_id"]
 
                 try:
-                    # Try to fetch the message from Discord
-                    message = await self.bot.get_message(message_id)
-
-                    if message is None:
-                        # Try alternative method if get_message fails
-                        for guild in self.bot.guilds:
-                            for channel in guild.text_channels:
-                                try:
-                                    message = await channel.fetch_message(message_id)
-                                    break
-                                except (discord.NotFound, discord.Forbidden):
-                                    continue
-                            if message:
+                    # There is no bot.get_message API; a message can only be
+                    # fetched per-channel. Search accessible text channels for it.
+                    message = None
+                    for guild in self.bot.guilds:
+                        for channel in guild.text_channels:
+                            try:
+                                message = await channel.fetch_message(message_id)
                                 break
+                            except (discord.NotFound, discord.Forbidden):
+                                continue
+                        if message:
+                            break
 
                     if message:
                         # Save the user information from the message
@@ -1039,9 +1037,7 @@ class StatsCommandsMixin(StatsMixinBase):
             ctx: The command context
 
         Raises:
-            DatabaseError: If database operations fail
-            QueryError: If there's an issue with SQL queries
-            ValidationError: If Discord API operations fail
+            QueryError: If the comprehensive save fails
         """
         try:
             await ctx.message.delete()
@@ -1152,9 +1148,7 @@ class StatsCommandsMixin(StatsMixinBase):
             days: Number of days to look back (default: 30)
 
         Raises:
-            DatabaseError: If database operations fail
-            QueryError: If there's an issue with SQL queries
-            ValidationError: If Discord API operations fail
+            QueryError: If the save operation fails
         """
         if days <= 0:
             await ctx.send("❌ Days must be a positive number.")

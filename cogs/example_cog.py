@@ -5,18 +5,18 @@ including error handling, transactions, and query optimization.
 """
 
 import discord
-import structlog
 from discord import app_commands
 from discord.ext import commands
 
+from utils.base_cog import BaseCog
 
-class ExampleCog(commands.Cog, name="Example"):  # type: ignore[call-arg]  # stub
+
+class ExampleCog(BaseCog, name="Example"):  # type: ignore[call-arg]  # discord.py stubs reject name=
     """Example cog demonstrating best practices for database operations."""
 
     def __init__(self, bot) -> None:
         """Initialize the cog with a reference to the bot."""
-        self.bot = bot
-        self.logger = structlog.get_logger("cogs.example")
+        super().__init__(bot, name="example")
 
     @commands.command(name="example_transaction")
     @commands.is_owner()
@@ -113,11 +113,13 @@ class ExampleCog(commands.Cog, name="Example"):  # type: ignore[call-arg]  # stu
         if message.author.bot:
             return
 
-        # Example of a complex operation that should use a transaction
+        # Example of multiple related operations that must be atomic. Use the
+        # transaction's connection (`trans.conn`) for every query so they all run
+        # inside the same transaction — calling self.bot.db.execute(...) here
+        # would acquire a separate pooled connection and would NOT be part of it.
         if "!example" in message.content:
             try:
                 async with await self.bot.db.transaction() as trans:
-                    # Multiple related operations that should be atomic
                     await trans.conn.execute(
                         "INSERT INTO example_messages(message_id, content, author_id) VALUES($1, $2, $3)",
                         message.id,
@@ -125,23 +127,13 @@ class ExampleCog(commands.Cog, name="Example"):  # type: ignore[call-arg]  # stu
                         message.author.id,
                     )
 
+                    # Upsert the per-user counter in a single statement rather than
+                    # update-then-check-then-insert (avoids a race and extra round-trips).
                     await trans.conn.execute(
-                        "UPDATE example_user_stats SET message_count = message_count + 1 WHERE user_id = $1",
+                        "INSERT INTO example_user_stats(user_id, message_count) VALUES($1, 1) "
+                        "ON CONFLICT (user_id) DO UPDATE SET message_count = example_user_stats.message_count + 1",
                         message.author.id,
                     )
-
-                    # This could fail if the user doesn't exist in the stats table
-                    rows_updated = await trans.conn.fetchval(
-                        "SELECT COUNT(*) FROM example_user_stats WHERE user_id = $1",
-                        message.author.id,
-                    )
-
-                    if rows_updated == 0:
-                        # Insert a new record if the user doesn't exist
-                        await trans.conn.execute(
-                            "INSERT INTO example_user_stats(user_id, message_count) VALUES($1, 1)",
-                            message.author.id,
-                        )
             except Exception as e:
                 # Log the error but don't disrupt the bot's operation
                 self.logger.error(f"Error processing message in example_listener: {e}")
