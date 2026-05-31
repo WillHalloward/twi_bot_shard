@@ -48,6 +48,7 @@ from discord import app_commands
 from discord.ext import commands
 
 import config
+from utils.error_handling import handle_interaction_errors
 from utils.logging import RequestContext, TimingContext
 from utils.permissions import (
     is_bot_channel,
@@ -789,6 +790,7 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
         poll_id="Optional: Specific poll ID to display (defaults to latest active or most recent poll)"
     )
     @app_commands.checks.cooldown(1, 60.0, key=lambda i: (i.user.id, i.channel.id))
+    @handle_interaction_errors
     async def poll(
         self, interaction: discord.Interaction, poll_id: int | None = None
     ) -> None:
@@ -1031,6 +1033,7 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
         year="The year to list polls from (defaults to current year)"
     )
     @commands.check(is_bot_channel)
+    @handle_interaction_errors
     async def poll_list(
         self,
         interaction: discord.Interaction,
@@ -1217,6 +1220,7 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
     )
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.default_permissions(ban_members=True)
+    @handle_interaction_errors
     async def getpoll(self, interaction: discord.Interaction) -> None:
         """Fetch and update polls from Patreon API with detailed progress feedback."""
         logger = structlog.get_logger("patreon_poll.command")
@@ -1316,6 +1320,7 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
     @app_commands.describe(
         query="The search term to look for in poll options (keywords or phrases)"
     )
+    @handle_interaction_errors
     async def findpoll(self, interaction: discord.Interaction, query: str) -> None:
         """Search for polls containing specific keywords in their options.
 

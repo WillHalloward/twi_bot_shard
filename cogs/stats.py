@@ -18,13 +18,14 @@ Architecture:
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import structlog
 from discord.ext import commands, tasks
 
 import config
+from utils.sentry_setup import capture_exception
 
 from .stats_commands import StatsCommandsMixin, StatsQueriesMixin
 from .stats_listeners import StatsListenersMixin
@@ -370,12 +371,20 @@ class StatsCogs(  # type: ignore[call-arg]  # discord.py Cog name= kwarg
     async def stats_loop_error(self, error: Exception) -> None:
         """Error handler for the stats loop task.
 
+        A discord.py ``tasks.loop`` stops permanently after an unhandled
+        exception, so without an explicit restart the daily stats would
+        silently stop until the next bot restart. We report the error to Sentry
+        (with traceback and tags, beyond the bare log the default logging
+        integration would send), notify the owner, then restart after a short
+        backoff so a persistent fault doesn't hammer the loop.
+
         Args:
             error: The exception that occurred in the stats loop
         """
         self.logger.error(
             "stats_loop_error", error=str(error), error_type=type(error).__name__
         )
+        capture_exception(error, command_name="stats_loop")
 
         # Notify bot owner of the error
         try:
@@ -384,11 +393,16 @@ class StatsCogs(  # type: ignore[call-arg]  # discord.py Cog name= kwarg
                 await owner.send(
                     f"⚠️ **Stats Loop Error**\n"
                     f"**Error:** {type(error).__name__}: {error}\n"
-                    f"**Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+                    f"**Time:** {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
                     f"The stats loop will attempt to restart automatically."
                 )
         except Exception as e:
             self.logger.error("owner_notification_failed", error=str(e))
+
+        # Actually restart the loop — the message above only promised it. A
+        # short backoff prevents a tight crash loop when the fault is sticky.
+        await asyncio.sleep(60)
+        self.stats_loop.restart()
 
 
 async def setup(bot: "Bot") -> None:

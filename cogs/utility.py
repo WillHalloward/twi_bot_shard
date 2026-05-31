@@ -332,6 +332,7 @@ class Utility(commands.Cog, name="Utility"):  # type: ignore[call-arg]  # stub
     @app_commands.command(
         name="pat", description="Give Cognita a pat for a job well done!"
     )
+    @handle_interaction_errors
     async def pat(self, interaction: discord.Interaction) -> None:
         """Pat the bot to show appreciation."""
         responses = [

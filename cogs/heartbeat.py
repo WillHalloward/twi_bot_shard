@@ -15,11 +15,13 @@ The heartbeat is a no-op unless SENTRY_DSN is configured, so local development
 and tests are unaffected.
 """
 
+import asyncio
+
 from discord.ext import commands, tasks
 
 import config
 from utils.base_cog import BaseCog
-from utils.sentry_setup import send_heartbeat
+from utils.sentry_setup import capture_exception, send_heartbeat
 
 
 class Heartbeat(BaseCog):
@@ -52,6 +54,26 @@ class Heartbeat(BaseCog):
         if self.bot.is_closed():
             return
         send_heartbeat()
+
+    @heartbeat_loop.error
+    async def heartbeat_loop_error(self, error: Exception) -> None:
+        """Report a heartbeat-loop crash to Sentry and restart the loop.
+
+        A discord.py ``tasks.loop`` stops permanently after an unhandled
+        exception, so without this the liveness signal would die silently —
+        the worst case, since a dead heartbeat is indistinguishable from a dead
+        bot. We capture the error explicitly (with traceback and tags, unlike
+        the bare log record the default logging integration would send) and
+        restart after a short backoff so transient faults don't hammer.
+        """
+        self.logger.error(
+            "heartbeat_loop_error",
+            error=str(error),
+            error_type=type(error).__name__,
+        )
+        capture_exception(error, command_name="heartbeat_loop")
+        await asyncio.sleep(60)
+        self.heartbeat_loop.restart()
 
     @heartbeat_loop.before_loop
     async def before_heartbeat(self) -> None:

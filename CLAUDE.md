@@ -133,10 +133,15 @@ pre-commit run --all-files
 The bot implements a comprehensive error handling strategy:
 
 - **Custom Exception Hierarchy** (`utils/exceptions.py`): Specific exception types for different error categories (UserInputError, DatabaseError, ExternalServiceError, etc.)
-- **Decorators**: `@handle_command_errors` for regular commands, `@handle_interaction_errors` for slash commands
-- **Global Handlers**: Set up via `setup_global_exception_handler()` in main.py
+- **Decorators**: `@handle_command_errors` for regular commands, `@handle_interaction_errors` for slash commands. Apply `@handle_interaction_errors` as the *innermost* decorator (directly above `async def`) so discord.py still reads the real parameter signatures through `functools.wraps`. All slash commands should carry it; the global net below only catches the ones that slip through.
+- **Global Handlers**: Set up via `setup_global_exception_handler()` in main.py. This wires up **five** escalation paths so no error path silently drops:
+  - `on_command_error` / `@bot.tree.error` — catch-all for prefix/slash commands that lack (or re-raise past) a decorator.
+  - `on_error` — the event-dispatch net. discord.py's default only logs a traceback, so this override captures the live `sys.exc_info()` exception to Sentry with an `<event:...>` tag (covers listeners like `on_message`, `on_member_update`, `on_message_delete`).
+  - `loop.set_exception_handler(...)` — the asyncio net for fire-and-forget tasks (`bot.loop.create_task` / `asyncio.create_task`: resource monitor, periodic cleanup, status loop, query-cache cleanup, AO3 init). Without it these only surface as asyncio's "Task exception was never retrieved" log on GC and never reach Sentry.
+  - `sys.excepthook` — fatal main-thread exceptions.
+- **Background Loop Errors**: Every `@tasks.loop` must have a `@<loop>.error` handler — discord.py stops a loop **permanently** after an unhandled exception (and `reconnect=True` only retries connection errors, not arbitrary ones), so without one the feature silently dies until restart. The `stats_loop` (`cogs/stats.py`) and `heartbeat_loop` (`cogs/heartbeat.py`) handlers log, `capture_exception()` to Sentry, then `restart()` after a 60s backoff (the backoff prevents a tight crash loop on a sticky fault).
 - **Error Telemetry**: Tracks error patterns in database for proactive resolution
-- **Sentry Reporting**: Unexpected errors are forwarded to Sentry from `log_error()` and the uncaught-exception hook (see [Observability & Monitoring](#observability--monitoring-sentry))
+- **Sentry Reporting**: Unexpected errors are forwarded to Sentry from `log_error()`, the uncaught-exception hook, the `on_error`/asyncio handlers, and the loop `.error` handlers (see [Observability & Monitoring](#observability--monitoring-sentry)). These explicit `capture_exception()` calls attach the exception object, full traceback, and Discord context tags; the default `LoggingIntegration` is a secondary net — do not disable it without first wiring explicit captures for any path that relies on it (see the note in `utils/sentry_setup.py`).
 
 ### Key Design Patterns
 
@@ -322,12 +327,20 @@ privacy-conservative: `send_default_pii=False` and performance tracing off
 **Error reporting** — `capture_exception()` is fired from the existing
 `log_error()` choke point (so it rides on the same filter that excludes
 expected errors like cooldowns/check-failures/`CognitaError`) and from the
-uncaught-exception hook in `setup_global_exception_handler()`. A `before_send`
+other escalation paths wired in `setup_global_exception_handler()`: the
+uncaught-exception hook, the `on_error` event-dispatch handler (listeners), and
+the asyncio `loop.set_exception_handler` (fire-and-forget tasks). Background
+`@tasks.loop` `.error` handlers also call it directly. A `before_send`
 hook runs the event's exception value and log message through
 `redact_sensitive_info()`, so secrets are scrubbed before leaving the process.
 Note: `before_send` does **not** scrub stack-frame local variables — rely on
 Sentry's server-side data-scrubbing for those, or set
-`include_local_variables=False` if needed.
+`include_local_variables=False` if needed. Sentry's default integrations are
+left enabled deliberately: the `LoggingIntegration` is a secondary net that
+turns any ERROR-level log into an event, so **do not** pass `integrations=[...]`
+or `default_integrations=False` without first adding explicit
+`capture_exception()` calls for any path that relies on it (see the note in
+`utils/sentry_setup.py`).
 
 **Liveness heartbeat** (`cogs/heartbeat.py`) — a dead-man's-switch for the
 "unreachable but not throwing errors" failure mode (hang, OOM-kill, silent

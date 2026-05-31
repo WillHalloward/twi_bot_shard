@@ -114,6 +114,18 @@ def init_sentry(
     except ValueError:
         traces_sample_rate = 0.0
 
+    # NOTE: default_integrations is left enabled on purpose. The default
+    # LoggingIntegration is a secondary safety net — it turns any ERROR-level
+    # stdlib log record (which includes structlog output, discord.py's event
+    # logger, and asyncio's task-exception logger) into a Sentry event. The
+    # primary, richer path is the explicit capture_exception() calls in
+    # utils/error_handling.py (log_error, on_error, the asyncio handler) and the
+    # uncaught-exception hook, which attach the exception object, a full
+    # traceback, and Discord context tags. Listener errors not otherwise
+    # captured still lean on this logging integration, so do NOT pass
+    # integrations=[...] or default_integrations=False here without first wiring
+    # explicit capture_exception() calls for those paths — doing so would
+    # silently drop that coverage.
     sentry_sdk.init(
         dsn=dsn,
         environment=environment,
