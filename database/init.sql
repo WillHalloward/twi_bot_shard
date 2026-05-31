@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS roles
     hoisted         boolean,
     managed         boolean,
     position        integer,
+    permissions     bigint,
     guild_id        bigint
         CONSTRAINT roles_servers_server_id_fk REFERENCES servers,
     deleted         boolean DEFAULT false,

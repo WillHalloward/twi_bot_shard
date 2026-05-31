@@ -306,6 +306,32 @@ class TestFilterNewUsersListener:
         # Verify role was NOT added
         member.add_roles.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_filter_new_users_skips_when_verified_role_missing(self) -> None:
+        """Test that a missing verified role is skipped instead of crashing.
+
+        Regression: get_role() returning None previously caused add_roles(None)
+        to raise "'NoneType' object has no attribute 'id'".
+        """
+        bot = await TestSetup.create_test_bot()
+        cog = ModCogs(bot)
+
+        guild = MockGuildFactory.create()
+        # Verified role does not exist in the guild
+        guild.get_role = MagicMock(return_value=None)
+
+        # Create member with old account (would otherwise be verified)
+        member = MockMemberFactory.create()
+        member.guild = guild
+        old_date = datetime.now(UTC) - timedelta(hours=100)
+        member.created_at = old_date.replace(tzinfo=UTC)
+        member.add_roles = AsyncMock()
+
+        await cog.filter_new_users(member)
+
+        # No role added, no exception raised
+        member.add_roles.assert_not_called()
+
 
 class TestModsEdgeCases:
     """Tests for edge cases and error handling."""

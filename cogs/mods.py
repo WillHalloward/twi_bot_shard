@@ -337,6 +337,12 @@ class ModCogs(commands.Cog):
                 tzinfo=None
             ) < datetime.datetime.now() - datetime.timedelta(hours=72):
                 verified = member.guild.get_role(945388135355924571)
+                if verified is None:
+                    logging.warning(
+                        "filter_new_users: verified role 945388135355924571 not found in guild %s; skipping",
+                        member.guild.id,
+                    )
+                    return
                 await member.add_roles(verified)
         except Exception as e:
             # Use standardized error logging with context
