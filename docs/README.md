@@ -24,6 +24,7 @@ Welcome to the documentation for Twi Bot Shard (Cognita), a Discord bot for "The
 - **[Deployment](operations/deployment.md)** - Deployment guide (Railway)
 - **[CI/CD](operations/ci.md)** - CI/CD configuration
 - **[Security](operations/security.md)** - Security review process
+- **[Observability](operations/observability.md)** - Sentry error reporting & liveness heartbeat
 
 ### Contributing
 
@@ -46,9 +47,10 @@ docs/
 │   ├── linting.md              # Code style and linting
 │   └── testing.md              # Property-based testing
 └── operations/
-    ├── deployment.md   # Deployment guide (Railway)
-    ├── ci.md           # CI/CD configuration
-    └── security.md     # Security review process
+    ├── deployment.md     # Deployment guide (Railway)
+    ├── ci.md             # CI/CD configuration
+    ├── security.md       # Security review process
+    └── observability.md  # Sentry error reporting & liveness heartbeat
 ```
 
 ## Related Files

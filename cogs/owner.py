@@ -47,6 +47,8 @@ cogs = [
 
 
 class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
+    """Bot-owner administration commands (cog loading, command sync, SQL console, resource stats, shutdown)."""
+
     def __init__(self, bot) -> None:
         self.bot = bot
 
@@ -721,6 +723,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         Raises:
             ExternalServiceError: If Discord API sync operation fails
             ValidationError: If guild context is missing for local sync
+            PermissionError: If the bot lacks permission to sync commands (discord.Forbidden)
         """
         await interaction.response.defer()
 
@@ -823,7 +826,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         """Gracefully shut down the bot.
 
         This command logs the shutdown request and closes the bot connection.
-        Only available in the specified guild for security.
+        Restricted to the bot owner via the ``@commands.is_owner()`` check.
 
         Args:
             interaction: The Discord interaction object
@@ -1130,33 +1133,17 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             "CREATE",
             "ALTER",
         }
-        DANGEROUS_OPERATIONS = {  # noqa: N806 - in-function security constant
-            "DROP",
-            "TRUNCATE",
-            "DELETE FROM",
-            "UPDATE",
-            "ALTER",
-            "CREATE",
-        }
 
         # Determine query type
         first_word = query_upper.split()[0] if query_upper.split() else ""
 
-        # Security checks
+        # Security check: modifications require explicit opt-in
         if not allow_modifications and first_word in MODIFICATION_OPERATIONS:
             logging.warning(
                 f"SECURITY: Modification query '{first_word}' attempted by owner {interaction.user.id} without permission"
             )
             raise PermissionError(
                 message=f"Query type '{first_word}' requires allow_modifications=True for safety"
-            )
-
-        if first_word in DANGEROUS_OPERATIONS and not allow_modifications:
-            logging.warning(
-                f"SECURITY: Dangerous query '{first_word}' attempted by owner {interaction.user.id}"
-            )
-            raise PermissionError(
-                message=f"Dangerous query type '{first_word}' is not allowed. Use with extreme caution."
             )
 
         # Additional security pattern checks
@@ -1184,7 +1171,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
 
         try:
             # Execute the query with appropriate method
-            if first_word in READ_ONLY_OPERATIONS or first_word == "SELECT":
+            if first_word in READ_ONLY_OPERATIONS:
                 results = await self.bot.db.fetch(query)
 
                 if not results:

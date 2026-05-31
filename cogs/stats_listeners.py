@@ -725,7 +725,7 @@ class StatsListenersMixin(StatsMixinBase):
 
     @Cog.listener("on_member_remove")
     async def member_remove(self, member: discord.Member) -> None:
-        """Listen for member leaves and update the leave date in the database.
+        """Listen for member leaves and record a leave event in the join_leave table.
 
         Args:
             member: The Discord member who left
@@ -891,7 +891,6 @@ class StatsListenersMixin(StatsMixinBase):
                 thread.locked,
             )
 
-            # Add the missing role pinging functionality
             # Ping role 1153075640535367721 in all new threads except those in channel 1190045713778868335
             if thread.parent_id != 1190045713778868335:
                 await thread.send("<@&1153075640535367721>")
@@ -1025,7 +1024,7 @@ class StatsListenersMixin(StatsMixinBase):
             logger.error("ensure_channel_exists_error", error=str(e))
 
     # ============================================================================
-    # MISSING FEATURES FROM ORIGINAL IMPLEMENTATION
+    # Thread membership listeners
     # ============================================================================
 
     @Cog.listener("on_thread_member_join")

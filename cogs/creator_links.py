@@ -15,6 +15,8 @@ from utils.validation import validate_url
 
 
 class CreatorLinks(commands.Cog, name="Creator"):  # type: ignore[call-arg]  # stub
+    """Per-user creator-link commands (/creator_link get|add|remove|edit)."""
+
     def __init__(self, bot) -> None:
         self.links_cache: list = []
         self.bot = bot
@@ -42,8 +44,7 @@ class CreatorLinks(commands.Cog, name="Creator"):  # type: ignore[call-arg]  # s
             creator: The user whose links to retrieve (defaults to command user)
 
         Raises:
-            DatabaseError: If database query fails
-            QueryError: If there's an issue with the SQL query
+            DatabaseError: If the database query fails
         """
         if creator is None:
             creator = interaction.user

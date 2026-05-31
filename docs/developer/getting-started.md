@@ -206,14 +206,14 @@ The bot will:
 
 ## Development Workflow
 
-### Code Formatting
+### Linting and Formatting
 
 ```bash
-# Format code with Black
-python scripts/development/format.py
-
 # Lint code with Ruff
-python scripts/development/lint.py
+ruff check .
+
+# Format code with Ruff
+ruff format .
 ```
 
 ### Type Checking
@@ -337,13 +337,14 @@ Set `ENVIRONMENT=development` in `.env` for:
 
 ### Git Hooks
 
-Set up pre-commit hooks:
+Set up pre-commit hooks (one-time):
 
 ```bash
-python scripts/development/setup_hooks.py
+pre-commit install
 ```
 
-This will run formatting and linting before each commit.
+This will run Ruff (lint + format) and mypy before each commit. See the
+[Linting guide](linting.md) for the full hook list.
 
 ## Resources
 

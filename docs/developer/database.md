@@ -169,12 +169,15 @@ class MyCog(BaseCog):
 #### Raw asyncpg Transactions
 
 ```python
-# Using transaction context manager
-async with await self.bot.db.transaction():
-    await self.bot.db.execute("INSERT INTO table1(...) VALUES(...)", ...)
-    await self.bot.db.execute("UPDATE table2 SET ... WHERE ...", ...)
+# Using the transaction context manager. transaction() yields a wrapper bound to
+# a dedicated connection — run every query via trans.conn.* so they share the
+# transaction. Calling self.bot.db.execute(...) inside the block would acquire a
+# separate pooled connection and would NOT be part of the transaction.
+async with await self.bot.db.transaction() as trans:
+    await trans.conn.execute("INSERT INTO table1(...) VALUES(...)", ...)
+    await trans.conn.execute("UPDATE table2 SET ... WHERE ...", ...)
 
-# Using execute_in_transaction for multiple queries
+# Using execute_in_transaction for a fixed list of queries
 queries = [
     ("INSERT INTO table1(name, value) VALUES($1, $2)", ("example1", 100)),
     ("UPDATE table2 SET value = value + $1 WHERE name = $2", (50, "example1")),
@@ -481,28 +484,31 @@ Get cache statistics using the `get_cache_stats` method:
 
 ## Applying Optimizations
 
-The optimizations can be applied using the scripts in `scripts/database/`:
+Optimizations are applied with a single script, `scripts/database/optimize.py`, using flags to select what to apply:
 
 ### Base Optimizations
 
 Apply core database optimizations (indexes, views, functions) defined in `database/optimizations/base.sql`:
 
 ```bash
-python scripts/database/apply_optimizations.py
+python scripts/database/optimize.py --base
 ```
 
 ### Additional Optimizations
 
-Apply additional indexes and materialized views defined in `database/optimizations/additional.sql`:
+Apply additional indexes and materialized views defined in `database/optimizations/additional.sql` (and refresh the materialized views):
 
 ```bash
-python scripts/database/apply_additional.py
+python scripts/database/optimize.py --additional
 ```
 
-This script will:
-1. Apply the additional indexes and materialized views
-2. Refresh the materialized views to ensure they're populated
-3. Print the results of the optimization process
+### Everything
+
+Run with no flags to apply base + additional and refresh materialized views:
+
+```bash
+python scripts/database/optimize.py
+```
 
 ### Expected Performance Impact
 
@@ -514,49 +520,35 @@ The implemented optimizations significantly improve performance for:
 
 Monitor the slow query logs to identify any remaining performance issues.
 
-## Database Migrations with Alembic
+## Database Migrations
 
-For database schema changes, use Alembic for version-controlled migrations:
+The project uses **plain SQL migrations** (not Alembic — although Alembic is
+present transitively, there is no `alembic.ini` and it is not used for the bot's
+schema). Migrations live in `database/schema/migrations/*.sql` and are applied by
+`scripts/database/apply_migrations.py`, which tracks applied migrations in a
+`schema_migrations` table.
 
-### Setup
+### Creating a Migration
 
-1. Initialize Alembic:
-```bash
-alembic init migrations
-```
+Add a new SQL file to `database/schema/migrations/` using a sortable
+`YYYYMMDD_description.sql` filename (they are applied in filename order). Each
+migration must be:
 
-2. Configure `alembic.ini` to use your database URL
-
-3. Update `migrations/env.py` to import your models and use async engine
-
-### Creating Migrations
-
-```bash
-# Create initial migration (auto-generates based on model changes)
-alembic revision --autogenerate -m "Initial migration"
-
-# Create a manual migration
-alembic revision -m "Add new column to messages"
-```
+- **Idempotent** — use `IF NOT EXISTS` / guarded `DO` blocks so a retried or
+  already-applied migration is harmless.
+- **Single-transaction safe** — statements that can't run inside a transaction
+  (e.g. `CREATE INDEX CONCURRENTLY`) must instead be added to the
+  `MANUAL_MIGRATIONS` set in `apply_migrations.py` and run by hand.
 
 ### Applying Migrations
 
 ```bash
-# Apply all pending migrations
-alembic upgrade head
-
-# Upgrade to a specific revision
-alembic upgrade abc123
-
-# Downgrade one revision
-alembic downgrade -1
-
-# View current revision
-alembic current
-
-# View migration history
-alembic history
+python scripts/database/apply_migrations.py
 ```
+
+This runs automatically as a Railway pre-deploy step so code and schema stay in
+sync. Migrations in `MANUAL_MIGRATIONS` are recorded as applied **without** being
+executed — run those by hand in a maintenance window.
 
 ## Advanced Features
 

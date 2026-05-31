@@ -17,6 +17,8 @@ client = OpenAI(api_key=config.openai_api_key)
 
 
 class SummarizationCog(commands.Cog):
+    """Conversation summarization and AI moderation commands backed by the OpenAI API."""
+
     def __init__(self, bot, server_rules) -> None:
         self.bot = bot
         self.server_rules = server_rules
@@ -57,7 +59,7 @@ class SummarizationCog(commands.Cog):
         )
 
         # Limit conversation length to prevent API errors
-        max_length = 8000  # Conservative limit for GPT-4o-mini
+        max_length = 8000  # Conservative limit for GPT-5
         if len(conversation) > max_length:
             conversation = (
                 conversation[:max_length] + "\n[Conversation truncated due to length]"
@@ -148,7 +150,7 @@ class SummarizationCog(commands.Cog):
         )
 
         # Limit conversation length to prevent API errors
-        max_length = 7000  # Conservative limit for GPT-4o-mini (leaving room for rules)
+        max_length = 7000  # Conservative limit for GPT-5 (leaving room for rules)
         if len(conversation) > max_length:
             conversation = (
                 conversation[:max_length] + "\n[Conversation truncated due to length]"
@@ -269,7 +271,7 @@ class SummarizationCog(commands.Cog):
                 inline=False,
             )
 
-            embed.set_footer(text="Powered by OpenAI GPT-4o-mini")
+            embed.set_footer(text="Powered by OpenAI GPT-5")
 
             await interaction.followup.send(embed=embed)
 
@@ -351,7 +353,7 @@ class SummarizationCog(commands.Cog):
                 inline=False,
             )
 
-            embed.set_footer(text="Powered by OpenAI GPT-4o-mini • Confidential Report")
+            embed.set_footer(text="Powered by OpenAI GPT-5 • Confidential Report")
 
             await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -370,7 +372,8 @@ class SummarizationCog(commands.Cog):
 
 
 async def setup(bot) -> None:
-    # Replace 'your_openai_api_key' and 'server_rules' with actual values or load from config
+    # Server rules used as context for the /moderate command. The OpenAI API key
+    # is loaded from config (config.openai_api_key), not set here.
     server_rules = [
         "Follow the Discord Community Guidelines.",
         "Don't spam or ping excessively, including images, emotes, or gifs.",

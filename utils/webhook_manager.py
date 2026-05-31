@@ -17,6 +17,8 @@ class _DisabledWebhook:
 
 
 class WebhookManager:
+    """Manages Discord webhook access, yielding a no-op webhook when webhooks are disabled."""
+
     def __init__(self, http_client) -> None:
         self.http_client = http_client
         self.logger = logging.getLogger(__name__)

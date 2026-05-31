@@ -20,6 +20,8 @@ from utils.webhook_manager import WebhookManager
 
 
 class ModCogs(commands.Cog):
+    """Moderation commands and listeners (cooldown resets, mod messages, link/attachment logging, new-user filtering)."""
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.logger = logging.getLogger(__name__)
