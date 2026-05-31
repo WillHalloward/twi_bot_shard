@@ -245,6 +245,8 @@ class ReportView(discord.ui.View):
 
 
 class ReportCog(commands.Cog, name="report"):  # type: ignore[call-arg]  # stub
+    """Message reporting via a context-menu command and an interactive report modal/view."""
+
     def __init__(self, bot) -> None:
         self.bot = bot
         self.logger = logging.getLogger("report_cog")
@@ -266,7 +268,6 @@ class ReportCog(commands.Cog, name="report"):  # type: ignore[call-arg]  # stub
 
         Raises:
             ValidationError: If the message or user is invalid
-            PermissionError: If user doesn't have permission to report
             DatabaseError: If database operations fail
         """
         # Validate inputs

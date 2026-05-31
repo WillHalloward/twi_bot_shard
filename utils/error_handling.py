@@ -5,6 +5,7 @@ including decorators for command handlers and functions for error telemetry.
 It also includes security-focused error handling to prevent information disclosure.
 """
 
+import asyncio
 import datetime
 import functools
 import json
@@ -1096,7 +1097,16 @@ async def handle_global_app_command_error(
 def setup_global_exception_handler(bot: commands.Bot) -> None:
     """Set up global exception handlers for the bot.
 
-    This function sets up handlers for uncaught exceptions in the bot.
+    Wires up five escalation paths so no error path silently drops:
+
+    1. ``on_command_error`` — catch-all for prefix commands.
+    2. ``@bot.tree.error`` — catch-all for application (slash) commands.
+    3. ``on_error`` — the event-dispatch net for listeners (e.g. ``on_message``);
+       captures the live exception to Sentry with an ``<event:...>`` tag.
+    4. ``sys.excepthook`` — fatal main-thread exceptions.
+    5. ``loop.set_exception_handler`` — the asyncio net for fire-and-forget tasks.
+
+    Paths 3-5 forward to Sentry via ``capture_exception``.
 
     Args:
         bot: The bot instance
@@ -1113,6 +1123,31 @@ def setup_global_exception_handler(bot: commands.Bot) -> None:
         interaction: discord.Interaction, error: Exception
     ) -> None:
         await handle_global_app_command_error(interaction, error)
+
+    # Set up the event-dispatch error handler. discord.py calls on_error when a
+    # listener (on_message, on_member_update, on_message_delete, ...) raises.
+    # The default implementation only logs the traceback, so listener failures
+    # reach Sentry just as a bare, traceback-less log record (via the default
+    # LoggingIntegration). Overriding it lets us capture the actual exception
+    # object with a full traceback and an <event:...> tag for grouping.
+    @bot.event
+    async def on_error(event_method: str, *args: Any, **kwargs: Any) -> None:
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        if exc_value is None:
+            # Defensive: on_error fired without an active exception.
+            logger.error(f"on_error called for {event_method} with no exception")
+            return
+
+        logger.error(
+            f"Unhandled exception in event {event_method}: "
+            f"{type(exc_value).__name__}: {redact_sensitive_info(str(exc_value))}"
+        )
+        logger.error("".join(traceback.format_exception(exc_type, exc_value, exc_tb)))
+
+        if isinstance(exc_value, Exception):
+            from utils.sentry_setup import capture_exception as _sentry_capture
+
+            _sentry_capture(exc_value, command_name=f"<event:{event_method}>")
 
     # Set up global exception handler for uncaught exceptions
     def global_exception_handler(exctype, value, traceback_obj) -> None:
@@ -1132,5 +1167,38 @@ def setup_global_exception_handler(bot: commands.Bot) -> None:
         sys.__excepthook__(exctype, value, traceback_obj)
 
     sys.excepthook = global_exception_handler
+
+    # Set up the asyncio event-loop exception handler. This is the net for
+    # fire-and-forget tasks (bot.loop.create_task / asyncio.create_task that are
+    # never awaited): the resource monitor, periodic cleanup, status loop, query
+    # cache cleanup, AO3 session init, etc. Without it, an exception in one of
+    # those only surfaces as asyncio's default "Task exception was never
+    # retrieved" log when the task is garbage-collected — it never reaches
+    # Sentry, and the background work silently stops.
+    def asyncio_exception_handler(
+        loop: "asyncio.AbstractEventLoop", context: dict[str, Any]
+    ) -> None:
+        error = context.get("exception")
+        message = context.get("message", "Unhandled exception in asyncio task")
+
+        if isinstance(error, Exception):
+            logger.error(
+                f"Unhandled asyncio task exception: {type(error).__name__}: "
+                f"{redact_sensitive_info(str(error))}"
+            )
+            logger.error(
+                "".join(
+                    traceback.format_exception(type(error), error, error.__traceback__)
+                )
+            )
+            from utils.sentry_setup import capture_exception as _sentry_capture
+
+            _sentry_capture(error, command_name="<asyncio-task>")
+        else:
+            # No exception object (e.g. a transport error reported as a message
+            # only) or a BaseException we don't want to treat as a bug.
+            logger.error(f"Asyncio loop error: {redact_sensitive_info(str(message))}")
+
+    bot.loop.set_exception_handler(asyncio_exception_handler)
 
     logger.info("Global exception handlers set up successfully")

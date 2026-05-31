@@ -39,20 +39,23 @@ For detailed technical specifications and implementation patterns, refer to `CLA
 
 ### Linting and Formatting
 
-Before submitting changes, ensure your code passes linting and formatting checks:
+Before submitting changes, ensure your code passes linting, formatting, and type checks (these are the same checks the CI lint gate runs):
 
 ```bash
-# Run linter (ruff) to check code style
-python scripts/development/lint.py
-# Or directly: ruff check .
+# Lint
+ruff check .
 
-# Format code using Black
-python scripts/development/format.py
-# Or directly: black .
+# Format
+ruff format .
 
-# Setup pre-commit hooks (recommended)
-python scripts/development/setup_hooks.py
+# Type check
+mypy .
+
+# Setup pre-commit hooks (recommended, one-time)
+pre-commit install
 ```
+
+See the [Linting guide](developer/linting.md) for details.
 
 ### Project Structure
 
@@ -68,7 +71,7 @@ All cogs must follow these requirements:
 1. **Inherit from `BaseCog`** in `utils/base_cog.py`
 2. **Include an `async def setup(bot)` function** at module level (required for cog loading)
 3. Use `self.logger` for structured logging
-4. Access repositories via `self.get_repository(ModelClass)`
+4. If the cog needs a repository, instantiate it directly in `__init__`, passing the bot's session factory — e.g. `self.link_repo = LinkRepository(bot.get_db_session)`. There is no shared base repository or `get_repository()` factory; each model has its own concrete repository in `utils/repositories/`.
 
 Example cog structure:
 

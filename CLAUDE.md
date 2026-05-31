@@ -106,7 +106,7 @@ pre-commit run --all-files
    - All cogs inherit from `BaseCog` in `utils/base_cog.py`
    - Cogs that need a repository instantiate it in `__init__`, passing the bot's session factory, e.g. `self.link_repo = LinkRepository(bot.get_db_session)`
    - In **development/testing**: only `base_critical_cogs` load at startup; all others load lazily on-demand
-   - In **production**: all 19 registered cogs load at startup (the lazy-loading behaviour is bypassed)
+   - In **production and staging**: all 20 registered cogs load at startup (the lazy-loading behaviour is bypassed, because slash commands must be registered before the command tree is synced)
    - `base_critical_cogs`: `owner`, `mods`, `stats`, `settings`, `interactive_help`
    - Stats functionality uses a mixin architecture — see [Statistics System](#statistics-system) below
 
@@ -126,17 +126,22 @@ pre-commit run --all-files
    - **Raw SQL**: Direct asyncpg queries via `utils.db.Database`
    - **SQLAlchemy ORM**: Models in `models/tables/` with async session management
    - **Repository Pattern**: Concrete per-model repositories in `utils/repositories/`
-   - Transaction support via `async with await bot.db.transaction():`
+   - Transaction support via `async with await bot.db.transaction() as trans:` (run queries through `trans.conn.*`)
 
 ### Error Handling Architecture
 
 The bot implements a comprehensive error handling strategy:
 
 - **Custom Exception Hierarchy** (`utils/exceptions.py`): Specific exception types for different error categories (UserInputError, DatabaseError, ExternalServiceError, etc.)
-- **Decorators**: `@handle_command_errors` for regular commands, `@handle_interaction_errors` for slash commands
-- **Global Handlers**: Set up via `setup_global_exception_handler()` in main.py
+- **Decorators**: `@handle_command_errors` for regular commands, `@handle_interaction_errors` for slash commands. Apply `@handle_interaction_errors` as the *innermost* decorator (directly above `async def`) so discord.py still reads the real parameter signatures through `functools.wraps`. All slash commands should carry it; the global net below only catches the ones that slip through.
+- **Global Handlers**: Set up via `setup_global_exception_handler()` in main.py. This wires up **five** escalation paths so no error path silently drops:
+  - `on_command_error` / `@bot.tree.error` — catch-all for prefix/slash commands that lack (or re-raise past) a decorator.
+  - `on_error` — the event-dispatch net. discord.py's default only logs a traceback, so this override captures the live `sys.exc_info()` exception to Sentry with an `<event:...>` tag (covers listeners like `on_message`, `on_member_update`, `on_message_delete`).
+  - `loop.set_exception_handler(...)` — the asyncio net for fire-and-forget tasks (`bot.loop.create_task` / `asyncio.create_task`: resource monitor, periodic cleanup, status loop, query-cache cleanup, AO3 init). Without it these only surface as asyncio's "Task exception was never retrieved" log on GC and never reach Sentry.
+  - `sys.excepthook` — fatal main-thread exceptions.
+- **Background Loop Errors**: Every `@tasks.loop` must have a `@<loop>.error` handler — discord.py stops a loop **permanently** after an unhandled exception (and `reconnect=True` only retries connection errors, not arbitrary ones), so without one the feature silently dies until restart. The `stats_loop` (`cogs/stats.py`) and `heartbeat_loop` (`cogs/heartbeat.py`) handlers log, `capture_exception()` to Sentry, then `restart()` after a 60s backoff (the backoff prevents a tight crash loop on a sticky fault).
 - **Error Telemetry**: Tracks error patterns in database for proactive resolution
-- **Sentry Reporting**: Unexpected errors are forwarded to Sentry from `log_error()` and the uncaught-exception hook (see [Observability & Monitoring](#observability--monitoring-sentry))
+- **Sentry Reporting**: Unexpected errors are forwarded to Sentry from `log_error()`, the uncaught-exception hook, the `on_error`/asyncio handlers, and the loop `.error` handlers (see [Observability & Monitoring](#observability--monitoring-sentry)). These explicit `capture_exception()` calls attach the exception object, full traceback, and Discord context tags; the default `LoggingIntegration` is a secondary net — do not disable it without first wiring explicit captures for any path that relies on it (see the note in `utils/sentry_setup.py`).
 
 ### Key Design Patterns
 
@@ -322,12 +327,20 @@ privacy-conservative: `send_default_pii=False` and performance tracing off
 **Error reporting** — `capture_exception()` is fired from the existing
 `log_error()` choke point (so it rides on the same filter that excludes
 expected errors like cooldowns/check-failures/`CognitaError`) and from the
-uncaught-exception hook in `setup_global_exception_handler()`. A `before_send`
+other escalation paths wired in `setup_global_exception_handler()`: the
+uncaught-exception hook, the `on_error` event-dispatch handler (listeners), and
+the asyncio `loop.set_exception_handler` (fire-and-forget tasks). Background
+`@tasks.loop` `.error` handlers also call it directly. A `before_send`
 hook runs the event's exception value and log message through
 `redact_sensitive_info()`, so secrets are scrubbed before leaving the process.
 Note: `before_send` does **not** scrub stack-frame local variables — rely on
 Sentry's server-side data-scrubbing for those, or set
-`include_local_variables=False` if needed.
+`include_local_variables=False` if needed. Sentry's default integrations are
+left enabled deliberately: the `LoggingIntegration` is a secondary net that
+turns any ERROR-level log into an event, so **do not** pass `integrations=[...]`
+or `default_integrations=False` without first adding explicit
+`capture_exception()` calls for any path that relies on it (see the note in
+`utils/sentry_setup.py`).
 
 **Liveness heartbeat** (`cogs/heartbeat.py`) — a dead-man's-switch for the
 "unreachable but not throwing errors" failure mode (hang, OOM-kill, silent
@@ -485,10 +498,21 @@ class MyCog(BaseCog):
 
 ### Using Database Transactions
 
+`transaction()` yields a wrapper bound to a dedicated connection; run every query
+via `trans.conn.*` so they share the transaction. Calling `self.bot.db.execute(...)`
+inside the block would acquire a *separate* pooled connection and would **not** be
+part of the transaction.
+
 ```python
-async with await self.bot.db.transaction():
-    await self.bot.db.execute("INSERT INTO ...")
-    await self.bot.db.execute("UPDATE ...")
+async with await self.bot.db.transaction() as trans:
+    await trans.conn.execute("INSERT INTO ...")
+    await trans.conn.execute("UPDATE ...")
+
+# Or, for a fixed list of statements, use the helper:
+await self.bot.db.execute_in_transaction([
+    ("INSERT INTO ... VALUES($1, $2)", (a, b)),
+    ("UPDATE ... SET x = $1 WHERE id = $2", (x, id_)),
+])
 ```
 
 ### Structured Logging
@@ -531,17 +555,15 @@ twi_bot_shard/
 │   ├── schema/                 # SQL schema definitions
 │   ├── optimizations/          # Performance SQL
 │   └── utilities/              # Utility SQL scripts
-├── docs/                       # Documentation
-│   ├── user/                   # User-facing docs
-│   ├── developer/              # Developer docs
-│   │   ├── setup/              # Setup guides
-│   │   ├── architecture/       # Architecture docs
-│   │   ├── guides/             # How-to guides
-│   │   ├── reference/          # Reference docs
-│   │   └── advanced/           # Advanced topics
-│   ├── operations/             # Operations/deployment
-│   ├── meta/                   # Meta documentation
-│   └── project/                # Project management
+├── docs/                       # Documentation (see docs/README.md for the index)
+│   ├── README.md               # Documentation index
+│   ├── features.md             # Bot features and commands (user-facing)
+│   ├── contributing.md         # How to contribute
+│   ├── developer/              # Developer docs (getting-started, database,
+│   │                           #   error-handling, environment-variables,
+│   │                           #   permissions, caching, linting, testing)
+│   └── operations/             # Operations docs (deployment, ci, security,
+│                               #   observability)
 ├── models/                     # SQLAlchemy models
 ├── scripts/                    # Utility scripts
 │   ├── database/               # DB scripts
@@ -553,7 +575,8 @@ twi_bot_shard/
 
 ## Documentation Navigation
 
-- **For Users**: See `docs/user/` for commands and features
+- **Index**: See `docs/README.md` for the full documentation index
+- **For Users**: See `docs/features.md` for commands and features
 - **For Developers**: See `docs/developer/getting-started.md` to begin
-- **For Operations**: See `docs/operations/` for deployment
-- **For Contributors**: See `docs/meta/contributing.md`
+- **For Operations**: See `docs/operations/` (deployment, CI, security, observability)
+- **For Contributors**: See `docs/contributing.md`

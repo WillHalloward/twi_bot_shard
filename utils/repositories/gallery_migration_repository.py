@@ -135,7 +135,7 @@ class GalleryMigrationRepository:
             session = await self.session_factory()
             try:
                 result = await session.execute(
-                    select(GalleryMigration).where(not GalleryMigration.migrated)
+                    select(GalleryMigration).where(~GalleryMigration.migrated)
                 )
                 return list(result.scalars().all())
             finally:
@@ -152,7 +152,7 @@ class GalleryMigrationRepository:
                 result = await session.execute(
                     select(GalleryMigration).where(
                         GalleryMigration.needs_manual_review,
-                        not GalleryMigration.reviewed,
+                        ~GalleryMigration.reviewed,
                     )
                 )
                 return list(result.scalars().all())
@@ -252,7 +252,7 @@ class GalleryMigrationRepository:
                 review_result = await session.execute(
                     select(GalleryMigration).where(
                         GalleryMigration.needs_manual_review,
-                        not GalleryMigration.reviewed,
+                        ~GalleryMigration.reviewed,
                     )
                 )
                 review_entries = len(list(review_result.scalars().all()))

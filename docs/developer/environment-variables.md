@@ -238,6 +238,31 @@ SECRET_ENCRYPTION_KEY=your_32_character_encryption_key
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
+### Observability (Sentry)
+
+Optional. Enables runtime error reporting and the liveness heartbeat. Read
+directly in `utils/sentry_setup.py` (not via `config/`), so they're plain
+environment variables.
+
+```env
+SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+SENTRY_TRACES_SAMPLE_RATE=0.0
+```
+
+**Descriptions:**
+- `SENTRY_DSN`: The project DSN from sentry.io. **When unset, Sentry is a complete no-op** — local development and the test suite are unaffected. When set, errors are reported and the bot sends a cron heartbeat check-in every 5 minutes.
+- `SENTRY_TRACES_SAMPLE_RATE`: Performance-tracing sample rate, `0.0`–`1.0` (default `0.0`, i.e. tracing off).
+
+**Security:** 🔐 `SENTRY_DSN` is sensitive (treat like an API key).
+
+> **Gotcha:** Running locally with `SENTRY_DSN` set will report uncaught
+> exceptions to the shared project. Normal local dev is tagged `development`
+> (ignored by the staging/production alert rules), but throwaway test scripts
+> that force `environment='staging'`/`'production'` will trip the real Discord
+> alerts — tag those with a distinct environment (e.g. `local-test`).
+
+See [Observability & Monitoring](../operations/observability.md) for the full setup.
+
 ## Advanced Configuration
 
 ### Database SSL Configuration

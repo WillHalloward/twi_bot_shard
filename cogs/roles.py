@@ -408,12 +408,12 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
                 )
 
             await self.bot.db.execute(
-                "UPDATE roles SET self_assignable = TRUE, required_roles = $1, alias = $2, category = $3, auto_replace = $4 "
-                "WHERE id = $2 AND guild_id = $5",
+                "UPDATE roles SET self_assignable = TRUE, required_roles = $1, category = $2, auto_replace = $3 "
+                "WHERE id = $4 AND guild_id = $5",
                 list_of_roles,
-                role.id,
                 category.lower(),
                 auto_replace,
+                role.id,
                 interaction.guild.id,
             )
 

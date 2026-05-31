@@ -1,7 +1,12 @@
 """Decorators for Twi Bot Shard.
 
-This module provides decorators for cross-cutting concerns like
-logging, error handling, and permission checks.
+This module provides decorators for cross-cutting concerns like command-usage
+logging (``log_command``), command error handling (``handle_errors``), and
+permission checks (``require_bot_channel``, ``require_admin``).
+
+``handle_errors`` delegates to the cog's own ``handle_error`` method; for the
+standard, fully-featured handling prefer ``handle_command_errors`` /
+``handle_interaction_errors`` from :mod:`utils.error_handling`.
 """
 
 import functools
@@ -47,6 +52,12 @@ def log_command(command_name: str | None = None) -> Callable[[CommandT], Command
 def handle_errors(command_name: str | None = None) -> Callable[[CommandT], CommandT]:
     """Decorator to handle command errors.
 
+    Catches exceptions raised by the wrapped command and delegates them to the
+    cog's ``handle_error(ctx_or_interaction, error, command_name)`` method, which
+    the cog must provide. For the standard, fully-featured error handling, prefer
+    ``handle_command_errors`` / ``handle_interaction_errors`` from
+    :mod:`utils.error_handling`.
+
     Args:
         command_name: Optional name for the command. If not provided, the function name will be used.
 
@@ -65,7 +76,7 @@ def handle_errors(command_name: str | None = None) -> Callable[[CommandT], Comma
                 # Call the original function
                 return await func(self, ctx_or_interaction, *args, **kwargs)
             except Exception as e:
-                # Handle the error
+                # Delegate to the cog's handle_error method
                 await self.handle_error(ctx_or_interaction, e, cmd_name)
 
         return cast(CommandT, wrapper)

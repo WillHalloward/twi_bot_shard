@@ -20,8 +20,8 @@ The project has two GitHub Actions workflows:
 Our CI workflow is defined in the `.github/workflows/ci.yml` file and consists of three main jobs:
 
 1. **Test**: Runs the tests and generates a coverage report
-2. **Lint**: Runs linting and type checking
-3. **Build**: Builds the package
+2. **Lint**: Runs linting, formatting checks, and type checking (a **hard gate** — the build fails if any step fails)
+3. **Build**: Builds the package (advisory — uses `continue-on-error`)
 
 ### Test Job
 
@@ -42,11 +42,11 @@ The lint job performs the following steps:
 1. Checks out the code
 2. Sets up Python 3.12
 3. Installs dependencies using uv
-4. Runs ruff for linting
-5. Runs black for code formatting checking
-6. Runs mypy for type checking
+4. Runs `ruff check .` for linting
+5. Runs `ruff format --check .` for formatting verification
+6. Runs `mypy .` for type checking
 
-This job ensures that the code follows our style guidelines and type annotations are correct.
+This job ensures that the code follows our style guidelines and type annotations are correct. It is a **hard gate**: all three steps must pass before a change can merge. (To temporarily allow a finding through, add `continue-on-error: true` to the offending *step* — not the job, since job-level `continue-on-error` still reports the check as red.)
 
 ### Build Job
 
@@ -62,27 +62,31 @@ This job ensures that the package can be built successfully and makes the built 
 
 ## Security Scanning Workflow
 
-Our security scanning workflow is defined in `.github/workflows/security-scan.yml` and consists of three jobs that help identify security vulnerabilities:
+Our security scanning workflow is defined in `.github/workflows/security-scan.yml` and consists of three jobs that help identify security vulnerabilities. The first two are **advisory** (findings are uploaded as artifacts and do not block merges); secret scanning is a **hard gate**.
 
-### Dependency Vulnerability Scan
+### Dependency Vulnerability Scan (advisory)
 
-This job uses **Safety** to scan Python dependencies for known vulnerabilities:
+This job uses **pip-audit** to scan Python dependencies for known vulnerabilities:
 
 1. Checks out the code
 2. Sets up Python 3.12
-3. Installs Safety and project dependencies
-4. Runs `safety check` to scan for vulnerable packages
-5. Uploads the safety report as an artifact
+3. Installs pip-audit
+4. Runs `pip-audit -f json -o pip-audit-report.json --desc .`
+5. Uploads `pip-audit-report.json` as an artifact
 
-### Static Security Analysis
+The step uses `continue-on-error: true`, so known advisories (including un-patchable transitive ones) don't block merges.
+
+### Static Security Analysis (advisory)
 
 This job uses **Bandit** for static security analysis of Python code:
 
 1. Checks out the code
 2. Sets up Python 3.12
 3. Installs Bandit
-4. Runs Bandit to scan for common security issues (excluding tests and venv directories)
-5. Uploads the Bandit report as a JSON artifact
+4. Runs Bandit to scan for common security issues (`-x ./tests,./.venv`)
+5. Uploads `bandit-report.json` as an artifact
+
+This step also uses `continue-on-error: true`, so findings don't block merges.
 
 Bandit identifies potential security issues such as:
 - Hardcoded passwords
@@ -92,9 +96,9 @@ Bandit identifies potential security issues such as:
 
 ### Secret Scanning
 
-This job uses **Gitleaks** to detect accidentally committed secrets:
+This job uses **Gitleaks** to detect accidentally committed secrets. It is a **hard gate** — it fails the build if a secret is detected:
 
-1. Checks out the code
+1. Checks out the code with `fetch-depth: 0` (full history, so gitleaks can scan all commits — a shallow clone makes it error)
 2. Runs Gitleaks to scan for API keys, tokens, passwords, and other secrets
 
 This helps prevent sensitive credentials from being exposed in the repository.
@@ -105,15 +109,15 @@ This helps prevent sensitive credentials from being exposed in the repository.
 
 The CI workflow is triggered on:
 
-- Pushes to the main branch
-- Pull requests to the main branch
+- Pushes to the `staging` and `production` branches
+- Pull requests targeting `staging` and `production`
 
 ### Security Scanning Workflow
 
 The security scanning workflow is triggered on:
 
-- Pushes to the main branch
-- Pull requests to the main branch
+- Pushes to the `staging` and `production` branches
+- Pull requests targeting `staging` and `production`
 - Weekly schedule (every Sunday at midnight UTC)
 
 The weekly scheduled run ensures that newly discovered vulnerabilities in dependencies are detected even when there are no code changes.
@@ -125,9 +129,7 @@ The project uses a two-branch deployment strategy:
 - **`staging`**: Development branch where all feature work happens
 - **`production`**: Protected branch for production deployments
 
-**Note:** The CI workflows are currently configured to trigger on the `main` branch. If you're working with the `staging` or `production` branches, ensure your pull requests target the appropriate branch for your workflow.
-
-This ensures that code is tested and validated before it is merged.
+Both CI and security-scan workflows trigger on `staging` and `production`, so code is tested and validated before it is merged. See the [Deployment Guide](deployment.md#branching-strategy) for the full branching workflow.
 
 ## Viewing CI Results
 
@@ -164,10 +166,10 @@ Before pushing your changes, you can run the same checks locally to catch issues
 
    **Note:** The `ENVIRONMENT=testing` prefix is required to ensure proper test configuration, including lazy cog loading and test-specific settings.
 
-2. Run the linters:
+2. Run the linters (same as the CI lint gate):
    ```bash
    ruff check .
-   black --check .
+   ruff format --check .
    mypy .
    ```
 
@@ -188,7 +190,7 @@ When adding new tests to the project, they will automatically be included in the
 
 If you want to add new linting rules, you can modify the configuration files:
 
-- `pyproject.toml` for ruff, black, and mypy
+- `pyproject.toml` for ruff (lint + format) and mypy
 
 **Note:** All tool configurations, including mypy, are centralized in `pyproject.toml`. There is no separate `mypy.ini` file.
 

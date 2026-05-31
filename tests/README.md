@@ -297,6 +297,65 @@ Tests the query caching functionality.
 ENVIRONMENT=testing pytest tests/test_query_cache.py -v
 ```
 
+### 24. `test_ao3_auth.py`
+
+Tests AO3 (Archive of Our Own) authentication handling.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_ao3_auth.py -v
+```
+
+### 25. `test_command_groups.py`
+
+Tests that slash-command groups are registered and structured correctly.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_command_groups.py -v
+```
+
+### 26. `test_utils.py`
+
+Tests general utility helpers in `utils/`.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_utils.py -v
+```
+
+### 27. `test_resource_optimization.py`
+
+Tests resource monitoring and optimization behavior.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_resource_optimization.py -v
+```
+
+### 28. `test_regression.py`
+
+Regression tests guarding against previously fixed bugs.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_regression.py -v
+```
+
+### 29. `test_visual_regression.py`
+
+Visual/output regression tests for rendered bot responses.
+
+**Usage:**
+```bash
+ENVIRONMENT=testing pytest tests/test_visual_regression.py -v
+```
+
+> **Note:** This list covers the main test modules; the source of truth is the
+> `tests/` directory itself. Run the whole suite with the command below rather
+> than relying on this list being exhaustive. Helper modules (`conftest.py`,
+> `fixtures.py`, `mock_factories.py`) are not standalone tests.
+
 ## Running All Tests
 
 To run all tests using pytest with the testing environment:

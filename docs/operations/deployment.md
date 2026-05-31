@@ -308,17 +308,26 @@ After initial setup, apply performance optimizations:
 # Base optimizations
 psql -d your_database -f database/optimizations/base.sql
 
-# Or run the optimization script
-python scripts/database/apply_optimizations.py
+# Or run the optimization script (applies base + additional, refreshes views)
+python scripts/database/optimize.py
+# Flags: --base (base only) or --additional (additional + refresh views)
 ```
 
 ### Migrations
 
-Database migrations are stored in `database/migrations/`. Apply them in order:
+Schema migrations live in `database/schema/migrations/*.sql` (sortable
+`YYYYMMDD_description.sql` filenames) and are applied by a migration runner that
+tracks applied migrations in a `schema_migrations` table:
 
 ```bash
-psql -d your_database -f database/migrations/001_add_pgvector.sql
+python scripts/database/apply_migrations.py
 ```
+
+This runs as a Railway pre-deploy step so code and database schema stay in sync.
+Migrations must be idempotent and single-transaction safe; heavy/locking
+migrations are listed in the script's `MANUAL_MIGRATIONS` set (recorded as
+applied without being executed, to be run by hand in a maintenance window). See
+[scripts/README.md](../../scripts/README.md) for details.
 
 ## Post-Deployment Verification
 

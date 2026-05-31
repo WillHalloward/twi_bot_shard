@@ -16,22 +16,22 @@ Before submitting code for review, developers should:
 - Document any security considerations or potential risks in the PR description
 - Ensure no secrets or tokens are included in the commit
 
-**Note:** Local security scanning with Safety and Bandit is optional but recommended for significant changes. These tools are not project dependencies but can be installed separately:
+**Note:** Local security scanning with pip-audit and Bandit is optional but recommended for significant changes. These tools are not project dependencies but can be installed separately:
 ```bash
-pip install safety bandit
-safety check
-bandit -r . -x ./tests,./venv
+pip install pip-audit bandit
+pip-audit --desc .
+bandit -r . -x ./tests,./.venv
 ```
 
 ### 2. Automated Security Scanning
 
-The GitHub Actions workflow (`.github/workflows/security-scan.yml`) runs automated security scans including:
+The GitHub Actions workflow (`.github/workflows/security-scan.yml`) runs automated security scans on pushes and pull requests to `staging` and `production` (plus a weekly schedule):
 
-- **Safety**: Dependency vulnerability scanning
-- **Bandit**: Static code analysis for common security issues
-- **Gitleaks**: Secret and credential scanning
+- **pip-audit** (advisory): Dependency vulnerability scanning
+- **Bandit** (advisory): Static code analysis for common security issues
+- **Gitleaks** (hard gate): Secret and credential scanning — fails the build if a secret is detected
 
-**Branch Configuration Note:** The workflow currently triggers on `main` branch. This project uses `staging` and `production` branches for deployment. The workflow should be updated to trigger on these branches, or security scans should be run manually before merging to `production`.
+The two advisory scans upload their findings as artifacts and do not block merges; gitleaks blocks. See [CI/CD](ci.md#security-scanning-workflow) for details on each job.
 
 ### 3. Security Review Checklist
 

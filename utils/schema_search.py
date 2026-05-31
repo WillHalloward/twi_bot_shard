@@ -34,7 +34,11 @@ def get_openai_client() -> OpenAI:
 
 
 def get_embedding(client: OpenAI, text: str) -> list[float]:
-    """Get embedding vector for a text string."""
+    """Get embedding vector for a text string.
+
+    Raises:
+        SchemaSearchError: If the embedding request fails.
+    """
     try:
         response = client.embeddings.create(model=EMBEDDING_MODEL, input=[text])
         return response.data[0].embedding

@@ -217,6 +217,8 @@ class ButtonView(discord.ui.View):
 
 
 class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg]  # discord.py stubs reject name=
+    """Gallery reposting (context menu + repost handlers) and gallery-migration tooling."""
+
     def __init__(self, bot) -> None:
         super().__init__(bot)
         self.bot = bot
@@ -1451,7 +1453,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
         chunk_size: int = 500,
         store_in_db: bool = True,
     ) -> None:
-        """Extract gallery migration data with the 5 key fields and store in database.
+        """Extract gallery migration data (core gallery fields) and store in database.
 
         Args:
             interaction: The Discord interaction
@@ -1617,7 +1619,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
 
         for message in messages:
             try:
-                # Extract the 5 key fields using the data extractor
+                # Extract the core gallery fields using the data extractor
                 db_entry = await self.data_extractor.extract_and_prepare_for_db(
                     message, channel_name
                 )

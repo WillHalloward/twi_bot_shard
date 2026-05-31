@@ -4,10 +4,15 @@ This module wires the bot's error handling into `Sentry <https://sentry.io>`_.
 It is intentionally a no-op unless the ``SENTRY_DSN`` environment variable is
 set, so local development and the test suite are unaffected.
 
-Sentry is fed exclusively from the existing error-handling choke point
-(:func:`utils.error_handling.log_error`), and every event is run through the
-project's :func:`redact_sensitive_info` scrubber via ``before_send`` so that no
-unredacted secrets ever leave the process.
+Sentry is fed from several paths: the error-handling choke point
+(:func:`utils.error_handling.log_error`), the global escalation handlers wired in
+``setup_global_exception_handler`` (the ``on_error`` event-dispatch net, the
+asyncio ``loop.set_exception_handler``, and ``sys.excepthook``), the background
+``@tasks.loop`` ``.error`` handlers, the liveness heartbeat
+(:func:`send_heartbeat`), and Sentry's default ``LoggingIntegration`` (any
+ERROR-level log becomes an event). Every event is run through the project's
+:func:`redact_sensitive_info` scrubber via ``before_send`` so that no unredacted
+secrets ever leave the process.
 
 Environment variables:
     SENTRY_DSN: The project DSN from sentry.io. When unset, Sentry is disabled.
@@ -114,6 +119,18 @@ def init_sentry(
     except ValueError:
         traces_sample_rate = 0.0
 
+    # NOTE: default_integrations is left enabled on purpose. The default
+    # LoggingIntegration is a secondary safety net — it turns any ERROR-level
+    # stdlib log record (which includes structlog output, discord.py's event
+    # logger, and asyncio's task-exception logger) into a Sentry event. The
+    # primary, richer path is the explicit capture_exception() calls in
+    # utils/error_handling.py (log_error, on_error, the asyncio handler) and the
+    # uncaught-exception hook, which attach the exception object, a full
+    # traceback, and Discord context tags. Listener errors not otherwise
+    # captured still lean on this logging integration, so do NOT pass
+    # integrations=[...] or default_integrations=False here without first wiring
+    # explicit capture_exception() calls for those paths — doing so would
+    # silently drop that coverage.
     sentry_sdk.init(
         dsn=dsn,
         environment=environment,

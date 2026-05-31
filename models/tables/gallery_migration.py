@@ -12,7 +12,10 @@ class GalleryMigration(Base):
     """Model for gallery_migration table.
 
     This table stores extracted gallery posts for migration to forum format.
-    Contains the 5 key fields: title, images, creator, tags, jump_url
+    It holds the core extracted fields (title, images, creator, tags, jump_url)
+    alongside source metadata (channel, author, timestamps, raw embed data) and
+    migration/review bookkeeping columns (migrated, reviewed, needs_manual_review,
+    target_forum, etc.).
     """
 
     __tablename__ = "gallery_migration"
