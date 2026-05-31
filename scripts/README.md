@@ -1,57 +1,71 @@
 # Utility Scripts
 
-This directory contains utility scripts for database operations, schema management, and development tools.
+This directory contains utility scripts for database operations, schema indexing, and maintenance.
 
 ## Directory Structure
 
 ```
 scripts/
-├── database/           # Database utility scripts
-├── schema/             # Schema indexing and query scripts
-└── development/        # Development tools
+├── database/           # Database optimization and migration scripts
+├── schema/             # FAISS schema-embedding and natural-language query tools
+└── maintenance/        # One-off maintenance scripts
 ```
+
+> **Note:** There is no `scripts/development/` directory. Linting, formatting, and
+> pre-commit setup are run directly with `ruff`, `mypy`, and `pre-commit` — see the
+> [Linting guide](../docs/developer/linting.md).
 
 ## Database Scripts (`database/`)
 
-### apply_optimizations.py
+### optimize.py
 
-Applies the base database optimizations defined in `database/optimizations/base.sql`.
+Applies the database performance optimizations defined in `database/optimizations/base.sql` and `database/optimizations/additional.sql` (indexes, materialized views, functions), and refreshes materialized views.
 
 **Usage:**
 ```bash
-python scripts/database/apply_optimizations.py
-```
+# Apply everything (base + additional)
+python scripts/database/optimize.py
 
-**What it does:**
-- Creates database indexes for improved query performance
-- Applies table-level optimizations
-- Sets up performance monitoring
+# Apply only base optimizations
+python scripts/database/optimize.py --base
+
+# Apply only additional optimizations (and refresh materialized views)
+python scripts/database/optimize.py --additional
+```
 
 **When to run:**
 - After initial database schema setup
 - After major schema changes
-- When performance degrades
+- When query performance degrades
 
-### apply_additional.py
+### apply_migrations.py
 
-Applies additional database optimizations including materialized views and cache statistics.
+Applies pending SQL schema migrations from `database/schema/migrations/*.sql`, tracked in a `schema_migrations` table. Designed to run as a Railway pre-deploy step so code and database schema stay in sync.
 
 **Usage:**
 ```bash
-python scripts/database/apply_additional.py
+python scripts/database/apply_migrations.py
 ```
 
 **What it does:**
-- Creates and refreshes materialized views
-- Applies advanced optimizations
-- Generates cache statistics
+- Ensures a `schema_migrations` tracking table exists
+- Applies each not-yet-recorded migration (in filename order) inside a transaction, then records it
+- Migrations listed in the script's `MANUAL_MIGRATIONS` set are recorded as applied **without** being executed (for heavy/locking migrations that must be run by hand in a maintenance window)
 
-**When to run:**
-- After base optimizations
-- Before production deployment
-- Periodically for maintenance
+Migrations must be idempotent (`IF NOT EXISTS` / guarded `DO` blocks) and single-transaction safe. Statements that can't run in a transaction (e.g. `CREATE INDEX CONCURRENTLY`) must be added to `MANUAL_MIGRATIONS`.
 
 ## Schema Scripts (`schema/`)
+
+These tools build and query a FAISS vector index over the database schema for the owner-only `ask_db` natural-language SQL feature.
+
+### populate_schema_embeddings.py
+
+Generates embeddings for the database schema and stores them (used to seed the search corpus).
+
+**Usage:**
+```bash
+python scripts/schema/populate_schema_embeddings.py
+```
 
 ### build_faiss_index.py
 
@@ -64,22 +78,11 @@ python scripts/schema/build_faiss_index.py
 
 **Requirements:**
 - `OPENAI_API_KEY` environment variable
-- `faiss-cpu` or `faiss-gpu` package
-- Schema descriptions in `.cache/faiss/schema_descriptions.txt`
-
-**What it does:**
-- Reads schema descriptions from text file
-- Generates embeddings using OpenAI's embedding model
-- Creates FAISS index for fast similarity search
-- Saves index and lookup table to `.cache/faiss/`
-
-**Output files:**
-- `.cache/faiss/schema_index.faiss` - FAISS vector index
-- `.cache/faiss/schema_lookup.json` - Schema chunk lookup table
+- `faiss-cpu` package (install via the `[ml]` extra: `uv pip install -e ".[ml]"`)
 
 ### query_faiss_schema.py
 
-Interactive tool for querying the database schema using natural language.
+Interactive tool for querying the database schema using natural language. Searches the schema index for relevant tables and generates a SQL query.
 
 **Usage:**
 ```bash
@@ -88,109 +91,29 @@ python scripts/schema/query_faiss_schema.py
 
 **Requirements:**
 - `OPENAI_API_KEY` environment variable
-- Existing FAISS index (run `build_faiss_index.py` first)
+- An existing FAISS index (run `build_faiss_index.py` first)
 
-**What it does:**
-- Takes a natural language question about the database
-- Searches the schema index for relevant tables
-- Generates a SQL query using GPT-4
-- Displays the generated SQL
+## Maintenance Scripts (`maintenance/`)
 
-**Example:**
-```
-🔍 Ask your database: How many messages were sent today?
-🔗 Searching schema...
-🧠 Generating prompt...
-🤖 Generating SQL...
+### nuke_user_messages.py
 
-✅ Generated SQL:
-SELECT COUNT(*) FROM messages
-WHERE DATE(created_at) = CURRENT_DATE;
-```
-
-## Development Scripts (`development/`)
-
-### format.py
-
-Formats Python code using Black and Ruff.
+One-off script to bulk-delete a user's stored messages from the database. Destructive — review before running.
 
 **Usage:**
 ```bash
-python scripts/development/format.py
+python scripts/maintenance/nuke_user_messages.py
 ```
-
-**What it does:**
-- Runs Black formatter on all Python files
-- Applies Ruff auto-fixes
-- Ensures consistent code style
-
-**Configuration:**
-- Black: Line length 88, configured in `pyproject.toml`
-- Ruff: Rules configured in `pyproject.toml`
-
-### lint.py
-
-Lints Python code using Ruff.
-
-**Usage:**
-```bash
-python scripts/development/lint.py
-```
-
-**What it does:**
-- Checks code for style violations
-- Identifies potential bugs
-- Enforces best practices
-
-**Configuration:**
-- Rules defined in `pyproject.toml`
-- Can be customized per project needs
-
-### setup_hooks.py
-
-Sets up git pre-commit hooks for automatic code quality checks.
-
-**Usage:**
-```bash
-python scripts/development/setup_hooks.py
-```
-
-**What it does:**
-- Installs pre-commit hook script
-- Configures hook to run formatting and linting
-- Prevents commits with style violations
-
-**Hooks installed:**
-- Pre-commit: Runs `format.py` and `lint.py`
-- Checks are automatic before each commit
 
 ## Running Scripts from Root
 
-All scripts should be run from the project root directory:
+All scripts should be run from the project root directory so relative paths
+(`database/optimizations/`, `ssl-cert/`, etc.) and the `.env` file resolve correctly:
 
 ```bash
-# From project root
-python scripts/database/apply_optimizations.py
+python scripts/database/optimize.py
+python scripts/database/apply_migrations.py
 python scripts/schema/build_faiss_index.py
-python scripts/development/format.py
 ```
-
-## Path Configuration
-
-Scripts reference the following paths:
-
-**Database scripts:**
-- `database/optimizations/base.sql`
-- `database/optimizations/additional.sql`
-- `ssl-cert/` - SSL certificates
-
-**Schema scripts:**
-- `.cache/faiss/schema_descriptions.txt`
-- `.cache/faiss/schema_index.faiss`
-- `.cache/faiss/schema_lookup.json`
-
-**Development scripts:**
-- Operate on all Python files in project
 
 ## Dependencies
 
@@ -200,64 +123,42 @@ Most scripts require project dependencies to be installed:
 uv pip install -e .
 ```
 
-Additional requirements for schema scripts:
-- `openai` - OpenAI API client
-- `faiss-cpu` or `faiss-gpu` - Vector similarity search
-- `numpy` - Numerical operations
+The schema (FAISS) scripts additionally need the ML extra:
+
+```bash
+uv pip install -e ".[ml]"
+```
 
 ## Troubleshooting
 
 ### Database Scripts
 
 **Error:** `Database connection error`
-- Verify `.env` file has correct database credentials
+- Verify `.env` has correct database credentials
 - Check PostgreSQL is running
-- Verify SSL certificates are in `ssl-cert/`
-
-**Error:** `Failed to apply database optimizations`
-- Check SQL syntax in optimization files
-- Verify you have database permissions
-- Check for conflicting indexes/constraints
+- For local SSL, verify certificates are in `ssl-cert/`
 
 ### Schema Scripts
 
 **Error:** `No module named 'faiss'`
 ```bash
-pip install faiss-cpu  # or faiss-gpu for GPU support
+uv pip install -e ".[ml]"
 ```
 
 **Error:** `OPENAI_API_KEY not set`
-- Add `OPENAI_API_KEY=...` to `.env` file
-- Restart script after setting
-
-**Error:** `File not found: schema_descriptions.txt`
-- Ensure `.cache/faiss/schema_descriptions.txt` exists
-- Create schema descriptions file if missing
-
-### Development Scripts
-
-**Error:** `No module named 'black'` or `'ruff'`
-```bash
-uv pip install black ruff
-```
-
-**Error:** `Permission denied` (setup_hooks.py)
-```bash
-chmod +x .git/hooks/pre-commit
-```
+- Add `OPENAI_API_KEY=...` to `.env`
 
 ## Contributing
 
 When adding new scripts:
 
-1. Place in appropriate subdirectory
+1. Place them in the appropriate subdirectory
 2. Add documentation to this README
 3. Include usage examples
-4. Handle errors gracefully
-5. Use logging for output
-6. Make scripts idempotent when possible
+4. Handle errors gracefully and use logging for output
+5. Make scripts idempotent when possible
 
 ## Related Documentation
 
-- [Developer Guide](../docs/developer/getting-started.md)
-- [Database Documentation](../docs/developer/database.md)
+- [Developer Getting Started](../docs/developer/getting-started.md)
+- [Database Guide](../docs/developer/database.md)

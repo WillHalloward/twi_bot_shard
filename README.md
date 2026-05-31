@@ -46,7 +46,7 @@ uv pip install -e .
 
 4. Verify dependencies installation:
 ```bash
-uv run test_dependencies.py
+ENVIRONMENT=testing python tests/test_dependencies.py
 ```
 
 5. Set up PostgreSQL database
@@ -146,21 +146,20 @@ The bot includes several database optimizations to improve performance, reliabil
 
 ### Applying the Optimizations
 
-To apply the database schema changes:
+To apply the database optimizations, run the optimization script from the project root:
 
-1. Connect to your PostgreSQL database:
-   ```bash
-   psql -U your_username -d your_database
-   ```
+```bash
+# Apply base + additional optimizations (and refresh materialized views)
+python scripts/database/optimize.py
 
-2. Run the optimization script:
-   ```sql
-   \i database/db_optimizations.sql
-   ```
+# Or apply selectively
+python scripts/database/optimize.py --base
+python scripts/database/optimize.py --additional
+```
 
 For detailed information about the optimizations, see:
 - [Database Documentation](docs/developer/database.md): Comprehensive documentation of database functionality
-- `database/optimizations/`: SQL scripts containing schema optimizations
+- `database/optimizations/`: SQL scripts (`base.sql`, `additional.sql`) containing schema optimizations
 
 ## Code Style Guidelines
 
@@ -187,24 +186,29 @@ The project includes several test scripts to verify different aspects of the sys
 
 1. **Dependency Test**: Verify that all dependencies are installed correctly
    ```bash
-   uv run test_dependencies.py
+   ENVIRONMENT=testing python tests/test_dependencies.py
    ```
 
 2. **Database Connection Test**: Test the database connection
    ```bash
-   uv run test_db_connection.py
+   ENVIRONMENT=testing python tests/test_db_connection.py
    ```
 
 3. **SQLAlchemy Models Test**: Test the SQLAlchemy models
    ```bash
-   uv run test_sqlalchemy_models.py
+   ENVIRONMENT=testing python tests/test_sqlalchemy_models.py
    ```
 
 4. **Cog Loading Test**: Test loading all cogs to ensure they can be loaded without errors
    ```bash
-   uv run test_cogs.py
+   ENVIRONMENT=testing python tests/test_cogs.py
    ```
    This is particularly useful after making updates to verify that all changes work correctly.
+
+To run the full suite with pytest:
+```bash
+ENVIRONMENT=testing pytest tests/
+```
 
 For more details about the test scripts, see the [Tests README](tests/README.md).
 
@@ -236,9 +240,8 @@ The codebase has been modernized with several improvements to enhance maintainab
 - Enhanced code readability and maintainability
 
 ### SQLAlchemy Integration Improvements
-- Implemented repository pattern for database operations
-- Created a generic `BaseRepository` class for common CRUD operations
-- Added specialized repositories for specific entity types
+- Implemented the repository pattern for database operations
+- Each model has its own concrete repository (e.g. `LinkRepository`, `ReportRepository`) that takes a session factory — there is no shared base class or factory
 - Used SQLAlchemy 2.0-style queries for better type safety
 
 ### Error Handling and Logging Improvements
@@ -262,7 +265,9 @@ The codebase has been modernized with several improvements to enhance maintainab
 
 ## License
 
-[License information]
+No license has been declared for this project yet. Until a `LICENSE` file is
+added (and a `license` field set in `pyproject.toml`), all rights are reserved by
+the author.
 
 ## Author
 

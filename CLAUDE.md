@@ -106,7 +106,7 @@ pre-commit run --all-files
    - All cogs inherit from `BaseCog` in `utils/base_cog.py`
    - Cogs that need a repository instantiate it in `__init__`, passing the bot's session factory, e.g. `self.link_repo = LinkRepository(bot.get_db_session)`
    - In **development/testing**: only `base_critical_cogs` load at startup; all others load lazily on-demand
-   - In **production**: all 19 registered cogs load at startup (the lazy-loading behaviour is bypassed)
+   - In **production and staging**: all 20 registered cogs load at startup (the lazy-loading behaviour is bypassed, because slash commands must be registered before the command tree is synced)
    - `base_critical_cogs`: `owner`, `mods`, `stats`, `settings`, `interactive_help`
    - Stats functionality uses a mixin architecture — see [Statistics System](#statistics-system) below
 
@@ -126,7 +126,7 @@ pre-commit run --all-files
    - **Raw SQL**: Direct asyncpg queries via `utils.db.Database`
    - **SQLAlchemy ORM**: Models in `models/tables/` with async session management
    - **Repository Pattern**: Concrete per-model repositories in `utils/repositories/`
-   - Transaction support via `async with await bot.db.transaction():`
+   - Transaction support via `async with await bot.db.transaction() as trans:` (run queries through `trans.conn.*`)
 
 ### Error Handling Architecture
 
@@ -498,10 +498,21 @@ class MyCog(BaseCog):
 
 ### Using Database Transactions
 
+`transaction()` yields a wrapper bound to a dedicated connection; run every query
+via `trans.conn.*` so they share the transaction. Calling `self.bot.db.execute(...)`
+inside the block would acquire a *separate* pooled connection and would **not** be
+part of the transaction.
+
 ```python
-async with await self.bot.db.transaction():
-    await self.bot.db.execute("INSERT INTO ...")
-    await self.bot.db.execute("UPDATE ...")
+async with await self.bot.db.transaction() as trans:
+    await trans.conn.execute("INSERT INTO ...")
+    await trans.conn.execute("UPDATE ...")
+
+# Or, for a fixed list of statements, use the helper:
+await self.bot.db.execute_in_transaction([
+    ("INSERT INTO ... VALUES($1, $2)", (a, b)),
+    ("UPDATE ... SET x = $1 WHERE id = $2", (x, id_)),
+])
 ```
 
 ### Structured Logging
@@ -544,17 +555,15 @@ twi_bot_shard/
 │   ├── schema/                 # SQL schema definitions
 │   ├── optimizations/          # Performance SQL
 │   └── utilities/              # Utility SQL scripts
-├── docs/                       # Documentation
-│   ├── user/                   # User-facing docs
-│   ├── developer/              # Developer docs
-│   │   ├── setup/              # Setup guides
-│   │   ├── architecture/       # Architecture docs
-│   │   ├── guides/             # How-to guides
-│   │   ├── reference/          # Reference docs
-│   │   └── advanced/           # Advanced topics
-│   ├── operations/             # Operations/deployment
-│   ├── meta/                   # Meta documentation
-│   └── project/                # Project management
+├── docs/                       # Documentation (see docs/README.md for the index)
+│   ├── README.md               # Documentation index
+│   ├── features.md             # Bot features and commands (user-facing)
+│   ├── contributing.md         # How to contribute
+│   ├── developer/              # Developer docs (getting-started, database,
+│   │                           #   error-handling, environment-variables,
+│   │                           #   permissions, caching, linting, testing)
+│   └── operations/             # Operations docs (deployment, ci, security,
+│                               #   observability)
 ├── models/                     # SQLAlchemy models
 ├── scripts/                    # Utility scripts
 │   ├── database/               # DB scripts
@@ -566,7 +575,8 @@ twi_bot_shard/
 
 ## Documentation Navigation
 
-- **For Users**: See `docs/user/` for commands and features
+- **Index**: See `docs/README.md` for the full documentation index
+- **For Users**: See `docs/features.md` for commands and features
 - **For Developers**: See `docs/developer/getting-started.md` to begin
-- **For Operations**: See `docs/operations/` for deployment
-- **For Contributors**: See `docs/meta/contributing.md`
+- **For Operations**: See `docs/operations/` (deployment, CI, security, observability)
+- **For Contributors**: See `docs/contributing.md`

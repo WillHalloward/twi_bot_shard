@@ -2,116 +2,115 @@
 
 ## Overview
 
-The Twi Bot Shard uses a comprehensive role-based access control system to manage permissions for commands and features. This document provides information about the permission system, including permission levels, specific permissions, and how to manage permissions.
+The Twi Bot Shard uses a **simplified permission system** that leverages Discord's
+native guild permissions, with a bot-owner override and a per-server configurable
+admin role. There is no custom role-based access-control engine, permission-level
+enum, or database-backed permission store — checks are evaluated dynamically at
+command time.
 
-## Permission Levels
+The implementation lives in `utils/permissions.py`. Per-server admin-role
+configuration is handled by the `Settings` cog (`cogs/settings.py`).
 
-The bot uses the following permission levels, in ascending order of authority:
+## Permission Tiers
 
-| Level | Name | Description |
-|-------|------|-------------|
-| 0 | NONE | No permissions |
-| 10 | USER | Basic user permissions |
-| 50 | MODERATOR | Moderator permissions |
-| 80 | ADMIN | Administrator permissions |
-| 100 | OWNER | Bot owner permissions |
+The bot recognises three effective tiers, evaluated in order:
 
-Each level includes all permissions from lower levels.
+| Tier | Who qualifies |
+|------|---------------|
+| **Owner** | The single bot owner (`config.bot_owner_id`). Always passes every check. |
+| **Admin** | Bot owner, **or** a member with Discord's `administrator` permission, **or** a member with the server's configured admin role. |
+| **Moderator** | Bot owner, anyone who is Admin, **or** a member with Discord's `ban_members` permission. |
 
-## Specific Permissions
+There are no numeric permission levels and no named fine-grained permissions
+(e.g. `manage_messages`, `view_commands`) — those do not exist in the code.
 
-The bot defines the following specific permissions:
+## Managing the Admin Role
 
-### Basic Permissions (USER level)
-- `view_commands`: Ability to see commands in help listings
-- `use_basic_commands`: Ability to use basic, non-administrative commands
+Server administrators configure the admin role through the `Settings` cog's
+slash commands:
 
-### Moderation Permissions (MODERATOR level)
-- `manage_messages`: Ability to delete, pin, and manage messages
-- `manage_threads`: Ability to create and manage threads
-- `manage_roles`: Ability to manage roles (except administrative roles)
-- `kick_members`: Ability to kick members from the server
-- `ban_members`: Ability to ban members from the server
-
-### Administrative Permissions (ADMIN level)
-- `manage_guild`: Ability to manage server settings
-- `manage_channels`: Ability to create and manage channels
-- `manage_webhooks`: Ability to create and manage webhooks
-- `manage_permissions`: Ability to manage the permission system
-
-### Bot Owner Permissions (OWNER level)
-- `manage_bot`: Ability to manage the bot itself (restart, update, etc.)
-
-## Managing Permissions
-
-### Admin Role Configuration
-
-Server administrators can configure an admin role using the following commands:
-
-#### Set Admin Role
+### Set Admin Role
 
 ```
 /set_admin_role role:<role>
 ```
 
-Sets the admin role for the server. Users with this role will be granted ADMIN level permissions. Requires `manage_messages` Discord permission.
+Sets the admin role for the server. Members with this role are treated as Admin
+by the bot.
 
-#### Get Admin Role
+### Get Admin Role
 
 ```
 /get_admin_role
 ```
 
-Shows the currently configured admin role for the server. Available to all users.
+Shows the currently configured admin role for the server.
 
-## Default Permissions
-
-By default, the bot assigns the following permission levels:
-
-- Bot owner: OWNER level
-- Users with the admin role (set via `/set_admin_role`): ADMIN level
-- Users with the "Ban Members" Discord permission: MODERATOR level
-- All other users: USER level
+The configured role ID is persisted via `ServerSettingsRepository`
+(`utils/repositories/server_settings_repository.py`) and read back by
+`get_admin_role_id(guild_id)`.
 
 ## Technical Implementation
 
-The permission system is implemented in the `utils/permissions.py` file. It uses a database to store permission levels and overrides for roles and users.
-
-For developers, the following decorators are available for checking permissions in commands:
+The core checks in `utils/permissions.py` are:
 
 ```python
-@has_permission(Permission.PERMISSION_NAME)
-@has_permission_level(PermissionLevel.LEVEL_NAME)
+is_bot_owner(user_id) -> bool                              # owner override
+async is_admin(bot, guild_id, user_id, user_roles=None)    # owner / admin role / Discord administrator
+async is_moderator(bot, guild_id, user_id)                 # owner / admin / Discord ban_members
+async is_bot_channel(ctx_or_interaction)                   # restrict to config.bot_channel_id
 ```
 
-These decorators can be used with both traditional commands and application commands (slash commands).
+### Check Functions and Decorators
+
+The check functions accept **either** a `commands.Context` (prefix commands) or a
+`discord.Interaction` (slash commands), and raise `PermissionError` /
+`OwnerOnlyError` from `utils/exceptions.py` when the user lacks permission.
+
+| Check | Prefix-command form (`@commands.check`) | Slash-command form (`@app_commands.check`) |
+|-------|-----------------------------------------|--------------------------------------------|
+| Admin or owner | `admin_or_me_check_wrapper` | `app_admin_or_me_check` |
+| Moderator or owner | `moderator_check_wrapper` | `app_moderator_check` |
+| Bot channel only | `is_bot_channel_wrapper` | `app_is_bot_channel` |
+| Owner only | `owner_only` (works for both) | `owner_only` (works for both) |
 
 ### Example Usage
 
 ```python
-from utils.permissions import has_permission, has_permission_level, Permission, PermissionLevel
+from discord import app_commands
+from discord.ext import commands
 
-# Check for a specific permission
-@has_permission(Permission.MANAGE_MESSAGES)
-async def delete_message(self, ctx):
-    # Only users with manage_messages permission can use this
-    pass
+from utils.permissions import (
+    app_admin_or_me_check,
+    app_moderator_check,
+    owner_only,
+)
 
-# Check for a permission level
-@has_permission_level(PermissionLevel.ADMIN)
-async def admin_only_command(self, ctx):
-    # Only admins and higher can use this
-    pass
+# Slash command restricted to admins (or the bot owner)
+@app_commands.command()
+@app_commands.check(app_admin_or_me_check)
+async def admin_only_slash(self, interaction):
+    ...
+
+# Slash command restricted to moderators (or admins / owner)
+@app_commands.command()
+@app_commands.check(app_moderator_check)
+async def mod_only_slash(self, interaction):
+    ...
+
+# Owner-only command (works for both prefix and slash commands)
+@commands.command()
+@owner_only
+async def owner_only_command(self, ctx):
+    ...
 ```
 
-### Permission Manager Methods
+When a check fails it raises `PermissionError` (or `OwnerOnlyError`), which the
+error-handling decorators turn into a friendly "you don't have permission"
+response — see the [Error Handling guide](error-handling.md).
 
-The `PermissionManager` class provides the following methods for programmatic permission management:
+### setup_permissions
 
-- `get_user_permission_level(guild_id, user_id, user_roles)` - Get a user's permission level
-- `has_permission(guild_id, user_id, permission, user_roles)` - Check if a user has a specific permission
-- `set_role_permission_level(guild_id, role_id, level)` - Set permission level for a role
-- `set_user_permission_level(guild_id, user_id, level)` - Set permission level for a user
-- `set_permission_override(guild_id, target_id, permission, value, is_role)` - Set specific permission overrides
-
-These methods are available for cogs and other bot components but are not directly exposed as user-facing commands.
+`setup_permissions(bot)` exists for compatibility but is a **no-op**: there is no
+permission state to initialise because checks are evaluated dynamically against
+Discord's native permissions.
