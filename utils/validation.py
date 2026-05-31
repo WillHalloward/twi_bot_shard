@@ -499,6 +499,9 @@ def sanitize_sql_identifier(value: str) -> str:
 
     Returns:
         The sanitized identifier
+
+    Raises:
+        ValueError: If the identifier is None or is empty after sanitization.
     """
     if value is None:
         raise ValueError("SQL identifier cannot be None")

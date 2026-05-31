@@ -115,6 +115,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
         Raises:
             DatabaseError: If database operations fail
             ValidationError: If password data is invalid
+            ExternalServiceError: If an unexpected error occurs while handling the command
         """
         try:
             logging.info(

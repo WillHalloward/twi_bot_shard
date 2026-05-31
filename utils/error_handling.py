@@ -1097,7 +1097,16 @@ async def handle_global_app_command_error(
 def setup_global_exception_handler(bot: commands.Bot) -> None:
     """Set up global exception handlers for the bot.
 
-    This function sets up handlers for uncaught exceptions in the bot.
+    Wires up five escalation paths so no error path silently drops:
+
+    1. ``on_command_error`` — catch-all for prefix commands.
+    2. ``@bot.tree.error`` — catch-all for application (slash) commands.
+    3. ``on_error`` — the event-dispatch net for listeners (e.g. ``on_message``);
+       captures the live exception to Sentry with an ``<event:...>`` tag.
+    4. ``sys.excepthook`` — fatal main-thread exceptions.
+    5. ``loop.set_exception_handler`` — the asyncio net for fire-and-forget tasks.
+
+    Paths 3-5 forward to Sentry via ``capture_exception``.
 
     Args:
         bot: The bot instance
@@ -1133,9 +1142,7 @@ def setup_global_exception_handler(bot: commands.Bot) -> None:
             f"Unhandled exception in event {event_method}: "
             f"{type(exc_value).__name__}: {redact_sensitive_info(str(exc_value))}"
         )
-        logger.error(
-            "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
-        )
+        logger.error("".join(traceback.format_exception(exc_type, exc_value, exc_tb)))
 
         if isinstance(exc_value, Exception):
             from utils.sentry_setup import capture_exception as _sentry_capture
@@ -1181,9 +1188,7 @@ def setup_global_exception_handler(bot: commands.Bot) -> None:
             )
             logger.error(
                 "".join(
-                    traceback.format_exception(
-                        type(error), error, error.__traceback__
-                    )
+                    traceback.format_exception(type(error), error, error.__traceback__)
                 )
             )
             from utils.sentry_setup import capture_exception as _sentry_capture

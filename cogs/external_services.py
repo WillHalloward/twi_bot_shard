@@ -121,7 +121,7 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
                 f"Admin {interaction.user.id} triggered manual AO3 login retry"
             )
             await interaction.followup.send(
-                "Retrying AO3 login... This may take up to 90 seconds per attempt.",
+                "Retrying AO3 login... this may take a moment (it retries with backoff).",
                 ephemeral=True,
             )
 

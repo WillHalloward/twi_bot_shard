@@ -151,7 +151,7 @@ class SettingsCog(commands.Cog, name="Settings"):  # type: ignore[call-arg]  # s
                 guild_id=guild_id,
                 user_id=user_id,
             )
-            # Fall back to the hardcoded check in case of error
+            # Fail closed: deny admin status if the check errored
             return False
 
 

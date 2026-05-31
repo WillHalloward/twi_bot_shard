@@ -20,6 +20,8 @@ from utils.validation import validate_url
 
 
 class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord.py stubs reject name=
+    """Named-link and tag library commands (/link get|list|add|edit|delete, /tag)."""
+
     def __init__(self, bot) -> None:
         self.bot = bot
         self.links_cache: list[dict] | None = None

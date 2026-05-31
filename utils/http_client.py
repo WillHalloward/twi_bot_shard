@@ -234,8 +234,10 @@ class HTTPClient:
 
         Args:
             timeout: Default timeout for requests in seconds.
-            max_connections: Maximum number of connections to keep in the pool.
-            max_keepalive_connections: Maximum number of connections to keep alive.
+            max_connections: Total connection-pool size cap (aiohttp ``limit``).
+            max_keepalive_connections: Per-host connection cap (aiohttp
+                ``limit_per_host``). Despite the name, this is the per-host limit,
+                not a keepalive count.
             keepalive_timeout: Time in seconds to keep connections alive.
             retry_attempts: Maximum number of retry attempts for failed requests.
             retry_start_timeout: Initial timeout in seconds for retry backoff.
@@ -426,7 +428,7 @@ class HTTPClient:
             params: Query parameters.
             headers: HTTP headers.
             timeout: Request timeout in seconds.
-            retry_for_statuses: HTTP status codes to retry for (default: 5xx).
+            retry_for_statuses: HTTP status codes to retry for (default: [500, 502, 503, 504]).
             no_circuit_breaker: If True, bypass the circuit breaker.
             no_rate_limit: If True, bypass the rate limiter.
             **kwargs: Additional arguments to pass to the request.
@@ -616,7 +618,7 @@ class HTTPClient:
             json: JSON data to send.
             headers: HTTP headers.
             timeout: Request timeout in seconds.
-            retry_for_statuses: HTTP status codes to retry for (default: 5xx).
+            retry_for_statuses: HTTP status codes to retry for (default: [500, 502, 503, 504]).
             no_circuit_breaker: If True, bypass the circuit breaker.
             no_rate_limit: If True, bypass the rate limiter.
             **kwargs: Additional arguments to pass to the request.
@@ -806,7 +808,7 @@ class HTTPClient:
             headers: HTTP headers.
             timeout: Request timeout in seconds.
             chunk_size: Size of chunks to download.
-            retry_for_statuses: HTTP status codes to retry for (default: 5xx).
+            retry_for_statuses: HTTP status codes to retry for (default: [500, 502, 503, 504]).
             no_circuit_breaker: If True, bypass the circuit breaker.
             no_rate_limit: If True, bypass the rate limiter.
 

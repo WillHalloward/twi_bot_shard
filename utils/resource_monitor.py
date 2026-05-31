@@ -176,10 +176,8 @@ class ResourceMonitor:
                             f"Received: {net_recv_mb:.2f} MB/s (threshold: {self.network_io_threshold} MB/s)"
                         )
 
-                # Check for high connection count (adjusted for reduced HTTP client limits)
-                if (
-                    stats["connection_count"] > 50
-                ):  # Adjusted threshold to match HTTP client limits
+                # Warn on an unusually high open-connection count for the process.
+                if stats["connection_count"] > 50:
                     self.logger.warning(
                         f"High connection count detected: {stats['connection_count']} connections"
                     )

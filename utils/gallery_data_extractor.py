@@ -8,7 +8,7 @@ import discord
 
 
 class GalleryDataExtractor:
-    """Extracts the 5 key fields from gallery posts for migration."""
+    """Extracts the core gallery fields (title, images, creator, tags, jump_url) from gallery posts for migration."""
 
     # The 10 predefined tags
     AVAILABLE_TAGS = [
@@ -52,7 +52,7 @@ class GalleryDataExtractor:
     async def extract_gallery_data(
         self, message: discord.Message, default_tags: list[str] | None = None
     ) -> dict[str, Any]:
-        """Extract the 5 key fields from a Discord message.
+        """Extract the core gallery fields from a Discord message.
 
         Args:
             message: Discord message to extract data from
@@ -319,7 +319,7 @@ class GalleryDataExtractor:
             channel_name or message.channel.name
         )
 
-        # Extract the 5 key fields
+        # Extract the core gallery fields
         extracted_data = await self.extract_gallery_data(message, default_tags)
 
         # Classify for forum

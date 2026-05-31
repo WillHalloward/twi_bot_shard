@@ -81,7 +81,7 @@ class BotConfig(BaseModel):
     logging_level: int = Field(logging.INFO, description="Logging level")
     logfile: str = Field("test", description="Log file name")
     log_format: LogFormat = Field(
-        LogFormat.CONSOLE, description="Log output format (json or console)"
+        LogFormat.CONSOLE, description="Log output format (json, console, or file)"
     )
     kill_after: int = Field(
         0, description="Time in seconds to run before exiting, 0 disables"

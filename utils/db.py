@@ -83,7 +83,8 @@ class DatabaseTransaction:
             exc_tb: The exception traceback, if an exception was raised.
 
         Returns:
-            True if the exception was handled, False otherwise.
+            None. Any exception propagates (it is not suppressed); the underlying
+            transaction is committed on success or rolled back on error.
         """
         await self.transaction.__aexit__(exc_type, exc_val, exc_tb)
 
