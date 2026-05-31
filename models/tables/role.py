@@ -28,6 +28,9 @@ class Role(Base):
     hoisted: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
     managed: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
     position: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    permissions: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, default=None
+    )
     guild_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, default=None
     )
