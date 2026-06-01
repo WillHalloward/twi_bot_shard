@@ -676,3 +676,13 @@ create index bot_metrics_timestamp_index
 
 create index bot_metrics_metric_type_index
     on bot_metrics (metric_type);
+
+create table ao3_sessions
+(
+    username           text      not null
+        constraint ao3_sessions_pk
+            primary key,
+    session_data       bytea     not null,
+    saved_at           timestamp not null,
+    last_validated_at  timestamp
+);

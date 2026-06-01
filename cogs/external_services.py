@@ -4,7 +4,9 @@ This module provides commands for interacting with external services like AO3.
 """
 
 import asyncio
+import datetime
 import logging
+import pickle
 import re
 from typing import Any
 
@@ -22,6 +24,9 @@ from utils.exceptions import (
     ValidationError,
 )
 
+AO3_SESSION_MAX_AGE = datetime.timedelta(days=7)
+AO3_PROBE_URL_TEMPLATE = "https://archiveofourown.org/users/{username}/readings"
+
 
 class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-arg]
     """Commands for interacting with external services."""
@@ -35,12 +40,14 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
     async def _initialize_ao3_session(self, max_retries: int = 3) -> None:
         """Initialize AO3 session with retry logic.
 
-        This method runs the blocking AO3 authentication in an executor to avoid
-        blocking the event loop. If authentication fails, it will retry with
-        exponential backoff up to max_retries times.
+        Attempts to rehydrate a cached session from the database first; if no
+        non-stale cached session exists or the cached session fails an auth
+        probe, falls back to a fresh login (which runs in an executor and
+        retries with exponential backoff up to max_retries times). Successful
+        fresh logins are persisted to the cache.
 
         Args:
-            max_retries: Maximum number of retry attempts (default: 3)
+            max_retries: Maximum number of retry attempts for fresh login.
         """
         if self.ao3_login_in_progress:
             self.logger.warning(
@@ -49,42 +56,143 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
             return
 
         self.ao3_login_in_progress = True
-
-        for attempt in range(1, max_retries + 1):
-            try:
-                self.logger.info(
-                    f"Attempting AO3 login (attempt {attempt}/{max_retries})"
-                )
-
-                loop = asyncio.get_event_loop()
-                session = await loop.run_in_executor(
-                    None,
-                    AO3.Session,
-                    str(config.ao3_username),
-                    str(config.ao3_password),
-                )
-
-                self.ao3_session = session
+        try:
+            cached = await self._load_cached_session()
+            if cached is not None:
+                self.ao3_session = cached
                 self.ao3_login_successful = True
-                self.logger.info("AO3 login successful")
-                self.ao3_login_in_progress = False
+                self.logger.info("ao3_session_restored_from_cache")
                 return
 
-            except Exception as e:
-                self.logger.error(
-                    f"AO3 login failed (attempt {attempt}/{max_retries}): {e}",
-                    exc_info=True,
-                )
+            for attempt in range(1, max_retries + 1):
+                try:
+                    self.logger.info(
+                        f"Attempting AO3 login (attempt {attempt}/{max_retries})"
+                    )
 
-                if attempt < max_retries:
-                    wait_time = 2**attempt
-                    self.logger.info(f"Retrying AO3 login in {wait_time} seconds...")
-                    await asyncio.sleep(wait_time)
-                else:
-                    self.logger.error("AO3 login failed after all retry attempts")
-                    self.ao3_login_successful = False
+                    loop = asyncio.get_event_loop()
+                    session = await loop.run_in_executor(
+                        None,
+                        AO3.Session,
+                        str(config.ao3_username),
+                        str(config.ao3_password),
+                    )
 
-        self.ao3_login_in_progress = False
+                    self.ao3_session = session
+                    self.ao3_login_successful = True
+                    self.logger.info("AO3 login successful")
+                    await self._save_session(session)
+                    return
+
+                except Exception as e:
+                    self.logger.error(
+                        f"AO3 login failed (attempt {attempt}/{max_retries}): {e}",
+                        exc_info=True,
+                    )
+
+                    if attempt < max_retries:
+                        wait_time = 2**attempt
+                        self.logger.info(
+                            f"Retrying AO3 login in {wait_time} seconds..."
+                        )
+                        await asyncio.sleep(wait_time)
+                    else:
+                        self.logger.error("AO3 login failed after all retry attempts")
+                        self.ao3_login_successful = False
+        finally:
+            self.ao3_login_in_progress = False
+
+    async def _load_cached_session(self) -> Any | None:
+        """Try to restore a pickled AO3 session from the database.
+
+        Returns the rehydrated session if a row exists, is within the
+        staleness window, unpickles cleanly, and passes an auth probe.
+        Returns None otherwise (callers should fall back to fresh login).
+        """
+        username = str(config.ao3_username)
+        try:
+            row = await self.bot.db.fetchrow(
+                "SELECT session_data, saved_at FROM ao3_sessions WHERE username = $1",
+                username,
+            )
+        except Exception as e:
+            self.logger.warning("ao3_cached_session_db_read_failed", error=str(e))
+            return None
+
+        if row is None:
+            return None
+
+        now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        age = now - row["saved_at"]
+        if age > AO3_SESSION_MAX_AGE:
+            self.logger.info(
+                "ao3_cached_session_stale",
+                age_days=age.days,
+                max_age_days=AO3_SESSION_MAX_AGE.days,
+            )
+            return None
+
+        try:
+            session = pickle.loads(row["session_data"])
+        except Exception as e:
+            self.logger.warning("ao3_cached_session_unpickle_failed", error=str(e))
+            return None
+
+        if not await self._probe_session(session):
+            self.logger.info("ao3_cached_session_probe_failed")
+            return None
+
+        try:
+            await self.bot.db.execute(
+                "UPDATE ao3_sessions SET last_validated_at = $1 WHERE username = $2",
+                now,
+                username,
+            )
+        except Exception as e:
+            self.logger.warning(
+                "ao3_cached_session_validated_update_failed", error=str(e)
+            )
+
+        return session
+
+    async def _probe_session(self, session: Any) -> bool:
+        """Verify a session is still authenticated by hitting a login-only page."""
+        url = AO3_PROBE_URL_TEMPLATE.format(username=config.ao3_username)
+        try:
+            loop = asyncio.get_event_loop()
+            resp = await loop.run_in_executor(None, session.session.get, url)
+        except Exception as e:
+            self.logger.warning("ao3_session_probe_request_failed", error=str(e))
+            return False
+        # Authed → 200 on the readings page. Unauthed sessions get redirected
+        # to /users/login, which ends up as the final response URL.
+        return resp.status_code == 200 and "/users/login" not in resp.url
+
+    async def _save_session(self, session: Any) -> None:
+        """Persist a freshly authenticated AO3 session to the database."""
+        try:
+            data = pickle.dumps(session)
+        except Exception as e:
+            self.logger.warning("ao3_session_pickle_failed", error=str(e))
+            return
+
+        now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        try:
+            await self.bot.db.execute(
+                """
+                INSERT INTO ao3_sessions (username, session_data, saved_at, last_validated_at)
+                VALUES ($1, $2, $3, $3)
+                ON CONFLICT (username) DO UPDATE
+                    SET session_data = EXCLUDED.session_data,
+                        saved_at = EXCLUDED.saved_at,
+                        last_validated_at = EXCLUDED.last_validated_at
+                """,
+                str(config.ao3_username),
+                data,
+                now,
+            )
+        except Exception as e:
+            self.logger.warning("ao3_session_db_save_failed", error=str(e))
 
     async def cog_load(self) -> None:
         """Load initial data when the cog is added to the bot."""
