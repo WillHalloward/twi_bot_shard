@@ -18,6 +18,20 @@ from utils.exceptions import (
 )
 from utils.webhook_manager import WebhookManager
 
+# Discord's default per-attachment upload limit for non-Nitro tiers. Above this
+# the webhook send fails with 413 Payload Too Large, so dm_watch falls back to
+# posting a metadata-only embed linking to the original CDN URL.
+DM_ATTACHMENT_SIZE_LIMIT = 25 * 1024 * 1024
+
+
+def _format_size(num_bytes: int) -> str:
+    size = float(num_bytes)
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if size < 1024 or unit == "GiB":
+            return f"{int(size)} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} GiB"
+
 
 class ModCogs(commands.Cog):
     """Moderation commands and listeners (cooldown resets, mod messages, link/attachment logging, new-user filtering)."""
@@ -237,21 +251,52 @@ class ModCogs(commands.Cog):
                         async with self.webhook_manager.get_webhook(
                             cast(str, config.webhook_testing_log)
                         ) as webhook:
+                            oversized = attachment.size > DM_ATTACHMENT_SIZE_LIMIT
                             embed = discord.Embed(
-                                title="New attachment",
+                                title=(
+                                    "New attachment (too large to relay)"
+                                    if oversized
+                                    else "New attachment"
+                                ),
                                 description=f"content: {message.content}",
+                                url=attachment.url if oversized else None,
                             )
-                            file = await attachment.to_file(
-                                spoiler=attachment.is_spoiler()
-                            )
-                            embed.set_image(url=f"attachment://{attachment.filename}")
                             embed.add_field(
                                 name="User", value=message.author.mention, inline=True
                             )
                             embed.add_field(
                                 name="Username", value=message.author.name, inline=True
                             )
-                            await webhook.send(file=file, embed=embed)
+                            embed.add_field(
+                                name="Filename", value=attachment.filename, inline=False
+                            )
+                            embed.add_field(
+                                name="Size",
+                                value=_format_size(attachment.size),
+                                inline=True,
+                            )
+                            if attachment.content_type:
+                                embed.add_field(
+                                    name="Type",
+                                    value=attachment.content_type,
+                                    inline=True,
+                                )
+
+                            if oversized:
+                                embed.add_field(
+                                    name="Link",
+                                    value=f"[Open on Discord CDN]({attachment.url})",
+                                    inline=False,
+                                )
+                                await webhook.send(embed=embed)
+                            else:
+                                file = await attachment.to_file(
+                                    spoiler=attachment.is_spoiler()
+                                )
+                                embed.set_image(
+                                    url=f"attachment://{attachment.filename}"
+                                )
+                                await webhook.send(file=file, embed=embed)
                     except Exception as e:
                         error = ExternalServiceError(
                             f"Failed to log DM attachment: {str(e)}"
