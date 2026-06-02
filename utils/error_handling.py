@@ -555,7 +555,9 @@ def log_error(
             commands.CommandOnCooldown
             | discord.app_commands.errors.CommandOnCooldown
             | commands.CheckFailure
-            | discord.app_commands.errors.CheckFailure,
+            | discord.app_commands.errors.CheckFailure
+            | commands.CommandNotFound
+            | discord.app_commands.errors.CommandNotFound,
         )
     ):
         error_details = "".join(
