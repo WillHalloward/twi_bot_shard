@@ -17,10 +17,10 @@ jobs:
     # failing the workflow; flip off once findings are triaged to zero.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -31,12 +31,15 @@ jobs:
 
       - name: Run pip-audit
         # Advisory: don't fail the check on known advisories; report via artifact.
+        # `--desc on` must take an explicit value — `--desc .` makes argparse
+        # consume the project path as the flag's value and abort with exit 2,
+        # so the scan never runs. Pass the project path positionally instead.
         continue-on-error: true
-        run: pip-audit -f json -o pip-audit-report.json --desc .
+        run: pip-audit --desc on -f json -o pip-audit-report.json .
 
       - name: Upload pip-audit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pip-audit-report
           path: pip-audit-report.json
@@ -48,10 +51,10 @@ jobs:
     # without failing the workflow.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -70,7 +73,7 @@ jobs:
 
       - name: Upload Bandit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bandit-report
           path: bandit-report.json
@@ -81,7 +84,7 @@ jobs:
     # Hard gate: secret detection should block. Currently passing (no secrets
     # in history).
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # Full history so gitleaks can scan all commits; a shallow clone
           # makes git emit to stderr and gitleaks errors with
@@ -89,6 +92,6 @@ jobs:
           fetch-depth: 0
 
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
