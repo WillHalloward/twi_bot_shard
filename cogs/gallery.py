@@ -276,6 +276,12 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
             interaction: The Discord interaction
             message: The message to analyze for repostable content
         """
+        # Acknowledge immediately; analyzing the message and building the menu can
+        # run past Discord's 3-second window and 404 with 10062 (Unknown interaction).
+        # The menu is then surfaced via edit_original_response so it stays the
+        # "original response" that delete_original_response() can later remove.
+        await interaction.response.defer()
+
         repost_type = []
 
         # Check for attachments
@@ -302,7 +308,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
                     "message_id": message.id,
                 },
             )
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "❌ Error analyzing message content. Please try again.", ephemeral=True
             )
             return
@@ -431,7 +437,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
             )
 
             try:
-                await interaction.response.send_message(embed=embed, view=view)
+                # We deferred above, so the menu becomes the (now-acknowledged)
+                # original response via edit rather than a fresh send_message.
+                await interaction.edit_original_response(embed=embed, view=view)
             except discord.HTTPException as e:
                 self.logger.error(
                     f"Failed to send repost menu: {e}",
@@ -441,7 +449,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
                         "guild_id": interaction.guild_id,
                     },
                 )
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "❌ Failed to display repost options. Please try again.",
                     ephemeral=True,
                 )
