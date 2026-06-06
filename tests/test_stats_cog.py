@@ -70,6 +70,56 @@ async def test_save_message() -> bool:
     return True
 
 
+async def test_save_messages_bulk() -> bool:
+    """Test that save_messages_bulk batches inserts and dedupes the server row."""
+    print("\nTesting save_messages_bulk function...")
+
+    from cogs.stats_listeners import save_messages_bulk
+
+    bot = await TestSetup.create_test_bot()
+    await TestSetup.setup_cog(bot, StatsCogs)
+
+    # All messages share one guild so we can assert the server row is deduped.
+    guild = MockGuildFactory.create()
+    messages = []
+    for _ in range(5):
+        message = MockMessageFactory.create(guild=guild)
+        message.role_mentions = []  # not set by the factory
+        messages.append(message)
+
+    bot.db.execute = AsyncMock()
+    bot.db.execute_many = AsyncMock()
+
+    await save_messages_bulk(bot, messages)
+
+    # Everything goes through execute_many (bulk), never per-row execute().
+    assert bot.db.execute.call_count == 0
+    assert bot.db.execute_many.call_count >= 2  # at least users + messages
+
+    # Inspect the batched payloads by target table.
+    calls_by_table = {}
+    for call in bot.db.execute_many.call_args_list:
+        query = call.args[0]
+        rows = call.args[1]
+        if "INTO users" in query:
+            calls_by_table["users"] = rows
+        elif "INTO servers" in query:
+            calls_by_table["servers"] = rows
+        elif "INTO messages" in query:
+            calls_by_table["messages"] = rows
+
+    # All 5 messages land in a single bulk insert...
+    assert len(calls_by_table["messages"]) == 5
+    # ...and the shared guild collapses to exactly one server row (was 1-per-message).
+    assert len(calls_by_table["servers"]) == 1
+
+    await TestTeardown.teardown_cog(bot, "stats")
+    await TestTeardown.teardown_bot(bot)
+
+    print("✅ save_messages_bulk function test passed")
+    return True
+
+
 async def test_save_reaction() -> bool:
     """Test the save_reaction method."""
     print("\nTesting save_reaction method...")
