@@ -71,7 +71,7 @@ class ResourceMonitor:
         self._max_history_size = 60  # Keep history for 60 intervals
 
         # Initialize I/O counters
-        self._last_disk_io = psutil.disk_io_counters()
+        self._last_disk_io = self._get_process_io_counters()
         self._last_net_io = psutil.net_io_counters()
         self._last_io_time = time.time()
 
@@ -102,6 +102,21 @@ class ResourceMonitor:
             "by_status": defaultdict(int),
             "by_remote_ip": defaultdict(int),
         }
+
+    def _get_process_io_counters(self) -> Any:
+        """Return this process's I/O counters, or None if unavailable.
+
+        Scoped to the bot process on purpose: ``psutil.disk_io_counters()`` is
+        host-wide (reads ``/proc/diskstats``), so on shared infra like Railway it
+        reports the whole node's disk activity — noisy neighbours included — which
+        the bot neither causes nor can control, and trips the threshold falsely.
+        ``Process.io_counters()`` is unsupported on some platforms (e.g. macOS),
+        so failures degrade gracefully to None.
+        """
+        try:
+            return self._process.io_counters()
+        except (psutil.AccessDenied, NotImplementedError, AttributeError):
+            return None
 
     async def start_monitoring(self) -> None:
         """Start the resource monitoring background task."""
@@ -251,11 +266,11 @@ class ResourceMonitor:
             "system_cpu_percent": psutil.cpu_percent(),
         }
 
-        # Disk I/O stats
-        current_disk_io = psutil.disk_io_counters()
+        # Disk I/O stats (scoped to this process — see _get_process_io_counters)
+        current_disk_io = self._get_process_io_counters()
         time_diff = current_time - self._last_io_time
 
-        if self._last_disk_io and time_diff > 0:
+        if self._last_disk_io and current_disk_io and time_diff > 0:
             read_bytes_per_sec = (
                 current_disk_io.read_bytes - self._last_disk_io.read_bytes
             ) / time_diff
@@ -269,8 +284,6 @@ class ResourceMonitor:
                     "disk_write_bytes_per_sec": write_bytes_per_sec,
                     "disk_read_count": current_disk_io.read_count,
                     "disk_write_count": current_disk_io.write_count,
-                    "disk_read_time": current_disk_io.read_time,
-                    "disk_write_time": current_disk_io.write_time,
                 }
             )
 
