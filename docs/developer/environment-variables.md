@@ -222,22 +222,6 @@ WEBHOOK=https://discord.com/api/webhooks/...
 **Where to get:** Discord Server Settings → Integrations → Webhooks
 **Security:** 🔐 **Both are sensitive** (provide channel access)
 
-### Security Configuration
-
-```env
-SECRET_ENCRYPTION_KEY=your_32_character_encryption_key
-```
-
-**Description:** Encryption key for sensitive data storage
-**Security:** 🔐 **Highly Sensitive**
-**Generation:** Use a cryptographically secure random 32+ character string
-**Note:** If not set, sensitive data will not be encrypted (warning logged)
-
-**Generate a key:**
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
-
 ### Observability (Sentry)
 
 Optional. Enables runtime error reporting and the liveness heartbeat. Read
@@ -458,8 +442,6 @@ USER_AGENT=python:twi_bot_shard:v1.0dev by /u/yourname
 USERNAME=your_reddit_user
 PASSWORD=your_reddit_pass
 
-# Security
-SECRET_ENCRYPTION_KEY=your_generated_encryption_key
 ```
 
 ### Production Setup
@@ -496,9 +478,6 @@ USERNAME=prod_reddit_user
 PASSWORD=prod_reddit_pass
 AO3_USERNAME=prod_ao3_user
 AO3_PASSWORD=prod_ao3_pass
-
-# Security
-SECRET_ENCRYPTION_KEY=production_encryption_key_32chars_plus
 
 # Complex configurations
 COOKIES={"patreon_device_id":"prod_device_id"}

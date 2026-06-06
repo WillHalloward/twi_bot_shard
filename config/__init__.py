@@ -155,13 +155,6 @@ class BotConfig(BaseModel):
         None, description="AO3 password", json_schema_extra={"sensitive": True}
     )
 
-    # Secret encryption key
-    secret_encryption_key: str | None = Field(
-        None,
-        description="Encryption key for secrets",
-        json_schema_extra={"sensitive": True},
-    )
-
     # Complex structures
     cookies: dict[str, str] = Field(
         default_factory=dict, description="Cookies for HTTP requests"
@@ -241,7 +234,6 @@ class BotConfig(BaseModel):
         "twitter_access_token",
         "twitter_access_token_secret",
         "ao3_password",
-        "secret_encryption_key",
     }
 
     _required_fields: set[str] = {
@@ -457,9 +449,6 @@ def load_from_env() -> BotConfig:
     ao3_username = get_env("AO3_USERNAME")
     ao3_password = get_env("AO3_PASSWORD")
 
-    # Secret encryption key
-    secret_encryption_key = get_env("SECRET_ENCRYPTION_KEY")
-
     # Staging environment settings
     staging_guild_id_str = get_env("STAGING_GUILD_ID")
     staging_guild_id = int(staging_guild_id_str) if staging_guild_id_str else None
@@ -540,7 +529,6 @@ def load_from_env() -> BotConfig:
             ao3_username=ao3_username,
             ao3_password=ao3_password,
             openai_api_key=openai_api_key,
-            secret_encryption_key=secret_encryption_key,
             cookies=cookies,
             headers=headers,
             channel_ids=channel_ids,
@@ -552,12 +540,6 @@ def load_from_env() -> BotConfig:
     except ValueError as e:
         # Add more context to validation errors
         raise ValueError(f"Configuration validation error: {e}") from e
-
-    # Log a warning if no encryption key is provided
-    if not secret_encryption_key:
-        logging.warning(
-            "No SECRET_ENCRYPTION_KEY provided. Sensitive data will not be encrypted."
-        )
 
     return config
 
@@ -616,7 +598,6 @@ twitter_access_token_secret = config.twitter_access_token_secret
 ao3_username = config.ao3_username
 ao3_password = config.ao3_password
 openai_api_key = config.openai_api_key
-secret_encryption_key = config.secret_encryption_key
 cookies = config.cookies
 headers = config.headers
 channel_ids = config.channel_ids
