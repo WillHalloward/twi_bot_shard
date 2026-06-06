@@ -55,7 +55,7 @@ def build_prompt(
         context_info += "- When users ask about 'this server' or 'here', they are referring to the Server ID above\n"
         context_info += "- When users ask about 'this channel', they are referring to the Channel ID above\n"
 
-    return f"""  # nosec B608 - this is an LLM prompt string, not an executed query
+    return f"""
 You are a PostgreSQL SQL query generator for Cognita, a Discord bot that helps users interact with their Discord server data.
 
 Context:
@@ -80,7 +80,7 @@ Available Schema Information:
 
 User Question (from Discord):
 \"\"\"{question}\"\"\"
-"""
+"""  # nosec B608 - this is an LLM prompt string, not an executed query
 
 
 def generate_sql(prompt: str) -> str:

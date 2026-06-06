@@ -85,19 +85,27 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
                     return
 
                 except Exception as e:
-                    self.logger.error(
-                        f"AO3 login failed (attempt {attempt}/{max_retries}): {e}",
-                        exc_info=True,
-                    )
-
                     if attempt < max_retries:
+                        # Transient AO3 flakiness — e.g. the login page comes
+                        # back without an authenticity_token, which surfaces as
+                        # a TypeError deep in the AO3 lib. The retry loop almost
+                        # always recovers, so keep this at WARNING: it stays in
+                        # the logs (as a Sentry breadcrumb) but does NOT raise a
+                        # Sentry issue for a failure we self-heal from.
                         wait_time = 2**attempt
-                        self.logger.info(
-                            f"Retrying AO3 login in {wait_time} seconds..."
+                        self.logger.warning(
+                            f"AO3 login attempt {attempt}/{max_retries} failed "
+                            f"({type(e).__name__}: {e}); retrying in {wait_time}s"
                         )
                         await asyncio.sleep(wait_time)
                     else:
-                        self.logger.error("AO3 login failed after all retry attempts")
+                        # All retries exhausted and no cached session was
+                        # usable — AO3 features are now degraded, so this one is
+                        # genuinely Sentry-worthy.
+                        self.logger.error(
+                            f"AO3 login failed after {max_retries} attempts: {e}",
+                            exc_info=True,
+                        )
                         self.ao3_login_successful = False
         finally:
             self.ao3_login_in_progress = False
