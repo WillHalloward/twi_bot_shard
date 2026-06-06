@@ -712,6 +712,17 @@ def handle_interaction_errors[CommandT: Callable[..., Coroutine[Any, Any, Any]]]
                     await interaction.response.send_message(
                         user_message, ephemeral=ephemeral
                     )
+            except discord.HTTPException as e:
+                # Only 10062 (Unknown interaction) is expected here: the token already
+                # expired, so there is no live interaction left to deliver the error
+                # reply to. That is planned fallout from an already-reported primary
+                # error, not a new fault — quietly skip it. Any other delivery failure
+                # is unexpected and must still escalate (the primary error, including a
+                # genuine timeout, is reported separately via log_error below).
+                if getattr(e, "code", None) == 10062:
+                    logger.debug(f"Skipped error reply; interaction already gone: {e}")
+                else:
+                    logger.error(f"Failed to send error message to user: {e}")
             except Exception as e:
                 logger.error(f"Failed to send error message to user: {e}")
 
@@ -1071,6 +1082,17 @@ async def handle_global_app_command_error(
             await interaction.followup.send(user_message, ephemeral=ephemeral)
         else:
             await interaction.response.send_message(user_message, ephemeral=ephemeral)
+    except discord.HTTPException as e:
+        # Only 10062 (Unknown interaction) is expected here: the token already expired,
+        # so there is no live interaction left to deliver the error reply to. That is
+        # planned fallout from an already-reported primary error, not a new fault —
+        # quietly skip it. Any other delivery failure is unexpected and must still
+        # escalate (the primary error, including a genuine timeout, is reported
+        # separately via log_error below).
+        if getattr(e, "code", None) == 10062:
+            logger.debug(f"Skipped error reply; interaction already gone: {e}")
+        else:
+            logger.error(f"Failed to send error message to user: {e}")
     except Exception as e:
         logger.error(f"Failed to send error message to user: {e}")
 

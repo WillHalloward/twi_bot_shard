@@ -577,6 +577,11 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
     async def role(self, interaction: discord.Interaction, role: discord.Role) -> None:
         """Add or remove a self-assignable role from yourself."""
         try:
+            # Acknowledge immediately so the DB lookups and role edits below can't
+            # run past Discord's 3-second interaction window and 404 with
+            # 10062 (Unknown interaction). Buys a 15-minute followup window.
+            await interaction.response.defer()
+
             if not role:
                 raise ValidationError(message="Role parameter is required")
 
@@ -709,7 +714,7 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
                 embed.add_field(name="Category", value=s_role["category"], inline=True)
 
             embed.set_footer(text=f"Action: {action.title()}")
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except (ValidationError, PermissionError, DatabaseError, ExternalServiceError):
             raise
