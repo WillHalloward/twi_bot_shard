@@ -173,6 +173,7 @@ class Cognita(commands.Bot):
             memory_leak_threshold=52428800,  # 50MB threshold to reduce false positives
             enable_memory_leak_detection=True,
             logger=self.logger.getChild("resource_monitor"),
+            pool=self.db.pool,  # surface DB pool saturation / utilization
         )
 
         # Initialize service container

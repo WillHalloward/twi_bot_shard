@@ -79,6 +79,96 @@ test scripts that force `environment='staging'`/`'production'` will trip the rea
 Discord alerts. Tag throwaway test events with a distinct environment (e.g.
 `local-test`).
 
+## Database observability
+
+The database is the easiest layer to be blind to, because the app-side timer in
+`utils/db.py` measures **connection-acquire wait + query execution together**.
+A "slow query" on a trivial statement is therefore usually *pool contention*
+(waiting for a free connection), not a slow query. Visibility comes from three
+layers — app, pool, and the Postgres server.
+
+### What the bot already records (code, always on)
+
+- **Slow-query log** (`utils/db.py`, threshold 0.5s): every query method warns
+  when total time exceeds the threshold. The warning carries a
+  `[pool: N/M idle]` suffix — **0 idle means the time was spent waiting on a
+  saturated pool** (contention), not in the query. A healthy idle count means
+  the query (or the server) was genuinely slow.
+- **Pool utilisation** (`utils/resource_monitor.py`): the resource monitor is
+  handed the asyncpg pool and records `db_pool_size` / `db_pool_idle` /
+  `db_pool_in_use` / `db_pool_max` each cycle, and emits a
+  `DB connection pool saturated` warning when idle hits 0. The pool is min 5 /
+  max 20 (`main.py`).
+
+### Layer 1 — Sentry query tracing (lowest effort, highest value)
+
+The asyncpg integration already emits `op:db origin:auto.db.asyncpg` spans
+(visible in the `trace` block of any captured event) — they are just dropped
+because sampling is off. To turn on the **Queries** insights dashboard
+(slowest/most-frequent queries, per-command timing, N+1 detection):
+
+1. On Railway, set `SENTRY_TRACES_SAMPLE_RATE` to a small value (e.g. `0.1`) on
+   the `staging` / `production` service. No deploy needed — restart the service.
+2. Open Sentry → **Insights → Queries** for the project. Start low (0.05–0.1):
+   tracing consumes quota and adds slight overhead. Query *parameters* are not
+   captured (`send_default_pii=False` + parameterised SQL).
+
+### Layer 2 — `pg_stat_statements` (authoritative server-side truth)
+
+The canonical Postgres tool: aggregates every normalised query with call count,
+total/mean/max time, rows, and cache-hit ratio. One-time setup on the Railway
+Postgres service:
+
+1. Add `pg_stat_statements` to `shared_preload_libraries` (Railway Postgres
+   service config) and restart the DB.
+2. Once: `CREATE EXTENSION IF NOT EXISTS pg_stat_statements;`
+3. Read the top offenders any time:
+   ```sql
+   SELECT calls, total_exec_time, mean_exec_time, max_exec_time, rows, query
+   FROM pg_stat_statements
+   ORDER BY total_exec_time DESC
+   LIMIT 20;
+   ```
+   (`total_exec_time` = biggest cumulative cost; `mean_exec_time` = slowest per
+   call.) Reset the counters with `SELECT pg_stat_statements_reset();`.
+
+### Layer 3 — server-side slow log + plans (why a query is slow)
+
+On the Railway Postgres service, set:
+
+- `log_min_duration_statement = 500` — logs any statement over 500ms
+  (authoritative execution time, no pool-wait noise).
+- `auto_explain` (add to `shared_preload_libraries`) with
+  `auto_explain.log_min_duration = '500ms'` and `auto_explain.log_analyze = on`
+  — captures the actual `EXPLAIN ANALYZE` plan for slow statements, surfacing
+  missing indexes / sequential scans.
+
+For ad-hoc investigation of a specific query, run
+`EXPLAIN (ANALYZE, BUFFERS) <query>;` against the DB.
+
+### Live "what's happening right now"
+
+```sql
+-- currently-running queries and what they're waiting on
+SELECT pid, now() - query_start AS duration, wait_event_type, wait_event, query
+FROM pg_stat_activity
+WHERE state = 'active' AND query NOT ILIKE '%pg_stat_activity%'
+ORDER BY duration DESC;
+
+-- blocked / blocking locks
+SELECT * FROM pg_locks WHERE NOT granted;
+```
+
+### Triage flow for a slow-query warning
+
+1. Check the `[pool: N/M idle]` suffix. `0` idle → contention; consider raising
+   pool `max_size` (`main.py`) or reducing concurrent DB work. Non-zero idle →
+   the query/server was genuinely slow, continue below.
+2. Find the query in **Sentry → Queries** or `pg_stat_statements` to see how
+   often it runs and its true execution time.
+3. If genuinely slow, `EXPLAIN (ANALYZE, BUFFERS)` it (or read the `auto_explain`
+   plan) to find the missing index / scan.
+
 ## Related Documentation
 
 - [Error Handling](../developer/error-handling.md) — exception hierarchy and escalation paths
