@@ -227,6 +227,19 @@ class ModCogs(commands.Cog):
                         )
 
                 except Exception as e:
+                    # 20009: Discord's content filter refuses to relay an attachment
+                    # it flags as explicit to the webhook target. That's Discord
+                    # policy, not a bot fault and nothing we can retry, so record it
+                    # at WARNING (no Sentry escalation) rather than ERROR.
+                    if isinstance(e, discord.HTTPException) and e.code == 20009:
+                        self.logger.warning(
+                            "Skipped logging explicit attachment rejected by Discord "
+                            "(20009): %s in channel %s",
+                            attachment.filename,
+                            message.channel.id,
+                        )
+                        continue
+
                     # Use standardized error logging with context
                     error = ExternalServiceError(f"Failed to log attachment: {str(e)}")
                     log_error(
@@ -298,6 +311,18 @@ class ModCogs(commands.Cog):
                                 )
                                 await webhook.send(file=file, embed=embed)
                     except Exception as e:
+                        # 20009: Discord's content filter refuses to relay an
+                        # attachment it flags as explicit. Discord policy, not a bot
+                        # fault and not retryable, so record at WARNING (no Sentry
+                        # escalation) rather than ERROR.
+                        if isinstance(e, discord.HTTPException) and e.code == 20009:
+                            self.logger.warning(
+                                "Skipped logging explicit DM attachment rejected by "
+                                "Discord (20009): %s",
+                                attachment.filename,
+                            )
+                            continue
+
                         error = ExternalServiceError(
                             f"Failed to log DM attachment: {str(e)}"
                         )
