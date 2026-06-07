@@ -229,6 +229,168 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
         raise
 
 
+# Number of messages to accumulate before flushing a bulk write during the
+# comprehensive backfill. 500 keeps each execute_many well within asyncpg limits
+# while cutting round-trips by ~500x versus the per-message path.
+_COMPREHENSIVE_SAVE_BATCH_SIZE = 500
+
+
+async def save_messages_bulk(
+    bot: "commands.Bot", messages: list[discord.Message]
+) -> None:
+    """Bulk-save a batch of messages and their related rows.
+
+    Semantically equivalent to calling :func:`save_message` for each message, but
+    collapses the per-message INSERTs into one ``execute_many`` per table and
+    dedupes users/servers across the whole batch (the single-message path
+    re-inserted the server row for every message). This turns the ~3N sequential
+    round-trips of a backfill into a small constant number per batch.
+
+    The live ``on_message`` path still uses :func:`save_message`; this is only for
+    the comprehensive backfill where messages arrive in bulk.
+
+    Args:
+        bot: The Discord bot instance.
+        messages: The batch of messages to persist.
+
+    Raises:
+        Exception: If a database operation fails (the caller falls back to
+            per-message saves so a single bad row can't drop the batch).
+    """
+    if not messages:
+        return
+
+    users: dict[int, tuple] = {}
+    servers: dict[int, tuple] = {}
+    message_rows: list[tuple] = []
+    attachment_rows: list[tuple] = []
+    user_mention_rows: list[tuple] = []
+    role_mention_rows: list[tuple] = []
+
+    for message in messages:
+        users[message.author.id] = (
+            message.author.id,
+            message.author.created_at.replace(tzinfo=None),
+            message.author.bot,
+            message.author.name,
+        )
+        if message.guild:
+            servers[message.guild.id] = (
+                message.guild.id,
+                message.guild.name,
+                message.guild.created_at.replace(tzinfo=None),
+            )
+        message_rows.append(
+            (
+                message.id,
+                message.created_at.replace(tzinfo=None),
+                message.content,
+                message.author.name,
+                message.guild.name if message.guild else "DM",
+                message.guild.id if message.guild else None,
+                message.channel.id,
+                getattr(message.channel, "name", "DM"),
+                message.author.id,
+                getattr(message.author, "display_name", message.author.name),
+                message.jump_url,
+                message.author.bot,
+                False,  # deleted - default to False for backfilled messages
+                message.reference.message_id if message.reference else None,
+            )
+        )
+        for attachment in message.attachments:
+            attachment_rows.append(
+                (
+                    attachment.id,
+                    attachment.filename,
+                    attachment.url,
+                    attachment.size,
+                    attachment.height,
+                    attachment.width,
+                    attachment.is_spoiler(),
+                    message.id,
+                )
+            )
+        for user in message.mentions:
+            user_mention_rows.append((message.id, user.id))
+        for role in message.role_mentions:
+            role_mention_rows.append((message.id, role.id))
+
+    # Insert in FK order: users + servers must exist before messages, and
+    # messages before their attachments/mentions.
+    if users:
+        await bot.db.execute_many(
+            "INSERT INTO users(user_id, created_at, bot, username) VALUES($1,$2,$3,$4) ON CONFLICT (user_id) DO NOTHING",
+            list(users.values()),
+        )
+    if servers:
+        await bot.db.execute_many(
+            "INSERT INTO servers(server_id, server_name, creation_date) VALUES($1,$2,$3) ON CONFLICT (server_id) DO NOTHING",
+            list(servers.values()),
+        )
+    if message_rows:
+        await bot.db.execute_many(
+            """
+            INSERT INTO messages(message_id, created_at, content, user_name, server_name, server_id, channel_id, channel_name, user_id, user_nick, jump_url, is_bot, deleted, reference)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+            ON CONFLICT (message_id) DO NOTHING
+            """,
+            message_rows,
+        )
+    if attachment_rows:
+        await bot.db.execute_many(
+            "INSERT INTO attachments(id, filename, url, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+            attachment_rows,
+        )
+    if user_mention_rows:
+        await bot.db.execute_many(
+            "INSERT INTO mentions(message_id, user_mention) VALUES ($1,$2)",
+            user_mention_rows,
+        )
+    if role_mention_rows:
+        await bot.db.execute_many(
+            "INSERT INTO mentions(message_id, role_mention) VALUES ($1,$2)",
+            role_mention_rows,
+        )
+
+
+async def _flush_message_batch(
+    bot: "commands.Bot", messages: list[discord.Message]
+) -> tuple[int, int]:
+    """Persist a batch of messages, returning ``(saved_count, error_count)``.
+
+    Attempts a single bulk write; if that fails (e.g. one malformed row fails the
+    whole ``execute_many``), falls back to per-message saves so a single bad
+    message can't drop the rest of the batch.
+    """
+    if not messages:
+        return 0, 0
+
+    try:
+        await save_messages_bulk(bot, messages)
+        return len(messages), 0
+    except Exception as e:
+        logger.warning(
+            "bulk_save_failed_falling_back",
+            error=str(e),
+            batch_size=len(messages),
+        )
+        saved = 0
+        errors = 0
+        for message in messages:
+            try:
+                await save_message(bot, message)
+                saved += 1
+            except Exception as inner:
+                logger.error(
+                    "save_message_error",
+                    message_id=message.id,
+                    error=str(inner),
+                )
+                errors += 1
+        return saved, errors
+
+
 async def perform_comprehensive_save(
     bot: "commands.Bot", progress_callback=None, completion_callback=None
 ) -> dict:
@@ -319,21 +481,25 @@ async def perform_comprehensive_save(
                                 else datetime.strptime("2015-01-01", "%Y-%m-%d")
                             )
 
-                            # Process messages in batches
+                            # Accumulate messages and flush in bulk to avoid the
+                            # ~3 sequential round-trips per message that dominated
+                            # backfill time (and tripped slow-query warnings).
+                            batch: list[discord.Message] = []
                             async for message in channel.history(
                                 limit=None, after=after, oldest_first=True
                             ):
-                                try:
-                                    await save_message(bot, message)
-                                    guild_messages_saved += 1
-                                    total_messages_saved += 1
-                                except Exception as e:
-                                    logger.error(
-                                        "save_message_error",
-                                        message_id=message.id,
-                                        error=str(e),
-                                    )
-                                    errors_encountered += 1
+                                batch.append(message)
+                                if len(batch) >= _COMPREHENSIVE_SAVE_BATCH_SIZE:
+                                    saved, errs = await _flush_message_batch(bot, batch)
+                                    guild_messages_saved += saved
+                                    total_messages_saved += saved
+                                    errors_encountered += errs
+                                    batch = []
+                            if batch:
+                                saved, errs = await _flush_message_batch(bot, batch)
+                                guild_messages_saved += saved
+                                total_messages_saved += saved
+                                errors_encountered += errs
 
                             guild_channels_processed += 1
                             total_channels_processed += 1
@@ -381,26 +547,30 @@ async def perform_comprehensive_save(
                                 else datetime.strptime("2015-01-01", "%Y-%m-%d")
                             )
 
-                            # Process thread messages
+                            # Process thread messages in bulk batches. discord.py's
+                            # history() iterator already paginates and respects the
+                            # gateway rate limits, so a per-batch breather replaces
+                            # the old per-message sleep without throttling each row.
                             thread_message_count = 0
+                            batch = []
                             async for message in thread.history(
                                 limit=None, after=after, oldest_first=True
                             ):
-                                try:
-                                    await save_message(bot, message)
-                                    thread_message_count += 1
-                                    guild_messages_saved += 1
-                                    total_messages_saved += 1
-                                    # Small delay to prevent rate limiting
+                                batch.append(message)
+                                if len(batch) >= _COMPREHENSIVE_SAVE_BATCH_SIZE:
+                                    saved, errs = await _flush_message_batch(bot, batch)
+                                    thread_message_count += saved
+                                    guild_messages_saved += saved
+                                    total_messages_saved += saved
+                                    errors_encountered += errs
+                                    batch = []
                                     await asyncio.sleep(0.05)
-                                except Exception as e:
-                                    logger.error(
-                                        "save_thread_message_error",
-                                        message_id=message.id,
-                                        thread_name=thread.name,
-                                        error=str(e),
-                                    )
-                                    errors_encountered += 1
+                            if batch:
+                                saved, errs = await _flush_message_batch(bot, batch)
+                                thread_message_count += saved
+                                guild_messages_saved += saved
+                                total_messages_saved += saved
+                                errors_encountered += errs
 
                             logger.info(
                                 "thread_completed",

@@ -3,6 +3,9 @@ import logging
 import os
 import sys
 
+import aiohttp
+import pytest
+
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
@@ -32,9 +35,14 @@ async def test_http_client() -> None:
     )
 
     try:
-        # Test successful request
+        # Test successful request. This is a live call to an external service, so
+        # skip (don't fail) when it's unreachable — otherwise a transient httpbin
+        # outage or a network-restricted CI runner flakes the whole suite.
         logger.info("Testing successful request")
-        response = await http_client.get("https://httpbin.org/get")
+        try:
+            response = await http_client.get("https://httpbin.org/get")
+        except (TimeoutError, OSError, aiohttp.ClientError) as e:
+            pytest.skip(f"httpbin.org unreachable, skipping live HTTP client test: {e}")
         logger.info(f"Response status: {response.status}")
 
         # Test request with retry
