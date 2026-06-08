@@ -110,6 +110,22 @@ class Database:
             logger=self.logger,
         )
 
+    def _pool_usage_suffix(self) -> str:
+        """Return a ' [pool: N/M idle]' suffix for slow-query logs.
+
+        The slow-query timer wraps connection acquisition + execution together, so
+        a slow query logged with 0 idle connections almost always means the time
+        was spent waiting to acquire a connection (pool contention) rather than in
+        the query itself. Surfacing idle/max here is the single most useful
+        disambiguation when triaging a slow-query warning.
+        """
+        try:
+            return (
+                f" [pool: {self.pool.get_idle_size()}/{self.pool.get_max_size()} idle]"
+            )
+        except Exception:
+            return ""
+
     async def check_connection_health(self) -> bool:
         """Check if the database connection is healthy.
 
@@ -224,7 +240,10 @@ class Database:
                 if monitor:
                     duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
-                        self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
+                        self.logger.warning(
+                            f"Slow query ({duration:.2f}s): {query}"
+                            f"{self._pool_usage_suffix()}"
+                        )
 
                 return cast("str | None", result)
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
@@ -323,7 +342,10 @@ class Database:
                 if monitor:
                     duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
-                        self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
+                        self.logger.warning(
+                            f"Slow query ({duration:.2f}s): {query}"
+                            f"{self._pool_usage_suffix()}"
+                        )
 
                 return cast("Sequence[Record]", result)
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
@@ -384,7 +406,10 @@ class Database:
                 if monitor:
                     duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
-                        self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
+                        self.logger.warning(
+                            f"Slow query ({duration:.2f}s): {query}"
+                            f"{self._pool_usage_suffix()}"
+                        )
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
@@ -449,7 +474,10 @@ class Database:
                 if monitor:
                     duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
-                        self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
+                        self.logger.warning(
+                            f"Slow query ({duration:.2f}s): {query}"
+                            f"{self._pool_usage_suffix()}"
+                        )
 
                 return result
             except (asyncpg.PostgresConnectionError, asyncpg.PostgresError) as e:
@@ -579,6 +607,7 @@ class Database:
                     if duration > self.slow_query_threshold:
                         self.logger.warning(
                             f"Slow batch query ({duration:.2f}s): {query} with {len(args_list)} records"
+                            f"{self._pool_usage_suffix()}"
                         )
 
                 return
@@ -645,6 +674,7 @@ class Database:
                     if duration > self.slow_query_threshold:
                         self.logger.warning(
                             f"Slow COPY operation ({duration:.2f}s): COPY {len(records)} records to {table_name}{column_str}"
+                            f"{self._pool_usage_suffix()}"
                         )
 
                 return
@@ -729,6 +759,7 @@ class Database:
                         if duration > self.slow_query_threshold:
                             self.logger.warning(
                                 f"Slow script execution ({duration:.2f}s): {script_path}"
+                                f"{self._pool_usage_suffix()}"
                             )
 
                     self.logger.info(f"Successfully executed script: {script_path}")
@@ -809,7 +840,10 @@ class Database:
                 if monitor:
                     duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
-                        self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
+                        self.logger.warning(
+                            f"Slow query ({duration:.2f}s): {query}"
+                            f"{self._pool_usage_suffix()}"
+                        )
 
                 return cast("Sequence[Record]", result)
             except TimeoutError:
@@ -874,7 +908,10 @@ class Database:
                 if monitor:
                     duration = time.time() - cast(float, start_time)
                     if duration > self.slow_query_threshold:
-                        self.logger.warning(f"Slow query ({duration:.2f}s): {query}")
+                        self.logger.warning(
+                            f"Slow query ({duration:.2f}s): {query}"
+                            f"{self._pool_usage_suffix()}"
+                        )
 
                 return result
             except TimeoutError:

@@ -40,6 +40,7 @@ class ResourceMonitor:
         enable_memory_leak_detection: bool = True,
         memory_leak_threshold: int = 52428800,  # 50 MB (increased from 10MB)
         logger: logging.Logger | None = None,
+        pool: Any = None,
     ) -> None:
         """Initialize the resource monitor.
 
@@ -53,6 +54,8 @@ class ResourceMonitor:
             enable_memory_leak_detection: Whether to enable memory leak detection.
             memory_leak_threshold: Threshold in bytes for memory leak detection.
             logger: Logger instance to use for logging.
+            pool: Optional asyncpg connection pool to monitor for utilization /
+                saturation. Accepted as Any to avoid importing asyncpg here.
         """
         self.check_interval = check_interval
         self.memory_threshold = memory_threshold
@@ -63,6 +66,7 @@ class ResourceMonitor:
         self.enable_memory_leak_detection = enable_memory_leak_detection
         self.memory_leak_threshold = memory_leak_threshold
         self.logger = logger or logging.getLogger("resource_monitor")
+        self.pool = pool
 
         # Initialize monitoring state
         self._monitoring_task: asyncio.Task[None] | None = None
@@ -197,6 +201,16 @@ class ResourceMonitor:
                         f"High connection count detected: {stats['connection_count']} connections"
                     )
 
+                # Warn when the DB connection pool is saturated — queries then
+                # block waiting to acquire a connection, which surfaces as "slow"
+                # trivial queries even though the SQL itself is fast.
+                if stats.get("db_pool_idle") == 0 and stats.get("db_pool_max", 0) > 0:
+                    self.logger.warning(
+                        f"DB connection pool saturated: "
+                        f"{stats['db_pool_in_use']}/{stats['db_pool_max']} in use, "
+                        f"0 idle — queries may be waiting to acquire a connection"
+                    )
+
                 # Check for garbage collection issues
                 if self.enable_gc_monitoring and "gc_objects" in stats:
                     if stats["gc_objects"] > 1000000:  # Arbitrary threshold
@@ -315,6 +329,25 @@ class ResourceMonitor:
 
         self._last_net_io = current_net_io
         self._last_io_time = current_time
+
+        # Database connection pool stats (asyncpg). Surfacing idle/in-use makes
+        # pool saturation — the usual cause of "slow" trivial queries waiting to
+        # acquire a connection — visible over time.
+        if self.pool is not None:
+            try:
+                pool_max = self.pool.get_max_size()
+                pool_size = self.pool.get_size()
+                pool_idle = self.pool.get_idle_size()
+                stats.update(
+                    {
+                        "db_pool_max": pool_max,
+                        "db_pool_size": pool_size,
+                        "db_pool_idle": pool_idle,
+                        "db_pool_in_use": pool_size - pool_idle,
+                    }
+                )
+            except Exception as e:
+                self.logger.debug(f"Could not read DB pool stats: {e}")
 
         # Garbage collection stats
         if self.enable_gc_monitoring:
