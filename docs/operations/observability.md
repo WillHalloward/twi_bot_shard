@@ -113,29 +113,58 @@ layers — app, pool, and the Postgres server.
 > problem, raise/disable that lifetime or add a periodic keepalive query so a
 > warm connection is always available. Pool is min 5 / max 20.
 
-### Layer 1 — Sentry query tracing (lowest effort, highest value)
+### Layer 1 — Sentry query tracing (needs transaction instrumentation)
 
-The asyncpg integration already emits `op:db origin:auto.db.asyncpg` spans
-(visible in the `trace` block of any captured event) — they are just dropped
-because sampling is off. To turn on the **Queries** insights dashboard
-(slowest/most-frequent queries, per-command timing, N+1 detection):
+> **Caveat for this bot — the sample rate alone yields nothing.** Sentry only
+> records spans that live inside a *transaction* (root span). Web frameworks
+> auto-start a transaction per request; a **discord.py bot starts none**, so the
+> auto-instrumented `auto.db.asyncpg` query spans have no transaction to attach
+> to and are never recorded. They appear only as trace *context* on captured
+> *error* events — not as queryable performance data. Verified: with
+> `SENTRY_TRACES_SAMPLE_RATE=0.1` set, the `spans` dataset and **Insights →
+> Queries** stayed empty.
 
-1. On Railway, set `SENTRY_TRACES_SAMPLE_RATE` to a small value (e.g. `0.1`) on
-   the `staging` / `production` service. No deploy needed — restart the service.
-2. Open Sentry → **Insights → Queries** for the project. Start low (0.05–0.1):
-   tracing consumes quota and adds slight overhead. Query *parameters* are not
-   captured (`send_default_pii=False` + parameterised SQL).
+To actually populate the **Queries** dashboard (slowest/most-frequent queries,
+per-command timing, N+1 detection) you need **both**:
 
-### Layer 2 — `pg_stat_statements` (authoritative server-side truth)
+1. `SENTRY_TRACES_SAMPLE_RATE` > 0 (e.g. `0.1`) on the Railway service — already
+   set on `production`.
+2. **Transaction instrumentation** around command/event dispatch, e.g. wrap the
+   `@handle_interaction_errors` / `@handle_command_errors` decorators and the
+   `on_message` (`save_message`) path in `sentry_sdk.start_transaction(...)`.
 
-The canonical Postgres tool: aggregates every normalised query with call count,
-total/mean/max time, rows, and cache-hit ratio. One-time setup on the Railway
-Postgres service:
+Until (2) exists, use Layer 2 — it is the recommended option for this bot. The
+sample rate is harmless to leave on (it enriches error traces and is ready for
+when (2) lands), but on its own it produces nothing in Queries; turn it back to
+`0.0` if you want to reclaim the quota in the meantime.
 
-1. Add `pg_stat_statements` to `shared_preload_libraries` (Railway Postgres
-   service config) and restart the DB.
-2. Once: `CREATE EXTENSION IF NOT EXISTS pg_stat_statements;`
-3. Read the top offenders any time:
+### Layer 2 — `pg_stat_statements` (recommended for this bot)
+
+Server-side, authoritative, **zero app instrumentation**, and it captures
+*every* query (not a 10% sample) — the canonical Postgres tool. Aggregates each
+normalised query with call count, total/mean/max time, rows, and cache-hit ratio.
+One-time setup on the Railway Postgres service (named **`pgvector`**):
+
+1. Open a psql session against the DB service:
+   ```bash
+   railway connect pgvector          # opens psql to the Postgres service
+   ```
+   (or `psql "$DATABASE_URL"` with the service's connection string).
+2. `pg_stat_statements` must be in `shared_preload_libraries`, which requires a
+   restart. Check the current value first so you don't clobber an existing entry:
+   ```sql
+   SHOW shared_preload_libraries;            -- note any existing value
+   ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';
+   -- if SHOW returned something, keep it, comma-separated, e.g.:
+   --   ALTER SYSTEM SET shared_preload_libraries = 'existing_lib,pg_stat_statements';
+   ```
+3. **Restart the `pgvector` service** so the preload takes effect (Railway
+   dashboard → `pgvector` → Restart, or `railway redeploy --service pgvector`).
+4. After it comes back, create the extension once:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+   ```
+5. Read the top offenders any time:
    ```sql
    SELECT calls, total_exec_time, mean_exec_time, max_exec_time, rows, query
    FROM pg_stat_statements
@@ -143,7 +172,11 @@ Postgres service:
    LIMIT 20;
    ```
    (`total_exec_time` = biggest cumulative cost; `mean_exec_time` = slowest per
-   call.) Reset the counters with `SELECT pg_stat_statements_reset();`.
+   call.) Reset the window with `SELECT pg_stat_statements_reset();`.
+
+`ALTER SYSTEM` needs the superuser role (the default Railway `postgres` user has
+it). The restart in step 3 is the only step that needs one — everything after is
+online.
 
 ### Layer 3 — server-side slow log + plans (why a query is slow)
 
@@ -179,8 +212,9 @@ SELECT * FROM pg_locks WHERE NOT granted;
    connect after the pool drained (see the `max_inactive_connection_lifetime`
    note above) — not a query problem. Otherwise the query/server was genuinely
    slow; continue below.
-2. Find the query in **Sentry → Queries** or `pg_stat_statements` to see how
-   often it runs and its true execution time.
+2. Find the query in `pg_stat_statements` (or **Sentry → Queries**, once
+   transaction instrumentation exists — see Layer 1) to see how often it runs and
+   its true execution time.
 3. If genuinely slow, `EXPLAIN (ANALYZE, BUFFERS)` it (or read the `auto_explain`
    plan) to find the missing index / scan.
 
