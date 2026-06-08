@@ -179,7 +179,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS messages_id_uindex ON messages (message_id);
 CREATE INDEX IF NOT EXISTS messages_channel_id_index ON messages (channel_id DESC);
 CREATE INDEX IF NOT EXISTS messages_message_id_channel_id_index ON messages (message_id DESC, channel_id ASC);
 CREATE INDEX IF NOT EXISTS messages_created_at_index ON messages (created_at DESC);
-CREATE INDEX IF NOT EXISTS messages_user_id_index ON messages (user_id);
+-- messages_user_id_index omitted: covered by idx_messages_user_created (user_id, created_at).
 
 -- Attachments table (depends on messages)
 CREATE TABLE IF NOT EXISTS attachments
@@ -356,7 +356,7 @@ CREATE TABLE IF NOT EXISTS creator_links
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS creator_links_serial_id_uindex ON creator_links (serial_id DESC);
-CREATE INDEX IF NOT EXISTS creator_links_user_id_index ON creator_links (user_id);
+-- creator_links_user_id_index omitted: covered by creator_links_pk (user_id, title).
 
 -- Emotes table (depends on servers)
 CREATE TABLE IF NOT EXISTS emotes

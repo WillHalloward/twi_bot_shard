@@ -53,6 +53,10 @@ MIGRATIONS_DIR = (
 MANUAL_MIGRATIONS: frozenset[str] = frozenset(
     {
         "20260405_database_design_cleanup.sql",
+        # Applied by hand to production 2026-06-08 (psql). Uses DROP INDEX
+        # CONCURRENTLY + a psql \set meta-command, so it is not transaction-safe
+        # and must not be auto-executed; recorded-as-applied only.
+        "20260608_validate_fks_drop_redundant_indexes.sql",
     }
 )
 
