@@ -111,17 +111,24 @@ class Database:
         )
 
     def _pool_usage_suffix(self) -> str:
-        """Return a ' [pool: N/M idle]' suffix for slow-query logs.
+        """Return a ' [pool: …]' suffix for slow-query logs.
 
         The slow-query timer wraps connection acquisition + execution together, so
-        a slow query logged with 0 idle connections almost always means the time
-        was spent waiting to acquire a connection (pool contention) rather than in
-        the query itself. Surfacing idle/max here is the single most useful
-        disambiguation when triaging a slow-query warning.
+        the slowness can be (a) genuine query/server time, (b) waiting on a fully
+        saturated pool, or (c) the cold-connection cost when the pool had shrunk to
+        0 (asyncpg closes idle connections per max_inactive_connection_lifetime).
+        Reporting in-use / idle / open / max lets triage tell these apart:
+
+        - ``in_use == max``       → saturation (next acquirer waits)
+        - ``open == 0``           → cold connect (pool had drained to empty)
+        - otherwise               → the query/server itself was slow
         """
         try:
+            size = self.pool.get_size()
+            idle = self.pool.get_idle_size()
             return (
-                f" [pool: {self.pool.get_idle_size()}/{self.pool.get_max_size()} idle]"
+                f" [pool: {size - idle} in use, {idle} idle, "
+                f"{size} open, {self.pool.get_max_size()} max]"
             )
         except Exception:
             return ""

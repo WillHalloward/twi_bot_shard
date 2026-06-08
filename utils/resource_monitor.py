@@ -201,14 +201,17 @@ class ResourceMonitor:
                         f"High connection count detected: {stats['connection_count']} connections"
                     )
 
-                # Warn when the DB connection pool is saturated — queries then
-                # block waiting to acquire a connection, which surfaces as "slow"
-                # trivial queries even though the SQL itself is fast.
-                if stats.get("db_pool_idle") == 0 and stats.get("db_pool_max", 0) > 0:
+                # Warn only on genuine saturation: every connection the pool can
+                # open is checked out, so the next acquirer must wait. Requiring
+                # in_use >= max avoids a false positive on a quiescent pool, which
+                # also reports 0 idle simply because asyncpg has closed its idle
+                # connections (max_inactive_connection_lifetime) and shrunk to 0.
+                pool_max = stats.get("db_pool_max", 0)
+                if pool_max > 0 and stats.get("db_pool_in_use", 0) >= pool_max:
                     self.logger.warning(
                         f"DB connection pool saturated: "
-                        f"{stats['db_pool_in_use']}/{stats['db_pool_max']} in use, "
-                        f"0 idle — queries may be waiting to acquire a connection"
+                        f"{stats['db_pool_in_use']}/{pool_max} connections in use, "
+                        f"0 idle — further queries will wait to acquire a connection"
                     )
 
                 # Check for garbage collection issues
