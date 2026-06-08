@@ -91,14 +91,27 @@ layers — app, pool, and the Postgres server.
 
 - **Slow-query log** (`utils/db.py`, threshold 0.5s): every query method warns
   when total time exceeds the threshold. The warning carries a
-  `[pool: N/M idle]` suffix — **0 idle means the time was spent waiting on a
-  saturated pool** (contention), not in the query. A healthy idle count means
-  the query (or the server) was genuinely slow.
+  `[pool: X in use, Y idle, Z open, M max]` suffix so you can tell *why* it was
+  slow (the timer wraps acquire + execution together):
+  - `in use == max` → **saturation**, the query waited for a connection;
+  - `open == 0` → **cold connect**, the pool had drained to empty and had to
+    open a fresh (TLS) connection — the usual cause of a one-off multi-second
+    "slow" trivial query (see the note on `max_inactive_connection_lifetime`
+    below);
+  - otherwise → the **query/server itself** was genuinely slow.
 - **Pool utilisation** (`utils/resource_monitor.py`): the resource monitor is
   handed the asyncpg pool and records `db_pool_size` / `db_pool_idle` /
   `db_pool_in_use` / `db_pool_max` each cycle, and emits a
-  `DB connection pool saturated` warning when idle hits 0. The pool is min 5 /
-  max 20 (`main.py`).
+  `DB connection pool saturated` warning only when **in-use reaches max** (not
+  merely when idle is 0 — a quiescent pool also reports 0 idle).
+
+> **Why the pool often shows 0 open/idle:** the pool is created with
+> `max_inactive_connection_lifetime=180.0` (`main.py`), so after ~3 min without
+> DB activity asyncpg closes its idle connections and the pool shrinks toward 0.
+> The next query then pays a cold-connection (TLS handshake) cost, which the
+> app-side timer attributes to that query. If cold-connect latency becomes a
+> problem, raise/disable that lifetime or add a periodic keepalive query so a
+> warm connection is always available. Pool is min 5 / max 20.
 
 ### Layer 1 — Sentry query tracing (lowest effort, highest value)
 
@@ -161,9 +174,11 @@ SELECT * FROM pg_locks WHERE NOT granted;
 
 ### Triage flow for a slow-query warning
 
-1. Check the `[pool: N/M idle]` suffix. `0` idle → contention; consider raising
-   pool `max_size` (`main.py`) or reducing concurrent DB work. Non-zero idle →
-   the query/server was genuinely slow, continue below.
+1. Read the `[pool: …]` suffix. `in use == max` → contention (raise pool
+   `max_size` in `main.py` or reduce concurrent DB work). `open == 0` → cold
+   connect after the pool drained (see the `max_inactive_connection_lifetime`
+   note above) — not a query problem. Otherwise the query/server was genuinely
+   slow; continue below.
 2. Find the query in **Sentry → Queries** or `pg_stat_statements` to see how
    often it runs and its true execution time.
 3. If genuinely slow, `EXPLAIN (ANALYZE, BUFFERS)` it (or read the `auto_explain`
