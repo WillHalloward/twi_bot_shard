@@ -47,7 +47,7 @@ CREATE TABLE gallery_migration (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_gallery_migration_message_id ON gallery_migration (message_id);
+-- message_id omitted: covered by the gallery_migration_message_id_key unique constraint.
 CREATE INDEX idx_gallery_migration_channel_id ON gallery_migration (channel_id);
 CREATE INDEX idx_gallery_migration_migrated ON gallery_migration (migrated);
 CREATE INDEX idx_gallery_migration_needs_review ON gallery_migration (needs_manual_review, reviewed);

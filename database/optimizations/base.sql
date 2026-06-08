@@ -80,15 +80,16 @@ CREATE INDEX IF NOT EXISTS idx_messages_user_created_at ON messages(user_id, cre
 CREATE INDEX IF NOT EXISTS idx_reactions_message_emoji ON reactions(message_id, emoji_id);
 CREATE INDEX IF NOT EXISTS idx_reactions_message_unicode ON reactions(message_id, unicode_emoji);
 
--- For role membership queries
-CREATE INDEX IF NOT EXISTS idx_role_membership_role ON role_membership(role_id);
+-- For role membership queries: role_id alone is covered by
+-- role_membership_role_id_user_id_index (role_id, user_id), so a standalone
+-- role_id index is redundant and intentionally omitted.
 
 -- 4. Add Indexes for Foreign Keys
 -- Add index for message_id in attachments
 CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON attachments(message_id);
 
--- Add index for user_id in creator_links
-CREATE INDEX IF NOT EXISTS idx_creator_links_user_id ON creator_links(user_id);
+-- user_id in creator_links is covered by creator_links_pk (user_id, title),
+-- so a standalone user_id index is redundant and intentionally omitted.
 
 -- 5. Add Partial Indexes for Specific Queries
 -- Index for non-deleted messages only
@@ -165,9 +166,8 @@ $$ LANGUAGE plpgsql;
 
 -- Indexes for frequently queried columns in messages table
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
-CREATE INDEX IF NOT EXISTS idx_messages_server_id ON messages(server_id);
-CREATE INDEX IF NOT EXISTS idx_messages_channel_id ON messages(channel_id);
-CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
+-- server_id / channel_id / user_id single-column indexes intentionally omitted:
+-- each is covered by the matching (col, created_at) composite created just below.
 CREATE INDEX IF NOT EXISTS idx_messages_is_bot ON messages(is_bot);
 
 -- Composite indexes for common query patterns
@@ -181,7 +181,7 @@ CREATE INDEX IF NOT EXISTS idx_join_leave_server_id ON join_leave(server_id);
 CREATE INDEX IF NOT EXISTS idx_join_leave_is_join ON join_leave(is_join);
 
 -- Indexes for reactions table
-CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id);
+-- message_id alone is covered by idx_reactions_message_emoji (message_id, emoji_id).
 CREATE INDEX IF NOT EXISTS idx_reactions_user_id ON reactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_reactions_date ON reactions(date);
 

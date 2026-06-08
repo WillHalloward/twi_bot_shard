@@ -308,8 +308,7 @@ create index messages_message_id_channel_id_index
 create index messages_created_at_index
     on messages (created_at desc);
 
-create index messages_user_id_index
-    on messages (user_id);
+-- messages_user_id_index omitted: covered by idx_messages_user_created (user_id, created_at).
 
 create unique index servers_serial_id_uindex
     on servers (serial_id);
@@ -554,8 +553,7 @@ create table creator_links
 create unique index creator_links_serial_id_uindex
     on creator_links (serial_id desc);
 
-create index creator_links_user_id_index
-    on creator_links (user_id);
+-- creator_links_user_id_index omitted: covered by creator_links_pk (user_id, title).
 
 create table button_action_history
 (
