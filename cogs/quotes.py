@@ -4,7 +4,6 @@ This module provides commands for managing and retrieving quotes from the databa
 """
 
 import logging
-import re
 from datetime import UTC
 from typing import Any
 
@@ -169,16 +168,15 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
             )
 
             try:
-                formatted_search = search.replace(" ", " & ")
-                formatted_search = re.sub(r"[^\w\s&|!()]", "", formatted_search)
-            except Exception as e:
-                logging.error(f"QUOTES FIND ERROR: Search formatting failed: {e}")
-                raise ValidationError(message="Invalid search terms format") from e
-
-            try:
+                # websearch_to_tsquery safely parses arbitrary user input (spaces
+                # mean AND; it also supports "quoted phrases", or, and -negation) and
+                # never raises a tsquery syntax error. The previous approach built a
+                # to_tsquery string by hand (replacing spaces with " & "), which threw
+                # "syntax error in tsquery" on doubled spaces (-> "& &"), stray
+                # operators, unbalanced parens, etc.
                 results = await self.bot.db.fetch(
-                    "SELECT quote, x.row_number FROM (SELECT tokens, quote, ROW_NUMBER() OVER () as row_number FROM quotes) x WHERE x.tokens @@ to_tsquery($1);",
-                    formatted_search,
+                    "SELECT quote, x.row_number FROM (SELECT tokens, quote, ROW_NUMBER() OVER () as row_number FROM quotes) x WHERE x.tokens @@ websearch_to_tsquery($1);",
+                    search,
                 )
             except Exception as e:
                 logging.error(
