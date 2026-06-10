@@ -48,10 +48,8 @@ cryptography==48.0.0
     # via
     #   twi-bot-shard (pyproject.toml)
     #   google-auth
-discord==2.3.2
-    # via twi-bot-shard (pyproject.toml)
 discord-py==2.7.1
-    # via discord
+    # via twi-bot-shard (pyproject.toml)
 distlib==0.4.0
     # via virtualenv
 distro==1.9.0

@@ -329,18 +329,6 @@ wheels = [
 ]
 
 [[package]]
-name = "discord"
-version = "2.3.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "discord-py" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/9f/0763429949416aeff9c6f33051270831b72e5582273acd28053b9b949462/discord-2.3.2.tar.gz", hash = "sha256:cc1ee2dbe6df218ca51519af355b97e87309f8230f58c7f34885feb8e8a76145", size = 1137, upload-time = "2023-08-10T21:45:07.93Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/38/d91ac49e8169b6c0f724f7aad26704eec07c4ecf31e067ca3d46a87e33d6/discord-2.3.2-py3-none-any.whl", hash = "sha256:d7959418799dd3b1e896685812d880169c193468b061b3431fa2a4664febd3da", size = 1132, upload-time = "2023-08-10T21:45:06.334Z" },
-]
-
-[[package]]
 name = "discord-py"
 version = "2.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1302,7 +1290,7 @@ dependencies = [
     { name = "async-timeout" },
     { name = "asyncpg" },
     { name = "cryptography" },
-    { name = "discord" },
+    { name = "discord-py" },
     { name = "gallery-dl" },
     { name = "google-api-python-client" },
     { name = "openai" },
@@ -1341,7 +1329,7 @@ requires-dist = [
     { name = "async-timeout", specifier = ">=4.0.3" },
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "cryptography", specifier = ">=45.0.5" },
-    { name = "discord", specifier = ">=2.3.2" },
+    { name = "discord-py", specifier = ">=2.7.1" },
     { name = "faiss-cpu", marker = "extra == 'ml'", specifier = ">=1.13.2" },
     { name = "faker", marker = "extra == 'dev'", specifier = ">=24.4.0" },
     { name = "gallery-dl", specifier = ">=1.29.4" },
