@@ -171,8 +171,8 @@ async def test_invis_text_command() -> bool:
     await cog.invis_text.callback(cog, interaction)
 
     # Verify the response
-    interaction.response.send_message.assert_called_once()
-    args, kwargs = interaction.response.send_message.call_args
+    interaction.followup.send.assert_called_once()
+    args, kwargs = interaction.followup.send.call_args
     assert kwargs.get("embed") is not None
     embed = kwargs.get("embed")
     assert "Chapters with Invisible Text" in embed.title
@@ -182,7 +182,7 @@ async def test_invis_text_command() -> bool:
     assert "1" in embed.fields[1].value
 
     # Reset the mocks
-    interaction.response.send_message.reset_mock()
+    interaction.followup.send.reset_mock()
     bot.db.fetch.reset_mock()
 
     # Test with a specific chapter
@@ -195,8 +195,8 @@ async def test_invis_text_command() -> bool:
     await cog.invis_text.callback(cog, interaction, "Chapter 1")
 
     # Verify the response
-    interaction.response.send_message.assert_called_once()
-    args, kwargs = interaction.response.send_message.call_args
+    interaction.followup.send.assert_called_once()
+    args, kwargs = interaction.followup.send.call_args
     assert kwargs.get("embed") is not None
     embed = kwargs.get("embed")
     assert "Invisible Text Found" in embed.title
@@ -204,7 +204,7 @@ async def test_invis_text_command() -> bool:
     assert "This is invisible text 2" in embed.fields[1].value
 
     # Reset the mocks
-    interaction.response.send_message.reset_mock()
+    interaction.followup.send.reset_mock()
     bot.db.fetch.reset_mock()
 
     # Test with a chapter that has no invisible text
@@ -214,8 +214,8 @@ async def test_invis_text_command() -> bool:
     await cog.invis_text.callback(cog, interaction, "Chapter 3")
 
     # Verify the response
-    interaction.response.send_message.assert_called_once()
-    args, kwargs = interaction.response.send_message.call_args
+    interaction.followup.send.assert_called_once()
+    args, kwargs = interaction.followup.send.call_args
     # Check if it's in content or embed
     content = kwargs.get("content", "")
     embed = kwargs.get("embed")
@@ -257,8 +257,8 @@ async def test_password_command() -> bool:
     await cog.password.callback(cog, interaction)
 
     # Verify that a response was sent
-    interaction.response.send_message.assert_called_once()
-    args, kwargs = interaction.response.send_message.call_args
+    interaction.followup.send.assert_called_once()
+    args, kwargs = interaction.followup.send.call_args
 
     # Check that we got either content or an embed
     content = kwargs.get("content", "")
@@ -283,13 +283,13 @@ async def test_password_command() -> bool:
     )
 
     # Reset the mock
-    interaction.response.send_message.reset_mock()
+    interaction.followup.send.reset_mock()
 
     # Test again to ensure command can be called multiple times
     await cog.password.callback(cog, interaction)
 
     # Verify the response
-    interaction.response.send_message.assert_called_once()
+    interaction.followup.send.assert_called_once()
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
