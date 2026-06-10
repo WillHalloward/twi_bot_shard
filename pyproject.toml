@@ -5,7 +5,7 @@ description = "A Discord bot designed for 'The Wandering Inn' server"
 readme = "README.md"
 requires-python = "==3.12.9"
 dependencies = [
-    "aiohttp>=3.10.7",
+    "aiohttp>=3.14.0",
     "discord>=2.3.2",
     "pillow>=10.4.0",
     "google-api-python-client>=2.147.0",
