@@ -104,6 +104,9 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
 
         title = title.strip()
 
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
+
         try:
             link_entry = await self.link_repo.get_by_title(title)
         except Exception as e:
@@ -111,11 +114,11 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
 
         if link_entry:
             if link_entry.embed:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"[{link_entry.title}]({link_entry.content})"
                 )
             else:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"**{link_entry.title}**: {link_entry.content}"
                 )
         else:
@@ -150,6 +153,9 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
             ResourceNotFoundError: If no links exist in the specified category
             DatabaseError: If database query fails
         """
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
+
         if category:
             # Show links within the specified category
             # Validate category
@@ -194,7 +200,7 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
             if len(message) > 1990:
                 message = message[:1990] + "..."
 
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"**Links in category '{category}':**\n{message}"
             )
         else:
@@ -221,9 +227,7 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
                 ) from e
 
             if not query_r:
-                await interaction.response.send_message(
-                    "No links are currently available."
-                )
+                await interaction.followup.send("No links are currently available.")
                 return
 
             # Build the message with proper formatting
@@ -244,7 +248,7 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
                     message += "..."
                     break
 
-            await interaction.response.send_message(message)
+            await interaction.followup.send(message)
 
     @link.command(
         name="add",
@@ -308,6 +312,9 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
         if tag:
             tag = tag.strip()
 
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
+
         try:
             result = await self.link_repo.create(
                 title=title,
@@ -323,7 +330,7 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
                 # Refresh cache
                 await self._refresh_cache()
 
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"✅ Successfully added link **{title}**\n"
                     f"**Content:** <{content}>\n"
                     f"**Tag:** {tag if tag else 'None'}\n"
@@ -364,6 +371,9 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
 
         title = title.strip()
 
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
+
         try:
             # First check if the link exists
             existing_link = await self.link_repo.get_by_title(title)
@@ -381,7 +391,7 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
             # Refresh cache
             await self._refresh_cache()
 
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"✅ Successfully deleted link **{existing_link.title}** (added by {existing_link.user_who_added})."
             )
 
@@ -432,6 +442,9 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
                     field="content", message=f"Invalid URL format: {str(e)}"
                 ) from e
 
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
+
         try:
             # Check if the link exists
             existing_link = await self.link_repo.get_by_title(title)
@@ -458,7 +471,7 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
             # Refresh cache
             await self._refresh_cache()
 
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"✅ Successfully edited link **{existing_link.title}**\n"
                 f"**New Content:** <{content}>"
             )
@@ -491,6 +504,9 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
 
         tag = tag.strip()
 
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
+
         try:
             # Keep raw SQL for complex ORDER BY with regexp_replace
             query_r = await self.bot.db.fetch(
@@ -517,9 +533,7 @@ class LinkTags(commands.Cog, name="Links"):  # type: ignore[call-arg]  # discord
         if len(message) > 1990:
             message = message[:1990] + "..."
 
-        await interaction.response.send_message(
-            f"**Links with tag '{tag}':**\n{message}"
-        )
+        await interaction.followup.send(f"**Links with tag '{tag}':**\n{message}")
 
 
 async def setup(bot) -> None:

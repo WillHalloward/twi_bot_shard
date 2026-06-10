@@ -159,9 +159,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
             in_allowed_channel = (
                 interaction.channel.id in config.password_allowed_channel_ids
             )
-            is_public = (
-                self.last_run
-                < datetime.datetime.now() - datetime.timedelta(minutes=10)
+            is_public = self.last_run < datetime.datetime.now() - datetime.timedelta(
+                minutes=10
             )
             ephemeral = in_allowed_channel and not is_public
             await interaction.response.defer(ephemeral=ephemeral)
@@ -661,6 +660,9 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
                 f"TWI INVISTEXT: User {interaction.user.id} ({interaction.user.display_name}) requesting invisible text{f' for chapter: {chapter[:50]}' if chapter else ' list'}"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
+
             if chapter is None:
                 # List all chapters with invisible text
                 try:
@@ -689,7 +691,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
                         inline=False,
                     )
 
-                    await interaction.response.send_message(embed=embed)
+                    await interaction.followup.send(embed=embed)
                     logging.info(
                         f"TWI INVISTEXT: No chapters found for user {interaction.user.id}"
                     )
@@ -742,7 +744,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
 
                 embed.set_footer(text="Invisible text data from The Wandering Inn")
 
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
                 logging.info(
                     f"TWI INVISTEXT: Successfully listed {len(chapters_to_show)} chapters for user {interaction.user.id}"
                 )
@@ -817,7 +819,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
 
                     embed.set_footer(text="Invisible text data from The Wandering Inn")
 
-                    await interaction.response.send_message(embed=embed)
+                    await interaction.followup.send(embed=embed)
                     logging.info(
                         f"TWI INVISTEXT: Successfully found {len(texts_to_show)} invisible texts for user {interaction.user.id}"
                     )
@@ -839,7 +841,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
 
                     embed.set_footer(text="Invisible text data from The Wandering Inn")
 
-                    await interaction.response.send_message(embed=embed)
+                    await interaction.followup.send(embed=embed)
                     logging.info(
                         f"TWI INVISTEXT: No invisible text found for user {interaction.user.id} query: '{chapter}'"
                     )
@@ -1085,6 +1087,9 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
                 f"TWI UPDATE_PASSWORD: Admin {interaction.user.id} ({interaction.user.display_name}) updating password and link"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer(ephemeral=True)
+
             # Insert into database with error handling
             try:
                 await self.bot.db.execute(
@@ -1138,7 +1143,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
 
             embed.set_footer(text="Password update logged for security")
 
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
             logging.info(
                 f"TWI UPDATE_PASSWORD: Successfully updated password for admin {interaction.user.id}"
             )

@@ -52,13 +52,17 @@ class ExampleCog(BaseCog, name="Example"):  # type: ignore[call-arg]  # discord.
     ) -> None:
         """Example command demonstrating fetch operations with error handling."""
         try:
+            # Defer before DB work so the 3s interaction window can't be missed,
+            # then reply via followup.send().
+            await interaction.response.defer()
+
             # Fetch data with retry logic built in
             results = await self.bot.db.fetch(
                 "SELECT * FROM example_table ORDER BY value DESC LIMIT $1", limit
             )
 
             if not results:
-                await interaction.response.send_message("No results found.")
+                await interaction.followup.send("No results found.")
                 return
 
             # Process the results
@@ -66,10 +70,10 @@ class ExampleCog(BaseCog, name="Example"):  # type: ignore[call-arg]  # discord.
             for row in results:
                 response += f"- {row['name']}: {row['value']}\n"
 
-            await interaction.response.send_message(response)
+            await interaction.followup.send(response)
         except Exception as e:
             self.logger.error(f"Error fetching data: {e}")
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "An error occurred while fetching data. Please try again later.",
                 ephemeral=True,
             )
@@ -80,6 +84,10 @@ class ExampleCog(BaseCog, name="Example"):  # type: ignore[call-arg]  # discord.
     ) -> None:
         """Example command demonstrating update operations with error handling."""
         try:
+            # Defer before DB work so the 3s interaction window can't be missed,
+            # then reply via followup.send().
+            await interaction.response.defer()
+
             # First, check if the record exists
             exists = await self.bot.db.fetchval(
                 "SELECT EXISTS(SELECT 1 FROM example_table WHERE name = $1)", name
@@ -90,18 +98,18 @@ class ExampleCog(BaseCog, name="Example"):  # type: ignore[call-arg]  # discord.
                 await self.bot.db.execute(
                     "UPDATE example_table SET value = $1 WHERE name = $2", value, name
                 )
-                await interaction.response.send_message(f"Updated {name} to {value}.")
+                await interaction.followup.send(f"Updated {name} to {value}.")
             else:
                 # Insert new record
                 await self.bot.db.execute(
                     "INSERT INTO example_table(name, value) VALUES($1, $2)", name, value
                 )
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"Created new record {name} with value {value}."
                 )
         except Exception as e:
             self.logger.error(f"Error updating data: {e}")
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "An error occurred while updating data. Please try again later.",
                 ephemeral=True,
             )

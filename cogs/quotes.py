@@ -70,6 +70,9 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
                 f"({interaction.user.display_name}): '{quote[:100]}{'...' if len(quote) > 100 else ''}'"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
+
             try:
                 await self.bot.db.execute(
                     "INSERT INTO quotes(quote, author, author_id, time, tokens) VALUES ($1,$2,$3,now(),to_tsvector($4))",
@@ -131,7 +134,7 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
             logging.info(
                 f"QUOTES ADD: Successfully added quote #{quote_index} by user {interaction.user.id}"
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except (ValidationError, DatabaseError, ExternalServiceError):
             raise
@@ -166,6 +169,9 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
             logging.info(
                 f"QUOTES FIND: Quote search request by user {interaction.user.id} for terms: '{search}'"
             )
+
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
 
             try:
                 # websearch_to_tsquery safely parses arbitrary user input (spaces
@@ -203,7 +209,7 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
                 logging.info(
                     f"QUOTES FIND: No results found for search '{search}' by user {interaction.user.id}"
                 )
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
                 return
 
             first_result = results[0]
@@ -252,7 +258,7 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
             logging.info(
                 f"QUOTES FIND: Found {result_count} results for search '{search}' by user {interaction.user.id}"
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except (ValidationError, DatabaseError, ExternalServiceError):
             raise
@@ -278,6 +284,9 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
             logging.info(
                 f"QUOTES DELETE: Quote delete request by user {interaction.user.id} for index {delete}"
             )
+
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
 
             try:
                 u_quote = await self.bot.db.fetchrow(
@@ -307,7 +316,7 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
                 logging.info(
                     f"QUOTES DELETE: Quote not found at index {delete} for user {interaction.user.id}"
                 )
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
                 return
 
             quote_author_id = u_quote.get("author_id")
@@ -390,7 +399,7 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
 
             embed.set_footer(text="Quote indices may have shifted after deletion")
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except (ValidationError, PermissionError, DatabaseError, ExternalServiceError):
             raise
@@ -446,6 +455,9 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
                 f"{'random quote' if is_random else f'index {index}'}"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
+
             try:
                 if is_random:
                     u_quote = await self.bot.db.fetchrow(
@@ -492,7 +504,7 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
                     )
                     embed.set_footer(text="Quote indices start from 1")
 
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
                 return
 
             quote_text = u_quote["quote"]
@@ -541,7 +553,7 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
             logging.info(
                 f"QUOTES GET: Successfully retrieved quote #{quote_number} for user {interaction.user.id}"
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except (ValidationError, DatabaseError, ExternalServiceError):
             raise
@@ -587,6 +599,9 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
                 f"QUOTES WHO: Quote who request by user {interaction.user.id} for index {index}"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
+
             try:
                 u_quote = await self.bot.db.fetchrow(
                     "SELECT author, author_id, time, row_number, quote FROM (SELECT author, author_id, time, quote, ROW_NUMBER () OVER () as row_number FROM quotes) x WHERE row_number = $1",
@@ -617,7 +632,7 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
                 logging.info(
                     f"QUOTES WHO: Quote not found at index {index} for user {interaction.user.id}"
                 )
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
                 return
 
             quote_author = u_quote.get("author", "Unknown")
@@ -718,7 +733,7 @@ class Quotes(commands.Cog, name="Quotes"):  # type: ignore[call-arg]  # discord.
             logging.info(
                 f"QUOTES WHO: Successfully retrieved author info for quote #{quote_number} for user {interaction.user.id}"
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except (ValidationError, DatabaseError, ExternalServiceError):
             raise

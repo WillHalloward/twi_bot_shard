@@ -610,7 +610,11 @@ async def p_poll(polls, interaction, bot) -> None:
                         inline=False,
                     )
 
-            await interaction.response.send_message(embed=embed)
+            # Caller may have deferred (e.g. /poll), so respond accordingly.
+            if interaction.response.is_done():
+                await interaction.followup.send(embed=embed)
+            else:
+                await interaction.response.send_message(embed=embed)
 
             logger.info(
                 "poll_displayed_successfully",
@@ -812,6 +816,10 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
         )
 
         try:
+            # Defer up front so the 3s interaction window can't be missed during
+            # the poll lookups below (p_poll and the error paths use followup).
+            await interaction.response.defer()
+
             # Check for active polls first
             async with TimingContext(self.logger, "fetch_active_polls") as timing_ctx:
                 active_polls = await self.bot.db.fetch(
@@ -886,7 +894,7 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
                             color=discord.Color.red(),
                             timestamp=datetime.now(UTC),
                         )
-                        await interaction.response.send_message(
+                        await interaction.followup.send(
                             embed=error_embed, ephemeral=True
                         )
                         self.logger.warning(
@@ -914,9 +922,7 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
                         color=discord.Color.red(),
                         timestamp=datetime.now(UTC),
                     )
-                    await interaction.response.send_message(
-                        embed=error_embed, ephemeral=True
-                    )
+                    await interaction.followup.send(embed=error_embed, ephemeral=True)
                     self.logger.warning(
                         "invalid_poll_id_provided",
                         user_id=interaction.user.id,
@@ -941,9 +947,7 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
                         color=discord.Color.red(),
                         timestamp=datetime.now(UTC),
                     )
-                    await interaction.response.send_message(
-                        embed=error_embed, ephemeral=True
-                    )
+                    await interaction.followup.send(embed=error_embed, ephemeral=True)
                     self.logger.warning(
                         "poll_not_found", user_id=interaction.user.id, poll_id=poll_id
                     )
@@ -1074,6 +1078,9 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
                 )
                 return
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
+
             # Fetch polls for the specified year
             async with TimingContext(self.logger, "fetch_polls_by_year") as timing_ctx:
                 polls_years = await self.bot.db.fetch(
@@ -1103,7 +1110,7 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
                     inline=False,
                 )
 
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
                 self.logger.info(
                     "no_polls_found_for_year", year=year, user_id=interaction.user.id
                 )
@@ -1151,7 +1158,7 @@ class PollCog(commands.Cog, name="Poll"):  # type: ignore[call-arg]  # stub
 
                 embed.set_footer(text="Use /poll <id> to view a specific poll")
 
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
 
                 self.logger.info(
                     "poll_list_displayed",

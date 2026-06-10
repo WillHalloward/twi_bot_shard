@@ -31,6 +31,8 @@ class SettingsCog(commands.Cog, name="Settings"):  # type: ignore[call-arg]  # s
             )
             return
 
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer(ephemeral=True)
         try:
             result = await self.settings_repo.upsert(interaction.guild.id, role.id)
 
@@ -38,11 +40,11 @@ class SettingsCog(commands.Cog, name="Settings"):  # type: ignore[call-arg]  # s
                 self.logger.info(
                     f"Admin role set for guild {interaction.guild.id}: {role.name} (ID: {role.id})"
                 )
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"Admin role set to {role.mention} for this server.", ephemeral=True
                 )
             else:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "An error occurred while setting the admin role.", ephemeral=True
                 )
         except Exception as e:
@@ -53,7 +55,7 @@ class SettingsCog(commands.Cog, name="Settings"):  # type: ignore[call-arg]  # s
                 guild_id=interaction.guild.id,
                 role_id=role.id,
             )
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "An error occurred while setting the admin role.", ephemeral=True
             )
 
@@ -69,6 +71,8 @@ class SettingsCog(commands.Cog, name="Settings"):  # type: ignore[call-arg]  # s
             )
             return
 
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer(ephemeral=True)
         try:
             admin_role_id = await self.settings_repo.get_admin_role_id(
                 interaction.guild.id
@@ -77,17 +81,17 @@ class SettingsCog(commands.Cog, name="Settings"):  # type: ignore[call-arg]  # s
             if admin_role_id:
                 role = interaction.guild.get_role(admin_role_id)
                 if role:
-                    await interaction.response.send_message(
+                    await interaction.followup.send(
                         f"The admin role for this server is {role.mention}.",
                         ephemeral=True,
                     )
                 else:
-                    await interaction.response.send_message(
+                    await interaction.followup.send(
                         f"The configured admin role (ID: {admin_role_id}) could not be found. It may have been deleted.",
                         ephemeral=True,
                     )
             else:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "No admin role has been configured for this server.", ephemeral=True
                 )
         except Exception as e:
@@ -97,7 +101,7 @@ class SettingsCog(commands.Cog, name="Settings"):  # type: ignore[call-arg]  # s
                 error_type=type(e).__name__,
                 guild_id=interaction.guild.id,
             )
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "An error occurred while getting the admin role.", ephemeral=True
             )
 

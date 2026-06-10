@@ -90,6 +90,9 @@ class MessageLogCog(BaseCog):
 
         guild_id = interaction.guild.id
 
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer(ephemeral=True)
+
         # Upsert into server_settings
         existing = await self.bot.db.fetchrow(
             "SELECT guild_id FROM server_settings WHERE guild_id = $1", guild_id
@@ -121,7 +124,7 @@ class MessageLogCog(BaseCog):
             channel_id=channel.id,
             user_id=interaction.user.id,
         )
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"Log channel set to {channel.mention}.", ephemeral=True
         )
 
@@ -140,6 +143,9 @@ class MessageLogCog(BaseCog):
             return
 
         guild_id = interaction.guild.id
+
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer(ephemeral=True)
         await self.bot.db.execute(
             "UPDATE server_settings "
             "SET log_channel_id = NULL, updated_at = $1 "
@@ -149,9 +155,7 @@ class MessageLogCog(BaseCog):
         )
         self._log_channel_cache[guild_id] = None
         self.logger.info("log_channel_cleared", guild_id=guild_id)
-        await interaction.response.send_message(
-            "Message logging disabled.", ephemeral=True
-        )
+        await interaction.followup.send("Message logging disabled.", ephemeral=True)
 
     # ── Edit Listener ────────────────────────────────────────────────
 
