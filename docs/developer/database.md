@@ -537,8 +537,19 @@ migration must be:
 - **Idempotent** — use `IF NOT EXISTS` / guarded `DO` blocks so a retried or
   already-applied migration is harmless.
 - **Single-transaction safe** — statements that can't run inside a transaction
-  (e.g. `CREATE INDEX CONCURRENTLY`) must instead be added to the
-  `MANUAL_MIGRATIONS` set in `apply_migrations.py` and run by hand.
+  (e.g. `CREATE INDEX CONCURRENTLY` / `DROP INDEX CONCURRENTLY`) must instead be
+  added to the `MANUAL_MIGRATIONS` set in `apply_migrations.py` and run by hand.
+- **Pure SQL — no `psql` meta-commands.** Auto-executed migrations run through
+  asyncpg's `conn.execute()`, *not* the `psql` client, so backslash directives
+  (`\set`, `\echo`, `\if`, `\timing`, `\i`, …) are not valid SQL and fail the
+  deploy with `syntax error at or near "\"`. They are only acceptable in a file
+  that is listed in `MANUAL_MIGRATIONS` (executed by hand via `psql`).
+
+> **Recording a by-hand change.** If you apply a migration manually (e.g. a
+> `CONCURRENTLY` index change during a maintenance window), add its filename to
+> `MANUAL_MIGRATIONS`. The runner then records it in `schema_migrations`
+> **without re-executing** it, so the deploy stays green and the change isn't
+> attempted twice.
 
 ### Applying Migrations
 

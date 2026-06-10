@@ -1,0 +1,8 @@
+# Config-as-code for the pgvector database service (Path B: official image).
+#
+# Railway applies this on each deploy and it overrides the dashboard, so it
+# deterministically replaces any previous custom start command with our
+# log-shipping entrypoint.
+
+[deploy]
+startCommand = "/usr/local/bin/pg-log-entrypoint.sh"

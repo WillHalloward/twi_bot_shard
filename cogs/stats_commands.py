@@ -1356,6 +1356,9 @@ class StatsQueriesMixin(StatsMixinBase):
         # Calculate the time threshold
         d_time = datetime.now() - timedelta(hours=hours)
 
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
+
         try:
             # Query the database for message count
             results = await self.bot.db.fetchrow(
@@ -1415,7 +1418,7 @@ class StatsQueriesMixin(StatsMixinBase):
                 icon_url=interaction.user.display_avatar.url,
             )
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Database query failed: {e}") from e
@@ -1457,6 +1460,9 @@ class StatsQueriesMixin(StatsMixinBase):
 
         # Calculate the time threshold
         d_time = datetime.now() - timedelta(days=days)
+
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
 
         try:
             # Query for comprehensive channel statistics
@@ -1559,7 +1565,7 @@ class StatsQueriesMixin(StatsMixinBase):
                 icon_url=interaction.user.display_avatar.url,
             )
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Database query failed: {e}") from e
@@ -1602,6 +1608,9 @@ class StatsQueriesMixin(StatsMixinBase):
 
         # Calculate the time threshold
         d_time = datetime.now() - timedelta(days=days)
+
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
 
         try:
             # Query for comprehensive server statistics
@@ -1712,7 +1721,7 @@ class StatsQueriesMixin(StatsMixinBase):
                 icon_url=interaction.user.display_avatar.url,
             )
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Database query failed: {e}") from e
@@ -1762,6 +1771,9 @@ class StatsQueriesMixin(StatsMixinBase):
 
         # Calculate the time threshold
         d_time = datetime.now() - timedelta(days=days)
+
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
 
         try:
             # Query for comprehensive user statistics
@@ -1872,7 +1884,7 @@ class StatsQueriesMixin(StatsMixinBase):
                 icon_url=interaction.user.display_avatar.url,
             )
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Database query failed: {e}") from e
@@ -1931,6 +1943,9 @@ class StatsQueriesMixin(StatsMixinBase):
             )
             await interaction.response.send_message(embed=embed)
             return
+
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
 
         try:
             # Query for comprehensive role statistics
@@ -2048,7 +2063,7 @@ class StatsQueriesMixin(StatsMixinBase):
                 icon_url=interaction.user.display_avatar.url,
             )
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Database query failed: {e}") from e
@@ -2114,6 +2129,9 @@ class StatsQueriesMixin(StatsMixinBase):
             )
             await interaction.response.send_message(embed=embed)
             return
+
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
 
         try:
             # Query for comprehensive category statistics
@@ -2233,7 +2251,7 @@ class StatsQueriesMixin(StatsMixinBase):
                 icon_url=interaction.user.display_avatar.url,
             )
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Database query failed: {e}") from e
@@ -2275,6 +2293,9 @@ class StatsQueriesMixin(StatsMixinBase):
 
         # Calculate the time threshold
         d_time = datetime.now() - timedelta(days=days)
+
+        # Defer before DB work so the 3s interaction window can't be missed.
+        await interaction.response.defer()
 
         try:
             # Query for comprehensive thread statistics
@@ -2391,7 +2412,7 @@ class StatsQueriesMixin(StatsMixinBase):
                 icon_url=interaction.user.display_avatar.url,
             )
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except asyncpg.PostgresError as e:
             raise DatabaseError(f"Database query failed: {e}") from e

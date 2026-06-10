@@ -2,7 +2,7 @@
 #    uv pip compile pyproject.toml --all-extras -o requirements.txt
 aiohappyeyeballs==2.6.2
     # via aiohttp
-aiohttp==3.13.5
+aiohttp==3.14.1
     # via
     #   twi-bot-shard (pyproject.toml)
     #   discord-py
@@ -48,10 +48,8 @@ cryptography==48.0.0
     # via
     #   twi-bot-shard (pyproject.toml)
     #   google-auth
-discord==2.3.2
-    # via twi-bot-shard (pyproject.toml)
 discord-py==2.7.1
-    # via discord
+    # via twi-bot-shard (pyproject.toml)
 distlib==0.4.0
     # via virtualenv
 distro==1.9.0
@@ -222,6 +220,7 @@ tqdm==4.67.3
     # via openai
 typing-extensions==4.15.0
     # via
+    #   aiohttp
     #   aiosignal
     #   alembic
     #   anyio

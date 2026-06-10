@@ -320,9 +320,9 @@ async def test_message_count_command() -> bool:
     # Call the command's callback directly
     await cog.message_count.callback(cog, interaction, channel, 24)
 
-    # Verify the response
-    interaction.response.send_message.assert_called_once()
-    args, kwargs = interaction.response.send_message.call_args
+    # The command defers, then replies via followup.send().
+    interaction.followup.send.assert_called_once()
+    args, kwargs = interaction.followup.send.call_args
     content = kwargs.get("content", "")
     embed = kwargs.get("embed")
     if args:

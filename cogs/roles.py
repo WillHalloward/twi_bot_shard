@@ -60,6 +60,9 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
                 f"ROLES LIST: Role list request by user {interaction.user.id} in guild {interaction.guild.id}"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
+
             try:
                 user_roles = [role.id for role in interaction.user.roles]
             except Exception as e:
@@ -110,7 +113,7 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
                 logging.info(
                     f"ROLES LIST: No self-assignable roles found for guild {interaction.guild.id}"
                 )
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
                 return
 
             embed = discord.Embed(
@@ -198,7 +201,7 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
             logging.info(
                 f"ROLES LIST: Successfully generated role list with {len(roles)} roles for guild {interaction.guild.id}"
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except (ValidationError, DatabaseError, ExternalServiceError):
             raise
@@ -238,6 +241,9 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
                 f"for role {role.id} ({role.name}) to weight {new_weight}"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
+
             try:
                 existing_role = await self.bot.db.fetchrow(
                     "SELECT id, name, weight, category, self_assignable FROM roles WHERE id = $1 AND guild_id = $2",
@@ -268,7 +274,7 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
                     text="Only configured roles can have their weight changed"
                 )
 
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
                 return
 
             old_weight = existing_role.get("weight", 0)
@@ -328,7 +334,7 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
             logging.info(
                 f"ROLES WEIGHT: Successfully updated role {role.id} weight from {old_weight} to {new_weight} by admin {interaction.user.id}"
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except (ValidationError, PermissionError, DatabaseError, ExternalServiceError):
             raise
@@ -396,6 +402,9 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
                 f"ROLES ADD: User {interaction.user.id} adding role {role.id} ({role.name}) to self-assign list with category '{category}'"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
+
             existing_role = await self.bot.db.fetchrow(
                 "SELECT self_assignable FROM roles WHERE id = $1 AND guild_id = $2",
                 role.id,
@@ -453,7 +462,7 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
 
             embed.set_footer(text="Users can now assign this role using /role")
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except (ValidationError, PermissionError, DatabaseError):
             raise
@@ -507,6 +516,9 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
                 f"ROLES REMOVE: User {interaction.user.id} removing role {role.id} ({role.name}) from self-assign list"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
+
             existing_role = await self.bot.db.fetchrow(
                 "SELECT self_assignable, category FROM roles WHERE id = $1 AND guild_id = $2",
                 role.id,
@@ -558,7 +570,7 @@ class Roles(commands.Cog, name="Roles"):  # type: ignore[call-arg]  # stub
 
             embed.set_footer(text="Users can no longer assign this role using /role")
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except (ValidationError, PermissionError, DatabaseError):
             raise

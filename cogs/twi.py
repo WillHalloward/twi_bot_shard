@@ -57,6 +57,8 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
     Attributes:
         bot: The bot instance
         invis_text_cache: Cache of invisible text chapter titles for autocomplete
+        password_cache: Cached latest Patreon password/link, used by /password to
+            avoid a DB round-trip; refreshed on load and by /update_password
         last_run: Timestamp of the last time the password command was run publicly
     """
 
@@ -69,17 +71,44 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
         self.bot = bot
         self.logger = logging.getLogger("cogs.twi")
         self.invis_text_cache: list[Any] | None = None
+        self.password_cache: dict[str, str] | None = None
         self.last_run = datetime.datetime.now() - datetime.timedelta(minutes=10)
 
     async def cog_load(self) -> None:
         """Load initial data when the cog is added to the bot.
 
-        This method is called automatically when the cog is loaded.
-        It populates the invisible text cache for use in autocomplete.
+        This method is called automatically when the cog is loaded. It populates
+        the invisible text cache for autocomplete and the latest Patreon password
+        cache used by /password.
         """
         self.invis_text_cache = await self.bot.db.fetch(
             "SELECT DISTINCT title FROM invisible_text_twi"
         )
+        await self._refresh_password_cache()
+
+    async def _refresh_password_cache(self) -> dict[str, str] | None:
+        """Reload the latest Patreon password/link from the database into the cache.
+
+        The /password command reads from ``self.password_cache`` to avoid a DB
+        round-trip on the hot path. This is called on cog load, whenever
+        /update_password stores a new value, and lazily on a cache miss.
+
+        Returns:
+            The cached ``{"password": ..., "link": ...}`` mapping, or ``None`` if
+            no valid row exists (both fields must be non-empty to cache).
+        """
+        row = await self.bot.db.fetchrow(
+            "SELECT password, link "
+            "FROM password_link "
+            "WHERE password IS NOT NULL "
+            "ORDER BY serial_id DESC "
+            "LIMIT 1"
+        )
+        if row and row["password"] and row["link"]:
+            self.password_cache = {"password": row["password"], "link": row["link"]}
+        else:
+            self.password_cache = None
+        return self.password_cache
 
     # button class for linking people to the chapter
     class Button(discord.ui.Button):
@@ -122,46 +151,45 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
                 f"TWI PASSWORD: User {interaction.user.id} ({interaction.user.display_name}) requesting password in channel {interaction.channel.id}"
             )
 
-            if interaction.channel.id in config.password_allowed_channel_ids:
-                # Fetch password from database with error handling
-                try:
-                    password = await self.bot.db.fetchrow(
-                        "SELECT password, link "
-                        "FROM password_link "
-                        "WHERE password IS NOT NULL "
-                        "ORDER BY serial_id DESC "
-                        "LIMIT 1"
-                    )
-                except Exception as e:
-                    logging.error(
-                        f"TWI PASSWORD ERROR: Database query failed for user {interaction.user.id}: {e}"
-                    )
-                    raise DatabaseError(
-                        message="❌ **Database Error**\nFailed to retrieve password from database"
-                    ) from e
+            # Determine response visibility up front (both checks are in-memory,
+            # no I/O) so we can defer immediately. Deferring inside the 3s
+            # interaction window prevents 10062 "Unknown interaction" errors when
+            # a DB round-trip or a gateway hiccup pushes the first response past
+            # the deadline. After deferring, all replies use followup.send().
+            in_allowed_channel = (
+                interaction.channel.id in config.password_allowed_channel_ids
+            )
+            is_public = self.last_run < datetime.datetime.now() - datetime.timedelta(
+                minutes=10
+            )
+            ephemeral = in_allowed_channel and not is_public
+            await interaction.response.defer(ephemeral=ephemeral)
 
-                # Validate password data
+            if in_allowed_channel:
+                # Read from the in-memory cache (populated on cog load and
+                # refreshed by /update_password) to avoid a DB round-trip on the
+                # hot path. Fall back to the database on a cache miss.
+                password = self.password_cache
+                if password is None:
+                    try:
+                        password = await self._refresh_password_cache()
+                    except Exception as e:
+                        logging.error(
+                            f"TWI PASSWORD ERROR: Database query failed for user {interaction.user.id}: {e}"
+                        )
+                        raise DatabaseError(
+                            message="❌ **Database Error**\nFailed to retrieve password from database"
+                        ) from e
+
+                # The cache only ever holds a fully-populated row, so a None here
+                # means no valid password exists yet.
                 if not password:
                     logging.warning(
-                        f"TWI PASSWORD WARNING: No password found in database for user {interaction.user.id}"
+                        f"TWI PASSWORD WARNING: No password available for user {interaction.user.id}"
                     )
                     raise ValidationError(
                         message="❌ **No Password Available**\nNo password is currently available. Please contact an admin."
                     )
-
-                if not password["password"] or not password["link"]:
-                    logging.warning(
-                        f"TWI PASSWORD WARNING: Invalid password data for user {interaction.user.id}"
-                    )
-                    raise ValidationError(
-                        message="❌ **Invalid Password Data**\nPassword data is incomplete. Please contact an admin."
-                    )
-
-                # Check rate limiting
-                is_public = (
-                    self.last_run
-                    < datetime.datetime.now() - datetime.timedelta(minutes=10)
-                )
 
                 # Create enhanced embed response
                 embed = discord.Embed(
@@ -181,16 +209,15 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
 
                 view = discord.ui.View().add_item(self.Button(password["link"]))
 
+                await interaction.followup.send(
+                    embed=embed, view=view, ephemeral=ephemeral
+                )
                 if is_public:
-                    await interaction.response.send_message(embed=embed, view=view)
                     self.last_run = datetime.datetime.now()
                     logging.info(
                         f"TWI PASSWORD: Public password provided to user {interaction.user.id}"
                     )
                 else:
-                    await interaction.response.send_message(
-                        embed=embed, view=view, ephemeral=True
-                    )
                     logging.info(
                         f"TWI PASSWORD: Private password provided to user {interaction.user.id}"
                     )
@@ -225,7 +252,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
 
                 embed.set_footer(text="Support The Wandering Inn on Patreon!")
 
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
                 logging.info(
                     f"TWI PASSWORD: Instructions provided to user {interaction.user.id} in non-allowed channel {interaction.channel.id}"
                 )
@@ -633,6 +660,9 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
                 f"TWI INVISTEXT: User {interaction.user.id} ({interaction.user.display_name}) requesting invisible text{f' for chapter: {chapter[:50]}' if chapter else ' list'}"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer()
+
             if chapter is None:
                 # List all chapters with invisible text
                 try:
@@ -661,7 +691,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
                         inline=False,
                     )
 
-                    await interaction.response.send_message(embed=embed)
+                    await interaction.followup.send(embed=embed)
                     logging.info(
                         f"TWI INVISTEXT: No chapters found for user {interaction.user.id}"
                     )
@@ -714,7 +744,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
 
                 embed.set_footer(text="Invisible text data from The Wandering Inn")
 
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
                 logging.info(
                     f"TWI INVISTEXT: Successfully listed {len(chapters_to_show)} chapters for user {interaction.user.id}"
                 )
@@ -789,7 +819,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
 
                     embed.set_footer(text="Invisible text data from The Wandering Inn")
 
-                    await interaction.response.send_message(embed=embed)
+                    await interaction.followup.send(embed=embed)
                     logging.info(
                         f"TWI INVISTEXT: Successfully found {len(texts_to_show)} invisible texts for user {interaction.user.id}"
                     )
@@ -811,7 +841,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
 
                     embed.set_footer(text="Invisible text data from The Wandering Inn")
 
-                    await interaction.response.send_message(embed=embed)
+                    await interaction.followup.send(embed=embed)
                     logging.info(
                         f"TWI INVISTEXT: No invisible text found for user {interaction.user.id} query: '{chapter}'"
                     )
@@ -1057,6 +1087,9 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
                 f"TWI UPDATE_PASSWORD: Admin {interaction.user.id} ({interaction.user.display_name}) updating password and link"
             )
 
+            # Defer before DB work so the 3s interaction window can't be missed.
+            await interaction.response.defer(ephemeral=True)
+
             # Insert into database with error handling
             try:
                 await self.bot.db.execute(
@@ -1072,6 +1105,9 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
                 raise DatabaseError(
                     message="❌ **Database Error**\nFailed to update password in database"
                 ) from e
+
+            # Keep the /password cache in sync with the value we just stored.
+            self.password_cache = {"password": password, "link": link}
 
             # Create success embed
             embed = discord.Embed(
@@ -1107,7 +1143,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
 
             embed.set_footer(text="Password update logged for security")
 
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
             logging.info(
                 f"TWI UPDATE_PASSWORD: Successfully updated password for admin {interaction.user.id}"
             )

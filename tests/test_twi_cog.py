@@ -124,43 +124,50 @@ async def test_cog_load() -> bool:
 
 
 async def test_password_command() -> bool:
-    """Test the password command."""
+    """Test the password command (allowed-channel success path)."""
     print("\nTesting password command...")
 
     # Create a test bot
     bot = await TestSetup.create_test_bot()
 
+    # The password is read from a DB-backed cache, populated on cog load from
+    # the password_link table (no longer from a file).
+    bot.db.fetchrow = AsyncMock(
+        return_value={
+            "password": "test_password",
+            "link": "https://example.com/test",
+        }
+    )
+
     # Create the TwiCog
     cog = await TestSetup.setup_cog(bot, TwiCog)
 
-    # Create a mock interaction
+    # Create a mock interaction; treat its channel as an allowed channel so the
+    # command returns the password itself rather than the instructions embed.
     interaction = MockInteractionFactory.create()
 
-    # Mock file operations and data
-    mock_data = {
-        "passwords": {
-            "test_chapter": {
-                "password": "test_password",
-                "link": "https://example.com/test",
-            }
-        }
-    }
-
-    with (
-        patch(
-            "builtins.open",
-            mock_open(
-                read_data='{"passwords": {"test_chapter": {"password": "test_password", "link": "https://example.com/test"}}}'
-            ),
-        ),
-        patch("json.load", return_value=mock_data),
-        patch("os.path.exists", return_value=True),
+    # Patch the exact config object the command reads, resolved from the
+    # (unwrapped) command function's own globals. This is robust against other
+    # tests in the suite that reload cogs.twi / config and break module identity.
+    _pw_fn = cog.password.callback
+    while hasattr(_pw_fn, "__wrapped__"):
+        _pw_fn = _pw_fn.__wrapped__
+    _twi_config = _pw_fn.__globals__["config"]
+    with patch.object(
+        _twi_config,
+        "password_allowed_channel_ids",
+        [interaction.channel.id],
     ):
         # Call the command's callback directly
         await cog.password.callback(cog, interaction)
 
-    # Verify the response was sent
-    interaction.response.send_message.assert_called_once()
+    # The command defers, then replies via followup.send().
+    interaction.response.defer.assert_called_once()
+    interaction.followup.send.assert_called_once()
+    args, kwargs = interaction.followup.send.call_args
+    embed = kwargs.get("embed")
+    assert embed is not None
+    assert "test_password" in embed.description
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
@@ -264,23 +271,25 @@ async def test_invis_text_command() -> bool:
     # Create a test bot
     bot = await TestSetup.create_test_bot()
 
+    # invis_text reads from the invisible_text_twi table (no longer from files).
+    bot.db.fetch = AsyncMock(
+        return_value=[
+            {"title": "test_chapter", "content": "Test invisible text content"},
+        ]
+    )
+
     # Create the TwiCog
     cog = await TestSetup.setup_cog(bot, TwiCog)
 
     # Create a mock interaction
     interaction = MockInteractionFactory.create()
 
-    # Mock file operations
-    with (
-        patch("builtins.open", mock_open(read_data="Test invisible text content")),
-        patch("os.path.exists", return_value=True),
-        patch("os.listdir", return_value=["test_chapter.txt"]),
-    ):
-        # Call the command's callback directly
-        await cog.invis_text.callback(cog, interaction, "test_chapter")
+    # Call the command's callback directly
+    await cog.invis_text.callback(cog, interaction, "test_chapter")
 
-    # Verify the response was sent
-    interaction.response.send_message.assert_called_once()
+    # The command defers, then replies via followup.send().
+    interaction.response.defer.assert_called_once()
+    interaction.followup.send.assert_called_once()
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
@@ -357,8 +366,9 @@ async def test_update_password_command() -> bool:
         # Verify that database execute was called (password was saved)
         bot.db.execute.assert_called_once()
 
-    # Verify the response was sent
-    interaction.response.send_message.assert_called_once()
+    # The command defers, then replies via followup.send().
+    interaction.response.defer.assert_called_once()
+    interaction.followup.send.assert_called_once()
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
@@ -430,12 +440,11 @@ async def test_edge_cases() -> bool:
         interaction.response.defer.assert_called()
         interaction.followup.send.assert_called()
 
-    # Test None chapter for invis_text
-    with patch("os.path.exists", return_value=False):
-        await cog.invis_text.callback(cog, interaction, None)
+    # Test None chapter for invis_text (lists chapters from the DB)
+    await cog.invis_text.callback(cog, interaction, None)
 
-        # Should handle None chapter gracefully
-        interaction.response.send_message.assert_called()
+    # Should handle None chapter gracefully via defer + followup.send().
+    interaction.followup.send.assert_called()
 
     # Clean up
     await TestTeardown.teardown_cog(bot, "The Wandering Inn")
