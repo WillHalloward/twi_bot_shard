@@ -11,6 +11,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from utils.cog_registry import COGS
 from utils.command_groups import admin
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
@@ -30,19 +31,18 @@ from utils.schema_search import (
     search_schema,
 )
 
-cogs = [
-    "cogs.gallery",
-    "cogs.links_tags",
-    "cogs.patreon_poll",
-    "cogs.twi",
-    "cogs.owner",
-    "cogs.other",
-    "cogs.mods",
-    "cogs.stats",
-    "cogs.creator_links",
-    "cogs.report",
-    "cogs.innktober",
-]
+
+async def _is_bot_owner(interaction: discord.Interaction) -> bool:
+    """App-command check predicate: allow only the bot owner.
+
+    ``@commands.is_owner()`` is a *prefix-command* check that app commands
+    silently ignore, so every owner gate in this cog must use
+    ``@app_commands.check(_is_bot_owner)`` instead. Returning False makes
+    discord.py raise ``app_commands.CheckFailure``, which the global tree
+    error handler turns into a friendly "no permission" response.
+    """
+    return bool(await interaction.client.is_owner(interaction.user))
+
 
 # ---------------------------------------------------------------------------
 # SQL safety guard — shared by /admin sql and /admin ask_db.
@@ -214,7 +214,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
                 cmd.binding = self
 
     @admin.command(name="load", description="Load a Discord bot extension/cog")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def load_cog(self, interaction: discord.Interaction, *, cog: str) -> None:
         """Load a Discord bot extension/cog.
@@ -322,12 +322,12 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     ) -> list[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
-            for cog in cogs
+            for cog in COGS
             if current.lower() in cog.lower()
         ]
 
     @admin.command(name="loadall", description="Load all unloaded cogs")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def load_all_cogs(self, interaction: discord.Interaction) -> None:
         """Load all unloaded cogs at once.
@@ -344,7 +344,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         await interaction.response.defer()
 
         # Find unloaded cogs
-        unloaded_cogs = [cog for cog in cogs if cog not in self.bot.extensions]
+        unloaded_cogs = [cog for cog in COGS if cog not in self.bot.extensions]
 
         if not unloaded_cogs:
             await interaction.followup.send(
@@ -392,7 +392,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             await interaction.delete_original_response()
 
     @admin.command(name="unload", description="Unload a Discord bot extension/cog")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def unload_cog(self, interaction: discord.Interaction, *, cog: str) -> None:
         """Unload a Discord bot extension/cog.
@@ -492,12 +492,12 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     ) -> list[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
-            for cog in cogs
+            for cog in COGS
             if current.lower() in cog.lower()
         ]
 
     @admin.command(name="reload", description="Reload a Discord bot extension/cog")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def reload_cog(self, interaction: discord.Interaction, cog: str) -> None:
         """Reload a Discord bot extension/cog.
@@ -628,12 +628,12 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     ) -> list[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
-            for cog in cogs
+            for cog in COGS
             if current.lower() in cog.lower()
         ]
 
     @admin.command(name="cmd", description="Execute a shell command on the host system")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def cmd(self, interaction: discord.Interaction, args: str) -> None:
         """Execute a system command with enhanced security restrictions.
@@ -857,7 +857,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             raise ExternalServiceError(message=error_msg) from e
 
     @admin.command(name="sync", description="Sync the bot's command tree")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def sync(self, interaction: discord.Interaction, all_guilds: bool) -> None:
         """Sync application commands to Discord.
@@ -969,13 +969,14 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         await interaction.followup.send(final_message)
 
     @admin.command(name="exit", description="Shut down the bot")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def exit(self, interaction: discord.Interaction) -> None:
         """Gracefully shut down the bot.
 
         This command logs the shutdown request and closes the bot connection.
-        Restricted to the bot owner via the ``@commands.is_owner()`` check.
+        Restricted to the bot owner via the ``@app_commands.check(_is_bot_owner)``
+        check.
 
         Args:
             interaction: The Discord interaction object
@@ -1003,7 +1004,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             raise ExternalServiceError(message=error_msg) from e
 
     @admin.command(name="resources", description="View bot resource usage statistics")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def resources(
         self,
@@ -1229,7 +1230,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             raise ExternalServiceError(message=error_msg) from e
 
     @admin.command(name="sql", description="Execute a SQL query on the database")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def sql_query(
         self,
@@ -1426,7 +1427,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     @admin.command(
         name="ask_db", description="Ask a natural language question about the database"
     )
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def ask_database(
         self, interaction: discord.Interaction, question: str

@@ -30,6 +30,7 @@ from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import config
+from utils.cog_registry import BASE_CRITICAL_COGS, COGS
 from utils.command_groups import admin, gallery_admin, mod
 from utils.db import Database
 from utils.error_handling import setup_global_exception_handler
@@ -1051,38 +1052,10 @@ async def main() -> None:
             timeout=30.0,  # Connection timeout
         ) as pool
     ):
-        # Define all cogs
-        cogs = [
-            "cogs.gallery",
-            "cogs.links_tags",
-            "cogs.patreon_poll",
-            "cogs.twi",
-            "cogs.owner",
-            "cogs.utility",
-            "cogs.info",
-            "cogs.pins",
-            "cogs.quotes",
-            "cogs.external_services",
-            "cogs.roles",
-            "cogs.mods",
-            "cogs.stats",
-            "cogs.creator_links",
-            "cogs.report",
-            "cogs.settings",
-            "cogs.message_log",
-            "cogs.interactive_help",
-            "cogs.heartbeat",
-        ]
-
-        # Define critical cogs that must be loaded at startup
-        # These are cogs that provide essential functionality or are required by other cogs
-        base_critical_cogs = [
-            "cogs.owner",  # Owner commands for bot management
-            "cogs.mods",  # Moderation commands
-            "cogs.stats",  # Core statistics tracking
-            "cogs.settings",  # Bot settings management
-            "cogs.interactive_help",  # Interactive help system
-        ]
+        # All cogs and the startup-critical subset come from the single
+        # registry in utils/cog_registry.py — add new cogs there, not here.
+        cogs = list(COGS)
+        base_critical_cogs = list(BASE_CRITICAL_COGS)
 
         # In production and staging, load all cogs at startup so the full
         # command tree exists and can be synced (slash commands cannot be
