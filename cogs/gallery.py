@@ -37,6 +37,11 @@ discord_file_pattern = (
     r"https?://cdn\.discordapp\.com/attachments/\d+/\d+/[^?\s]+(?:\?.*?)?"
 )
 
+# How long (seconds) the repost UI views stay interactive before their
+# controls are disabled. Kept well under the 15-minute interaction-token
+# lifetime so on_timeout can still edit the (ephemeral) message.
+VIEW_TIMEOUT = 180.0
+
 
 class RepostModal(discord.ui.Modal, title="Repost"):  # type: ignore[call-arg]  # discord.py stubs reject title=
     def __init__(
@@ -78,9 +83,15 @@ class RepostModal(discord.ui.Modal, title="Repost"):  # type: ignore[call-arg]  
 
 class RepostMenu(discord.ui.View):
     def __init__(
-        self, mention: str, jump_url: str, title: str, description_item=None
+        self,
+        mention: str,
+        jump_url: str,
+        title: str,
+        description_item=None,
+        invoker: discord.User | discord.Member | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(timeout=VIEW_TIMEOUT)
+        self.invoker = invoker
         self.message: discord.Message | None = None
         self.title_item: str | None = None
         self.description_item = description_item
@@ -106,6 +117,28 @@ class RepostMenu(discord.ui.View):
         )
         self.title_button.callback = self.modal_open_callback
         self.add_item(self.title_button)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Only the mod who started the repost flow may drive this menu."""
+        if self.invoker is None or interaction.user.id == self.invoker.id:
+            return True
+        await interaction.response.send_message(
+            "❌ This repost menu belongs to someone else. "
+            "Use the Repost context menu yourself to start your own.",
+            ephemeral=True,
+        )
+        return False
+
+    async def on_timeout(self) -> None:
+        """Disable the controls so a stale menu doesn't look interactive."""
+        self.channel_select.disabled = True
+        self.submit_button.disabled = True
+        self.title_button.disabled = True
+        if self.message is not None:
+            # The message may already have been deleted (e.g. by the caller's
+            # timeout cleanup) — that's fine, there is nothing left to update.
+            with contextlib.suppress(discord.HTTPException):
+                await self.message.edit(view=self)
 
     async def channel_select_callback(self, interaction: discord.Interaction) -> None:
         for option in self.channel_select.options:
@@ -134,11 +167,39 @@ class RepostMenu(discord.ui.View):
 
 
 class ButtonView(discord.ui.View):
-    def __init__(self, invoker) -> None:
-        super().__init__()
+    def __init__(self, invoker: discord.User | discord.Member) -> None:
+        super().__init__(timeout=VIEW_TIMEOUT)
         self.repost_choice: int | None = None
         self.invoker = invoker
         self.interaction: discord.Interaction | None = None
+        self.message: discord.Message | None = None
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Only the invoking mod may pick a repost type; tell others why."""
+        if interaction.user.id == self.invoker.id:
+            return True
+        await interaction.response.send_message(
+            "❌ This repost menu belongs to someone else. "
+            "Use the Repost context menu yourself to start your own.",
+            ephemeral=True,
+        )
+        return False
+
+    async def on_timeout(self) -> None:
+        """Disable the buttons so a stale menu doesn't look interactive."""
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+        if self.message is not None:
+            # The message may already have been deleted (e.g. by the caller's
+            # timeout cleanup) — that's fine, there is nothing left to update.
+            with contextlib.suppress(discord.HTTPException):
+                await self.message.edit(view=self)
+
+    def _choose(self, interaction: discord.Interaction, choice: int) -> None:
+        self.repost_choice = choice
+        self.interaction = interaction
+        self.stop()
 
     @discord.ui.button(
         label="Attachment",
@@ -149,10 +210,7 @@ class ButtonView(discord.ui.View):
     async def attachment(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        if interaction.user.id == self.invoker.id:
-            self.repost_choice = 1
-            self.stop()
-            self.interaction = interaction
+        self._choose(interaction, 1)
 
     @discord.ui.button(
         label="AO3", style=discord.ButtonStyle.secondary, emoji="📖", disabled=True
@@ -160,10 +218,7 @@ class ButtonView(discord.ui.View):
     async def ao3(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        if interaction.user.id == self.invoker.id:
-            self.repost_choice = 2
-            self.stop()
-            self.interaction = interaction
+        self._choose(interaction, 2)
 
     @discord.ui.button(
         label="Twitter", style=discord.ButtonStyle.secondary, emoji="🐦", disabled=True
@@ -171,10 +226,7 @@ class ButtonView(discord.ui.View):
     async def twitter(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        if interaction.user.id == self.invoker.id:
-            self.repost_choice = 3
-            self.stop()
-            self.interaction = interaction
+        self._choose(interaction, 3)
 
     @discord.ui.button(
         label="Instagram",
@@ -185,10 +237,7 @@ class ButtonView(discord.ui.View):
     async def instagram(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        if interaction.user.id == self.invoker.id:
-            self.repost_choice = 4
-            self.stop()
-            self.interaction = interaction
+        self._choose(interaction, 4)
 
     @discord.ui.button(
         label="Text", style=discord.ButtonStyle.secondary, emoji="📝", disabled=False
@@ -196,10 +245,7 @@ class ButtonView(discord.ui.View):
     async def text(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        if interaction.user.id == self.invoker.id:
-            self.repost_choice = 5
-            self.stop()
-            self.interaction = interaction
+        self._choose(interaction, 5)
 
     @discord.ui.button(
         label="Discord File",
@@ -210,10 +256,7 @@ class ButtonView(discord.ui.View):
     async def discord_file(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        if interaction.user.id == self.invoker.id:
-            self.repost_choice = 6
-            self.stop()
-            self.interaction = interaction
+        self._choose(interaction, 6)
 
 
 class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg]  # discord.py stubs reject name=
@@ -280,7 +323,9 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
         # run past Discord's 3-second window and 404 with 10062 (Unknown interaction).
         # The menu is then surfaced via edit_original_response so it stays the
         # "original response" that delete_original_response() can later remove.
-        await interaction.response.defer()
+        # Ephemeral: the menu is a personal control surface for the invoking
+        # mod, not channel content — nobody else should see (or click) it.
+        await interaction.response.defer(ephemeral=True)
 
         repost_type = []
 
@@ -439,7 +484,11 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
             try:
                 # We deferred above, so the menu becomes the (now-acknowledged)
                 # original response via edit rather than a fresh send_message.
-                await interaction.edit_original_response(embed=embed, view=view)
+                # Keep the returned message so on_timeout can disable the
+                # buttons in place if the invoker never picks an option.
+                view.message = await interaction.edit_original_response(
+                    embed=embed, view=view
+                )
             except discord.HTTPException as e:
                 self.logger.error(
                     f"Failed to send repost menu: {e}",
@@ -567,7 +616,10 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
 
         if supported:
             menu = RepostMenu(
-                jump_url=message.jump_url, mention=message.author.mention, title=""
+                jump_url=message.jump_url,
+                mention=message.author.mention,
+                title="",
+                invoker=interaction.user,
             )
             # Populate channel options for the current guild
             available_channels = [
@@ -950,7 +1002,13 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
     async def repost_ao3(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
-        self.logger.debug(f"Processing AO3 message: {message.content}")
+        # Log identifiers only — message content is user data and must not
+        # land in the logs (audit findings-10 D2).
+        self.logger.debug(
+            "processing_ao3_message",
+            message_id=message.id,
+            channel_id=message.channel.id,
+        )
         url = re.search(ao3_pattern, message.content).group(0)  # type: ignore[union-attr]  # match guaranteed by caller
         self.logger.debug(f"Extracted AO3 URL: {url}")
         work = AO3.Work(AO3.utils.workid_from_url(url))
@@ -958,6 +1016,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
             jump_url=message.jump_url,
             mention=message.author.mention,
             title=f"{work.title} - **AO3**",
+            invoker=interaction.user,
         )
         for channel in self.repost_cache:
             if channel.guild_id == interaction.guild_id:
@@ -1028,6 +1087,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
                 jump_url=message.jump_url,
                 mention=message.author.mention,
                 title=f"{author['name']} - **Twitter**",
+                invoker=interaction.user,
             )
             for channel in self.repost_cache:
                 if channel.guild_id == interaction.guild_id:
@@ -1125,6 +1185,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
             mention=message.author.mention,
             title="",
             description_item=message.content,
+            invoker=interaction.user,
         )
         for channel in self.repost_cache:
             if channel.guild_id == interaction.guild_id:
@@ -1174,6 +1235,7 @@ class GalleryCog(BaseCog, name="Gallery & Mementos"):  # type: ignore[call-arg] 
             jump_url=message.jump_url,
             mention=message.author.mention,
             title="Discord File",
+            invoker=interaction.user,
         )
         for channel in self.repost_cache:
             if channel.guild_id == interaction.guild_id:

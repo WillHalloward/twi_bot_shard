@@ -386,6 +386,22 @@ ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
         "log_level": logging.WARNING,
         "ephemeral": True,
     },
+    # Permission failures. These subclass CheckFailure, so they MUST be listed
+    # before the generic CheckFailure entries below — get_error_response
+    # returns the first isinstance match in insertion order. The {permissions}
+    # placeholder is rendered by get_error_response from the exception's
+    # missing_permissions list (the handlers' generic .format(error=error)
+    # can't fill it).
+    commands.MissingPermissions: {
+        "message": "You need the following permissions to use this command: {permissions}.",
+        "log_level": logging.WARNING,
+        "ephemeral": True,
+    },
+    discord.app_commands.errors.MissingPermissions: {
+        "message": "You need the following permissions to use this command: {permissions}.",
+        "log_level": logging.WARNING,
+        "ephemeral": True,
+    },
     commands.CheckFailure: {
         "message": "You don't have permission to use this command.",
         "log_level": logging.WARNING,
@@ -431,6 +447,24 @@ ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
 }
 
 
+def _missing_permissions_list(error: Exception) -> str:
+    """Build a human-readable permission list from a MissingPermissions error.
+
+    Args:
+        error: A commands.MissingPermissions or app_commands MissingPermissions
+            exception (anything exposing ``missing_permissions``).
+
+    Returns:
+        A comma-separated, title-cased permission list (e.g. "Ban Members,
+        Manage Messages"), or a generic fallback if the list is empty.
+    """
+    missing = getattr(error, "missing_permissions", None) or []
+    formatted = ", ".join(
+        perm.replace("_", " ").replace("guild", "server").title() for perm in missing
+    )
+    return formatted or "the required permissions"
+
+
 def get_error_response(
     error: Exception, security_level: int = ErrorSecurityLevel.NORMAL
 ) -> dict[str, Any]:
@@ -458,6 +492,19 @@ def get_error_response(
                 response_copy["message"] = sanitize_error_message(error, security_level)
                 # Ensure the message is marked as already sanitized
                 response_copy["sanitized"] = True
+
+            # Render the {permissions} placeholder for MissingPermissions
+            # errors here — the callers only do .format(error=error), which
+            # cannot fill it. Guarded on the placeholder so a sanitized
+            # replacement message is left untouched.
+            if isinstance(
+                error,
+                commands.MissingPermissions
+                | discord.app_commands.errors.MissingPermissions,
+            ) and "{permissions}" in response_copy.get("message", ""):
+                response_copy["message"] = response_copy["message"].format(
+                    permissions=_missing_permissions_list(error)
+                )
 
             return response_copy
 
