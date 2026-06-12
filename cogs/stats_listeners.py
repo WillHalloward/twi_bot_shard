@@ -203,8 +203,11 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
                 for attachment in message.attachments
             ]
 
+            # Targetless ON CONFLICT DO NOTHING makes re-saves (Discord event
+            # re-delivery, backfill overlapping live saves) idempotent against
+            # whatever unique indexes exist, with no deploy-order dependency.
             await bot.db.execute_many(
-                "INSERT INTO attachments(id, filename, url, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+                "INSERT INTO attachments(id, filename, url, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING",
                 attachment_data,
             )
 
@@ -212,7 +215,7 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
         if message.mentions:
             user_mentions = [(message.id, user.id) for user in message.mentions]
             await bot.db.execute_many(
-                "INSERT INTO mentions(message_id, user_mention) VALUES ($1,$2)",
+                "INSERT INTO mentions(message_id, user_mention) VALUES ($1,$2) ON CONFLICT DO NOTHING",
                 user_mentions,
             )
 
@@ -220,7 +223,7 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
         if message.role_mentions:
             role_mentions = [(message.id, role.id) for role in message.role_mentions]
             await bot.db.execute_many(
-                "INSERT INTO mentions(message_id, role_mention) VALUES ($1,$2)",
+                "INSERT INTO mentions(message_id, role_mention) VALUES ($1,$2) ON CONFLICT DO NOTHING",
                 role_mentions,
             )
 
@@ -337,19 +340,21 @@ async def save_messages_bulk(
             """,
             message_rows,
         )
+    # Targetless ON CONFLICT DO NOTHING keeps backfills that overlap live saves
+    # (or re-run over already-saved history) idempotent — see save_message.
     if attachment_rows:
         await bot.db.execute_many(
-            "INSERT INTO attachments(id, filename, url, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+            "INSERT INTO attachments(id, filename, url, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING",
             attachment_rows,
         )
     if user_mention_rows:
         await bot.db.execute_many(
-            "INSERT INTO mentions(message_id, user_mention) VALUES ($1,$2)",
+            "INSERT INTO mentions(message_id, user_mention) VALUES ($1,$2) ON CONFLICT DO NOTHING",
             user_mention_rows,
         )
     if role_mention_rows:
         await bot.db.execute_many(
-            "INSERT INTO mentions(message_id, role_mention) VALUES ($1,$2)",
+            "INSERT INTO mentions(message_id, role_mention) VALUES ($1,$2) ON CONFLICT DO NOTHING",
             role_mention_rows,
         )
 
@@ -885,10 +890,10 @@ class StatsListenersMixin(StatsMixinBase):
                 "INSERT INTO join_leave(user_id, server_id, date, is_join, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
                 member.id,
                 member.guild.id,
-                datetime.now().replace(tzinfo=None),
+                datetime.now(UTC).replace(tzinfo=None),
                 True,
                 member.guild.name,
-                datetime.now().replace(tzinfo=None),
+                datetime.now(UTC).replace(tzinfo=None),
             )
         except Exception as e:
             logger.error("member_join_save_error", error=str(e))

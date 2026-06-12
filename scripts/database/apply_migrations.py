@@ -57,6 +57,10 @@ MANUAL_MIGRATIONS: frozenset[str] = frozenset(
         # CONCURRENTLY + a psql \set meta-command, so it is not transaction-safe
         # and must not be auto-executed; recorded-as-applied only.
         "20260608_validate_fks_drop_redundant_indexes.sql",
+        # Uses CREATE INDEX CONCURRENTLY (to avoid locking the hot mentions
+        # table), which cannot run inside the runner's transaction; run by
+        # hand, recorded-as-applied only.
+        "20260613_01_mentions_unique.sql",
     }
 )
 
