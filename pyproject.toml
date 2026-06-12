@@ -138,3 +138,23 @@ asyncio_default_test_loop_scope = "function"
 markers = [
     "asyncio: mark test as async"
 ]
+
+[tool.coverage.run]
+# Honest coverage: measure production code only. tests/ and scripts/ are
+# excluded from the denominator (a bare `--cov` respects this source list, so
+# the CI number and a local `pytest --cov` agree).
+source = [
+    "cogs",
+    "utils",
+    "models",
+    "config",
+    "main",
+]
+
+[tool.coverage.report]
+# Generated/vendored files are not part of the production denominator.
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

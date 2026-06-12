@@ -33,7 +33,12 @@ jobs:
       run: cp .env.test .env
 
     - name: Run tests
-      run: python -m pytest tests/ --cov=. --cov-report=xml
+      # Bare --cov uses [tool.coverage.run] source from pyproject.toml, which
+      # scopes the denominator to production code only (cogs/utils/models/
+      # config/main — tests/ and scripts/ are excluded). The fail-under floor
+      # is the measured honest coverage (38%) minus a 2-point safety margin;
+      # ratchet it up as coverage improves.
+      run: python -m pytest tests/ --cov --cov-report=xml --cov-fail-under=36
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
