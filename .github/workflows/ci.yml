@@ -72,6 +72,40 @@ jobs:
     - name: Run mypy
       run: mypy .
 
+  manifest-sync:
+    runs-on: ubuntu-latest
+    # Hard gate: requirements.txt is the production install manifest (the
+    # Dockerfile that Railway builds runs `pip install -r requirements.txt`),
+    # and it must be regenerated from uv.lock after any dependency change.
+    # This job re-runs the canonical export command and fails if the committed
+    # file differs. It is deterministic given the repo state: `uv export
+    # --locked` reads uv.lock only (no PyPI re-resolution), so new upstream
+    # releases can never turn this gate red — only a stale requirements.txt
+    # or a uv.lock that no longer matches pyproject.toml can.
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        # Pinned so a future uv release changing the export output format
+        # can't turn this gate red spuriously. Keep in sync with the version
+        # used to generate the committed requirements.txt; bump both together.
+        version: "0.9.24"
+
+    - name: Check requirements.txt is in sync with uv.lock
+      run: |
+        uv export --format requirements-txt --locked --no-dev --no-emit-project --no-hashes -o requirements.txt
+        if ! git diff --exit-code -- requirements.txt; then
+          echo ""
+          echo "::error::requirements.txt is out of sync with uv.lock (see diff above). This file is what production installs."
+          echo "Fix locally and commit the result:"
+          echo "  uv lock  # only if pyproject.toml changed"
+          echo "  uv export --format requirements-txt --locked --no-dev --no-emit-project --no-hashes -o requirements.txt"
+          exit 1
+        fi
+
   build:
     runs-on: ubuntu-latest
     # Non-blocking: the bot deploys via Railway, not as a published package, so

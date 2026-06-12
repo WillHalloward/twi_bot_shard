@@ -144,6 +144,32 @@ docker-compose logs -f bot
 
 The bot is deployed on Railway using automatic deployments from GitHub branches.
 
+### How Railway Builds the Image
+
+Verified against actual Railway build logs (June 2026):
+
+- Railway's service config reports `Builder: RAILPACK`, but **Railpack defers
+  to the committed `Dockerfile`** when one exists at the repo root — the build
+  logs show the Dockerfile's steps executed verbatim. The builder field
+  describes the detection engine, not the effective build. Do not be misled by
+  the dashboard: **the `Dockerfile` is the real build definition** (non-root
+  `botuser`, `CMD ["python", "main.py"]`, and the HEALTHCHECK all ship).
+- The Dockerfile installs dependencies with `pip install -r requirements.txt`,
+  so **`requirements.txt` is the live production install manifest** — not
+  `pyproject.toml` and not `uv.lock` directly.
+- `requirements.txt` is **production-only** (no dev/test/ML extras) and is
+  generated deterministically from `uv.lock` with the canonical command:
+
+  ```bash
+  uv export --format requirements-txt --locked --no-dev --no-emit-project --no-hashes -o requirements.txt
+  ```
+
+- CI enforces this: the `manifest-sync` job in `.github/workflows/ci.yml`
+  re-runs the export and fails if the committed `requirements.txt` differs
+  from what `uv.lock` produces. After any dependency change, run `uv lock`
+  (if `pyproject.toml` changed) and regenerate `requirements.txt` with the
+  command above, then commit both.
+
 ### Initial Setup
 
 1. **Create a Railway Project**
@@ -376,7 +402,9 @@ railway logs
 #### Deployment Fails on Railway
 
 1. Check the build logs in Railway dashboard
-2. Ensure all dependencies are in `requirements.txt`
+2. Ensure `requirements.txt` is in sync with `uv.lock` (regenerate with
+   `uv export --format requirements-txt --locked --no-dev --no-emit-project --no-hashes -o requirements.txt`;
+   the CI `manifest-sync` job catches this)
 3. Verify the Dockerfile builds locally
 4. Check for any syntax errors in Python files
 

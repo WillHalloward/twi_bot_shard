@@ -70,6 +70,23 @@ uv pip install -e ".[ml]"
 uv pip install -e .
 ```
 
+**After ANY dependency change** (adding/removing/bumping a package):
+
+```bash
+# 1. Update the lockfile (only needed if pyproject.toml changed)
+uv lock
+
+# 2. Regenerate the production install manifest (canonical command)
+uv export --format requirements-txt --locked --no-dev --no-emit-project --no-hashes -o requirements.txt
+```
+
+`requirements.txt` is what production actually installs (Railway builds the
+Dockerfile, which runs `pip install -r requirements.txt`). It is
+production-only — dev/test/ML extras are deliberately excluded — and is
+generated from `uv.lock`, never hand-edited or re-resolved against PyPI. The
+CI `manifest-sync` job fails if the committed file is out of sync, so commit
+`pyproject.toml`, `uv.lock`, and `requirements.txt` together.
+
 ### Database Operations
 ```bash
 # Apply all database optimizations
