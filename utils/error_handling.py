@@ -255,7 +255,9 @@ def get_detailed_error_context(
         "user_id": user_id,
         "guild_id": guild_id,
         "channel_id": channel_id,
-        "timestamp": datetime.datetime.now().isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC)
+        .replace(tzinfo=None)
+        .isoformat(),
         "traceback": None,
     }
 
@@ -474,7 +476,7 @@ async def track_error(
                 str(error_message),
                 guild_id,
                 channel_id,
-                datetime.datetime.now(),
+                datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
             ),
         )
     except Exception as e:

@@ -192,9 +192,12 @@ class TestDataFixture:
         Returns:
             A list of dictionaries containing the created command history entries.
         """
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
         command_history = []
+
+        # All datetimes are stored timezone-naive in UTC (project convention).
+        now = datetime.now(UTC).replace(tzinfo=None)
 
         session = await self.db_fixture.create_session()
         async with session:
@@ -202,7 +205,7 @@ class TestDataFixture:
             test_server = Server(
                 server_id=2000000,
                 server_name="Test Server",
-                creation_date=datetime.now(),
+                creation_date=now,
             )
             session.add(test_server)
             await (
@@ -212,10 +215,8 @@ class TestDataFixture:
             for i in range(count):
                 command = CommandHistory(
                     serial=i + 1,
-                    start_date=datetime.now() - timedelta(minutes=i),
-                    end_date=datetime.now()
-                    - timedelta(minutes=i)
-                    + timedelta(seconds=1.5 + i),
+                    start_date=now - timedelta(minutes=i),
+                    end_date=now - timedelta(minutes=i) + timedelta(seconds=1.5 + i),
                     user_id=3000000 + i,
                     command_name=f"test_command_{i}",
                     guild_id=2000000,  # Reference the test server
@@ -253,9 +254,12 @@ class TestDataFixture:
         Returns:
             A list of dictionaries containing the created creator links.
         """
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
         creator_links = []
+
+        # All datetimes are stored timezone-naive in UTC (project convention).
+        now = datetime.now(UTC).replace(tzinfo=None)
 
         session = await self.db_fixture.create_session()
         async with session:
@@ -266,7 +270,7 @@ class TestDataFixture:
                     title=f"Test Link {i}",
                     link=f"https://example.com/link{i}",
                     nsfw=i % 2 == 0,  # Alternate between True and False
-                    last_changed=datetime.now() - timedelta(days=i),
+                    last_changed=now - timedelta(days=i),
                     weight=i,
                     feature=i % 2 == 0,  # Alternate between True and False
                 )

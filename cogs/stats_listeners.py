@@ -7,7 +7,7 @@ This module contains:
 """
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import discord
@@ -45,7 +45,7 @@ async def save_reaction(bot: "commands.Bot", reaction: discord.Reaction) -> None
         if not users:
             return
 
-        current_time = datetime.now().replace(tzinfo=None)
+        current_time = datetime.now(UTC).replace(tzinfo=None)
 
         # Prepare batch data based on emoji type using pattern matching
         match reaction.emoji:
@@ -427,8 +427,8 @@ async def perform_comprehensive_save(
     Raises:
         Exception: If database operations fail
     """
-    # Initialize progress tracking
-    start_time = datetime.now()
+    # Initialize progress tracking (naive UTC, consistent with DB timestamps)
+    start_time = datetime.now(UTC).replace(tzinfo=None)
     total_guilds = len(bot.guilds)
     guilds_processed = 0
     total_channels_processed = 0
@@ -440,7 +440,6 @@ async def perform_comprehensive_save(
 
     try:
         for guild_index, guild in enumerate(bot.guilds, 1):
-            datetime.now()
             guild_channels_processed = 0
             guild_threads_processed = 0
             guild_messages_saved = 0
@@ -611,7 +610,7 @@ async def perform_comprehensive_save(
                 if progress_callback and (
                     guild_index % 5 == 0 or guild_index == total_guilds
                 ):
-                    elapsed_time = datetime.now() - start_time
+                    elapsed_time = datetime.now(UTC).replace(tzinfo=None) - start_time
                     try:
                         await progress_callback(
                             guilds_processed,
@@ -633,8 +632,8 @@ async def perform_comprehensive_save(
         logger.error("comprehensive_save_unexpected_error", error=str(e))
         raise
 
-    # Prepare results
-    end_time = datetime.now()
+    # Prepare results (naive UTC, consumers subtract against naive datetimes)
+    end_time = datetime.now(UTC).replace(tzinfo=None)
     total_time = end_time - start_time
 
     results: dict[str, Any] = {
@@ -795,7 +794,7 @@ class StatsListenersMixin(StatsMixinBase):
             payload: The raw reaction action event payload
         """
         try:
-            current_time = datetime.now().replace(tzinfo=None)
+            current_time = datetime.now(UTC).replace(tzinfo=None)
 
             # Use transaction for consistency
             async with await self.bot.db.transaction() as trans:
@@ -910,10 +909,10 @@ class StatsListenersMixin(StatsMixinBase):
                 "INSERT INTO join_leave(user_id, server_id, date, is_join, server_name, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
                 member.id,
                 member.guild.id,
-                datetime.now().replace(tzinfo=None),
+                datetime.now(UTC).replace(tzinfo=None),
                 False,
                 member.guild.name,
-                datetime.now().replace(tzinfo=None),
+                datetime.now(UTC).replace(tzinfo=None),
             )
         except Exception as e:
             logger.error("member_leave_save_error", error=str(e))
@@ -934,7 +933,7 @@ class StatsListenersMixin(StatsMixinBase):
                 added_roles = set(after.roles) - set(before.roles)
                 removed_roles = set(before.roles) - set(after.roles)
 
-                current_time = datetime.now().replace(tzinfo=None)
+                current_time = datetime.now(UTC).replace(tzinfo=None)
 
                 # Save added roles
                 for role in added_roles:
@@ -1110,7 +1109,7 @@ class StatsListenersMixin(StatsMixinBase):
             added_emojis = [emoji for emoji in after if emoji.id not in before_set]
             removed_emoji_ids = before_set - after_set
 
-            current_time = datetime.now().replace(tzinfo=None)
+            current_time = datetime.now(UTC).replace(tzinfo=None)
 
             # Save added emojis
             for emoji in added_emojis:
@@ -1268,7 +1267,7 @@ class StatsListenersMixin(StatsMixinBase):
                 action,
                 before_value,
                 after_value,
-                datetime.now().replace(tzinfo=None),
+                datetime.now(UTC).replace(tzinfo=None),
                 primary_key,
             )
         except Exception as e:
@@ -1584,7 +1583,7 @@ class StatsListenersMixin(StatsMixinBase):
                 )
 
             # Handle voice channel join/leave tracking
-            current_time = datetime.now().replace(tzinfo=None)
+            current_time = datetime.now(UTC).replace(tzinfo=None)
 
             # Ensure user exists before inserting voice activity (foreign key constraint)
             await self.bot.db.execute(

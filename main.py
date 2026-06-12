@@ -586,7 +586,7 @@ class Cognita(commands.Bot):
                 )
                 VALUES($1, $2, $3)
                 """,
-                datetime.datetime.now(),
+                datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
                 "startup_time",
                 startup_data,
             )
@@ -696,7 +696,9 @@ class Cognita(commands.Bot):
             This method expects 'start_time' and 'id' to be present in interaction.extras,
             which are set in the on_interaction method.
         """
-        end_date = datetime.datetime.now()
+        # Naive UTC (project invariant): stored in command_history.end_date and
+        # subtracted from the naive-UTC start_time set in on_interaction.
+        end_date = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         if "start_time" in interaction.extras:
             run_time = end_date - interaction.extras["start_time"]
             if "id" in interaction.extras:
@@ -766,7 +768,8 @@ class Cognita(commands.Bot):
         command_args = json.dumps(
             interaction.data.get("options", [])
         )  # Convert options to JSON string
-        start_date = datetime.datetime.now()
+        # Naive UTC (project invariant): stored in command_history.start_date.
+        start_date = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
         try:
             # Ensure user exists before inserting command history (foreign key constraint)
