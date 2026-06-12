@@ -270,17 +270,19 @@ class TestOwnerCogCmd:
         # Create a mock interaction
         interaction = MockInteractionFactory.create()
 
-        # Mock subprocess
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0, stdout="Test output", stderr=""
-            )
-
+        # Mock asyncio's subprocess (the command runs the child process via
+        # asyncio.create_subprocess_exec so it never blocks the event loop)
+        mock_process = MagicMock()
+        mock_process.communicate = AsyncMock(return_value=(b"Test output", b""))
+        mock_process.returncode = 0
+        with patch(
+            "asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_process)
+        ) as mock_exec:
             # Call the command using callback pattern
             await cog.cmd.callback(cog, interaction, args="echo test")
 
             # Verify subprocess was called
-            assert mock_run.called
+            assert mock_exec.called
 
         # Cleanup
         await TestTeardown.teardown_bot(bot)
@@ -350,13 +352,16 @@ class TestOwnerCogResources:
         # Create a test bot
         bot = await TestSetup.create_test_bot()
 
-        # Mock resource_monitor on bot
+        # Mock resource_monitor on bot (the command awaits the async wrapper
+        # so the psutil collection runs off the event loop)
         bot.resource_monitor = MagicMock()
-        bot.resource_monitor.get_resource_stats.return_value = {
-            "memory_mb": 100,
-            "cpu_percent": 5.0,
-            "uptime": 3600,
-        }
+        bot.resource_monitor.get_resource_stats_async = AsyncMock(
+            return_value={
+                "memory_mb": 100,
+                "cpu_percent": 5.0,
+                "uptime": 3600,
+            }
+        )
         bot.resource_monitor.get_summary_stats.return_value = {
             "avg_memory_mb": 95,
             "peak_memory_mb": 120,
@@ -373,7 +378,7 @@ class TestOwnerCogResources:
         await cog.resources.callback(cog, interaction, detail_level="basic")
 
         # Verify resource_monitor was called
-        bot.resource_monitor.get_resource_stats.assert_called_once()
+        bot.resource_monitor.get_resource_stats_async.assert_awaited_once()
 
         # Verify response sent
         assert interaction.response.defer.called or interaction.followup.send.called

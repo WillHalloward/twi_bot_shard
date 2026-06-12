@@ -1041,29 +1041,13 @@ async def handle_global_app_command_error(
                 except Exception as e:
                     logger.error(f"Error during lazy loading of {extension_name}: {e}")
 
-    # Skip CommandOnCooldown errors as they should be handled by command-specific error handlers
-    if isinstance(error, discord.app_commands.errors.CommandOnCooldown):
-        # Only log the error for telemetry, don't send a message to avoid duplicates
-        command_name = interaction.command.name if interaction.command else "unknown"
-        log_error(
-            error=error,
-            command_name=command_name,
-            user_id=interaction.user.id,
-            log_level=logging.WARNING,
-        )
-
-        # Record error telemetry
-        if hasattr(interaction, "client"):
-            await track_error(
-                interaction.client,
-                type(error).__name__,
-                command_name,
-                interaction.user.id,
-                getattr(error, "message", str(error)),
-                interaction.guild.id if interaction.guild else None,
-                interaction.channel.id if interaction.channel else None,
-            )
-        return
+    # NOTE: CommandOnCooldown deliberately falls through to the generic path
+    # below. Cooldown checks raise *before* the command callback runs, so the
+    # @handle_interaction_errors decorator never sees them — this handler is
+    # the only place the user can be told to wait (no duplicate is possible).
+    # The ERROR_MESSAGES mapping turns it into a friendly ephemeral message,
+    # and log_error() already treats cooldowns as expected (no traceback, no
+    # Sentry capture).
 
     # Get the appropriate error response
     response = get_error_response(error)

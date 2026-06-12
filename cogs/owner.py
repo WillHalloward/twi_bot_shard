@@ -637,32 +637,46 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         )
 
         try:
-            # Execute the command with timeout and security restrictions
-            result = subprocess.run(  # nosec B603
-                args_array,
-                capture_output=True,
-                text=True,
-                timeout=30,  # 30 second timeout
-                check=False,  # Don't raise exception on non-zero exit code
+            # Execute the command with timeout and security restrictions.
+            # asyncio's subprocess support runs the child process without
+            # blocking the event loop (unlike subprocess.run, which would
+            # freeze the whole bot for up to the 30s timeout).
+            process = await asyncio.create_subprocess_exec(  # nosec B603
+                *args_array,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
+            try:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=30,  # 30 second timeout
+                )
+            except TimeoutError:
+                process.kill()
+                await process.wait()
+                raise
+
+            returncode = process.returncode
+            stdout_text = stdout_bytes.decode("utf-8", errors="replace")
+            stderr_text = stderr_bytes.decode("utf-8", errors="replace")
 
             # Prepare output
             output_parts = []
 
-            if result.stdout:
-                stdout_clean = result.stdout.strip()
+            if stdout_text:
+                stdout_clean = stdout_text.strip()
                 if len(stdout_clean) > 1800:  # Leave room for formatting
                     stdout_clean = stdout_clean[:1800] + "\n... (output truncated)"
                 output_parts.append(f"**STDOUT:**\n```\n{stdout_clean}\n```")
 
-            if result.stderr:
-                stderr_clean = result.stderr.strip()
+            if stderr_text:
+                stderr_clean = stderr_text.strip()
                 if len(stderr_clean) > 1800:
                     stderr_clean = stderr_clean[:1800] + "\n... (output truncated)"
                 output_parts.append(f"**STDERR:**\n```\n{stderr_clean}\n```")
 
-            if result.returncode != 0:
-                output_parts.append(f"**Exit Code:** {result.returncode}")
+            if returncode != 0:
+                output_parts.append(f"**Exit Code:** {returncode}")
 
             if not output_parts:
                 final_output = "✅ Command executed successfully with no output."
@@ -677,10 +691,10 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
 
             # Log successful execution
             logging.info(
-                f"OWNER COMMAND SUCCESS: Command '{full_command}' executed successfully with exit code {result.returncode}"
+                f"OWNER COMMAND SUCCESS: Command '{full_command}' executed successfully with exit code {returncode}"
             )
 
-        except subprocess.TimeoutExpired:
+        except TimeoutError:
             error_msg = "❌ Command timed out after 30 seconds"
             logging.warning(
                 f"OWNER COMMAND TIMEOUT: Command '{full_command}' timed out"
@@ -890,7 +904,9 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
 
             # Get resource statistics with error handling
             try:
-                current_stats = self.bot.resource_monitor.get_resource_stats()
+                current_stats = (
+                    await self.bot.resource_monitor.get_resource_stats_async()
+                )
                 if not current_stats:
                     raise ExternalServiceError(
                         message="❌ Resource monitor returned empty statistics"

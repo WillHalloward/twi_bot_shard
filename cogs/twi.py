@@ -5,6 +5,7 @@ password retrieval for Patreon supporters, wiki searches, invisible text lookup,
 and other TWI-specific functionality.
 """
 
+import asyncio
 import datetime
 import json
 import logging
@@ -32,6 +33,11 @@ from utils.permissions import (
 
 def google_search(search_term, api_key, cse_id, **kwargs) -> dict:
     """Perform a Google Custom Search using the provided API credentials.
+
+    BLOCKING: the googleapiclient calls here are synchronous network I/O.
+    Async callers must run this in a worker thread, e.g.
+    ``await asyncio.to_thread(google_search, ...)``, to avoid freezing the
+    event loop.
 
     Args:
         search_term (str): The search query to execute
@@ -289,6 +295,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
         name="wiki",
         description="Searches the The Wandering Inn wiki for a matching article.",
     )
+    @app_commands.checks.cooldown(1, 20.0, key=lambda i: i.user.id)
     @handle_interaction_errors
     async def wiki(self, interaction: discord.Interaction, query: str) -> None:
         """Search The Wandering Inn wiki for articles matching the query.
@@ -479,6 +486,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
         description="Does a google search on 'Wanderinginn.com' and returns the results",
     )
     @app_commands.check(app_is_bot_channel)
+    @app_commands.checks.cooldown(1, 30.0, key=lambda i: i.user.id)
     @handle_interaction_errors
     async def find(self, interaction: discord.Interaction, query: str) -> None:
         """Search wanderinginn.com using Google Custom Search.
@@ -515,10 +523,12 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
             # Defer response since Google API calls might take time
             await interaction.response.defer()
 
-            # Perform Google search with error handling
+            # Perform Google search with error handling. google_search is
+            # synchronous (blocking network I/O), so run it in a worker
+            # thread to keep the event loop responsive.
             try:
-                results = google_search(
-                    query, config.google_api_key, config.google_cse_id
+                results = await asyncio.to_thread(
+                    google_search, query, config.google_api_key, config.google_cse_id
                 )
 
                 if not results:

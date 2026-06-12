@@ -271,7 +271,96 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
 
             await interaction.followup.send(status_msg, ephemeral=True)
 
+    def _fetch_work_data(self, ao3_url: str) -> dict[str, Any]:
+        """Fetch an AO3 work and materialize its fields into plain values.
+
+        BLOCKING: this performs synchronous network I/O via the AO3 library —
+        the token refresh, the work fetch, *and* the attribute reads (AO3's
+        work attributes are lazy and can issue requests on first access). It
+        must therefore always run in a worker thread (``asyncio.to_thread``),
+        never directly on the event loop.
+
+        Args:
+            ao3_url: A validated AO3 work URL.
+
+        Returns:
+            A dict of plain (non-lazy) values describing the work.
+
+        Raises:
+            ValidationError: If the URL does not resolve to an AO3 work.
+            ExternalServiceError: If authentication or the fetch fails.
+        """
+        try:
+            self.ao3_session.refresh_auth_token()
+        except Exception as e:
+            logging.error(f"EXTERNAL AO3 ERROR: Failed to refresh auth token: {e}")
+            raise ExternalServiceError(message="Failed to authenticate with AO3") from e
+
+        try:
+            ao3_id = AO3.utils.workid_from_url(ao3_url)
+            work = AO3.Work(ao3_id)
+            work.set_session(self.ao3_session)
+        except AO3.utils.InvalidIdError:
+            raise ValidationError(
+                message="Could not find that work on AO3. Please check the URL and try again."
+            ) from None
+        except Exception as e:
+            logging.error(f"EXTERNAL AO3 ERROR: Failed to create work object: {e}")
+            raise ExternalServiceError(
+                message="Failed to retrieve work information from AO3"
+            ) from e
+
+        # Eagerly materialize every attribute we need while still on the
+        # worker thread, so the async side only ever touches plain values.
+        def grab(name: str) -> Any:
+            try:
+                return getattr(work, name, None)
+            except Exception as e:
+                logging.warning(
+                    f"EXTERNAL AO3 WARNING: Failed to read work.{name}: {e}"
+                )
+                return None
+
+        data: dict[str, Any] = {
+            name: grab(name)
+            for name in (
+                "title",
+                "summary",
+                "url",
+                "rating",
+                "categories",
+                "language",
+                "fandoms",
+                "relationships",
+                "characters",
+                "warnings",
+                "words",
+                "nchapters",
+                "expected_chapters",
+                "comments",
+                "kudos",
+                "bookmarks",
+                "hits",
+                "date_published",
+                "date_updated",
+                "status",
+            )
+        }
+
+        authors: list[dict[str, str | None]] = []
+        for author in grab("authors") or []:
+            try:
+                authors.append(
+                    {"url": getattr(author, "url", None), "text": str(author)}
+                )
+            except Exception:
+                authors.append({"url": None, "text": "Unknown Author"})
+        data["authors"] = authors
+
+        return data
+
     @app_commands.command(name="ao3", description="Posts information about a ao3 work")
+    @app_commands.checks.cooldown(1, 30.0, key=lambda i: i.user.id)
     @handle_interaction_errors
     async def ao3(self, interaction: discord.Interaction, ao3_url: str) -> None:
         """Display detailed information about an Archive of Our Own (AO3) work."""
@@ -296,53 +385,33 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
 
             await interaction.response.defer()
 
-            try:
-                self.ao3_session.refresh_auth_token()
-            except Exception as e:
-                logging.error(
-                    f"EXTERNAL AO3 ERROR: Failed to refresh auth token for user {interaction.user.id}: {e}"
-                )
-                raise ExternalServiceError(
-                    message="Failed to authenticate with AO3"
-                ) from e
-
-            try:
-                ao3_id = AO3.utils.workid_from_url(ao3_url)
-                work = AO3.Work(ao3_id)
-                work.set_session(self.ao3_session)
-            except AO3.utils.InvalidIdError:
-                raise ValidationError(
-                    message="Could not find that work on AO3. Please check the URL and try again."
-                ) from None
-            except Exception as e:
-                logging.error(
-                    f"EXTERNAL AO3 ERROR: Failed to create work object for user {interaction.user.id}: {e}"
-                )
-                raise ExternalServiceError(
-                    message="Failed to retrieve work information from AO3"
-                ) from e
+            # All blocking AO3 network I/O (auth refresh, work fetch, lazy
+            # attribute reads) happens inside this single worker-thread call;
+            # only plain values come back to the event loop.
+            work_data = await asyncio.to_thread(self._fetch_work_data, ao3_url)
 
             try:
                 embed = discord.Embed(
-                    title=work.title or "Unknown Title",
-                    description=(work.summary or "No summary available")[:4096],
+                    title=work_data["title"] or "Unknown Title",
+                    description=(work_data["summary"] or "No summary available")[:4096],
                     color=discord.Color(0x3CD63D),
-                    url=work.url,
+                    url=work_data["url"],
                     timestamp=discord.utils.utcnow(),
                 )
 
                 try:
                     authors = []
-                    for author in work.authors or []:
+                    for author in work_data["authors"]:
                         try:
                             author_match = re.search(
-                                r"https?://archiveofourown\.org/users/(\w+)", author.url
+                                r"https?://archiveofourown\.org/users/(\w+)",
+                                author["url"] or "",
                             )
                             if author_match:
                                 author_name = author_match.group(1)
-                                authors.append(f"[{author_name}]({author.url})")
+                                authors.append(f"[{author_name}]({author['url']})")
                             else:
-                                authors.append(str(author))
+                                authors.append(author["text"])
                         except (AttributeError, TypeError):
                             authors.append("Unknown Author")
 
@@ -360,16 +429,20 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
 
                 try:
                     embed.add_field(
-                        name="Rating", value=work.rating or "Not Rated", inline=True
+                        name="Rating",
+                        value=work_data["rating"] or "Not Rated",
+                        inline=True,
                     )
                     embed.add_field(
                         name="Category",
-                        value=", ".join(work.categories) if work.categories else "None",
+                        value=", ".join(work_data["categories"])
+                        if work_data["categories"]
+                        else "None",
                         inline=True,
                     )
                     embed.add_field(
                         name="Language",
-                        value=work.language or "Unknown",
+                        value=work_data["language"] or "Unknown",
                         inline=True,
                     )
                 except Exception as e:
@@ -378,8 +451,8 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
                     )
 
                 try:
-                    if work.fandoms:
-                        fandoms_text = "\n".join(work.fandoms)[:1024]
+                    if work_data["fandoms"]:
+                        fandoms_text = "\n".join(work_data["fandoms"])[:1024]
                         embed.add_field(
                             name="Fandoms", value=fandoms_text, inline=False
                         )
@@ -389,16 +462,18 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
                     )
 
                 try:
-                    if work.relationships:
-                        relationships_text = "\n".join(work.relationships)[:1024]
+                    if work_data["relationships"]:
+                        relationships_text = "\n".join(work_data["relationships"])[
+                            :1024
+                        ]
                         embed.add_field(
                             name="Relationships",
                             value=relationships_text,
                             inline=False,
                         )
 
-                    if work.characters:
-                        characters_text = "\n".join(work.characters)[:1024]
+                    if work_data["characters"]:
+                        characters_text = "\n".join(work_data["characters"])[:1024]
                         embed.add_field(
                             name="Characters", value=characters_text, inline=False
                         )
@@ -408,8 +483,8 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
                     )
 
                 try:
-                    if work.warnings:
-                        warnings_text = "\n".join(work.warnings)
+                    if work_data["warnings"]:
+                        warnings_text = "\n".join(work_data["warnings"])
                         embed.add_field(
                             name="Warnings", value=warnings_text[:1024], inline=False
                         )
@@ -420,21 +495,21 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
 
                 try:
                     stats_text = []
-                    if hasattr(work, "words") and work.words:
-                        stats_text.append(f"**Words:** {int(work.words):,}")
-                    if hasattr(work, "nchapters") and work.nchapters:
-                        expected = (
-                            work.expected_chapters if work.expected_chapters else "?"
+                    if work_data["words"]:
+                        stats_text.append(f"**Words:** {int(work_data['words']):,}")
+                    if work_data["nchapters"]:
+                        expected = work_data["expected_chapters"] or "?"
+                        stats_text.append(
+                            f"**Chapters:** {work_data['nchapters']}/{expected}"
                         )
-                        stats_text.append(f"**Chapters:** {work.nchapters}/{expected}")
-                    if hasattr(work, "comments") and work.comments is not None:
-                        stats_text.append(f"**Comments:** {work.comments}")
-                    if hasattr(work, "kudos") and work.kudos is not None:
-                        stats_text.append(f"**Kudos:** {work.kudos}")
-                    if hasattr(work, "bookmarks") and work.bookmarks is not None:
-                        stats_text.append(f"**Bookmarks:** {work.bookmarks}")
-                    if hasattr(work, "hits") and work.hits is not None:
-                        stats_text.append(f"**Hits:** {work.hits}")
+                    if work_data["comments"] is not None:
+                        stats_text.append(f"**Comments:** {work_data['comments']}")
+                    if work_data["kudos"] is not None:
+                        stats_text.append(f"**Kudos:** {work_data['kudos']}")
+                    if work_data["bookmarks"] is not None:
+                        stats_text.append(f"**Bookmarks:** {work_data['bookmarks']}")
+                    if work_data["hits"] is not None:
+                        stats_text.append(f"**Hits:** {work_data['hits']}")
 
                     if stats_text:
                         embed.add_field(
@@ -449,16 +524,16 @@ class ExternalServices(BaseCog, name="ExternalServices"):  # type: ignore[call-a
 
                 try:
                     date_text = []
-                    if hasattr(work, "date_published") and work.date_published:
+                    if work_data["date_published"]:
                         date_text.append(
-                            f"**Published:** {work.date_published.strftime('%Y-%m-%d')}"
+                            f"**Published:** {work_data['date_published'].strftime('%Y-%m-%d')}"
                         )
-                    if hasattr(work, "date_updated") and work.date_updated:
+                    if work_data["date_updated"]:
                         date_text.append(
-                            f"**Updated:** {work.date_updated.strftime('%Y-%m-%d')}"
+                            f"**Updated:** {work_data['date_updated'].strftime('%Y-%m-%d')}"
                         )
-                    if hasattr(work, "status") and work.status:
-                        date_text.append(f"**Status:** {work.status}")
+                    if work_data["status"]:
+                        date_text.append(f"**Status:** {work_data['status']}")
 
                     if date_text:
                         embed.add_field(
