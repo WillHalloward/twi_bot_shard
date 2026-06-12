@@ -279,7 +279,6 @@ async def test_load_cogs() -> tuple[list[str], dict[str, Exception]]:
         "cogs.stats",
         "cogs.creator_links",
         "cogs.report",
-        "cogs.summarization",
         "cogs.settings",
         "cogs.interactive_help",
     ]

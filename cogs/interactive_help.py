@@ -299,13 +299,6 @@ class InteractiveHelp(commands.Cog):
                     "permissions": "Ban Members",
                 },
                 {
-                    "name": "moderate",
-                    "syntax": "/moderate [num_messages=50]",
-                    "short_description": "AI-check recent messages for rule violations",
-                    "description": "Analyzes the last X messages in the channel for potential rule violations using AI.",
-                    "examples": ["/moderate", "/moderate 100"],
-                },
-                {
                     "name": "Report Message",
                     "syntax": "Right-click a message → Apps → Report Message",
                     "short_description": "Report a message to the moderators",
@@ -376,13 +369,6 @@ class InteractiveHelp(commands.Cog):
                     "short_description": "Show role information",
                     "description": "Gives information about a role.",
                     "examples": ["/info role @Members"],
-                },
-                {
-                    "name": "summarize",
-                    "syntax": "/summarize [num_messages=50]",
-                    "short_description": "Summarize recent messages",
-                    "description": "Summarizes the last X messages in the channel using AI.",
-                    "examples": ["/summarize", "/summarize 100"],
                 },
                 {
                     "name": "User info",

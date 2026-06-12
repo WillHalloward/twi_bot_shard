@@ -255,7 +255,7 @@ Supported lazy-loaded commands include:
 - `other` -> `cogs.other`
 - `creator_links` -> `cogs.creator_links`
 - `report` -> `cogs.report`
-- `summarization` -> `cogs.summarization`
+- `set_log_channel`, `clear_log_channel` -> `cogs.message_log`
 
 ## Error Response Configuration
 

@@ -15,7 +15,6 @@ Cognita is a feature-rich Discord bot that provides various utilities for "The W
 - Creator links management
 - Reporting functionality
 - Innktober event features
-- Text summarization
 
 ## Quick Start
 

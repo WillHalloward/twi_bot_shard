@@ -139,7 +139,7 @@ GOOGLE_CSE_ID=your_google_cse_id
 
 ### OpenAI Integration
 
-Required for: AI-powered features, summarization
+Required for: schema-search embeddings and the owner-only `ask_database` command (`utils/schema_search.py`)
 
 ```env
 OPENAI_API_KEY=your_openai_api_key

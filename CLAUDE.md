@@ -389,7 +389,7 @@ The bot integrates with:
 - Twitter/X API
 - DeviantArt
 - AO3 (Archive of Our Own)
-- OpenAI API for summarization
+- OpenAI API (schema-search embeddings for the owner-only `ask_database` command)
 
 All external calls use the shared HTTP client with proper timeout handling.
 

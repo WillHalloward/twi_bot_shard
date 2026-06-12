@@ -15,7 +15,6 @@ This document provides comprehensive documentation for all features and commands
 - [Quotes](#quotes)
 - [Moderation](#moderation)
 - [Reporting](#reporting)
-- [Summarization](#summarization)
 - [Statistics](#statistics)
 - [Server Settings](#server-settings)
 - [Help System](#help-system)
@@ -719,38 +718,6 @@ Right-click on any message to report it to moderators.
 
 ---
 
-## Summarization
-
-AI-powered conversation summarization and moderation using OpenAI.
-
-### /summarize
-
-Summarizes the last X messages in the channel using AI.
-
-**Usage:** `/summarize [num_messages]`
-
-**Parameters:**
-- `num_messages` (optional): The number of messages to summarize (default: 50)
-
-**Permissions:** Everyone
-
-**Example:** `/summarize 100`
-
-### /moderate
-
-Analyzes the last X messages for potential rule violations.
-
-**Usage:** `/moderate [num_messages]`
-
-**Parameters:**
-- `num_messages` (optional): The number of messages to check for rule violations (default: 50)
-
-**Permissions:** Mod (response is ephemeral - only visible to the user who ran it)
-
-**Example:** `/moderate 100`
-
----
-
 ## Statistics
 
 Statistics are automatically tracked by the bot. The stats system monitors server activity including messages, members, channels, roles, and more.
@@ -846,7 +813,7 @@ Displays an interactive help system with command categories.
 
 **Permissions:** Everyone
 
-**Example:** `/help summarize`
+**Example:** `/help wiki`
 
 **Features:**
 - **Category Selection**: A dropdown menu to browse commands by category

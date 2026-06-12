@@ -31,7 +31,6 @@ from utils.schema_search import (
 )
 
 cogs = [
-    "cogs.summarization",
     "cogs.gallery",
     "cogs.links_tags",
     "cogs.patreon_poll",

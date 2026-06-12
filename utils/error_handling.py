@@ -896,7 +896,6 @@ async def handle_global_app_command_error(
                 "other": "cogs.other",
                 "creator_links": "cogs.creator_links",
                 "report": "cogs.report",
-                "summarization": "cogs.summarization",
                 "set_log_channel": "cogs.message_log",
                 "clear_log_channel": "cogs.message_log",
             }
