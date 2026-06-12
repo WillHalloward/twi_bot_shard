@@ -302,13 +302,6 @@ AO3_PASSWORD=your_ao3_password
 # OpenAI
 OPENAI_API_KEY=your_openai_api_key
 
-# Reddit/DeviantArt OAuth
-CLIENT_ID=your_client_id
-CLIENT_SECRET=your_client_secret
-USER_AGENT=your_user_agent
-USERNAME=your_username
-PASSWORD=your_password
-
 # Webhooks
 WEBHOOK_TESTING_LOG=your_webhook_testing_log
 WEBHOOK=your_webhook
