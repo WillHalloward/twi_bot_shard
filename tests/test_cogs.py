@@ -280,7 +280,9 @@ async def test_load_cogs() -> tuple[list[str], dict[str, Exception]]:
         "cogs.creator_links",
         "cogs.report",
         "cogs.settings",
+        "cogs.message_log",
         "cogs.interactive_help",
+        "cogs.heartbeat",
     ]
 
     # Create a test bot instance
@@ -303,6 +305,12 @@ async def test_load_cogs() -> tuple[list[str], dict[str, Exception]]:
 
     # Clean up
     await bot.close()
+
+    # Fail the test (under pytest) if any cog failed to load. The return value
+    # below is kept for the script-mode main() entry point.
+    assert not failed_cogs, "cogs failed to load: " + ", ".join(
+        f"{cog}: {type(e).__name__} - {e}" for cog, e in failed_cogs.items()
+    )
 
     return successful_cogs, failed_cogs
 

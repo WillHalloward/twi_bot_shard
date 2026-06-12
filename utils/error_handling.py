@@ -160,8 +160,39 @@ def detect_sensitive_info(text: str) -> bool:
     return any(pattern.search(text) for pattern in SENSITIVE_PATTERNS)
 
 
+def _redact_match(match: re.Match[str]) -> str:
+    """Build the redacted replacement for a single sensitive-pattern match.
+
+    Works for every pattern in SENSITIVE_PATTERNS regardless of whether it
+    defines capture groups: if the pattern captured an identifying label
+    (e.g. ``api_key`` or ``postgres``), the label is kept and the value
+    portion is redacted; otherwise the whole match is redacted.
+
+    Args:
+        match: The regex match to redact
+
+    Returns:
+        The replacement string for the match
+    """
+    label = match.group(1) if match.re.groups else None
+    if label:
+        return f"{label}: [REDACTED]"
+    return "[REDACTED]"
+
+
+# Safety cap for the redaction fixpoint loop. Convergence is normally reached
+# in 1-2 passes; the cap only guards against pathological inputs.
+_MAX_REDACTION_PASSES = 10
+
+
 def redact_sensitive_info(text: str) -> str:
     """Redact sensitive information from a string.
+
+    A single substitution pass can itself produce text that still matches a
+    pattern (e.g. ``//a`` -> ``/[REDACTED]``, which the path pattern matches
+    again), so substitution is repeated until a fixpoint is reached. This
+    guarantees the result no longer triggers detect_sensitive_info() and that
+    redaction is idempotent.
 
     Args:
         text: The text to redact
@@ -174,13 +205,12 @@ def redact_sensitive_info(text: str) -> str:
 
     redacted_text = text
 
-    for pattern in SENSITIVE_PATTERNS:
-        try:
-            # Try to use the first capture group in the replacement
-            redacted_text = pattern.sub(r"\1: [REDACTED]", redacted_text)
-        except re.error:
-            # If there's no capture group, replace the entire match
-            redacted_text = pattern.sub("[REDACTED]", redacted_text)
+    for _ in range(_MAX_REDACTION_PASSES):
+        previous = redacted_text
+        for pattern in SENSITIVE_PATTERNS:
+            redacted_text = pattern.sub(_redact_match, redacted_text)
+        if redacted_text == previous:
+            break
 
     return redacted_text
 

@@ -27,6 +27,14 @@ except ImportError:
 import discord
 from discord.ext import commands
 
+# Deterministic test data: seed both Faker and the random module so that
+# behavior-relevant branches (mention_everyone 5%, pinned 2%, edited_at 10%,
+# avatar 70%, ...) are reproducible across runs instead of a latent flake
+# class. The factory API is unchanged.
+MOCK_DATA_SEED = 1337
+Faker.seed(MOCK_DATA_SEED)
+random.seed(MOCK_DATA_SEED)
+
 # Create a Faker instance
 fake = Faker()
 
