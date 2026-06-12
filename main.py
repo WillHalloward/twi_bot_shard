@@ -15,6 +15,7 @@ import logging
 import logging.handlers
 import os
 import platform
+import signal
 import ssl
 import sys
 import time
@@ -1138,6 +1139,43 @@ async def main() -> None:
 
                 # Schedule the kill task
                 bot.loop.create_task(kill_bot_after_delay())
+
+            # Graceful shutdown on SIGTERM/SIGINT. Railway sends SIGTERM on
+            # every deploy/restart, and as PID 1 in the container an unhandled
+            # SIGTERM is ignored (the kernel applies no default disposition to
+            # PID 1), so the bot previously sat out the stop-grace window and
+            # was SIGKILLed mid-write. Closing the bot lets bot.start() return,
+            # which unwinds the async-with blocks above (HTTP client, asyncpg
+            # pool) cleanly.
+            loop = asyncio.get_running_loop()
+            shutdown_tasks: list[asyncio.Task[None]] = []
+
+            def request_shutdown(sig: signal.Signals) -> None:
+                """Signal handler that initiates a graceful bot shutdown.
+
+                Restores default signal behavior after the first signal so a
+                repeated signal can still force-terminate a hung shutdown.
+
+                Args:
+                    sig: The signal that triggered the shutdown.
+                """
+                root_logger.info(f"Received {sig.name}; shutting down gracefully")
+                for s in (signal.SIGTERM, signal.SIGINT):
+                    loop.remove_signal_handler(s)
+                # Retain the task reference so it cannot be GC-cancelled.
+                shutdown_tasks.append(asyncio.create_task(bot.close()))
+
+            try:
+                for sig in (signal.SIGTERM, signal.SIGINT):
+                    loop.add_signal_handler(sig, request_shutdown, sig)
+            except NotImplementedError:
+                # add_signal_handler is unavailable on Windows event loops;
+                # deploys run on Linux, so this only affects local dev.
+                root_logger.warning(
+                    "Signal handlers unsupported on this platform; "
+                    "graceful shutdown on SIGTERM disabled"
+                )
+
             await bot.start(config.bot_token)
 
 
