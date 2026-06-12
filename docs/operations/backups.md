@@ -30,7 +30,7 @@ Backups land in a **Railway Bucket** in the same environment, under
 | Environment | Bucket | Status |
 |---|---|---|
 | staging | `db-backups` (created 2026-06-12, region sjc) | **Active** |
-| production | — | **NOT yet enabled** — see [Enabling on production](#enabling-on-production) |
+| production | `db-backups-prod` (created 2026-06-12, region sjc) | **Active** — restore drill **PASSED** 2026-06-12 (see [History](#history)) |
 
 Variables on the `pgvector` service (staging values shown as references):
 
@@ -85,30 +85,54 @@ Use when bad data was written and you want to rewind the cluster.
 ### B. Full restore to a NEW service (disaster recovery / drill)
 
 Use when the volume is lost or you want a side-by-side copy (this is also the
-restore-drill procedure).
+restore-drill procedure). **Drilled successfully 2026-06-12 against the
+production bucket** — the gotchas below are from that drill, learn from them.
 
 1. Create a new Railway service from the same image
    (`docker/postgres-ssl-logs/`, or `ghcr.io/railwayapp-templates/postgres-ssl:18`)
    with a **fresh volume** mounted at `/var/lib/postgresql/data` and
    `PGDATA=/var/lib/postgresql/data/pgdata`.
-2. Point it at the **source** cluster's backups with the recover-from family:
+2. Point it at the **source** cluster's backups with the recover-from family,
+   **setting ALL variables before the first deploy onto the empty volume**
+   (set them with deploys skipped / in one batch — see gotcha ⚠2):
    ```
-   WAL_RECOVER_FROM_BUCKET   = <source bucket name>        # e.g. db-backups-5ddktvrgp3vwo3
+   WAL_RECOVER_FROM_BUCKET   = <source bucket name>        # e.g. db-backups-prod-uxoh9zqh3
    WAL_RECOVER_FROM_KEY      = <source ACCESS_KEY_ID>
    WAL_RECOVER_FROM_SECRET   = <source SECRET_ACCESS_KEY>
    WAL_RECOVER_FROM_REGION   = <source region>             # sjc
    WAL_RECOVER_FROM_ENDPOINT = storage.railway.app
    WAL_RECOVER_FROM_S3_URI_STYLE = host
-   WAL_RECOVER_FROM_PATH     = /pgbackrest/cluster-<sysid> # see bucket layout
+   WAL_RECOVER_FROM_PATH     = /pgbackrest/cluster-<sysid> # from "pgbackrest: using repo1-path=" in source logs
+   POSTGRES_RECOVERY_TARGET_TIME = <ISO 8601, e.g. 2026-06-12 20:50:00+00:00>
+   POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD = <match source>
    ```
-   Optionally add `POSTGRES_RECOVERY_TARGET_TIME` for PITR into the copy.
-3. Deploy; the image restores the latest base backup and replays WAL.
-4. Verify: row counts on key tables (`messages`, `users`, `servers`),
-   `SELECT max(created_at) FROM messages;` close to the incident time.
+   - ⚠1 **`POSTGRES_RECOVERY_TARGET_TIME` is REQUIRED, not optional** — the
+     image's restore gate (`wrapper.sh` `restore_from_pgbackrest_if_empty_volume`)
+     returns early without it and **silently falls through to a fresh initdb**.
+     For "latest possible", pick a timestamp safely in the future of the last
+     WAL flush — replay stops at end-of-archive.
+   - ⚠2 **The volume must still be EMPTY when the fully-configured deploy
+     boots.** Any boot with partial config initdb's a fresh cluster onto the
+     volume, which permanently disarms the restore gate (`PG_VERSION` present
+     → skip). If that happens: delete + recreate the volume and redeploy.
+3. Deploy; the wrapper logs `restoring from source bucket (target=…)`,
+   restores the base backup (`--delta --type=time --target-action=promote`),
+   replays WAL to the target, and promotes. Confirm via the
+   `pgbackrest: restore-gate …` log line — it prints exactly why the restore
+   did or didn't run.
+4. Verify (drilled method): give the copy a temporary TCP proxy
+   (dashboard → service → Settings → TCP proxy, or the `tcpProxyCreate` API —
+   note `railway ssh` mangles SQL quoting and won't forward stdin), then:
+   - `SELECT pg_is_in_recovery();` → must be `false` (promoted)
+   - **Exact-match check**: `SELECT count(*) FROM messages WHERE created_at <
+     timestamp '<recovery target>';` must equal the same query on the live
+     source — this is insert-only data, so the counts match exactly.
+   - `SELECT max(created_at) FROM messages;` → just under the target time.
 5. To **promote** the copy to be the real DB: update the bot's
    `DATABASE_URL`/`DB_*` to the new service (and enable `WAL_ARCHIVE_*` on it
    with a **new or emptied bucket path** — never have two clusters archiving
-   to the same path).
+   to the same path). For a drill: tear down the service, its volume(s), and
+   the TCP proxy.
 
 ### C. Revert the image itself (if postgres-ssl misbehaves)
 
@@ -117,28 +141,36 @@ command `/bin/sh -c "unset PGPORT; docker-entrypoint.sh postgres --port=5432"`
 (see `docker/postgres-ssl-logs/README.md`). Data on the volume is untouched;
 this only swaps the runtime image. Backups stop while reverted.
 
-## Enabling on production
+## Production enablement notes (done 2026-06-12)
 
-Production is **not yet enabled** (requires a production-DB restart — do in a
-quiet window):
+Production is **active**. Operational lessons from the enablement, for the
+next environment or re-enablement:
 
-1. Create a bucket in the **production** environment (e.g. `db-backups`).
-2. Set the same six `WAL_ARCHIVE_*` variables on production `pgvector`
-   (references to the production bucket; same literal endpoint + uri-style).
-3. Deploy the `docker/postgres-ssl-logs/` image to production `pgvector`
-   (`cd docker/postgres-ssl-logs && railway link … --environment production
-   --service pgvector && railway up -d`).
-4. Verify per [Verifying backups](#verifying-backups-are-healthy); confirm the
-   initial full backup completes (watcher logs).
-5. Schedule a restore drill (procedure B) within the first week.
+- **Set the start command explicitly** (`/usr/local/bin/pg-log-entrypoint.sh`)
+  on the service — the first prod deploy kept the old dashboard start command
+  (`docker-entrypoint.sh postgres`), which **bypasses `wrapper.sh` entirely**:
+  Postgres ran fine but SSL/pgBackRest init silently never happened. The
+  tell-tale: no `pgbackrest:` lines and raw (unshipped) log format.
+- **Collation check after image swaps**: a transient deployment ran a
+  glibc-2.36 runtime against the 2.41-initialized cluster (warnings:
+  "collation version mismatch"). Remediated 2026-06-12: `REINDEX INDEX
+  CONCURRENTLY` on all 22 collation-dependent indexes (49 s) +
+  `ALTER DATABASE railway REFRESH COLLATION VERSION` + `ALTER COLLATION
+  "en_US"/"en_US.utf8" REFRESH VERSION`. Verify with:
+  `SELECT count(*) FROM pg_collation WHERE collprovider='c' AND collversion
+  IS DISTINCT FROM pg_collation_actual_version(oid);` → must be 0.
+  (The image's own `collation-refresh` hook currently fails with a /tmp
+  permission error — upstream bug, do it manually.)
 
-## RPO / RTO
+## RPO / RTO (measured)
 
 - **RPO**: ≤ ~60 s of writes (continuous WAL archiving with
   `archive_timeout=60`), assuming archiving is healthy — hence the
   `pg_stat_archiver` check above.
-- **RTO**: a procedure-B restore is bounded by base-backup size + WAL replay;
-  measure it during the first drill and record the number here.
+- **RTO** (measured in the 2026-06-12 drill, 13 GB database): **~9.5 min**
+  machine time — 8 m 06 s base-backup restore from the bucket + ~1.5 min WAL
+  replay & promote — plus operator time to create the service/volume/vars.
+  First full backup of the 13 GB prod DB took 4 m 54 s.
 
 ## History
 
@@ -146,3 +178,14 @@ quiet window):
   switched from `pgvector/pgvector:pg18` to the repo's postgres-ssl-logs
   image). Audit item 0.1 (G7 — previously the weakest finding: the only
   "backup" was a 0-byte dump).
+- **2026-06-12 (evening)** — production backups activated (bucket
+  `db-backups-prod`); start-command and collation remediations applied (see
+  enablement notes). First full backup 13 GB / 294 s.
+- **2026-06-12 (evening)** — **restore drill PASSED**: PITR restore of the
+  production backup to a throwaway service (`target=20:50:00Z`,
+  `--target-action=promote`). Verification: time-filtered message count
+  matched live production **exactly** (19,005,224 = 19,005,224), users exact
+  (23,061), `max(created_at)` = 20:49:36 (< target), promoted cleanly.
+  Drill service/volumes/proxy torn down after. (One detached 0 MB drill
+  volume resisted API deletion — harmless; remove via dashboard if it
+  lingers.)
