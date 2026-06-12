@@ -44,6 +44,142 @@ cogs = [
     "cogs.innktober",
 ]
 
+# ---------------------------------------------------------------------------
+# SQL safety guard — shared by /admin sql and /admin ask_db.
+#
+# /admin ask_db executes LLM-generated SQL, so "SELECT-only" must be enforced
+# server-side here, never by the prompt alone (audit finding F2c).
+# ---------------------------------------------------------------------------
+
+#: Maximum accepted query length, in characters.
+MAX_SQL_QUERY_LENGTH = 5000
+
+#: Statement types that are considered read-only by first word.
+READ_ONLY_OPERATIONS: frozenset[str] = frozenset(
+    {"SELECT", "WITH", "EXPLAIN", "ANALYZE"}
+)
+
+#: Statement types that /admin sql only runs with allow_modifications=True.
+MODIFICATION_OPERATIONS: frozenset[str] = frozenset(
+    {"INSERT", "UPDATE", "DELETE", "TRUNCATE", "DROP", "CREATE", "ALTER"}
+)
+
+#: Write keywords that must not appear (as words) anywhere in a query that
+#: contains a CTE — PostgreSQL allows data-modifying statements inside
+#: top-level CTEs, so a first-word check alone misses
+#: ``WITH x AS (... DELETE ...) SELECT ...`` (audit finding F2c-secondary).
+SQL_WRITE_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "MERGE",
+        "TRUNCATE",
+        "DROP",
+        "ALTER",
+        "CREATE",
+        "GRANT",
+        "REVOKE",
+    }
+)
+
+#: Regex blocklist: multi-statement chains, comment-hidden operations,
+#: information_schema probing, and PostgreSQL system functions.
+DANGEROUS_SQL_PATTERNS: tuple[str, ...] = (
+    r";\s*(DROP|DELETE|TRUNCATE|ALTER)",  # Multiple statements with dangerous operations
+    r"--\s*[^\r\n]*(?:DROP|DELETE|TRUNCATE)",  # Comments hiding dangerous operations
+    r"/\*.*(?:DROP|DELETE|TRUNCATE).*\*/",  # Block comments hiding dangerous operations
+    r"UNION.*SELECT.*FROM.*information_schema",  # Information schema access
+    r"pg_sleep|pg_terminate_backend",  # PostgreSQL system functions
+)
+
+
+def find_dangerous_sql_pattern(query: str) -> str | None:
+    """Return the first DANGEROUS_SQL_PATTERNS regex that matches, or None."""
+    for pattern in DANGEROUS_SQL_PATTERNS:
+        if re.search(pattern, query, re.IGNORECASE | re.DOTALL):
+            return pattern
+    return None
+
+
+def find_write_keyword_in_cte(query: str) -> str | None:
+    """If the query contains a CTE, return any write keyword found as a word.
+
+    Returns None when the query has no ``WITH`` clause or contains no write
+    keywords. Word-boundary matching keeps column names like ``updated_at`` or
+    ``created_at`` from triggering false positives, while string literals
+    containing bare write keywords are rejected conservatively.
+    """
+    if not re.search(r"\bWITH\b", query, re.IGNORECASE):
+        return None
+    for keyword in sorted(SQL_WRITE_KEYWORDS):
+        if re.search(rf"\b{keyword}\b", query, re.IGNORECASE):
+            return keyword
+    return None
+
+
+def validate_read_only_sql(query: str) -> str:
+    """Validate that ``query`` is a single, read-only SQL statement.
+
+    Rules:
+    1. Non-empty and at most MAX_SQL_QUERY_LENGTH characters.
+    2. Single statement only — no ``;`` except optional trailing one(s).
+    3. First word must be in READ_ONLY_OPERATIONS.
+    4. No DANGEROUS_SQL_PATTERNS regex may match.
+    5. If the query contains a CTE, no SQL_WRITE_KEYWORDS may appear anywhere
+       as a word (closes the writable-CTE bypass).
+
+    Args:
+        query: The SQL text to validate.
+
+    Returns:
+        The stripped query (without any trailing semicolons), safe to execute
+        on a read-only basis.
+
+    Raises:
+        ValidationError: If any rule is violated.
+    """
+    cleaned = query.strip()
+    if not cleaned:
+        raise ValidationError(message="SQL query cannot be empty")
+    if len(cleaned) > MAX_SQL_QUERY_LENGTH:
+        raise ValidationError(
+            message=f"Query too long (maximum {MAX_SQL_QUERY_LENGTH} characters)"
+        )
+
+    # Allow a trailing semicolon but reject anything after one (multi-statement).
+    body = cleaned.rstrip(";").rstrip()
+    if ";" in body:
+        raise ValidationError(
+            message="Multi-statement queries are not allowed (';' found mid-query)"
+        )
+
+    words = body.split()
+    first_word = words[0].upper() if words else ""
+    if first_word not in READ_ONLY_OPERATIONS:
+        raise ValidationError(
+            message=(
+                f"Query type '{first_word}' is not read-only; "
+                f"only {', '.join(sorted(READ_ONLY_OPERATIONS))} are allowed"
+            )
+        )
+
+    if find_dangerous_sql_pattern(body) is not None:
+        raise ValidationError(
+            message="Query contains potentially dangerous SQL patterns"
+        )
+
+    keyword = find_write_keyword_in_cte(body)
+    if keyword is not None:
+        raise ValidationError(
+            message=(
+                f"Query contains a CTE together with write keyword '{keyword}' "
+                "(writable CTEs are not allowed)"
+            )
+        )
+
+    return body
+
 
 class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     """Bot-owner administration commands (cog loading, command sync, SQL console, resource stats, shutdown)."""
@@ -1126,28 +1262,13 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         query = query.strip()
 
         # Validate query length
-        if len(query) > 5000:
-            raise ValidationError(message="Query too long (maximum 5000 characters)")
+        if len(query) > MAX_SQL_QUERY_LENGTH:
+            raise ValidationError(
+                message=f"Query too long (maximum {MAX_SQL_QUERY_LENGTH} characters)"
+            )
 
         # Normalize query for analysis
         query_upper = query.upper().strip()
-
-        # Define allowed and dangerous query types
-        READ_ONLY_OPERATIONS = {  # noqa: N806 - in-function security constant
-            "SELECT",
-            "WITH",
-            "EXPLAIN",
-            "ANALYZE",
-        }
-        MODIFICATION_OPERATIONS = {  # noqa: N806 - in-function security constant
-            "INSERT",
-            "UPDATE",
-            "DELETE",
-            "TRUNCATE",
-            "DROP",
-            "CREATE",
-            "ALTER",
-        }
 
         # Determine query type
         first_word = query_upper.split()[0] if query_upper.split() else ""
@@ -1161,23 +1282,27 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
                 message=f"Query type '{first_word}' requires allow_modifications=True for safety"
             )
 
-        # Additional security pattern checks
-        dangerous_patterns = [
-            r";\s*(DROP|DELETE|TRUNCATE|ALTER)",  # Multiple statements with dangerous operations
-            r"--\s*[^\r\n]*(?:DROP|DELETE|TRUNCATE)",  # Comments hiding dangerous operations
-            r"/\*.*(?:DROP|DELETE|TRUNCATE).*\*/",  # Block comments hiding dangerous operations
-            r"UNION.*SELECT.*FROM.*information_schema",  # Information schema access
-            r"pg_sleep|pg_terminate_backend",  # PostgreSQL system functions
-        ]
-
-        for pattern in dangerous_patterns:
-            if re.search(pattern, query_upper, re.IGNORECASE | re.DOTALL):
+        # Writable-CTE bypass (audit F2c-secondary): the first-word check above
+        # classifies "WITH x AS (... DELETE ...) SELECT ..." as read-only, but
+        # PostgreSQL executes data-modifying statements inside top-level CTEs.
+        if not allow_modifications:
+            cte_write_keyword = find_write_keyword_in_cte(query)
+            if cte_write_keyword is not None:
                 logging.warning(
-                    f"SECURITY: Dangerous SQL pattern detected in query by owner {interaction.user.id}"
+                    f"SECURITY: Writable CTE (keyword '{cte_write_keyword}') attempted by owner {interaction.user.id} without permission"
                 )
-                raise ValidationError(
-                    message="Query contains potentially dangerous SQL patterns"
+                raise PermissionError(
+                    message=f"Query contains a CTE with write keyword '{cte_write_keyword}'; requires allow_modifications=True for safety"
                 )
+
+        # Additional security pattern checks
+        if find_dangerous_sql_pattern(query_upper) is not None:
+            logging.warning(
+                f"SECURITY: Dangerous SQL pattern detected in query by owner {interaction.user.id}"
+            )
+            raise ValidationError(
+                message="Query contains potentially dangerous SQL patterns"
+            )
 
         # Log the query execution attempt
         logging.info(
@@ -1446,6 +1571,29 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
                 await interaction.edit_original_response(content=response)
                 logging.info(
                     f"OWNER ASK_DB: AI determined query not possible for question: '{question}'"
+                )
+                return
+
+            # Step 3.5: Server-side read-only guard on the generated SQL.
+            # The prompt instructs the AI to produce SELECT-only queries, but a
+            # hallucinated or prompt-injected response must never reach the
+            # database unchecked (audit finding F2c).
+            try:
+                sql_query = validate_read_only_sql(sql_query)
+            except ValidationError as e:
+                logging.warning(
+                    f"OWNER ASK_DB SECURITY: Rejected generated SQL for user {interaction.user.id} "
+                    f"(reason: {e}): {sql_query}"
+                )
+                await interaction.edit_original_response(
+                    content="❌ **Blocked:** the generated SQL failed the read-only safety check and was not executed."
+                )
+                await interaction.followup.send(
+                    f"❌ **Generated SQL rejected by read-only guard**\n"
+                    f"**Reason:** {e}\n"
+                    f"**Generated SQL:**\n```sql\n{sql_query[:1500]}\n```\n"
+                    "Only single read-only statements (SELECT/WITH/EXPLAIN/ANALYZE, no writable CTEs) are executed.",
+                    ephemeral=True,
                 )
                 return
 

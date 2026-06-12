@@ -19,12 +19,18 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Discord components
 
-# Import the cog to test
-from cogs.owner import OwnerCog
+# Import the cog to test.
+# Keep a reference to the module object itself: earlier tests' teardown can
+# unload the "cogs.owner" extension (which removes it from sys.modules), after
+# which patch("cogs.owner.<name>") would patch a freshly re-imported module
+# instead of the one OwnerCog (imported here) actually closes over.
+import cogs.owner as owner_module
+from cogs.owner import OwnerCog, validate_read_only_sql
 
 # Import test utilities
 from tests.mock_factories import MockInteractionFactory
 from tests.test_utils import TestSetup, TestTeardown
+from utils.exceptions import ValidationError
 
 
 class TestOwnerCogLoad:
@@ -460,6 +466,86 @@ class TestOwnerCogAskDB:
 
         # Cleanup
         await TestTeardown.teardown_bot(bot)
+
+    @pytest.mark.asyncio
+    async def test_ask_db_blocks_non_read_only_sql(self) -> None:
+        """Generated non-SELECT SQL must be rejected before reaching the DB."""
+        bot = await TestSetup.create_test_bot()
+        bot.db.fetch = AsyncMock(return_value=[])
+
+        cog = await TestSetup.setup_cog(bot, OwnerCog)
+        interaction = MockInteractionFactory.create()
+
+        with (
+            patch.object(
+                owner_module,
+                "check_schema_embeddings_exist",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(
+                owner_module,
+                "search_schema",
+                AsyncMock(return_value=[{"table_name": "users"}]),
+            ),
+            patch.object(
+                owner_module, "generate_sql", AsyncMock(return_value="SQL response")
+            ),
+            patch.object(owner_module, "extract_sql_from_response") as mock_extract,
+        ):
+            mock_extract.return_value = "DROP TABLE users"
+
+            await cog.ask_database.callback(
+                cog, interaction, question="drop the users table"
+            )
+
+            # The dangerous query must never be executed
+            bot.db.fetch.assert_not_called()
+            # The user is told via an ephemeral followup
+            assert any(
+                call.kwargs.get("ephemeral") is True
+                for call in interaction.followup.send.call_args_list
+            )
+
+        await TestTeardown.teardown_bot(bot)
+
+
+class TestReadOnlySqlGuard:
+    """Unit tests for the validate_read_only_sql helper (audit F2c)."""
+
+    def test_accepts_plain_select(self) -> None:
+        """A plain SELECT (with trailing semicolon) passes and is returned stripped."""
+        assert (
+            validate_read_only_sql("SELECT id, content FROM messages LIMIT 10;")
+            == "SELECT id, content FROM messages LIMIT 10"
+        )
+
+    def test_accepts_read_only_cte(self) -> None:
+        """A CTE without write keywords is allowed."""
+        query = "WITH recent AS (SELECT * FROM messages) SELECT count(*) FROM recent"
+        assert validate_read_only_sql(query) == query
+
+    def test_rejects_update(self) -> None:
+        """A first-word write statement is rejected."""
+        with pytest.raises(ValidationError):
+            validate_read_only_sql("UPDATE messages SET deleted = TRUE")
+
+    def test_rejects_multi_statement(self) -> None:
+        """A second statement hidden after a semicolon is rejected."""
+        with pytest.raises(ValidationError):
+            validate_read_only_sql("SELECT 1; DROP TABLE messages")
+
+    def test_rejects_writable_cte(self) -> None:
+        """A data-modifying CTE (first word WITH) is rejected."""
+        with pytest.raises(ValidationError):
+            validate_read_only_sql(
+                "WITH doomed AS (DELETE FROM messages RETURNING id) "
+                "SELECT count(*) FROM doomed"
+            )
+
+    def test_rejects_dangerous_function(self) -> None:
+        """The regex blocklist (pg_sleep) still applies to SELECTs."""
+        with pytest.raises(ValidationError):
+            validate_read_only_sql("SELECT pg_sleep(60)")
 
 
 # Run tests if executed directly
