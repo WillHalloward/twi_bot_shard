@@ -551,3 +551,105 @@ class TestReadOnlySqlGuard:
 # Run tests if executed directly
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
+
+
+class TestAdminCommandGating:
+    """Verify the owner-only vs moderator-OK split on /admin commands.
+
+    Owner-only: cmd, sql, ask_db, exit (dangerous: host shell, arbitrary SQL,
+    shutdown). Moderator-OK: load, loadall, unload, reload, sync, resources.
+    The split was a deliberate policy decision (2026-06-13): keep destructive
+    surfaces owner-locked while letting the trusted mod team run operational
+    commands. Discord's per-guild Integration override is a separate, additional
+    layer — these tests assert the in-code gate, which must hold regardless of
+    server config.
+    """
+
+    OWNER_ONLY = {"cmd", "sql", "ask_db", "exit"}
+    MOD_OK = {"load", "loadall", "unload", "reload", "sync", "resources"}
+
+    # command-name -> OwnerCog method name (the @admin.command() Command objects
+    # are stored as class attributes; reading checks off the captured OwnerCog
+    # class is immune to the shared `admin` group being re-decorated by other
+    # tests' cog reloads under the conftest sys.modules purge).
+    _METHOD = {
+        "cmd": "cmd",
+        "sql": "sql_query",
+        "ask_db": "ask_database",
+        "exit": "exit",
+        "load": "load_cog",
+        "loadall": "load_all_cogs",
+        "unload": "unload_cog",
+        "reload": "reload_cog",
+        "sync": "sync",
+        "resources": "resources",
+    }
+
+    def _check_names(self, cmd_name: str) -> set[str]:
+        cmd = OwnerCog.__dict__[self._METHOD[cmd_name]]
+        return {getattr(f, "__name__", "") for f in cmd.checks}
+
+    @pytest.mark.asyncio
+    async def test_owner_only_commands_use_owner_check(self) -> None:
+        for name in self.OWNER_ONLY:
+            names = self._check_names(name)
+            assert "_is_bot_owner" in names, (
+                f"/admin {name} must be owner-only; has {names}"
+            )
+            assert "app_moderator_check" not in names, (
+                f"/admin {name} must NOT be moderator-OK; has {names}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_mod_ok_commands_use_moderator_check(self) -> None:
+        for name in self.MOD_OK:
+            names = self._check_names(name)
+            assert "app_moderator_check" in names, (
+                f"/admin {name} must be moderator-OK; has {names}"
+            )
+            assert "_is_bot_owner" not in names, (
+                f"/admin {name} should not also be owner-only; has {names}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_is_moderator_decision_logic(self) -> None:
+        """is_moderator: owner True, ban_members mod True, plain user False."""
+        import config
+        from utils.permissions import is_moderator
+
+        owner_id = config.bot_owner_id or 111
+
+        class Perms:
+            def __init__(self, ban: bool) -> None:
+                self.ban_members = ban
+                self.administrator = False
+
+        class Member:
+            def __init__(self, uid: int, ban: bool) -> None:
+                self.id = uid
+                self.guild_permissions = Perms(ban)
+                self.roles: list[object] = []
+
+        members = {
+            owner_id: Member(owner_id, False),
+            222: Member(222, True),
+            333: Member(333, False),
+        }
+
+        class Guild:
+            id = 999
+
+            def get_member(self, uid: int) -> object:
+                return members.get(uid)
+
+        class Bot:
+            def get_guild(self, gid: int) -> object:
+                return Guild()
+
+        bot = Bot()
+        with patch(
+            "utils.permissions.is_bot_owner", side_effect=lambda uid: uid == owner_id
+        ):
+            assert await is_moderator(bot, 999, owner_id) is True
+            assert await is_moderator(bot, 999, 222) is True  # ban_members mod
+            assert await is_moderator(bot, 999, 333) is False  # plain user

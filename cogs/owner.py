@@ -21,6 +21,7 @@ from utils.exceptions import (
     QueryError,
     ValidationError,
 )
+from utils.permissions import app_moderator_check
 
 # Import pgvector schema search functions
 from utils.schema_search import (
@@ -214,7 +215,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
                 cmd.binding = self
 
     @admin.command(name="load", description="Load a Discord bot extension/cog")
-    @app_commands.check(_is_bot_owner)
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def load_cog(self, interaction: discord.Interaction, *, cog: str) -> None:
         """Load a Discord bot extension/cog.
@@ -327,7 +328,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         ]
 
     @admin.command(name="loadall", description="Load all unloaded cogs")
-    @app_commands.check(_is_bot_owner)
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def load_all_cogs(self, interaction: discord.Interaction) -> None:
         """Load all unloaded cogs at once.
@@ -392,7 +393,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             await interaction.delete_original_response()
 
     @admin.command(name="unload", description="Unload a Discord bot extension/cog")
-    @app_commands.check(_is_bot_owner)
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def unload_cog(self, interaction: discord.Interaction, *, cog: str) -> None:
         """Unload a Discord bot extension/cog.
@@ -497,7 +498,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         ]
 
     @admin.command(name="reload", description="Reload a Discord bot extension/cog")
-    @app_commands.check(_is_bot_owner)
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def reload_cog(self, interaction: discord.Interaction, cog: str) -> None:
         """Reload a Discord bot extension/cog.
@@ -857,7 +858,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             raise ExternalServiceError(message=error_msg) from e
 
     @admin.command(name="sync", description="Sync the bot's command tree")
-    @app_commands.check(_is_bot_owner)
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def sync(self, interaction: discord.Interaction, all_guilds: bool) -> None:
         """Sync application commands to Discord.
@@ -1004,7 +1005,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             raise ExternalServiceError(message=error_msg) from e
 
     @admin.command(name="resources", description="View bot resource usage statistics")
-    @app_commands.check(_is_bot_owner)
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def resources(
         self,
