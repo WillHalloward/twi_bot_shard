@@ -155,7 +155,8 @@ asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"
 # Automatically mark async test functions
 markers = [
-    "asyncio: mark test as async"
+    "asyncio: mark test as async",
+    "integration: real-Postgres integration test (skipped unless TEST_DATABASE_URL is set)",
 ]
 
 [tool.coverage.run]
