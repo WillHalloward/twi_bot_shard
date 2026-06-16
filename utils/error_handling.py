@@ -160,8 +160,39 @@ def detect_sensitive_info(text: str) -> bool:
     return any(pattern.search(text) for pattern in SENSITIVE_PATTERNS)
 
 
+def _redact_match(match: re.Match[str]) -> str:
+    """Build the redacted replacement for a single sensitive-pattern match.
+
+    Works for every pattern in SENSITIVE_PATTERNS regardless of whether it
+    defines capture groups: if the pattern captured an identifying label
+    (e.g. ``api_key`` or ``postgres``), the label is kept and the value
+    portion is redacted; otherwise the whole match is redacted.
+
+    Args:
+        match: The regex match to redact
+
+    Returns:
+        The replacement string for the match
+    """
+    label = match.group(1) if match.re.groups else None
+    if label:
+        return f"{label}: [REDACTED]"
+    return "[REDACTED]"
+
+
+# Safety cap for the redaction fixpoint loop. Convergence is normally reached
+# in 1-2 passes; the cap only guards against pathological inputs.
+_MAX_REDACTION_PASSES = 10
+
+
 def redact_sensitive_info(text: str) -> str:
     """Redact sensitive information from a string.
+
+    A single substitution pass can itself produce text that still matches a
+    pattern (e.g. ``//a`` -> ``/[REDACTED]``, which the path pattern matches
+    again), so substitution is repeated until a fixpoint is reached. This
+    guarantees the result no longer triggers detect_sensitive_info() and that
+    redaction is idempotent.
 
     Args:
         text: The text to redact
@@ -174,13 +205,12 @@ def redact_sensitive_info(text: str) -> str:
 
     redacted_text = text
 
-    for pattern in SENSITIVE_PATTERNS:
-        try:
-            # Try to use the first capture group in the replacement
-            redacted_text = pattern.sub(r"\1: [REDACTED]", redacted_text)
-        except re.error:
-            # If there's no capture group, replace the entire match
-            redacted_text = pattern.sub("[REDACTED]", redacted_text)
+    for _ in range(_MAX_REDACTION_PASSES):
+        previous = redacted_text
+        for pattern in SENSITIVE_PATTERNS:
+            redacted_text = pattern.sub(_redact_match, redacted_text)
+        if redacted_text == previous:
+            break
 
     return redacted_text
 
@@ -255,7 +285,9 @@ def get_detailed_error_context(
         "user_id": user_id,
         "guild_id": guild_id,
         "channel_id": channel_id,
-        "timestamp": datetime.datetime.now().isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC)
+        .replace(tzinfo=None)
+        .isoformat(),
         "traceback": None,
     }
 
@@ -354,6 +386,22 @@ ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
         "log_level": logging.WARNING,
         "ephemeral": True,
     },
+    # Permission failures. These subclass CheckFailure, so they MUST be listed
+    # before the generic CheckFailure entries below — get_error_response
+    # returns the first isinstance match in insertion order. The {permissions}
+    # placeholder is rendered by get_error_response from the exception's
+    # missing_permissions list (the handlers' generic .format(error=error)
+    # can't fill it).
+    commands.MissingPermissions: {
+        "message": "You need the following permissions to use this command: {permissions}.",
+        "log_level": logging.WARNING,
+        "ephemeral": True,
+    },
+    discord.app_commands.errors.MissingPermissions: {
+        "message": "You need the following permissions to use this command: {permissions}.",
+        "log_level": logging.WARNING,
+        "ephemeral": True,
+    },
     commands.CheckFailure: {
         "message": "You don't have permission to use this command.",
         "log_level": logging.WARNING,
@@ -399,6 +447,24 @@ ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
 }
 
 
+def _missing_permissions_list(error: Exception) -> str:
+    """Build a human-readable permission list from a MissingPermissions error.
+
+    Args:
+        error: A commands.MissingPermissions or app_commands MissingPermissions
+            exception (anything exposing ``missing_permissions``).
+
+    Returns:
+        A comma-separated, title-cased permission list (e.g. "Ban Members,
+        Manage Messages"), or a generic fallback if the list is empty.
+    """
+    missing = getattr(error, "missing_permissions", None) or []
+    formatted = ", ".join(
+        perm.replace("_", " ").replace("guild", "server").title() for perm in missing
+    )
+    return formatted or "the required permissions"
+
+
 def get_error_response(
     error: Exception, security_level: int = ErrorSecurityLevel.NORMAL
 ) -> dict[str, Any]:
@@ -426,6 +492,19 @@ def get_error_response(
                 response_copy["message"] = sanitize_error_message(error, security_level)
                 # Ensure the message is marked as already sanitized
                 response_copy["sanitized"] = True
+
+            # Render the {permissions} placeholder for MissingPermissions
+            # errors here — the callers only do .format(error=error), which
+            # cannot fill it. Guarded on the placeholder so a sanitized
+            # replacement message is left untouched.
+            if isinstance(
+                error,
+                commands.MissingPermissions
+                | discord.app_commands.errors.MissingPermissions,
+            ) and "{permissions}" in response_copy.get("message", ""):
+                response_copy["message"] = response_copy["message"].format(
+                    permissions=_missing_permissions_list(error)
+                )
 
             return response_copy
 
@@ -474,7 +553,7 @@ async def track_error(
                 str(error_message),
                 guild_id,
                 channel_id,
-                datetime.datetime.now(),
+                datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
             ),
         )
     except Exception as e:
@@ -896,7 +975,6 @@ async def handle_global_app_command_error(
                 "other": "cogs.other",
                 "creator_links": "cogs.creator_links",
                 "report": "cogs.report",
-                "summarization": "cogs.summarization",
                 "set_log_channel": "cogs.message_log",
                 "clear_log_channel": "cogs.message_log",
             }
@@ -1042,29 +1120,13 @@ async def handle_global_app_command_error(
                 except Exception as e:
                     logger.error(f"Error during lazy loading of {extension_name}: {e}")
 
-    # Skip CommandOnCooldown errors as they should be handled by command-specific error handlers
-    if isinstance(error, discord.app_commands.errors.CommandOnCooldown):
-        # Only log the error for telemetry, don't send a message to avoid duplicates
-        command_name = interaction.command.name if interaction.command else "unknown"
-        log_error(
-            error=error,
-            command_name=command_name,
-            user_id=interaction.user.id,
-            log_level=logging.WARNING,
-        )
-
-        # Record error telemetry
-        if hasattr(interaction, "client"):
-            await track_error(
-                interaction.client,
-                type(error).__name__,
-                command_name,
-                interaction.user.id,
-                getattr(error, "message", str(error)),
-                interaction.guild.id if interaction.guild else None,
-                interaction.channel.id if interaction.channel else None,
-            )
-        return
+    # NOTE: CommandOnCooldown deliberately falls through to the generic path
+    # below. Cooldown checks raise *before* the command callback runs, so the
+    # @handle_interaction_errors decorator never sees them — this handler is
+    # the only place the user can be told to wait (no duplicate is possible).
+    # The ERROR_MESSAGES mapping turns it into a friendly ephemeral message,
+    # and log_error() already treats cooldowns as expected (no traceback, no
+    # Sentry capture).
 
     # Get the appropriate error response
     response = get_error_response(error)

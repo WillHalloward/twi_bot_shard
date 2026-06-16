@@ -58,7 +58,7 @@ Code reviewers should evaluate changes against the following security checklist:
 #### Data Protection
 - [ ] Credentials and API keys are loaded from environment variables
 - [ ] Sensitive data is not logged or exposed in error messages
-- [ ] Database credentials use the SecretManager or environment variables
+- [ ] Database credentials come from environment variables (.env locally, Railway env in deploys) validated by `config/__init__.py`
 
 #### Error Handling
 - [ ] Errors are handled gracefully without exposing sensitive information
@@ -71,7 +71,7 @@ Code reviewers should evaluate changes against the following security checklist:
 - [ ] Database operations use async context managers for proper cleanup
 
 #### External API Security
-- [ ] API keys are stored securely (environment variables or SecretManager)
+- [ ] API keys are stored in environment variables only (never in code); names listed in `config._sensitive_fields` so log redaction covers them
 - [ ] External API responses are validated before use
 - [ ] HTTP client uses appropriate timeouts
 - [ ] Rate limiting is respected for external services

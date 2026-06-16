@@ -29,6 +29,10 @@ Ruff is configured with the following rule groups enabled:
 
 The configuration follows the Google docstring convention and uses a line length of 88 characters (the same default as Black, which is why `ruff format` output is Black-compatible).
 
+#### Complexity Gate (C901)
+
+Cyclomatic complexity is enforced via `C901` with `[tool.ruff.lint.mccabe] max-complexity` in `pyproject.toml`. The cap is a **ratchet**: it is set to the current worst offender + 1, so it blocks new complexity monsters without requiring an immediate refactor of existing code. As the god-module refactor lands, the cap is lowered — never raised. The current top offenders and the ratchet plan are documented in a comment next to the setting in `pyproject.toml`.
+
 ## Running Linting and Formatting
 
 Run Ruff and mypy directly from the project root:
@@ -175,7 +179,10 @@ The hooks configured in `.pre-commit-config.yaml` are:
 1. **pre-commit-hooks**: Basic file checks (trailing whitespace, end-of-file fixer, check-yaml, check-toml, check-added-large-files, debug-statements)
 2. **ruff**: Python linting (with `--fix`)
 3. **ruff-format**: Python code formatting
-4. **mypy**: Static type checking (excludes `tests/`)
+4. **mypy**: Static type checking — runs `mypy .` from the project venv (a `local` / `language: system` hook), so it uses the same dependencies and `mypy.ini` excludes as the CI gate
+5. **gitleaks**: Secret scanning — the same check that gates CI (`.github/workflows/security-scan.yml`), run locally so secrets are caught before they are committed
+
+The hook rev pins are kept in sync with the tool versions in `requirements.txt`; when bumping ruff there, bump the corresponding `rev` in `.pre-commit-config.yaml` too (mypy tracks the venv automatically).
 
 ## Conclusion
 

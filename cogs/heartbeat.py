@@ -11,8 +11,9 @@ exception-based reporting can't, precisely because the alert is driven by an
 external observer reacting to the *absence* of a signal — a check inside the
 bot can't fire when the bot itself is dead.
 
-The heartbeat is a no-op unless SENTRY_DSN is configured, so local development
-and tests are unaffected.
+The loop only starts when ENVIRONMENT is staging or production, and check-ins
+are a no-op unless SENTRY_DSN is configured, so local development and tests are
+unaffected.
 """
 
 import asyncio
@@ -28,14 +29,24 @@ class Heartbeat(BaseCog):
     """Sends periodic liveness check-ins to Sentry cron monitoring."""
 
     def __init__(self, bot: commands.Bot) -> None:
-        """Initialize the cog and start the heartbeat loop (outside test mode)."""
+        """Initialize the cog and start the heartbeat loop in deployed environments."""
         super().__init__(bot)
-        # Mirror the project convention: don't start background loops in tests.
-        if config.logfile != "test":
+        # Gate on the deployment environment, not on incidental config like the
+        # logfile name (whose "test" default could silently disable the
+        # dead-man's-switch if LOGFILE were ever unset on Railway). The loop
+        # runs only where Sentry monitoring matters: staging and production.
+        # Development and testing skip it.
+        if config.is_production() or config.is_staging():
             self.heartbeat_loop.start()
-            self.logger.info("heartbeat_loop_started")
+            self.logger.info(
+                "heartbeat_loop_started", environment=str(config.get_environment())
+            )
         else:
-            self.logger.info("heartbeat_loop_disabled", reason="test_mode")
+            self.logger.info(
+                "heartbeat_loop_disabled",
+                environment=str(config.get_environment()),
+                reason="non_deployed_environment",
+            )
 
     async def cog_unload(self) -> None:
         """Stop the heartbeat loop when the cog is unloaded."""

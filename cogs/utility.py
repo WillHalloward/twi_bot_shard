@@ -20,6 +20,18 @@ from utils.exceptions import (
 )
 
 
+async def _is_bot_owner(interaction: discord.Interaction) -> bool:
+    """App-command check predicate: allow only the bot owner.
+
+    ``@commands.is_owner()`` is a *prefix-command* check that app commands
+    silently ignore, so owner gates on slash commands must use
+    ``@app_commands.check(_is_bot_owner)`` instead. Returning False makes
+    discord.py raise ``app_commands.CheckFailure``, which the global tree
+    error handler turns into a friendly "no permission" response.
+    """
+    return bool(await interaction.client.is_owner(interaction.user))
+
+
 class Utility(commands.Cog, name="Utility"):  # type: ignore[call-arg]  # stub
     """Utility commands for bot interaction and fun."""
 
@@ -223,7 +235,7 @@ class Utility(commands.Cog, name="Utility"):  # type: ignore[call-arg]  # stub
         name="say",
         description="Makes Cognita repeat whatever was said",
     )
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def say(
         self,

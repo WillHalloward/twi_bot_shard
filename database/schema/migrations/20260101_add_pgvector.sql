@@ -1,5 +1,13 @@
 -- Migration: Add pgvector extension and schema_embeddings table
 -- This replaces FAISS for vector similarity search on schema descriptions
+--
+-- NOTE: staging and production already have these objects (applied out-of-band
+-- before this file moved into the auto-runner's directory from
+-- database/migrations/001_add_pgvector.sql), so the first auto-run executes
+-- against a database where they exist. Every statement below must therefore
+-- stay fully idempotent (IF NOT EXISTS / OR REPLACE / DROP ... IF EXISTS) so
+-- that run is a no-op. The 20260101 prefix predates the other migrations so it
+-- sorts (and applies) first on fresh databases.
 
 -- Enable the pgvector extension (Railway PostgreSQL supports this)
 CREATE EXTENSION IF NOT EXISTS vector;

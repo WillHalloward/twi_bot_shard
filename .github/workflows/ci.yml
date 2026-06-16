@@ -11,6 +11,28 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ENVIRONMENT: testing  # required: enables test config / lazy cog loading
+      # Real-Postgres integration tests (tests/integration) connect here. The
+      # rest of the suite ignores it. Points at the service container below.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/twibot_test
+
+    services:
+      # Matches the production database image (pgvector on PG 18) so the
+      # integration tier exercises the real schema, constraints, and
+      # asyncpg-dialect SQL — the layer the mock/SQLite unit suite cannot reach
+      # (audit findings/12 E7). Without this service the integration tests skip.
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: twibot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
@@ -33,7 +55,12 @@ jobs:
       run: cp .env.test .env
 
     - name: Run tests
-      run: python -m pytest tests/ --cov=. --cov-report=xml
+      # Bare --cov uses [tool.coverage.run] source from pyproject.toml, which
+      # scopes the denominator to production code only (cogs/utils/models/
+      # config/main — tests/ and scripts/ are excluded). The fail-under floor
+      # is the measured honest coverage (38%) minus a 2-point safety margin;
+      # ratchet it up as coverage improves.
+      run: python -m pytest tests/ --cov --cov-report=xml --cov-fail-under=36
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -71,6 +98,40 @@ jobs:
 
     - name: Run mypy
       run: mypy .
+
+  manifest-sync:
+    runs-on: ubuntu-latest
+    # Hard gate: requirements.txt is the production install manifest (the
+    # Dockerfile that Railway builds runs `pip install -r requirements.txt`),
+    # and it must be regenerated from uv.lock after any dependency change.
+    # This job re-runs the canonical export command and fails if the committed
+    # file differs. It is deterministic given the repo state: `uv export
+    # --locked` reads uv.lock only (no PyPI re-resolution), so new upstream
+    # releases can never turn this gate red — only a stale requirements.txt
+    # or a uv.lock that no longer matches pyproject.toml can.
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        # Pinned so a future uv release changing the export output format
+        # can't turn this gate red spuriously. Keep in sync with the version
+        # used to generate the committed requirements.txt; bump both together.
+        version: "0.9.24"
+
+    - name: Check requirements.txt is in sync with uv.lock
+      run: |
+        uv export --format requirements-txt --locked --no-dev --no-emit-project --no-hashes -o requirements.txt
+        if ! git diff --exit-code -- requirements.txt; then
+          echo ""
+          echo "::error::requirements.txt is out of sync with uv.lock (see diff above). This file is what production installs."
+          echo "Fix locally and commit the result:"
+          echo "  uv lock  # only if pyproject.toml changed"
+          echo "  uv export --format requirements-txt --locked --no-dev --no-emit-project --no-hashes -o requirements.txt"
+          exit 1
+        fi
 
   build:
     runs-on: ubuntu-latest

@@ -1,12 +1,16 @@
 """
 Test script for database connection.
 
-This script tests if the database connection can be established.
+This script tests if a connection to a local Postgres instance can be
+established. When no local Postgres is reachable (e.g. in CI, which uses
+SQLite/mocks), the test is skipped — it never passes vacuously.
 """
 
 import asyncio
 import os
 import sys
+
+import pytest
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -15,47 +19,46 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.future import select
 
-# Import models
-
-# Use PostgreSQL for testing - this is just for demonstration
-# In a real test, you would use a test database or mock
+# Local Postgres used for an opportunistic real-connection check.
 TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost/postgres"
 
+# Keep the attempt short so an absent Postgres doesn't stall the suite.
+CONNECT_TIMEOUT_SECONDS = 3
 
-async def test_db_connection() -> bool | None:
-    """Test database connection."""
-    print("Testing database connection...")
 
-    engine = None
+async def test_db_connection() -> None:
+    """Test database connection against a local Postgres, skipping if absent."""
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        connect_args={"timeout": CONNECT_TIMEOUT_SECONDS},
+    )
+
     try:
-        # Create test engine
-        engine = create_async_engine(TEST_DATABASE_URL, echo=True)
+        try:
+            async with asyncio.timeout(CONNECT_TIMEOUT_SECONDS + 1):
+                async with engine.connect() as conn:
+                    result = await conn.execute(select(1))
+                    value = result.scalar_one()
+        except Exception as e:
+            # Connection-level failure means no local Postgres is available;
+            # skip instead of passing vacuously. (pytest.skip raises a
+            # BaseException subclass, so it is not swallowed here.)
+            pytest.skip(f"no local Postgres available: {type(e).__name__}: {e}")
 
-        # Just test connection without creating tables
-        async with engine.connect() as conn:
-            result = await conn.execute(select(1))
-            value = result.scalar_one()
-            assert value == 1
-
-        print("Database connection successful!")
-        return True
-    except Exception as e:
-        print(f"Error connecting to database: {e}")
-        return False
+        # Real assertion when the connection succeeds.
+        assert value == 1
     finally:
-        # Close the engine if it was created
-        if engine:
-            await engine.dispose()
+        await engine.dispose()
 
 
 async def main() -> None:
     """Run the test."""
-    result = await test_db_connection()
-
-    if result:
-        print("\nTest passed!")
-    else:
-        print("\nTest failed.")
+    try:
+        await test_db_connection()
+    except pytest.skip.Exception as e:
+        print(f"Skipped: {e}")
+        return
+    print("Database connection successful!")
 
 
 if __name__ == "__main__":

@@ -45,7 +45,6 @@ ENVIRONMENT=testing python tests/test_dependencies.py       # Verify dependencie
 ENVIRONMENT=testing python tests/test_db_connection.py      # Test database connection
 ENVIRONMENT=testing python tests/test_sqlalchemy_models.py  # Test ORM models
 ENVIRONMENT=testing python tests/test_cogs.py               # Test all cog loading
-ENVIRONMENT=testing python tests/test_chaos_engineering.py  # Test resilience
 ```
 
 Note: The `ENVIRONMENT=testing` prefix ensures lazy cog loading and proper test configuration.
@@ -70,6 +69,23 @@ uv pip install -e ".[ml]"
 uv pip install -e .
 ```
 
+**After ANY dependency change** (adding/removing/bumping a package):
+
+```bash
+# 1. Update the lockfile (only needed if pyproject.toml changed)
+uv lock
+
+# 2. Regenerate the production install manifest (canonical command)
+uv export --format requirements-txt --locked --no-dev --no-emit-project --no-hashes -o requirements.txt
+```
+
+`requirements.txt` is what production actually installs (Railway builds the
+Dockerfile, which runs `pip install -r requirements.txt`). It is
+production-only — dev/test/ML extras are deliberately excluded — and is
+generated from `uv.lock`, never hand-edited or re-resolved against PyPI. The
+CI `manifest-sync` job fails if the committed file is out of sync, so commit
+`pyproject.toml`, `uv.lock`, and `requirements.txt` together.
+
 ### Database Operations
 ```bash
 # Apply all database optimizations
@@ -81,6 +97,28 @@ python scripts/database/optimize.py --base
 # Apply only additional optimizations
 python scripts/database/optimize.py --additional
 ```
+
+### Database Migrations
+
+Schema changes ship as versioned SQL files in `database/schema/migrations/`
+(named `YYYYMMDD[_NN]_description.sql`), applied by
+`scripts/database/apply_migrations.py`. Applied migrations are tracked in the
+`schema_migrations` table, so each file runs exactly once.
+
+```bash
+# Show what would be applied without running anything
+python scripts/database/apply_migrations.py --dry-run
+
+# Apply pending migrations
+python scripts/database/apply_migrations.py
+```
+
+- Migrations that can't run inside a transaction or would take heavy locks
+  (e.g. `CREATE INDEX CONCURRENTLY`) must be listed in `MANUAL_MIGRATIONS` in
+  the script — they are recorded as applied without executing and must be run
+  by hand in a maintenance window.
+- The runner executes automatically on every Railway deploy via
+  `railway.toml`'s `preDeployCommand`; a migration failure aborts the deploy.
 
 ### Git Hooks
 ```bash
@@ -106,7 +144,7 @@ pre-commit run --all-files
    - All cogs inherit from `BaseCog` in `utils/base_cog.py`
    - Cogs that need a repository instantiate it in `__init__`, passing the bot's session factory, e.g. `self.link_repo = LinkRepository(bot.get_db_session)`
    - In **development/testing**: only `base_critical_cogs` load at startup; all others load lazily on-demand
-   - In **production and staging**: all 20 registered cogs load at startup (the lazy-loading behaviour is bypassed, because slash commands must be registered before the command tree is synced)
+   - In **production and staging**: all 19 registered cogs load at startup (the lazy-loading behaviour is bypassed, because slash commands must be registered before the command tree is synced)
    - `base_critical_cogs`: `owner`, `mods`, `stats`, `settings`, `interactive_help`
    - Stats functionality uses a mixin architecture — see [Statistics System](#statistics-system) below
 
@@ -140,7 +178,7 @@ The bot implements a comprehensive error handling strategy:
   - `loop.set_exception_handler(...)` — the asyncio net for fire-and-forget tasks (`bot.loop.create_task` / `asyncio.create_task`: resource monitor, periodic cleanup, status loop, query-cache cleanup, AO3 init). Without it these only surface as asyncio's "Task exception was never retrieved" log on GC and never reach Sentry.
   - `sys.excepthook` — fatal main-thread exceptions.
 - **Background Loop Errors**: Every `@tasks.loop` must have a `@<loop>.error` handler — discord.py stops a loop **permanently** after an unhandled exception (and `reconnect=True` only retries connection errors, not arbitrary ones), so without one the feature silently dies until restart. The `stats_loop` (`cogs/stats.py`) and `heartbeat_loop` (`cogs/heartbeat.py`) handlers log, `capture_exception()` to Sentry, then `restart()` after a 60s backoff (the backoff prevents a tight crash loop on a sticky fault).
-- **Error Telemetry**: Tracks error patterns in database for proactive resolution
+- **Error Telemetry**: Handled errors are written to the `error_telemetry` table; nothing in the application reads it yet (triage SQL functions exist for manual psql use only) — real observability comes from Sentry
 - **Sentry Reporting**: Unexpected errors are forwarded to Sentry from `log_error()`, the uncaught-exception hook, the `on_error`/asyncio handlers, and the loop `.error` handlers (see [Observability & Monitoring](#observability--monitoring-sentry)). These explicit `capture_exception()` calls attach the exception object, full traceback, and Discord context tags; the default `LoggingIntegration` is a secondary net — do not disable it without first wiring explicit captures for any path that relies on it (see the note in `utils/sentry_setup.py`).
 
 ### Key Design Patterns
@@ -164,8 +202,8 @@ The bot implements a comprehensive error handling strategy:
    - Use `@commands.Cog.listener()` decorator for event handlers
    - Use `@commands.command()` for prefix commands or `@app_commands.command()` for slash commands
    - Follow patterns in `cogs/example_cog.py`
-   - Add cog to the `cogs` list in main.py (line ~1089)
-   - Add to `base_critical_cogs` (line ~1107) only if required at startup
+   - Add the new cog to `COGS` in `utils/cog_registry.py`
+   - Add it to `BASE_CRITICAL_COGS` there only if required at startup
 
 2. **New Database Model**:
    - Create model in `models/tables/` inheriting from `Base`
@@ -207,7 +245,7 @@ await bot.db.copy_records_to_table("table_name", records=rows, columns=cols)
 ### Error Recovery
 
 The bot implements automatic recovery for:
-- Database connection failures (with exponential backoff)
+- Transient database errors — only `DeadlockDetectedError` and `ConnectionDoesNotExistError` are retried (with exponential backoff, see `utils/db.py`); a hard connection failure (DB down/refused) raises `DatabaseError` immediately with no retry
 - External API failures (with circuit breakers)
 - Discord API rate limits
 
@@ -224,7 +262,6 @@ The bot implements automatic recovery for:
 - Property-based testing with Hypothesis for validation functions
 - Mock factories with Faker for realistic test data (tests/mock_factories.py)
 - Use pytest fixtures from tests/conftest.py
-- Chaos engineering tests for resilience (tests/test_chaos_engineering.py)
 - Integration tests verify database interactions work correctly
 - All async tests use `@pytest.mark.asyncio` decorator
 - Always run tests before committing
@@ -265,9 +302,10 @@ The project uses a two-branch deployment strategy with Railway:
 ### Statistics System
 
 The stats module uses a mixin architecture — `stats.py` is the only loadable cog; the other files are mixins it inherits from:
-- `stats_commands.py`: Defines `StatsCommandsMixin` — owner commands for data management and comprehensive save operations
+- `stats_base.py`: Defines `StatsMixinBase` — a typing-only base class declaring the shared `bot`/`logger` attributes so type checkers know they exist on every mixin (no runtime behavior)
+- `stats_commands.py`: Defines `StatsCommandsMixin` — owner commands for data management and comprehensive save operations — and `StatsQueriesMixin` — query commands for retrieving statistics
 - `stats_listeners.py`: Defines `StatsListenersMixin` — real-time event listeners for message tracking, plus utility functions (`save_message`, `perform_comprehensive_save`)
-- Only `stats.py` has a `setup()` function and is registered in main.py as `cogs.stats`
+- Only `stats.py` has a `setup()` function and is registered (as `cogs.stats`) in the cog registry
 - Stats listeners are unsubscribed in main.py to prevent duplicate handling
 
 ### Performance Considerations
@@ -282,7 +320,7 @@ The stats module uses a mixin architecture — `stats.py` is the only loadable c
 ### Security Notes
 
 - Never commit `.env` file or SSL certificates
-- Use `SecretManager` for sensitive credentials
+- Sensitive credentials live in environment variables (`.env` locally, Railway env vars in deployment), validated by the Pydantic settings in `config/__init__.py`; fields listed in `_sensitive_fields` there are redacted from logs
 - All database queries use parameterized statements
 - Error messages sanitized before showing to users
 - Permission system leverages Discord's native permissions with bot owner override
@@ -389,7 +427,7 @@ The bot integrates with:
 - Twitter/X API
 - DeviantArt
 - AO3 (Archive of Our Own)
-- OpenAI API for summarization
+- OpenAI API (schema-search embeddings for the owner-only `ask_database` command)
 
 All external calls use the shared HTTP client with proper timeout handling.
 

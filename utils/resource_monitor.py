@@ -74,6 +74,12 @@ class ResourceMonitor:
         self._stats_history: list[dict[str, Any]] = []
         self._max_history_size = 60  # Keep history for 60 intervals
 
+        # Prime the CPU counters: cpu_percent(interval=None) is non-blocking
+        # and measures usage since the *previous* call, so it needs a baseline
+        # call here (the very first call always returns 0.0).
+        self._process.cpu_percent(interval=None)
+        psutil.cpu_percent(interval=None)
+
         # Initialize I/O counters
         self._last_disk_io = self._get_process_io_counters()
         self._last_net_io = psutil.net_io_counters()
@@ -140,8 +146,9 @@ class ResourceMonitor:
         """Background task that periodically checks resource usage."""
         while True:
             try:
-                # Get current resource usage
-                stats = self.get_resource_stats()
+                # Get current resource usage (off the event loop — the psutil
+                # /proc scans and tracemalloc snapshots are not free).
+                stats = await self.get_resource_stats_async()
 
                 # Add to history
                 self._stats_history.append(stats)
@@ -255,18 +262,35 @@ class ResourceMonitor:
                 self.logger.error(traceback.format_exc())
                 await asyncio.sleep(self.check_interval)
 
-    def get_resource_stats(self) -> dict[str, Any]:
-        """Get current resource usage statistics.
+    async def get_resource_stats_async(self) -> dict[str, Any]:
+        """Get current resource usage statistics without blocking the event loop.
+
+        ``get_resource_stats()`` is non-blocking by design (no sleeps), but its
+        psutil /proc scans and tracemalloc snapshots still cost real CPU time,
+        so async callers should prefer this wrapper, which runs the collection
+        in a worker thread.
 
         Returns:
             A dictionary with resource usage statistics.
         """
-        # Update process info
-        self._process.cpu_percent()  # First call returns 0, so call it once before getting real value
-        time.sleep(0.1)  # Short sleep to get more accurate CPU measurement
+        return await asyncio.to_thread(self.get_resource_stats)
 
+    def get_resource_stats(self) -> dict[str, Any]:
+        """Get current resource usage statistics.
+
+        This method must stay cheap and non-blocking: it is called from async
+        contexts (use :meth:`get_resource_stats_async` where possible). CPU
+        usage is sampled with ``cpu_percent(interval=None)``, which measures
+        against the previous call (primed in ``__init__``) instead of sleeping.
+
+        Returns:
+            A dictionary with resource usage statistics.
+        """
         memory_info = self._process.memory_info()
         current_time = time.time()
+        # Fetch the connection list once and reuse it for both the count and
+        # the per-type/status/IP breakdown below (it's a /proc scan).
+        connections = self._process.net_connections()
 
         # Basic stats
         stats = {
@@ -274,13 +298,13 @@ class ResourceMonitor:
             "memory_rss": memory_info.rss,
             "memory_vms": memory_info.vms,
             "memory_percent": self._process.memory_percent(),
-            "cpu_percent": self._process.cpu_percent(),
+            "cpu_percent": self._process.cpu_percent(interval=None),
             "thread_count": self._process.num_threads(),
             "open_files_count": len(self._process.open_files()),
-            "connection_count": len(self._process.net_connections()),
+            "connection_count": len(connections),
             "uptime": current_time - self._process.create_time(),
             "system_memory_percent": psutil.virtual_memory().percent,
-            "system_cpu_percent": psutil.cpu_percent(),
+            "system_cpu_percent": psutil.cpu_percent(interval=None),
         }
 
         # Disk I/O stats (scoped to this process — see _get_process_io_counters)
@@ -372,10 +396,8 @@ class ResourceMonitor:
                 }
             )
 
-        # Connection tracking
+        # Connection tracking (reuses the connection list fetched above)
         if hasattr(self, "_connection_stats"):
-            connections = self._process.net_connections()
-
             # Reset counters
             self._connection_stats["by_type"] = defaultdict(int)
             self._connection_stats["by_status"] = defaultdict(int)

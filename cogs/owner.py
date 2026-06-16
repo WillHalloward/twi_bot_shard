@@ -11,6 +11,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from utils.cog_registry import COGS
 from utils.command_groups import admin
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
@@ -20,6 +21,7 @@ from utils.exceptions import (
     QueryError,
     ValidationError,
 )
+from utils.permissions import app_moderator_check
 
 # Import pgvector schema search functions
 from utils.schema_search import (
@@ -30,20 +32,154 @@ from utils.schema_search import (
     search_schema,
 )
 
-cogs = [
-    "cogs.summarization",
-    "cogs.gallery",
-    "cogs.links_tags",
-    "cogs.patreon_poll",
-    "cogs.twi",
-    "cogs.owner",
-    "cogs.other",
-    "cogs.mods",
-    "cogs.stats",
-    "cogs.creator_links",
-    "cogs.report",
-    "cogs.innktober",
-]
+
+async def _is_bot_owner(interaction: discord.Interaction) -> bool:
+    """App-command check predicate: allow only the bot owner.
+
+    ``@commands.is_owner()`` is a *prefix-command* check that app commands
+    silently ignore, so every owner gate in this cog must use
+    ``@app_commands.check(_is_bot_owner)`` instead. Returning False makes
+    discord.py raise ``app_commands.CheckFailure``, which the global tree
+    error handler turns into a friendly "no permission" response.
+    """
+    return bool(await interaction.client.is_owner(interaction.user))
+
+
+# ---------------------------------------------------------------------------
+# SQL safety guard — shared by /admin sql and /admin ask_db.
+#
+# /admin ask_db executes LLM-generated SQL, so "SELECT-only" must be enforced
+# server-side here, never by the prompt alone (audit finding F2c).
+# ---------------------------------------------------------------------------
+
+#: Maximum accepted query length, in characters.
+MAX_SQL_QUERY_LENGTH = 5000
+
+#: Statement types that are considered read-only by first word.
+READ_ONLY_OPERATIONS: frozenset[str] = frozenset(
+    {"SELECT", "WITH", "EXPLAIN", "ANALYZE"}
+)
+
+#: Statement types that /admin sql only runs with allow_modifications=True.
+MODIFICATION_OPERATIONS: frozenset[str] = frozenset(
+    {"INSERT", "UPDATE", "DELETE", "TRUNCATE", "DROP", "CREATE", "ALTER"}
+)
+
+#: Write keywords that must not appear (as words) anywhere in a query that
+#: contains a CTE — PostgreSQL allows data-modifying statements inside
+#: top-level CTEs, so a first-word check alone misses
+#: ``WITH x AS (... DELETE ...) SELECT ...`` (audit finding F2c-secondary).
+SQL_WRITE_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "MERGE",
+        "TRUNCATE",
+        "DROP",
+        "ALTER",
+        "CREATE",
+        "GRANT",
+        "REVOKE",
+    }
+)
+
+#: Regex blocklist: multi-statement chains, comment-hidden operations,
+#: information_schema probing, and PostgreSQL system functions.
+DANGEROUS_SQL_PATTERNS: tuple[str, ...] = (
+    r";\s*(DROP|DELETE|TRUNCATE|ALTER)",  # Multiple statements with dangerous operations
+    r"--\s*[^\r\n]*(?:DROP|DELETE|TRUNCATE)",  # Comments hiding dangerous operations
+    r"/\*.*(?:DROP|DELETE|TRUNCATE).*\*/",  # Block comments hiding dangerous operations
+    r"UNION.*SELECT.*FROM.*information_schema",  # Information schema access
+    r"pg_sleep|pg_terminate_backend",  # PostgreSQL system functions
+)
+
+
+def find_dangerous_sql_pattern(query: str) -> str | None:
+    """Return the first DANGEROUS_SQL_PATTERNS regex that matches, or None."""
+    for pattern in DANGEROUS_SQL_PATTERNS:
+        if re.search(pattern, query, re.IGNORECASE | re.DOTALL):
+            return pattern
+    return None
+
+
+def find_write_keyword_in_cte(query: str) -> str | None:
+    """If the query contains a CTE, return any write keyword found as a word.
+
+    Returns None when the query has no ``WITH`` clause or contains no write
+    keywords. Word-boundary matching keeps column names like ``updated_at`` or
+    ``created_at`` from triggering false positives, while string literals
+    containing bare write keywords are rejected conservatively.
+    """
+    if not re.search(r"\bWITH\b", query, re.IGNORECASE):
+        return None
+    for keyword in sorted(SQL_WRITE_KEYWORDS):
+        if re.search(rf"\b{keyword}\b", query, re.IGNORECASE):
+            return keyword
+    return None
+
+
+def validate_read_only_sql(query: str) -> str:
+    """Validate that ``query`` is a single, read-only SQL statement.
+
+    Rules:
+    1. Non-empty and at most MAX_SQL_QUERY_LENGTH characters.
+    2. Single statement only — no ``;`` except optional trailing one(s).
+    3. First word must be in READ_ONLY_OPERATIONS.
+    4. No DANGEROUS_SQL_PATTERNS regex may match.
+    5. If the query contains a CTE, no SQL_WRITE_KEYWORDS may appear anywhere
+       as a word (closes the writable-CTE bypass).
+
+    Args:
+        query: The SQL text to validate.
+
+    Returns:
+        The stripped query (without any trailing semicolons), safe to execute
+        on a read-only basis.
+
+    Raises:
+        ValidationError: If any rule is violated.
+    """
+    cleaned = query.strip()
+    if not cleaned:
+        raise ValidationError(message="SQL query cannot be empty")
+    if len(cleaned) > MAX_SQL_QUERY_LENGTH:
+        raise ValidationError(
+            message=f"Query too long (maximum {MAX_SQL_QUERY_LENGTH} characters)"
+        )
+
+    # Allow a trailing semicolon but reject anything after one (multi-statement).
+    body = cleaned.rstrip(";").rstrip()
+    if ";" in body:
+        raise ValidationError(
+            message="Multi-statement queries are not allowed (';' found mid-query)"
+        )
+
+    words = body.split()
+    first_word = words[0].upper() if words else ""
+    if first_word not in READ_ONLY_OPERATIONS:
+        raise ValidationError(
+            message=(
+                f"Query type '{first_word}' is not read-only; "
+                f"only {', '.join(sorted(READ_ONLY_OPERATIONS))} are allowed"
+            )
+        )
+
+    if find_dangerous_sql_pattern(body) is not None:
+        raise ValidationError(
+            message="Query contains potentially dangerous SQL patterns"
+        )
+
+    keyword = find_write_keyword_in_cte(body)
+    if keyword is not None:
+        raise ValidationError(
+            message=(
+                f"Query contains a CTE together with write keyword '{keyword}' "
+                "(writable CTEs are not allowed)"
+            )
+        )
+
+    return body
 
 
 class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
@@ -79,7 +215,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
                 cmd.binding = self
 
     @admin.command(name="load", description="Load a Discord bot extension/cog")
-    @commands.is_owner()
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def load_cog(self, interaction: discord.Interaction, *, cog: str) -> None:
         """Load a Discord bot extension/cog.
@@ -187,12 +323,12 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     ) -> list[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
-            for cog in cogs
+            for cog in COGS
             if current.lower() in cog.lower()
         ]
 
     @admin.command(name="loadall", description="Load all unloaded cogs")
-    @commands.is_owner()
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def load_all_cogs(self, interaction: discord.Interaction) -> None:
         """Load all unloaded cogs at once.
@@ -209,7 +345,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         await interaction.response.defer()
 
         # Find unloaded cogs
-        unloaded_cogs = [cog for cog in cogs if cog not in self.bot.extensions]
+        unloaded_cogs = [cog for cog in COGS if cog not in self.bot.extensions]
 
         if not unloaded_cogs:
             await interaction.followup.send(
@@ -257,7 +393,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             await interaction.delete_original_response()
 
     @admin.command(name="unload", description="Unload a Discord bot extension/cog")
-    @commands.is_owner()
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def unload_cog(self, interaction: discord.Interaction, *, cog: str) -> None:
         """Unload a Discord bot extension/cog.
@@ -357,12 +493,12 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     ) -> list[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
-            for cog in cogs
+            for cog in COGS
             if current.lower() in cog.lower()
         ]
 
     @admin.command(name="reload", description="Reload a Discord bot extension/cog")
-    @commands.is_owner()
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def reload_cog(self, interaction: discord.Interaction, cog: str) -> None:
         """Reload a Discord bot extension/cog.
@@ -493,12 +629,12 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     ) -> list[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name=cog, value=cog)
-            for cog in cogs
+            for cog in COGS
             if current.lower() in cog.lower()
         ]
 
     @admin.command(name="cmd", description="Execute a shell command on the host system")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def cmd(self, interaction: discord.Interaction, args: str) -> None:
         """Execute a system command with enhanced security restrictions.
@@ -638,32 +774,46 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         )
 
         try:
-            # Execute the command with timeout and security restrictions
-            result = subprocess.run(  # nosec B603
-                args_array,
-                capture_output=True,
-                text=True,
-                timeout=30,  # 30 second timeout
-                check=False,  # Don't raise exception on non-zero exit code
+            # Execute the command with timeout and security restrictions.
+            # asyncio's subprocess support runs the child process without
+            # blocking the event loop (unlike subprocess.run, which would
+            # freeze the whole bot for up to the 30s timeout).
+            process = await asyncio.create_subprocess_exec(  # nosec B603
+                *args_array,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
+            try:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=30,  # 30 second timeout
+                )
+            except TimeoutError:
+                process.kill()
+                await process.wait()
+                raise
+
+            returncode = process.returncode
+            stdout_text = stdout_bytes.decode("utf-8", errors="replace")
+            stderr_text = stderr_bytes.decode("utf-8", errors="replace")
 
             # Prepare output
             output_parts = []
 
-            if result.stdout:
-                stdout_clean = result.stdout.strip()
+            if stdout_text:
+                stdout_clean = stdout_text.strip()
                 if len(stdout_clean) > 1800:  # Leave room for formatting
                     stdout_clean = stdout_clean[:1800] + "\n... (output truncated)"
                 output_parts.append(f"**STDOUT:**\n```\n{stdout_clean}\n```")
 
-            if result.stderr:
-                stderr_clean = result.stderr.strip()
+            if stderr_text:
+                stderr_clean = stderr_text.strip()
                 if len(stderr_clean) > 1800:
                     stderr_clean = stderr_clean[:1800] + "\n... (output truncated)"
                 output_parts.append(f"**STDERR:**\n```\n{stderr_clean}\n```")
 
-            if result.returncode != 0:
-                output_parts.append(f"**Exit Code:** {result.returncode}")
+            if returncode != 0:
+                output_parts.append(f"**Exit Code:** {returncode}")
 
             if not output_parts:
                 final_output = "✅ Command executed successfully with no output."
@@ -678,10 +828,10 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
 
             # Log successful execution
             logging.info(
-                f"OWNER COMMAND SUCCESS: Command '{full_command}' executed successfully with exit code {result.returncode}"
+                f"OWNER COMMAND SUCCESS: Command '{full_command}' executed successfully with exit code {returncode}"
             )
 
-        except subprocess.TimeoutExpired:
+        except TimeoutError:
             error_msg = "❌ Command timed out after 30 seconds"
             logging.warning(
                 f"OWNER COMMAND TIMEOUT: Command '{full_command}' timed out"
@@ -708,7 +858,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             raise ExternalServiceError(message=error_msg) from e
 
     @admin.command(name="sync", description="Sync the bot's command tree")
-    @commands.is_owner()
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def sync(self, interaction: discord.Interaction, all_guilds: bool) -> None:
         """Sync application commands to Discord.
@@ -820,13 +970,14 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         await interaction.followup.send(final_message)
 
     @admin.command(name="exit", description="Shut down the bot")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def exit(self, interaction: discord.Interaction) -> None:
         """Gracefully shut down the bot.
 
         This command logs the shutdown request and closes the bot connection.
-        Restricted to the bot owner via the ``@commands.is_owner()`` check.
+        Restricted to the bot owner via the ``@app_commands.check(_is_bot_owner)``
+        check.
 
         Args:
             interaction: The Discord interaction object
@@ -854,7 +1005,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             raise ExternalServiceError(message=error_msg) from e
 
     @admin.command(name="resources", description="View bot resource usage statistics")
-    @commands.is_owner()
+    @app_commands.check(app_moderator_check)
     @handle_interaction_errors
     async def resources(
         self,
@@ -891,7 +1042,9 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
 
             # Get resource statistics with error handling
             try:
-                current_stats = self.bot.resource_monitor.get_resource_stats()
+                current_stats = (
+                    await self.bot.resource_monitor.get_resource_stats_async()
+                )
                 if not current_stats:
                     raise ExternalServiceError(
                         message="❌ Resource monitor returned empty statistics"
@@ -1078,7 +1231,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
             raise ExternalServiceError(message=error_msg) from e
 
     @admin.command(name="sql", description="Execute a SQL query on the database")
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def sql_query(
         self,
@@ -1111,28 +1264,13 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
         query = query.strip()
 
         # Validate query length
-        if len(query) > 5000:
-            raise ValidationError(message="Query too long (maximum 5000 characters)")
+        if len(query) > MAX_SQL_QUERY_LENGTH:
+            raise ValidationError(
+                message=f"Query too long (maximum {MAX_SQL_QUERY_LENGTH} characters)"
+            )
 
         # Normalize query for analysis
         query_upper = query.upper().strip()
-
-        # Define allowed and dangerous query types
-        READ_ONLY_OPERATIONS = {  # noqa: N806 - in-function security constant
-            "SELECT",
-            "WITH",
-            "EXPLAIN",
-            "ANALYZE",
-        }
-        MODIFICATION_OPERATIONS = {  # noqa: N806 - in-function security constant
-            "INSERT",
-            "UPDATE",
-            "DELETE",
-            "TRUNCATE",
-            "DROP",
-            "CREATE",
-            "ALTER",
-        }
 
         # Determine query type
         first_word = query_upper.split()[0] if query_upper.split() else ""
@@ -1146,23 +1284,27 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
                 message=f"Query type '{first_word}' requires allow_modifications=True for safety"
             )
 
-        # Additional security pattern checks
-        dangerous_patterns = [
-            r";\s*(DROP|DELETE|TRUNCATE|ALTER)",  # Multiple statements with dangerous operations
-            r"--\s*[^\r\n]*(?:DROP|DELETE|TRUNCATE)",  # Comments hiding dangerous operations
-            r"/\*.*(?:DROP|DELETE|TRUNCATE).*\*/",  # Block comments hiding dangerous operations
-            r"UNION.*SELECT.*FROM.*information_schema",  # Information schema access
-            r"pg_sleep|pg_terminate_backend",  # PostgreSQL system functions
-        ]
-
-        for pattern in dangerous_patterns:
-            if re.search(pattern, query_upper, re.IGNORECASE | re.DOTALL):
+        # Writable-CTE bypass (audit F2c-secondary): the first-word check above
+        # classifies "WITH x AS (... DELETE ...) SELECT ..." as read-only, but
+        # PostgreSQL executes data-modifying statements inside top-level CTEs.
+        if not allow_modifications:
+            cte_write_keyword = find_write_keyword_in_cte(query)
+            if cte_write_keyword is not None:
                 logging.warning(
-                    f"SECURITY: Dangerous SQL pattern detected in query by owner {interaction.user.id}"
+                    f"SECURITY: Writable CTE (keyword '{cte_write_keyword}') attempted by owner {interaction.user.id} without permission"
                 )
-                raise ValidationError(
-                    message="Query contains potentially dangerous SQL patterns"
+                raise PermissionError(
+                    message=f"Query contains a CTE with write keyword '{cte_write_keyword}'; requires allow_modifications=True for safety"
                 )
+
+        # Additional security pattern checks
+        if find_dangerous_sql_pattern(query_upper) is not None:
+            logging.warning(
+                f"SECURITY: Dangerous SQL pattern detected in query by owner {interaction.user.id}"
+            )
+            raise ValidationError(
+                message="Query contains potentially dangerous SQL patterns"
+            )
 
         # Log the query execution attempt
         logging.info(
@@ -1286,7 +1428,7 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
     @admin.command(
         name="ask_db", description="Ask a natural language question about the database"
     )
-    @commands.is_owner()
+    @app_commands.check(_is_bot_owner)
     @handle_interaction_errors
     async def ask_database(
         self, interaction: discord.Interaction, question: str
@@ -1431,6 +1573,29 @@ class OwnerCog(commands.Cog, name="Owner"):  # type: ignore[call-arg]  # stub
                 await interaction.edit_original_response(content=response)
                 logging.info(
                     f"OWNER ASK_DB: AI determined query not possible for question: '{question}'"
+                )
+                return
+
+            # Step 3.5: Server-side read-only guard on the generated SQL.
+            # The prompt instructs the AI to produce SELECT-only queries, but a
+            # hallucinated or prompt-injected response must never reach the
+            # database unchecked (audit finding F2c).
+            try:
+                sql_query = validate_read_only_sql(sql_query)
+            except ValidationError as e:
+                logging.warning(
+                    f"OWNER ASK_DB SECURITY: Rejected generated SQL for user {interaction.user.id} "
+                    f"(reason: {e}): {sql_query}"
+                )
+                await interaction.edit_original_response(
+                    content="❌ **Blocked:** the generated SQL failed the read-only safety check and was not executed."
+                )
+                await interaction.followup.send(
+                    f"❌ **Generated SQL rejected by read-only guard**\n"
+                    f"**Reason:** {e}\n"
+                    f"**Generated SQL:**\n```sql\n{sql_query[:1500]}\n```\n"
+                    "Only single read-only statements (SELECT/WITH/EXPLAIN/ANALYZE, no writable CTEs) are executed.",
+                    ephemeral=True,
                 )
                 return
 

@@ -94,7 +94,6 @@ ignore = [
     "ANN002", # missing type for *args
     "ANN003", # missing type for **kwargs
     "ANN401", # dynamically-typed Any — allowed where genuinely needed
-    "C901",   # function is too complex — tracked as tech debt, not a CI gate
     "D100",   # missing docstring in public module
     "D101",   # missing docstring in public class
     "D102",   # missing docstring in public method
@@ -105,6 +104,26 @@ ignore = [
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.mccabe]
+# C901 complexity gate — a RATCHET, not a target.
+#
+# The cap is set to (current worst offender + 1) so it blocks NEW complexity
+# monsters without requiring a big-bang refactor. As the god-module refactor
+# (backlog item 2.5) lands, LOWER this number — never raise it.
+#
+# Top offenders as of 2026-06 (ruff mccabe scores):
+#   42  repost_attachment                  cogs/gallery.py
+#   33  repost                             cogs/gallery.py
+#   33  handle_global_app_command_error    utils/error_handling.py
+#   32  ao3                                cogs/external_services.py
+#   29  perform_comprehensive_save         cogs/stats_listeners.py
+#   29  info_role                          cogs/info.py
+#   28  ask_database                       cogs/owner.py
+#   27  user_info_function                 cogs/info.py
+#
+# Ratchet plan: 43 → 30 (after gallery.py split) → 20 → 12 (long-term goal).
+max-complexity = 43
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -136,5 +155,26 @@ asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"
 # Automatically mark async test functions
 markers = [
-    "asyncio: mark test as async"
+    "asyncio: mark test as async",
+    "integration: real-Postgres integration test (skipped unless TEST_DATABASE_URL is set)",
+]
+
+[tool.coverage.run]
+# Honest coverage: measure production code only. tests/ and scripts/ are
+# excluded from the denominator (a bare `--cov` respects this source list, so
+# the CI number and a local `pytest --cov` agree).
+source = [
+    "cogs",
+    "utils",
+    "models",
+    "config",
+    "main",
+]
+
+[tool.coverage.report]
+# Generated/vendored files are not part of the production denominator.
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
 ]

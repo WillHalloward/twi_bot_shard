@@ -59,8 +59,9 @@ Sentry — externally — raises a missed check-in issue after ~15 min (interval
 margin 10) when the check-ins stop. Because the alert is driven by Sentry
 reacting to the *absence* of a signal, it fires even when the bot itself is dead.
 
-The cog loads in staging/production (not in test mode, where the loop is
-skipped).
+The loop runs only when `ENVIRONMENT` is `staging` or `production`
+(`config.is_staging()` / `config.is_production()`); development and testing
+skip it.
 
 ## Configuration & Alerting
 

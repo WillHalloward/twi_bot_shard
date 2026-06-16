@@ -197,7 +197,7 @@ class StatsCogs(  # type: ignore[call-arg]  # discord.py Cog name= kwarg
             try:
                 owner = await self.bot.fetch_user(self.bot.owner_id)
                 await owner.send(
-                    f"No messages found in guild 346842016480755724 during the last {datetime.now() - timedelta(hours=24)} - {datetime.now()}"
+                    f"No messages found in guild 346842016480755724 during the last {datetime.now(UTC) - timedelta(hours=24)} - {datetime.now(UTC)}"
                 )
             except Exception as e:
                 self.logger.error("owner_notification_failed", error=str(e))
@@ -305,8 +305,10 @@ class StatsCogs(  # type: ignore[call-arg]  # discord.py Cog name= kwarg
 
             self.logger.debug("requesting_join_leave_stats")
 
-        # Query join/leave stats
-        twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+        # Query join/leave stats (naive UTC: join_leave.date stores naive UTC)
+        twenty_four_hours_ago = datetime.now(UTC).replace(tzinfo=None) - timedelta(
+            hours=24
+        )
         user_join_leave_results = await self.bot.db.fetchrow(
             """
             SELECT

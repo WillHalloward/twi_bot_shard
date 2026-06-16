@@ -21,6 +21,8 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 import discord
 from discord.ext import commands
 
+from utils.cog_registry import BASE_CRITICAL_COGS, COGS
+
 # Import config (but don't use the token)
 
 # Set up logging
@@ -215,10 +217,10 @@ class TestBot(commands.Bot):
         self._latency = 0.05  # 50ms latency
 
         # Mock guilds list for testing
-        self._guilds = []
+        self._guilds: list[discord.Guild] = []
 
         # Add initial_extensions list (needed by sync command)
-        self.initial_extensions = []
+        self.initial_extensions: list[str] = []
 
     async def get_db_session(self) -> MockAsyncSession:
         """
@@ -262,27 +264,22 @@ async def test_load_cogs() -> tuple[list[str], dict[str, Exception]]:
         - List of successfully loaded cogs
         - Dict mapping failed cogs to their exceptions
     """
-    # Get list of cogs from main.py
-    all_cogs = [
-        "cogs.gallery",
-        "cogs.links_tags",
-        "cogs.patreon_poll",
-        "cogs.twi",
-        "cogs.owner",
-        "cogs.utility",
-        "cogs.info",
-        "cogs.pins",
-        "cogs.quotes",
-        "cogs.external_services",
-        "cogs.roles",
-        "cogs.mods",
-        "cogs.stats",
-        "cogs.creator_links",
-        "cogs.report",
-        "cogs.summarization",
-        "cogs.settings",
-        "cogs.interactive_help",
-    ]
+    # The single source of truth for the cog list (also used by main.py and
+    # cogs/owner.py).
+    all_cogs = list(COGS)
+
+    # Module-level app-command groups (utils/command_groups.py) accumulate
+    # registrations when a cog module is executed. If another test module
+    # already imported a cog at collection time (e.g. test_owner_cog.py does
+    # ``from cogs.owner import OwnerCog``), ``load_extension`` re-executes the
+    # module and the duplicate ``@group.command`` registration raises
+    # CommandAlreadyRegistered. Clear the shared groups so every cog can
+    # register its commands freshly.
+    from utils.command_groups import admin, gallery_admin, mod
+
+    for group in (admin, gallery_admin, mod):
+        for registered in list(group.commands):
+            group.remove_command(registered.name)
 
     # Create a test bot instance
     bot = TestBot()
@@ -305,7 +302,37 @@ async def test_load_cogs() -> tuple[list[str], dict[str, Exception]]:
     # Clean up
     await bot.close()
 
+    # Fail the test (under pytest) if any cog failed to load. The return value
+    # below is kept for the script-mode main() entry point.
+    assert not failed_cogs, "cogs failed to load: " + ", ".join(
+        f"{cog}: {type(e).__name__} - {e}" for cog, e in failed_cogs.items()
+    )
+
     return successful_cogs, failed_cogs
+
+
+def test_cog_registry_consistency() -> None:
+    """Every registry entry must be a real, loadable extension module.
+
+    This permanently kills the phantom-cog class of bug (e.g. the stale
+    ``cogs.other``/``cogs.innktober`` entries that once lived in a hand-copied
+    list in cogs/owner.py): each module path in COGS must import and expose a
+    module-level ``setup`` entry point, and BASE_CRITICAL_COGS must be a
+    subset of COGS.
+    """
+    import importlib
+
+    assert len(COGS) == len(set(COGS)), "COGS contains duplicate entries"
+
+    for cog in COGS:
+        module = importlib.import_module(cog)
+        assert hasattr(module, "setup"), (
+            f"{cog} has no module-level setup() function and cannot be loaded "
+            "as an extension"
+        )
+
+    missing = set(BASE_CRITICAL_COGS) - set(COGS)
+    assert not missing, f"BASE_CRITICAL_COGS entries not in COGS: {sorted(missing)}"
 
 
 async def main() -> bool:

@@ -139,7 +139,7 @@ GOOGLE_CSE_ID=your_google_cse_id
 
 ### OpenAI Integration
 
-Required for: AI-powered features, summarization
+Required for: schema-search embeddings and the owner-only `ask_database` command (`utils/schema_search.py`)
 
 ```env
 OPENAI_API_KEY=your_openai_api_key
@@ -147,31 +147,6 @@ OPENAI_API_KEY=your_openai_api_key
 
 **Where to get:** [OpenAI Platform](https://platform.openai.com/api-keys)
 **Security:** 🔐 **Highly Sensitive**
-
-### Reddit Integration
-
-Required for: Reddit content fetching, Patreon poll tracking
-
-```env
-USER_AGENT=python:twi_bot_shard:v1.0 by /u/your_username
-USERNAME=your_reddit_username
-PASSWORD=your_reddit_password
-```
-
-**Where to get:**
-1. Create an account at [Reddit](https://www.reddit.com)
-2. Note your username and password
-
-**Descriptions:**
-- `USER_AGENT`: Identifies your bot to Reddit's API (required format: `platform:app_id:version by /u/username`)
-- `USERNAME`: Your Reddit account username
-- `PASSWORD`: Your Reddit account password
-
-**Requirements:** If any Reddit variable is set, all 3 must be set
-**Security:** 🔐 `PASSWORD` is sensitive
-**User Agent Format:** `platform:app_id:version by /u/username`
-
-**Note:** The bot uses these credentials for read-only Reddit access. The `CLIENT_ID` and `CLIENT_SECRET` variables shown in some Reddit API documentation are not required for this bot's functionality.
 
 ### Twitter Integration
 
@@ -436,12 +411,6 @@ KILL_AFTER=0
 GOOGLE_API_KEY=your_google_key
 GOOGLE_CSE_ID=your_cse_id
 OPENAI_API_KEY=your_openai_key
-
-# Reddit (for Patreon tracking)
-USER_AGENT=python:twi_bot_shard:v1.0dev by /u/yourname
-USERNAME=your_reddit_user
-PASSWORD=your_reddit_pass
-
 ```
 
 ### Production Setup
@@ -473,9 +442,6 @@ TWITTER_API_KEY_SECRET=prod_twitter_secret
 TWITTER_BEARER_TOKEN=prod_bearer_token
 TWITTER_ACCESS_TOKEN=prod_access_token
 TWITTER_ACCESS_TOKEN_SECRET=prod_access_secret
-USER_AGENT=python:twi_bot_shard:v1.0 by /u/produser
-USERNAME=prod_reddit_user
-PASSWORD=prod_reddit_pass
 AO3_USERNAME=prod_ao3_user
 AO3_PASSWORD=prod_ao3_pass
 
@@ -502,7 +468,6 @@ The bot will fail to start if any required variable is missing:
 The bot validates that multi-part credentials are complete:
 - **Twitter:** All 5 variables required if any are set
 - **Google:** Both API_KEY and CSE_ID required if either is set
-- **Reddit:** All 3 variables required if any are set (USER_AGENT, USERNAME, PASSWORD)
 - **AO3:** Both USERNAME and PASSWORD required if either is set
 
 ### Type Validation

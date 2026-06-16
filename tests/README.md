@@ -156,57 +156,6 @@ ENVIRONMENT=testing pytest tests/test_validation.py -v
 - Tests sanitize_json with different input types
 - Verifies that all validation functions maintain their expected properties
 
-### 13. `test_chaos_engineering.py`
-
-Tests the bot's resilience under various failure conditions using chaos engineering principles.
-
-**Usage:**
-```bash
-ENVIRONMENT=testing python tests/test_chaos_engineering.py
-```
-
-**What it does:**
-- Tests database connection failures and timeouts
-- Tests network failures and API unavailability
-- Tests memory pressure and resource exhaustion
-- Tests external service failures
-- Tests concurrent failure scenarios
-- Tests recovery and graceful degradation
-- Tests intermittent failures and slow responses
-- Provides a resilience score (0-100) based on test results
-- Records detailed metrics including recovery times and degradation events
-
-**Chaos Engineering Scenarios:**
-- **Database Failure**: Simulates database connection failures to test graceful degradation
-- **External API Failure**: Tests resilience when external APIs (Google, Twitter, etc.) are unavailable
-- **Memory Pressure**: Tests bot performance under high memory usage conditions
-- **Concurrent Failures**: Tests multiple failure scenarios happening simultaneously
-- **Intermittent Failures**: Tests handling of sporadic, unpredictable failures
-- **Slow Responses**: Tests timeout handling and performance under slow response conditions
-
-**Example output:**
-```
-Starting Chaos Engineering Tests for Twi Bot Shard
-============================================================
-CHAOS ENGINEERING TEST RESULTS
-============================================================
-Overall Success: PASS
-Resilience Score: 83.3/100
-Scenarios Tested: 6
-Total Failures Injected: 6
-Average Recovery Time: 0.12s
-Max Recovery Time: 0.15s
-Degradation Events: 2
-
-Individual Test Results:
-  database_failure: PASS
-  external_api_failure: PASS
-  memory_pressure: PASS
-  concurrent_failures: PASS
-  intermittent_failures: PASS
-  slow_responses: PASS
-```
-
 ### 14. `test_twi_cog.py`
 
 Tests the TwiCog class, which provides commands related to "The Wandering Inn" wiki and content.
@@ -270,24 +219,6 @@ Tests integration with external APIs (Google, Twitter, etc.).
 ENVIRONMENT=testing pytest tests/test_external_api_integration.py -v
 ```
 
-### 21. `test_load_testing.py` and `test_performance_benchmarks.py`
-
-Performance and load testing for the bot.
-
-**Usage:**
-```bash
-ENVIRONMENT=testing pytest tests/test_load_testing.py tests/test_performance_benchmarks.py -v
-```
-
-### 22. `test_secret_manager.py`
-
-Tests the secret management functionality.
-
-**Usage:**
-```bash
-ENVIRONMENT=testing pytest tests/test_secret_manager.py -v
-```
-
 ### 23. `test_query_cache.py`
 
 Tests the query caching functionality.
@@ -340,15 +271,6 @@ Regression tests guarding against previously fixed bugs.
 **Usage:**
 ```bash
 ENVIRONMENT=testing pytest tests/test_regression.py -v
-```
-
-### 29. `test_visual_regression.py`
-
-Visual/output regression tests for rendered bot responses.
-
-**Usage:**
-```bash
-ENVIRONMENT=testing pytest tests/test_visual_regression.py -v
 ```
 
 > **Note:** This list covers the main test modules; the source of truth is the

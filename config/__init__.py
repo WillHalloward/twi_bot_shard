@@ -103,19 +103,8 @@ class BotConfig(BaseModel):
     google_cse_id: str | None = Field(
         None, description="Google Custom Search Engine ID"
     )
-    client_id: str | None = Field(None, description="Client ID")
-    client_secret: str | None = Field(
-        None, description="Client secret", json_schema_extra={"sensitive": True}
-    )
     openai_api_key: str | None = Field(
         None, description="OpenAI API key", json_schema_extra={"sensitive": True}
-    )
-
-    # Reddit settings
-    user_agent: str | None = Field(None, description="Reddit user agent")
-    username: str | None = Field(None, description="Reddit username")
-    password: str | None = Field(
-        None, description="Reddit password", json_schema_extra={"sensitive": True}
     )
 
     # Webhook settings
@@ -223,9 +212,7 @@ class BotConfig(BaseModel):
         "bot_token",
         "db_password",
         "google_api_key",
-        "client_secret",
         "openai_api_key",
-        "password",
         "webhook_testing_log",
         "webhook",
         "twitter_api_key",
@@ -247,8 +234,6 @@ class BotConfig(BaseModel):
     _optional_api_fields: set[str] = {
         "google_api_key",
         "google_cse_id",
-        "client_id",
-        "client_secret",
         "openai_api_key",
         "twitter_api_key",
         "twitter_api_key_secret",
@@ -308,21 +293,6 @@ class BotConfig(BaseModel):
             raise ValueError(
                 "Google API key is required when Google CSE ID is provided"
             )
-
-        # Check Reddit credentials
-        if any(
-            [values.get("user_agent"), values.get("username"), values.get("password")]
-        ):
-            missing = []
-            if not values.get("user_agent"):
-                missing.append("user_agent")
-            if not values.get("username"):
-                missing.append("username")
-            if not values.get("password"):
-                missing.append("password")
-
-            if missing:
-                raise ValueError(f"Missing Reddit credentials: {', '.join(missing)}")
 
         # Check AO3 credentials
         if values.get("ao3_username") and not values.get("ao3_password"):
@@ -425,14 +395,7 @@ def load_from_env() -> BotConfig:
     # Get optional API keys and credentials
     google_api_key = get_env("GOOGLE_API_KEY")
     google_cse_id = get_env("GOOGLE_CSE_ID")
-    client_id = get_env("CLIENT_ID")
-    client_secret = get_env("CLIENT_SECRET")
     openai_api_key = get_env("OPENAI_API_KEY")
-
-    # Reddit settings
-    user_agent = get_env("USER_AGENT")
-    username = get_env("USERNAME")
-    password = get_env("PASSWORD")
 
     # Webhook settings
     webhook_testing_log = get_env("WEBHOOK_TESTING_LOG")
@@ -512,11 +475,6 @@ def load_from_env() -> BotConfig:
             database=cast(str, database),
             port=port_int,
             kill_after=kill_after_int,
-            client_id=client_id,
-            client_secret=client_secret,
-            user_agent=user_agent,
-            username=username,
-            password=password,
             logfile=logfile,
             log_format=LogFormat(log_format),
             webhook_testing_log=webhook_testing_log,
@@ -580,11 +538,6 @@ DB_password = config.db_password
 database = config.database
 port = config.port
 kill_after = config.kill_after
-client_id = config.client_id
-client_secret = config.client_secret
-user_agent = config.user_agent
-username = config.username
-password = config.password
 logging_level = config.logging_level
 logfile = config.logfile
 log_format = config.log_format

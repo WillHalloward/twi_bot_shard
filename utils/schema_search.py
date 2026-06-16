@@ -7,7 +7,7 @@ using PostgreSQL's pgvector extension, replacing the previous FAISS implementati
 import logging
 from typing import TYPE_CHECKING, cast
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 import config
 
@@ -26,21 +26,26 @@ class SchemaSearchError(Exception):
     pass
 
 
-def get_openai_client() -> OpenAI:
-    """Get OpenAI client for embeddings."""
+def get_openai_client() -> AsyncOpenAI:
+    """Get async OpenAI client for embeddings.
+
+    The async client keeps OpenAI network calls off the event loop; the
+    bot's async paths (e.g. /admin ask_database) must never use the
+    synchronous ``OpenAI`` client.
+    """
     if not config.openai_api_key:
         raise SchemaSearchError("OpenAI API key not configured")
-    return OpenAI(api_key=config.openai_api_key)
+    return AsyncOpenAI(api_key=config.openai_api_key)
 
 
-def get_embedding(client: OpenAI, text: str) -> list[float]:
+async def get_embedding(client: AsyncOpenAI, text: str) -> list[float]:
     """Get embedding vector for a text string.
 
     Raises:
         SchemaSearchError: If the embedding request fails.
     """
     try:
-        response = client.embeddings.create(model=EMBEDDING_MODEL, input=[text])
+        response = await client.embeddings.create(model=EMBEDDING_MODEL, input=[text])
         return response.data[0].embedding
     except Exception as e:
         logger.error(f"Failed to get embedding: {e}")
@@ -68,7 +73,7 @@ async def search_schema(
     try:
         # Get embedding for the query
         client = get_openai_client()
-        query_embedding = get_embedding(client, query)
+        query_embedding = await get_embedding(client, query)
 
         # Convert to PostgreSQL vector format
         embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
@@ -217,7 +222,7 @@ async def generate_sql(
             question, schema_chunks, server_id, channel_id, user_id
         )
 
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model=model,
             messages=[
                 {

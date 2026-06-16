@@ -15,6 +15,7 @@ import logging
 import logging.handlers
 import os
 import platform
+import signal
 import ssl
 import sys
 import time
@@ -29,6 +30,7 @@ from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import config
+from utils.cog_registry import BASE_CRITICAL_COGS, COGS
 from utils.command_groups import admin, gallery_admin, mod
 from utils.db import Database
 from utils.error_handling import setup_global_exception_handler
@@ -585,7 +587,7 @@ class Cognita(commands.Bot):
                 )
                 VALUES($1, $2, $3)
                 """,
-                datetime.datetime.now(),
+                datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
                 "startup_time",
                 startup_data,
             )
@@ -695,7 +697,9 @@ class Cognita(commands.Bot):
             This method expects 'start_time' and 'id' to be present in interaction.extras,
             which are set in the on_interaction method.
         """
-        end_date = datetime.datetime.now()
+        # Naive UTC (project invariant): stored in command_history.end_date and
+        # subtracted from the naive-UTC start_time set in on_interaction.
+        end_date = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         if "start_time" in interaction.extras:
             run_time = end_date - interaction.extras["start_time"]
             if "id" in interaction.extras:
@@ -765,7 +769,8 @@ class Cognita(commands.Bot):
         command_args = json.dumps(
             interaction.data.get("options", [])
         )  # Convert options to JSON string
-        start_date = datetime.datetime.now()
+        # Naive UTC (project invariant): stored in command_history.start_date.
+        start_date = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
         try:
             # Ensure user exists before inserting command history (foreign key constraint)
@@ -1047,39 +1052,10 @@ async def main() -> None:
             timeout=30.0,  # Connection timeout
         ) as pool
     ):
-        # Define all cogs
-        cogs = [
-            "cogs.gallery",
-            "cogs.links_tags",
-            "cogs.patreon_poll",
-            "cogs.twi",
-            "cogs.owner",
-            "cogs.utility",
-            "cogs.info",
-            "cogs.pins",
-            "cogs.quotes",
-            "cogs.external_services",
-            "cogs.roles",
-            "cogs.mods",
-            "cogs.stats",
-            "cogs.creator_links",
-            "cogs.report",
-            "cogs.summarization",
-            "cogs.settings",
-            "cogs.message_log",
-            "cogs.interactive_help",
-            "cogs.heartbeat",
-        ]
-
-        # Define critical cogs that must be loaded at startup
-        # These are cogs that provide essential functionality or are required by other cogs
-        base_critical_cogs = [
-            "cogs.owner",  # Owner commands for bot management
-            "cogs.mods",  # Moderation commands
-            "cogs.stats",  # Core statistics tracking
-            "cogs.settings",  # Bot settings management
-            "cogs.interactive_help",  # Interactive help system
-        ]
+        # All cogs and the startup-critical subset come from the single
+        # registry in utils/cog_registry.py — add new cogs there, not here.
+        cogs = list(COGS)
+        base_critical_cogs = list(BASE_CRITICAL_COGS)
 
         # In production and staging, load all cogs at startup so the full
         # command tree exists and can be synced (slash commands cannot be
@@ -1138,6 +1114,43 @@ async def main() -> None:
 
                 # Schedule the kill task
                 bot.loop.create_task(kill_bot_after_delay())
+
+            # Graceful shutdown on SIGTERM/SIGINT. Railway sends SIGTERM on
+            # every deploy/restart, and as PID 1 in the container an unhandled
+            # SIGTERM is ignored (the kernel applies no default disposition to
+            # PID 1), so the bot previously sat out the stop-grace window and
+            # was SIGKILLed mid-write. Closing the bot lets bot.start() return,
+            # which unwinds the async-with blocks above (HTTP client, asyncpg
+            # pool) cleanly.
+            loop = asyncio.get_running_loop()
+            shutdown_tasks: list[asyncio.Task[None]] = []
+
+            def request_shutdown(sig: signal.Signals) -> None:
+                """Signal handler that initiates a graceful bot shutdown.
+
+                Restores default signal behavior after the first signal so a
+                repeated signal can still force-terminate a hung shutdown.
+
+                Args:
+                    sig: The signal that triggered the shutdown.
+                """
+                root_logger.info(f"Received {sig.name}; shutting down gracefully")
+                for s in (signal.SIGTERM, signal.SIGINT):
+                    loop.remove_signal_handler(s)
+                # Retain the task reference so it cannot be GC-cancelled.
+                shutdown_tasks.append(asyncio.create_task(bot.close()))
+
+            try:
+                for sig in (signal.SIGTERM, signal.SIGINT):
+                    loop.add_signal_handler(sig, request_shutdown, sig)
+            except NotImplementedError:
+                # add_signal_handler is unavailable on Windows event loops;
+                # deploys run on Linux, so this only affects local dev.
+                root_logger.warning(
+                    "Signal handlers unsupported on this platform; "
+                    "graceful shutdown on SIGTERM disabled"
+                )
+
             await bot.start(config.bot_token)
 
 
