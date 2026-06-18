@@ -42,6 +42,7 @@ from datetime import UTC, datetime
 from operator import itemgetter
 from typing import cast
 
+import aiohttp
 import discord
 import structlog
 from discord import app_commands
@@ -53,6 +54,11 @@ from utils.logging import RequestContext, TimingContext
 from utils.permissions import (
     is_bot_channel,
 )
+
+# Hard ceiling on Patreon pagination. The poll feed is only a few dozen pages;
+# this is a safety stop so a malformed "next" link or a repeatedly-failing page
+# can never spin get_poll() into an unbounded fetch loop.
+MAX_POLL_PAGES = 100
 
 
 def _extract_poll_options(json_data: dict) -> list[tuple[str, int, int]]:
@@ -101,6 +107,43 @@ async def fetch(session, url, cookies=None, headers=None) -> str:
         return cast(str, await response.text())
 
 
+async def fetch_page(http_client, url, cookies=None, headers=None) -> str:
+    """Acquire a session and fetch ``url``, retrying once on a closed connector.
+
+    The shared aiohttp session can be torn down out from under a long-running
+    operation (deploy/restart, periodic session swap) while ``get_poll`` still
+    holds a reference to it. That surfaces mid-request as
+    ``ClientConnectionError: Connector is closed.`` (and occasionally
+    ``RuntimeError: Session is closed``). Re-acquiring a fresh session — which
+    ``get_session_with_retry`` recreates when the old one is closed — and
+    retrying once recovers from that race instead of failing the whole fetch.
+
+    Args:
+        http_client: The shared HTTPClient (e.g. ``bot.http_client``).
+        url: The URL to fetch.
+        cookies: Optional cookies to send with the request.
+        headers: Optional headers to send with the request.
+
+    Returns:
+        The response body text.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        session = await http_client.get_session_with_retry()
+        try:
+            return await fetch(session, url, cookies=cookies, headers=headers)
+        except (aiohttp.ClientConnectionError, RuntimeError) as e:
+            # Only retry the "closed underneath us" race; re-raise anything else
+            # (real connection failures, timeouts) and never loop more than once.
+            if attempt == 0 and "closed" in str(e).lower():
+                last_exc = e
+                continue
+            raise
+    # Loop only falls through here after a first-attempt closed-session error.
+    assert last_exc is not None
+    raise last_exc
+
+
 async def get_poll(bot) -> dict:
     """Fetch and process polls from Patreon API with comprehensive logging and statistics.
 
@@ -138,13 +181,22 @@ async def get_poll(bot) -> dict:
         )
 
         while True:
+            if stats["pages_processed"] >= MAX_POLL_PAGES:
+                logger.error(
+                    "poll_fetch_page_limit_reached",
+                    page_limit=MAX_POLL_PAGES,
+                    url=url,
+                    request_id=ctx.request_id,
+                )
+                stats["errors"] += 1
+                break
+
             stats["pages_processed"] += 1
 
             try:
                 # Fetch page data
                 async with TimingContext(logger, "fetch_page_data") as timing_ctx:
-                    session = await bot.http_client.get_session_with_retry()
-                    html = await fetch(session, url)
+                    html = await fetch_page(bot.http_client, url)
                     timing_ctx.add_info(page_number=stats["pages_processed"], url=url)
 
                 # Parse JSON data
@@ -156,14 +208,21 @@ async def get_poll(bot) -> dict:
                         posts_count=len(json_data.get("data", [])),
                     )
                 except Exception as e:
+                    # The response body wasn't JSON — almost always an HTML
+                    # rate-limit / auth / Cloudflare page from Patreon. The URL
+                    # is unchanged here, so `continue` would re-fetch the same
+                    # failing page forever (this was the cause of the 1.5k-event
+                    # json_parse_failed loop). Stop pagination instead.
                     logger.error(
                         "json_parse_failed",
                         page=stats["pages_processed"],
+                        url=url,
+                        response_snippet=html[:200],
                         error=str(e),
                         error_type=type(e).__name__,
                     )
                     stats["errors"] += 1
-                    continue
+                    break
 
                 # Process each post
                 for posts in json_data["data"]:
@@ -194,11 +253,8 @@ async def get_poll(bot) -> dict:
                                 async with TimingContext(
                                     logger, "fetch_poll_details"
                                 ) as timing_ctx:
-                                    session = (
-                                        await bot.http_client.get_session_with_retry()
-                                    )
-                                    html = await fetch(
-                                        session,
+                                    html = await fetch_page(
+                                        bot.http_client,
                                         posts["relationships"]["poll"]["links"][
                                             "related"
                                         ],
@@ -399,8 +455,7 @@ async def check_and_update_expired_polls(bot, polls) -> list:
 
             try:
                 # Fetch latest poll data from Patreon API to get final vote counts
-                session = await bot.http_client.get_session_with_retry()
-                html = await fetch(session, poll["api_url"])
+                html = await fetch_page(bot.http_client, poll["api_url"])
                 json_data = json.loads(html)
 
                 # Extract options first — if this fails, don't mark the poll as expired
@@ -505,8 +560,7 @@ async def p_poll(polls, interaction, bot) -> None:
                 # Fetch live poll data from Patreon API
                 logger.info("fetching_live_poll_data", poll_id=poll["id"])
                 try:
-                    session = await bot.http_client.get_session_with_retry()
-                    html = await fetch(session, poll["api_url"])
+                    html = await fetch_page(bot.http_client, poll["api_url"])
                     json_data = json.loads(html)
 
                     extracted = _extract_poll_options(json_data)
@@ -584,6 +638,7 @@ async def p_poll(polls, interaction, bot) -> None:
                 )
 
             # Add poll options as embed fields
+            total_votes = 0
             if not options:
                 embed.add_field(
                     name="⚠️ No Options Available",

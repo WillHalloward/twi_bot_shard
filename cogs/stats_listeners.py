@@ -1109,23 +1109,29 @@ class StatsListenersMixin(StatsMixinBase):
             added_emojis = [emoji for emoji in after if emoji.id not in before_set]
             removed_emoji_ids = before_set - after_set
 
-            current_time = datetime.now(UTC).replace(tzinfo=None)
-
-            # Save added emojis
+            # Save added emojis. The table is `emotes` (keyed by emote_id) —
+            # the same one comprehensive-save writes to. Upsert so re-adding a
+            # previously-removed emote clears its deleted flag instead of
+            # colliding on the emote_id primary key.
             for emoji in added_emojis:
                 await self.bot.db.execute(
-                    "INSERT INTO emojis(id, name, guild_id, animated, created_at) VALUES ($1,$2,$3,$4,$5)",
+                    """
+                    INSERT INTO emotes(guild_id, emote_id, name, animated, managed, deleted)
+                    VALUES ($1,$2,$3,$4,$5,FALSE)
+                    ON CONFLICT (emote_id)
+                    DO UPDATE SET name = $3, animated = $4, managed = $5, deleted = FALSE
+                    """,
+                    guild.id,
                     emoji.id,
                     emoji.name,
-                    guild.id,
                     emoji.animated,
-                    current_time,
+                    emoji.managed,
                 )
 
             # Mark removed emojis as deleted
             for emoji_id in removed_emoji_ids:
                 await self.bot.db.execute(
-                    "UPDATE emojis SET deleted = TRUE WHERE id = $1",
+                    "UPDATE emotes SET deleted = TRUE WHERE emote_id = $1",
                     emoji_id,
                 )
         except Exception as e:
@@ -1144,7 +1150,7 @@ class StatsListenersMixin(StatsMixinBase):
                 role.id,
                 role.name,
                 role.guild.id,
-                role.color.value,
+                str(role.color.value),
                 role.position,
                 role.permissions.value,
                 role.created_at.replace(tzinfo=None),
@@ -1507,7 +1513,7 @@ class StatsListenersMixin(StatsMixinBase):
             await self.bot.db.execute(
                 "UPDATE roles SET name = $1, color = $2, position = $3, permissions = $4 WHERE id = $5",
                 after.name,
-                after.color.value,
+                str(after.color.value),
                 after.position,
                 after.permissions.value,
                 after.id,
