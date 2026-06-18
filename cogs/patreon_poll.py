@@ -638,6 +638,7 @@ async def p_poll(polls, interaction, bot) -> None:
                 )
 
             # Add poll options as embed fields
+            total_votes = 0
             if not options:
                 embed.add_field(
                     name="⚠️ No Options Available",
