@@ -1150,7 +1150,7 @@ class StatsListenersMixin(StatsMixinBase):
                 role.id,
                 role.name,
                 role.guild.id,
-                role.color.value,
+                str(role.color.value),
                 role.position,
                 role.permissions.value,
                 role.created_at.replace(tzinfo=None),
@@ -1513,7 +1513,7 @@ class StatsListenersMixin(StatsMixinBase):
             await self.bot.db.execute(
                 "UPDATE roles SET name = $1, color = $2, position = $3, permissions = $4 WHERE id = $5",
                 after.name,
-                after.color.value,
+                str(after.color.value),
                 after.position,
                 after.permissions.value,
                 after.id,
