@@ -168,14 +168,44 @@ class Cognita(commands.Bot):
 
         # Initialize resource monitor with improved settings
         self.logger = logging.getLogger("bot")
+
+        # Leak detection starts tracemalloc, which traces every allocation and
+        # retains 5 full snapshots (refreshed every check_interval), so its
+        # overhead scales with the live object count rather than being a fixed
+        # cost. On production — a process that had run 3 months without a
+        # restart — that was ~2.5 GB of RSS against staging's 0.5 GB on
+        # identical code, and Railway bills container memory, so it was also
+        # the single largest avoidable line on the bill. It is a diagnostic
+        # tool, not something to leave running in a long-lived deployment:
+        # default it off in production and let MEMORY_LEAK_DETECTION force it
+        # either way, so it can be switched on to chase a real leak (set the
+        # Railway env var, redeploy, read the logs, unset it) without a code
+        # change.
+        leak_detection_override = os.getenv("MEMORY_LEAK_DETECTION")
+        if leak_detection_override is not None:
+            enable_leak_detection = leak_detection_override.lower() in (
+                "true",
+                "1",
+                "yes",
+            )
+        else:
+            enable_leak_detection = config.ENVIRONMENT != config.Environment.PRODUCTION
+
         self.resource_monitor = ResourceMonitor(
             check_interval=300,  # Check every 5 minutes
             memory_threshold=85.0,
             cpu_threshold=80.0,
             memory_leak_threshold=52428800,  # 50MB threshold to reduce false positives
-            enable_memory_leak_detection=True,
+            enable_memory_leak_detection=enable_leak_detection,
             logger=self.logger.getChild("resource_monitor"),
             pool=self.db.pool,  # surface DB pool saturation / utilization
+        )
+        self.logger.info(
+            "resource_monitor_configured",
+            extra={
+                "memory_leak_detection": enable_leak_detection,
+                "environment": str(config.ENVIRONMENT),
+            },
         )
 
         # Initialize service container
