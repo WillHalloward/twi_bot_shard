@@ -5,8 +5,7 @@ with bot owner override support.
 """
 
 import logging
-from collections.abc import Coroutine
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 import discord
 from discord import app_commands
@@ -19,6 +18,19 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger("permissions")
+
+
+class AppPermissionDenied(app_commands.CheckFailure):
+    """A slash-command permission check failed; ``str(self)`` is user-facing.
+
+    ``@app_commands.check`` predicates must raise an ``AppCommandError``
+    subclass for discord.py to route the failure to ``bot.tree.error``. Our
+    shared checks raise :class:`utils.exceptions.PermissionError` (a
+    ``CognitaError``, not an ``AppCommandError``), which instead escaped the
+    command tree as an unhandled task exception: the user got a generic
+    "interaction failed" and the denial was reported to Sentry as an error.
+    The ``app_*`` wrappers translate it into this type.
+    """
 
 
 # =============================================================================
@@ -181,11 +193,14 @@ def admin_or_me_check_wrapper(func: commands.Command) -> commands.Command:
     return commands.check(predicate)(func)
 
 
-def app_admin_or_me_check(
-    interaction: discord.Interaction,
-) -> Coroutine[Any, Any, bool]:
+async def app_admin_or_me_check(interaction: discord.Interaction) -> bool:
     """Wrapper for admin_or_me_check to use with @app_commands.check decorator."""
-    return admin_or_me_check(interaction)
+    try:
+        return await admin_or_me_check(interaction)
+    except PermissionError as e:
+        raise AppPermissionDenied(
+            e.message or "You don't have permission to use this command."
+        ) from e
 
 
 async def moderator_check(
@@ -230,11 +245,14 @@ def moderator_check_wrapper(func: commands.Command) -> commands.Command:
     return commands.check(predicate)(func)
 
 
-def app_moderator_check(
-    interaction: discord.Interaction,
-) -> Coroutine[Any, Any, bool]:
+async def app_moderator_check(interaction: discord.Interaction) -> bool:
     """Wrapper for moderator_check to use with @app_commands.check decorator."""
-    return moderator_check(interaction)
+    try:
+        return await moderator_check(interaction)
+    except PermissionError as e:
+        raise AppPermissionDenied(
+            e.message or "You don't have permission to use this command."
+        ) from e
 
 
 # =============================================================================

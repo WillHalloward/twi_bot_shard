@@ -37,6 +37,7 @@ from utils.exceptions import (
     UserInputError,
     ValidationError,
 )
+from utils.permissions import AppPermissionDenied
 
 logger = logging.getLogger("error_handling")
 
@@ -415,6 +416,13 @@ ERROR_RESPONSES: dict[type[Exception], dict[str, Any]] = {
     discord.app_commands.errors.CommandOnCooldown: {
         "message": "Please wait {error.retry_after:.1f} seconds before using this command again.",
         "log_level": logging.WARNING,
+        "ephemeral": True,
+    },
+    # Must precede the generic app CheckFailure entry (first isinstance match
+    # wins): carries the specific denial text from utils.permissions checks.
+    AppPermissionDenied: {
+        "message": "{error}",
+        "log_level": logging.INFO,
         "ephemeral": True,
     },
     discord.app_commands.errors.CheckFailure: {
