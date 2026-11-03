@@ -262,6 +262,11 @@ SYNC_ON_START=true
   - Set to `true`, `1`, or `yes` to enable
   - Set to `false`, `0`, or `no` to disable
 
+- `MESSAGE_CONTENT_INTENT`: Whether to request Discord's privileged Message Content intent (default: `true`)
+  - Set to `false`, `0`, or `no` if Discord has not granted (or has revoked) the intent for the app. Otherwise login fails with `PrivilegedIntentsRequired` and the bot crash-loops
+  - While disabled: message text, attachments and embeds arrive empty, so the edit log stays silent, delete logs show the content as unavailable, link detection doesn't fire, `!` prefix commands only work via @mention, and stats record `content_length` as NULL (unknown) instead of 0
+  - Slash commands, context menus, member/role tracking and message counts keep working
+
 - `SYNC_ON_START`: Whether to sync slash commands globally on bot startup (default: `false`)
   - One-time use for deploying new commands globally
   - Set to `true`, `1`, or `yes` to enable
