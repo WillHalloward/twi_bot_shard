@@ -206,6 +206,15 @@ class BotConfig(BaseModel):
         False,
         description="Whether to sync commands globally on startup (set via SYNC_ON_START)",
     )
+    message_content_intent: bool = Field(
+        True,
+        description=(
+            "Request Discord's privileged Message Content intent (set via "
+            "MESSAGE_CONTENT_INTENT). Set false if Discord has not granted it: "
+            "the bot then connects without it and content-based moderation "
+            "features (edit/delete log text, link detection) go quiet."
+        ),
+    )
 
     # Class variables to track configuration
     _sensitive_fields: set[str] = {
@@ -419,6 +428,12 @@ def load_from_env() -> BotConfig:
     webhooks_enabled = webhooks_enabled_str.lower() not in ("false", "0", "no")
     sync_on_start_str = cast(str, get_env("SYNC_ON_START", "false"))
     sync_on_start = sync_on_start_str.lower() in ("true", "1", "yes")
+    message_content_intent_str = cast(str, get_env("MESSAGE_CONTENT_INTENT", "true"))
+    message_content_intent = message_content_intent_str.lower() not in (
+        "false",
+        "0",
+        "no",
+    )
 
     # Check for missing required variables
     if missing_vars:
@@ -494,6 +509,7 @@ def load_from_env() -> BotConfig:
             staging_guild_id=staging_guild_id,
             webhooks_enabled=webhooks_enabled,
             sync_on_start=sync_on_start,
+            message_content_intent=message_content_intent,
         )
     except ValueError as e:
         # Add more context to validation errors
@@ -566,6 +582,7 @@ fallback_admin_role_id = config.fallback_admin_role_id
 staging_guild_id = config.staging_guild_id
 webhooks_enabled = config.webhooks_enabled
 sync_on_start = config.sync_on_start
+message_content_intent = config.message_content_intent
 
 
 # Helper functions for environment checks
