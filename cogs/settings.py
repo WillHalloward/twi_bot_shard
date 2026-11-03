@@ -5,6 +5,7 @@ from discord.ext import commands
 
 import config
 from utils.error_handling import handle_interaction_errors
+from utils.permissions import get_guild_member
 from utils.repositories import ServerSettingsRepository
 
 
@@ -140,7 +141,7 @@ class SettingsCog(commands.Cog, name="Settings"):  # type: ignore[call-arg]  # s
             if not guild:
                 return False
 
-            member = guild.get_member(user_id)
+            member = await get_guild_member(guild, user_id)
             if not member:
                 return False
 

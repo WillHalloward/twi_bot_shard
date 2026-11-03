@@ -267,6 +267,11 @@ SYNC_ON_START=true
   - While disabled: message text, attachments and embeds arrive empty, so the edit log stays silent, delete logs show the content as unavailable, link detection doesn't fire, `!` prefix commands only work via @mention, and stats record `content_length` as NULL (unknown) instead of 0
   - Slash commands, context menus, member/role tracking and message counts keep working
 
+- `MEMBERS_INTENT`: Whether to request Discord's privileged Server Members intent (default: `true`)
+  - Set to `false`, `0`, or `no` if Discord has not granted (or has revoked) the intent for the app. Otherwise login fails with `PrivilegedIntentsRequired`
+  - While disabled: member join/leave/update events stop, so auto-verify of new members, special-role announcements and join/leave/role-change stats are paused. The member cache stays nearly empty (`guild.members`/`role.members` only list cached members)
+  - Admin/mod permission checks keep working: `utils.permissions.get_guild_member` falls back to fetching the member over REST, which doesn't need the intent
+
 - `SYNC_ON_START`: Whether to sync slash commands globally on bot startup (default: `false`)
   - One-time use for deploying new commands globally
   - Set to `true`, `1`, or `yes` to enable

@@ -206,6 +206,15 @@ class BotConfig(BaseModel):
         False,
         description="Whether to sync commands globally on startup (set via SYNC_ON_START)",
     )
+    members_intent: bool = Field(
+        True,
+        description=(
+            "Request Discord's privileged Server Members intent (set via "
+            "MEMBERS_INTENT). Set false if Discord has not granted it: member "
+            "join/leave/update events stop (auto-verify, role announcements, "
+            "join/leave stats) and the member cache stays nearly empty."
+        ),
+    )
     message_content_intent: bool = Field(
         True,
         description=(
@@ -428,6 +437,8 @@ def load_from_env() -> BotConfig:
     webhooks_enabled = webhooks_enabled_str.lower() not in ("false", "0", "no")
     sync_on_start_str = cast(str, get_env("SYNC_ON_START", "false"))
     sync_on_start = sync_on_start_str.lower() in ("true", "1", "yes")
+    members_intent_str = cast(str, get_env("MEMBERS_INTENT", "true"))
+    members_intent = members_intent_str.lower() not in ("false", "0", "no")
     message_content_intent_str = cast(str, get_env("MESSAGE_CONTENT_INTENT", "true"))
     message_content_intent = message_content_intent_str.lower() not in (
         "false",
@@ -510,6 +521,7 @@ def load_from_env() -> BotConfig:
             webhooks_enabled=webhooks_enabled,
             sync_on_start=sync_on_start,
             message_content_intent=message_content_intent,
+            members_intent=members_intent,
         )
     except ValueError as e:
         # Add more context to validation errors
@@ -583,6 +595,7 @@ staging_guild_id = config.staging_guild_id
 webhooks_enabled = config.webhooks_enabled
 sync_on_start = config.sync_on_start
 message_content_intent = config.message_content_intent
+members_intent = config.members_intent
 
 
 # Helper functions for environment checks

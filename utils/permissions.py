@@ -26,6 +26,26 @@ logger = logging.getLogger("permissions")
 # =============================================================================
 
 
+async def get_guild_member(guild: discord.Guild, user_id: int) -> discord.Member | None:
+    """Look up a guild member, falling back to the REST API on a cache miss.
+
+    The member cache is only populated when the bot has the privileged Server
+    Members intent. Without it (MEMBERS_INTENT=false) ``get_member`` misses for
+    almost everyone, which would make every admin/mod check fail. Fetching a
+    single member over REST does not require the intent.
+    """
+    member = guild.get_member(user_id)
+    if member is not None:
+        return member
+    try:
+        return await guild.fetch_member(user_id)
+    except (discord.NotFound, discord.Forbidden):
+        return None
+    except discord.HTTPException as e:
+        logger.warning(f"fetch_member failed for {user_id} in {guild.id}: {e}")
+        return None
+
+
 def is_bot_owner(user_id: int) -> bool:
     """Check if user is the bot owner."""
     return user_id == config.bot_owner_id
@@ -61,7 +81,7 @@ async def is_admin(
     if not guild:
         return False
 
-    member = guild.get_member(user_id)
+    member = await get_guild_member(guild, user_id)
     if not member:
         return False
 
@@ -106,7 +126,7 @@ async def is_moderator(
     if not guild:
         return False
 
-    member = guild.get_member(user_id)
+    member = await get_guild_member(guild, user_id)
     if not member:
         return False
 
