@@ -7,6 +7,7 @@ Welcome to the documentation for Twi Bot Shard (Cognita), a Discord bot for "The
 ### User Documentation
 
 - **[Features](features.md)** - Bot features and commands
+- **[Privacy Policy](privacy.md)** - What data the bot stores and how to have it deleted
 
 ### Developer Documentation
 

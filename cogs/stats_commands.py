@@ -1470,7 +1470,7 @@ class StatsQueriesMixin(StatsMixinBase):
             SELECT
                 COUNT(*) as total_messages,
                 COUNT(DISTINCT user_id) as unique_users,
-                AVG(LENGTH(content)) as avg_message_length,
+                AVG(content_length) as avg_message_length,
                 COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments
             FROM messages
             LEFT JOIN attachments ON messages.message_id = attachments.message_id
@@ -1781,7 +1781,7 @@ class StatsQueriesMixin(StatsMixinBase):
             SELECT
                 COUNT(*) as total_messages,
                 COUNT(DISTINCT channel_id) as active_channels,
-                AVG(LENGTH(content)) as avg_message_length,
+                AVG(content_length) as avg_message_length,
                 COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments
             FROM messages
             LEFT JOIN attachments ON messages.message_id = attachments.message_id
@@ -1955,7 +1955,7 @@ class StatsQueriesMixin(StatsMixinBase):
                 COUNT(*) as total_messages,
                 COUNT(DISTINCT user_id) as active_members,
                 COUNT(DISTINCT channel_id) as active_channels,
-                AVG(LENGTH(content)) as avg_message_length
+                AVG(content_length) as avg_message_length
             FROM messages
             WHERE created_at > $1 AND user_id = ANY($2) AND server_id = $3
             """
@@ -2140,7 +2140,7 @@ class StatsQueriesMixin(StatsMixinBase):
                 COUNT(*) as total_messages,
                 COUNT(DISTINCT user_id) as unique_users,
                 COUNT(DISTINCT channel_id) as active_channels,
-                AVG(LENGTH(content)) as avg_message_length,
+                AVG(content_length) as avg_message_length,
                 COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments
             FROM messages
             LEFT JOIN attachments ON messages.message_id = attachments.message_id
@@ -2303,7 +2303,7 @@ class StatsQueriesMixin(StatsMixinBase):
             SELECT
                 COUNT(*) as total_messages,
                 COUNT(DISTINCT user_id) as unique_users,
-                AVG(LENGTH(content)) as avg_message_length,
+                AVG(content_length) as avg_message_length,
                 COUNT(*) FILTER (WHERE attachments.id IS NOT NULL) as messages_with_attachments
             FROM messages
             LEFT JOIN attachments ON messages.message_id = attachments.message_id

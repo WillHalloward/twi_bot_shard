@@ -46,7 +46,14 @@ jobs:
       uses: astral-sh/setup-uv@v5
 
     - name: Install dependencies
-      run: uv pip install --system -e ".[dev]"
+      # Install the exact versions pinned in uv.lock (the same lock that
+      # requirements.txt / production is exported from). An unpinned
+      # `-e ".[dev]"` resolves to the newest releases instead, so CI drifts
+      # from what production runs (e.g. SQLAlchemy 2.1 / a newer ruff).
+      run: |
+        uv export --format requirements-txt --locked --extra dev --no-emit-project --no-hashes -o "$RUNNER_TEMP/ci-requirements.txt"
+        uv pip install --system -r "$RUNNER_TEMP/ci-requirements.txt"
+        uv pip install --system --no-deps -e .
 
     - name: Provide test environment config
       # config/__init__.py validates required env vars at import time. Locally
@@ -88,7 +95,14 @@ jobs:
       uses: astral-sh/setup-uv@v5
 
     - name: Install dependencies
-      run: uv pip install --system -e ".[dev]"
+      # Install the exact versions pinned in uv.lock (the same lock that
+      # requirements.txt / production is exported from). An unpinned
+      # `-e ".[dev]"` resolves to the newest releases instead, so CI drifts
+      # from what production runs (e.g. SQLAlchemy 2.1 / a newer ruff).
+      run: |
+        uv export --format requirements-txt --locked --extra dev --no-emit-project --no-hashes -o "$RUNNER_TEMP/ci-requirements.txt"
+        uv pip install --system -r "$RUNNER_TEMP/ci-requirements.txt"
+        uv pip install --system --no-deps -e .
 
     - name: Run ruff check
       run: ruff check .

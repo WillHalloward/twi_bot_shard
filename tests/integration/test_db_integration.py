@@ -173,6 +173,51 @@ class TestIdempotency:
 
 
 # --------------------------------------------------------------------------- #
+# 1b. Message text is never persisted (Discord Message Content intent policy)
+# --------------------------------------------------------------------------- #
+class TestNoMessageContentStored:
+    @pytest.mark.asyncio
+    async def test_schema_has_no_message_text_columns(self, real_db) -> None:
+        cols = await real_db.fetch(
+            "SELECT table_name, column_name FROM information_schema.columns "
+            "WHERE (table_name IN ('messages', 'message_edit') "
+            "AND column_name IN ('content', 'old_content', 'new_content')) "
+            "OR (table_name = 'attachments' AND column_name IN ('filename', 'url'))",
+            use_cache=False,
+        )
+        assert cols == []
+
+    @pytest.mark.asyncio
+    async def test_save_and_edit_store_length_only(self, real_db) -> None:
+        from cogs.stats_listeners import StatsListenersMixin, save_message
+
+        msg = _make_message(message_id=4242)  # content="hello world"
+        await save_message(_bot(real_db), msg)
+        assert await real_db.fetchval(
+            "SELECT content_length FROM messages WHERE message_id=$1",
+            msg.id,
+            use_cache=False,
+        ) == len("hello world")
+
+        payload = types.SimpleNamespace(
+            data={
+                "id": str(msg.id),
+                "content": "edited!",
+                "edited_timestamp": "2026-01-01T12:05:00+00:00",
+            }
+        )
+        listener = types.SimpleNamespace(bot=_bot(real_db))
+        await StatsListenersMixin.message_edited(listener, payload)  # type: ignore[arg-type]
+
+        assert await real_db.fetchval(
+            "SELECT content_length FROM messages WHERE message_id=$1",
+            msg.id,
+            use_cache=False,
+        ) == len("edited!")
+        assert await _count(real_db, "message_edit", "id=$1", msg.id) == 1
+
+
+# --------------------------------------------------------------------------- #
 # 2. Timestamps stored as UTC even on a non-UTC host
 # --------------------------------------------------------------------------- #
 class TestTimestampUTC:
