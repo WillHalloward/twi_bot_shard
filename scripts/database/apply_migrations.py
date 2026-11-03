@@ -61,6 +61,10 @@ MANUAL_MIGRATIONS: frozenset[str] = frozenset(
         # table), which cannot run inside the runner's transaction; run by
         # hand, recorded-as-applied only.
         "20260613_01_mentions_unique.sql",
+        # Batched backfill (commits per batch), DROP COLUMN and VACUUM FULL on
+        # the hot messages table; must run in a maintenance window AFTER the
+        # content_length code is deployed. Run by hand, recorded-as-applied only.
+        "20261103_02_purge_message_content.sql",
     }
 )
 

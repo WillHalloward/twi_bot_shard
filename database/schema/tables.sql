@@ -1,8 +1,6 @@
 create table attachments
 (
     id         bigint,
-    filename   varchar,
-    url        varchar,
     size       bigint,
     height     integer,
     width      integer,
@@ -277,7 +275,7 @@ create table messages
         constraint messages_pk
             primary key,
     created_at   timestamp not null,
-    content      varchar,
+    content_length integer,
     user_name    varchar,
     server_name  varchar   not null,
     server_id    bigint    not null
@@ -511,8 +509,6 @@ create table message_edit
         constraint message_edit_pk
             primary key,
     id             bigint,
-    old_content    varchar,
-    new_content    varchar,
     edit_timestamp timestamp
 );
 

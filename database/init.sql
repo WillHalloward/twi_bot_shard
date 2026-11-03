@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS messages
     message_id   bigint NOT NULL
         CONSTRAINT messages_pk PRIMARY KEY,
     created_at   timestamp NOT NULL,
-    content      varchar,
+    content_length integer,
     user_name    varchar,
     server_name  varchar NOT NULL,
     server_id    bigint NOT NULL
@@ -185,8 +185,6 @@ CREATE INDEX IF NOT EXISTS messages_created_at_index ON messages (created_at DES
 CREATE TABLE IF NOT EXISTS attachments
 (
     id         bigint,
-    filename   varchar,
-    url        varchar,
     size       bigint,
     height     integer,
     width      integer,
@@ -545,8 +543,6 @@ CREATE TABLE IF NOT EXISTS message_edit
     serial_id      serial
         CONSTRAINT message_edit_pk PRIMARY KEY,
     id             bigint,
-    old_content    varchar,
-    new_content    varchar,
     edit_timestamp timestamp
 );
 
