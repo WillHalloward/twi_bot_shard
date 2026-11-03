@@ -1114,7 +1114,15 @@ async def main() -> None:
         )
 
         intents = discord.Intents.default()
-        intents.members = True
+        # MEMBERS_INTENT=false lets the bot connect while Discord has the Server
+        # Members intent disabled. Member events stop; permission checks fall
+        # back to fetching the member over REST (utils.permissions).
+        intents.members = config.members_intent
+        if not intents.members:
+            root_logger.warning(
+                "Server Members intent DISABLED (MEMBERS_INTENT=false): "
+                "auto-verify, role announcements and join/leave stats are paused"
+            )
         # MESSAGE_CONTENT_INTENT=false lets the bot connect while Discord has the
         # privileged intent disabled (otherwise login fails with
         # PrivilegedIntentsRequired). Content-dependent features degrade.
