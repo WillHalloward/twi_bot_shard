@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
@@ -17,7 +17,9 @@ class Message(Base):
     __tablename__ = "messages"
 
     message_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    content: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Message text is deliberately NOT stored (Discord Message Content intent
+    # policy); only its length is kept for the average-length stats.
+    content_length: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     server_name: Mapped[str] = mapped_column(String, nullable=False)
     server_id: Mapped[int] = mapped_column(

@@ -167,13 +167,13 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
         # Insert the message (with conflict handling for duplicates)
         await bot.db.execute(
             """
-            INSERT INTO messages(message_id, created_at, content, user_name, server_name, server_id, channel_id, channel_name, user_id, user_nick, jump_url, is_bot, deleted, reference)
+            INSERT INTO messages(message_id, created_at, content_length, user_name, server_name, server_id, channel_id, channel_name, user_id, user_nick, jump_url, is_bot, deleted, reference)
             VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
             ON CONFLICT (message_id) DO NOTHING
             """,
             message.id,
             message.created_at.replace(tzinfo=None),
-            message.content,
+            len(message.content or ""),
             message.author.name,
             message.guild.name if message.guild else "DM",
             message.guild.id if message.guild else None,
@@ -192,8 +192,6 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
             attachment_data = [
                 (
                     attachment.id,
-                    attachment.filename,
-                    attachment.url,
                     attachment.size,
                     attachment.height,
                     attachment.width,
@@ -207,7 +205,7 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
             # re-delivery, backfill overlapping live saves) idempotent against
             # whatever unique indexes exist, with no deploy-order dependency.
             await bot.db.execute_many(
-                "INSERT INTO attachments(id, filename, url, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING",
+                "INSERT INTO attachments(id, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
                 attachment_data,
             )
 
@@ -287,7 +285,7 @@ async def save_messages_bulk(
             (
                 message.id,
                 message.created_at.replace(tzinfo=None),
-                message.content,
+                len(message.content or ""),
                 message.author.name,
                 message.guild.name if message.guild else "DM",
                 message.guild.id if message.guild else None,
@@ -305,8 +303,6 @@ async def save_messages_bulk(
             attachment_rows.append(
                 (
                     attachment.id,
-                    attachment.filename,
-                    attachment.url,
                     attachment.size,
                     attachment.height,
                     attachment.width,
@@ -334,7 +330,7 @@ async def save_messages_bulk(
     if message_rows:
         await bot.db.execute_many(
             """
-            INSERT INTO messages(message_id, created_at, content, user_name, server_name, server_id, channel_id, channel_name, user_id, user_nick, jump_url, is_bot, deleted, reference)
+            INSERT INTO messages(message_id, created_at, content_length, user_name, server_name, server_id, channel_id, channel_name, user_id, user_nick, jump_url, is_bot, deleted, reference)
             VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
             ON CONFLICT (message_id) DO NOTHING
             """,
@@ -344,7 +340,7 @@ async def save_messages_bulk(
     # (or re-run over already-saved history) idempotent — see save_message.
     if attachment_rows:
         await bot.db.execute_many(
-            "INSERT INTO attachments(id, filename, url, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING",
+            "INSERT INTO attachments(id, size, height, width, is_spoiler, message_id) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
             attachment_rows,
         )
     if user_mention_rows:
@@ -742,31 +738,23 @@ class StatsListenersMixin(StatsMixinBase):
                 and "edited_timestamp" in payload.data
                 and payload.data["edited_timestamp"] is not None
             ):
+                # Message text is never persisted (Message Content intent
+                # policy) — record only that an edit happened and the new
+                # length, which the stats queries use.
                 logger.debug("message_edited", message_id=payload.data.get("id"))
-                old_content = await self.bot.db.fetchval(
-                    "SELECT content FROM messages where message_id = $1 LIMIT 1",
-                    int(payload.data["id"]),
-                )
-                logger.debug(
-                    "old_content_fetched",
-                    content_length=len(old_content) if old_content else 0,
-                )
                 await self.bot.db.execute(
-                    "INSERT INTO message_edit(id, old_content, new_content, edit_timestamp) VALUES ($1,$2,$3,$4)",
+                    "INSERT INTO message_edit(id, edit_timestamp) VALUES ($1,$2)",
                     int(payload.data["id"]),
-                    old_content,
-                    payload.data["content"],
                     datetime.fromisoformat(payload.data["edited_timestamp"]).replace(
                         tzinfo=None
                     ),
                 )
-                logger.debug("message_edit_inserted")
                 await self.bot.db.execute(
-                    "UPDATE messages set content = $1 WHERE message_id = $2",
-                    payload.data["content"],
+                    "UPDATE messages SET content_length = $1 WHERE message_id = $2",
+                    len(payload.data["content"] or ""),
                     int(payload.data["id"]),
                 )
-                logger.debug("message_content_updated")
+                logger.debug("message_edit_recorded")
         except Exception as e:
             logger.exception(
                 "message_edited_error",
