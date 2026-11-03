@@ -26,7 +26,7 @@ attrs==26.1.0
     # via aiohttp
 beautifulsoup4==4.15.0
     # via ao3-api
-certifi==2026.5.20
+certifi==2026.10.18
     # via
     #   httpcore
     #   httpx
