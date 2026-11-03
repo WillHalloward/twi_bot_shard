@@ -22,6 +22,9 @@ from utils.error_handling import handle_interaction_errors
 CONTENT_MAX = 900
 
 
+CONTENT_UNAVAILABLE = "*unavailable (Message Content intent disabled)*"
+
+
 def _truncate(text: str | None, limit: int = CONTENT_MAX) -> str:
     """Truncate text for embed fields, preserving meaning."""
     if not text:
@@ -236,7 +239,11 @@ class MessageLogCog(BaseCog):
         )
         embed.add_field(
             name="Content",
-            value=_truncate(message.content),
+            value=(
+                _truncate(message.content)
+                if self.bot.intents.message_content
+                else CONTENT_UNAVAILABLE
+            ),
             inline=False,
         )
 
@@ -338,7 +345,11 @@ class MessageLogCog(BaseCog):
         # Show a sample of deleted content
         sample_lines = []
         for msg in messages[:5]:
-            content = _truncate(msg.content, 80)
+            content = (
+                _truncate(msg.content, 80)
+                if self.bot.intents.message_content
+                else CONTENT_UNAVAILABLE
+            )
             sample_lines.append(f"**{msg.author.display_name}:** {content}")
         if len(messages) > 5:
             sample_lines.append(f"*...and {len(messages) - 5} more*")

@@ -135,6 +135,24 @@ async def save_reaction(bot: "commands.Bot", reaction: discord.Reaction) -> None
         raise
 
 
+def _has_message_content(bot: "commands.Bot") -> bool:
+    """Whether the bot connected with the privileged Message Content intent."""
+    intents = getattr(bot, "intents", None)
+    return intents is None or bool(intents.message_content)
+
+
+def _content_length(bot: "commands.Bot", message: discord.Message) -> int | None:
+    """Length of the message text, or None when it's unknowable.
+
+    Without the Message Content intent Discord sends ``content=""`` for
+    ordinary messages, so recording 0 would silently skew the average-length
+    stats; NULL is excluded from ``AVG(content_length)`` instead.
+    """
+    if not _has_message_content(bot):
+        return None
+    return len(message.content or "")
+
+
 async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
     """Save message data to the database.
 
@@ -173,7 +191,7 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
             """,
             message.id,
             message.created_at.replace(tzinfo=None),
-            len(message.content or ""),
+            _content_length(bot, message),
             message.author.name,
             message.guild.name if message.guild else "DM",
             message.guild.id if message.guild else None,
@@ -285,7 +303,7 @@ async def save_messages_bulk(
             (
                 message.id,
                 message.created_at.replace(tzinfo=None),
-                len(message.content or ""),
+                _content_length(bot, message),
                 message.author.name,
                 message.guild.name if message.guild else "DM",
                 message.guild.id if message.guild else None,
@@ -749,11 +767,12 @@ class StatsListenersMixin(StatsMixinBase):
                         tzinfo=None
                     ),
                 )
-                await self.bot.db.execute(
-                    "UPDATE messages SET content_length = $1 WHERE message_id = $2",
-                    len(payload.data["content"] or ""),
-                    int(payload.data["id"]),
-                )
+                if _has_message_content(self.bot):
+                    await self.bot.db.execute(
+                        "UPDATE messages SET content_length = $1 WHERE message_id = $2",
+                        len(payload.data["content"] or ""),
+                        int(payload.data["id"]),
+                    )
                 logger.debug("message_edit_recorded")
         except Exception as e:
             logger.exception(

@@ -1115,7 +1115,15 @@ async def main() -> None:
 
         intents = discord.Intents.default()
         intents.members = True
-        intents.message_content = True
+        # MESSAGE_CONTENT_INTENT=false lets the bot connect while Discord has the
+        # privileged intent disabled (otherwise login fails with
+        # PrivilegedIntentsRequired). Content-dependent features degrade.
+        intents.message_content = config.message_content_intent
+        if not intents.message_content:
+            root_logger.warning(
+                "Message Content intent DISABLED (MESSAGE_CONTENT_INTENT=false): "
+                "message text/attachments/embeds will be empty"
+            )
         async with Cognita(
             commands.when_mentioned_or("!"),
             db_pool=pool,
