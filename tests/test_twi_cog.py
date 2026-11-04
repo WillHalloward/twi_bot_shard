@@ -431,7 +431,7 @@ async def test_edge_cases() -> bool:
     interaction = MockInteractionFactory.create()
 
     # Test empty search results
-    with patch("cogs.twi.fetch") as mock_fetch:
+    with patch("cogs.twi.fetch_wiki") as mock_fetch:
         mock_fetch.return_value = '{"error": "no results"}'
 
         await cog.wiki.callback(cog, interaction, "nonexistent query")
