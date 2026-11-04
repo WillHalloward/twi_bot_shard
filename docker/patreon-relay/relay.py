@@ -79,16 +79,21 @@ def allowed_client(ip: str) -> bool:
     return any(addr in net for net in ALLOW_NETS)
 
 
-def take_rate_slot() -> bool:
-    """Consume one slot of the per-minute budget; False when exhausted."""
+def take_rate_slot() -> int:
+    """Consume one slot of the per-minute budget.
+
+    Returns:
+        0 if a slot was taken, otherwise the whole seconds until the oldest
+        slot frees up (sent to the client as Retry-After).
+    """
     now = time.monotonic()
     with _rate_lock:
         while _recent and now - _recent[0] > 60:
             _recent.popleft()
         if len(_recent) >= RATE_PER_MIN:
-            return False
+            return max(1, int(60 - (now - _recent[0])) + 1)
         _recent.append(now)
-        return True
+        return 0
 
 
 def valid_target(url: str) -> bool:
@@ -162,10 +167,32 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         """Silence the default per-request stderr logging (we log ourselves)."""
 
-    def _send(self, status: int, body: bytes, ctype: str = "text/plain") -> None:
+    def _reject(
+        self, status: int, reason: str, extra_headers: dict[str, str] | None = None
+    ) -> None:
+        """Send a relay-originated error, labelled with X-Relay-Error.
+
+        Lets clients tell it apart from an upstream Patreon status that /fetch
+        passes through unchanged.
+        """
+        self._send(
+            status,
+            reason.encode(),
+            extra_headers={"X-Relay-Error": reason, **(extra_headers or {})},
+        )
+
+    def _send(
+        self,
+        status: int,
+        body: bytes,
+        ctype: str = "text/plain",
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -174,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
         client = self.client_address[0]
         if not allowed_client(client):
             log(f"deny ip={client} path={self.path.split('?')[0]}")
-            self._send(403, b"forbidden")
+            self._reject(403, "forbidden")
             return
 
         path, _, query = self.path.partition("?")
@@ -182,23 +209,26 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, b"ok")
             return
         if path != "/fetch":
-            self._send(404, b"not found")
+            self._reject(404, "not found")
             return
 
         auth = self.headers.get("Authorization", "")
         if not hmac.compare_digest(auth.encode(), f"Bearer {TOKEN}".encode()):
             log(f"bad-token ip={client}")
-            self._send(401, b"unauthorized")
+            self._reject(401, "unauthorized")
             return
 
         url = (parse_qs(query).get("url") or [""])[0]
         if not valid_target(url):
             log(f"bad-url ip={client}")
-            self._send(400, b"only https://www.patreon.com/api/ URLs are allowed")
+            self._reject(400, "only https://www.patreon.com/api/ URLs are allowed")
             return
-        if not take_rate_slot():
-            log(f"rate-limited ip={client}")
-            self._send(429, b"rate limited")
+        retry_after = take_rate_slot()
+        if retry_after:
+            log(f"rate-limited ip={client} retry_after={retry_after}s")
+            self._reject(
+                429, "rate limited", extra_headers={"Retry-After": str(retry_after)}
+            )
             return
 
         started = time.monotonic()
@@ -206,7 +236,7 @@ class Handler(BaseHTTPRequestHandler):
             status, body, ctype = fetch_upstream(url)
         except Exception as e:  # noqa: BLE001
             log(f"upstream-error ip={client} err={type(e).__name__}")
-            self._send(502, b"upstream fetch failed")
+            self._reject(502, "upstream fetch failed")
             return
         log(
             f"fetch ip={client} status={status} bytes={len(body)} "
