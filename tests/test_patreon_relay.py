@@ -24,9 +24,15 @@ API_URL = (
 
 
 class _Response:
-    def __init__(self, status: int = 200, body: str = '{"data": []}') -> None:
+    def __init__(
+        self,
+        status: int = 200,
+        body: str = '{"data": []}',
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.status = status
         self._body = body
+        self.headers = headers or {}
 
     async def text(self) -> str:
         return self._body
@@ -127,8 +133,68 @@ async def test_relay_rejection_raises(
         patreon_relay_token="t" * 64,
         patreon_relay_cert_sha256=FP,
     )
+    sleeps: list[float] = []
+
+    async def fake_sleep(s: float) -> None:
+        sleeps.append(s)
+
+    monkeypatch.setattr(pp.asyncio, "sleep", fake_sleep)
+    session = _session(
+        _Response(status, "nope", {"Retry-After": "3", "X-Relay-Error": "nope"})
+    )
     with pytest.raises(pp.ExternalServiceError):
-        await pp.fetch(_session(_Response(status, "nope")), API_URL)
+        await pp.fetch(session, API_URL)
+    if status == 429:
+        # Retried RELAY_429_RETRIES times, waiting Retry-After each time.
+        assert session.get.call_count == pp.RELAY_429_RETRIES + 1
+        assert sleeps == [3.0] * pp.RELAY_429_RETRIES
+    else:
+        assert session.get.call_count == 1
+        assert sleeps == []
+
+
+@pytest.mark.asyncio
+async def test_relay_429_then_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    import cogs.patreon_poll as pp
+
+    _configure(
+        monkeypatch,
+        pp,
+        patreon_relay_url="https://203.0.113.7:48888",
+        patreon_relay_token="t" * 64,
+        patreon_relay_cert_sha256=FP,
+    )
+    sleeps: list[float] = []
+
+    async def fake_sleep(s: float) -> None:
+        sleeps.append(s)
+
+    monkeypatch.setattr(pp.asyncio, "sleep", fake_sleep)
+    session = MagicMock()
+    session.get = MagicMock(
+        side_effect=[
+            _Response(
+                429,
+                "rate limited",
+                {"Retry-After": "12", "X-Relay-Error": "rate limited"},
+            ),
+            _Response(200, '{"data": [1]}'),
+        ]
+    )
+
+    assert await pp.fetch(session, API_URL) == '{"data": [1]}'
+    assert sleeps == [12.0]
+    assert session.get.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [("12", 12.0), (None, 10.0), ("garbage", 10.0), ("0", 1.0), ("3600", 65.0)],
+)
+def test_retry_after_parsing(header: str | None, expected: float) -> None:
+    import cogs.patreon_poll as pp
+
+    assert pp._retry_after_seconds(header) == expected
 
 
 def test_config_parses_relay_settings(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -154,3 +220,26 @@ def test_config_relay_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     for k in ("PATREON_RELAY_URL", "PATREON_RELAY_TOKEN", "PATREON_RELAY_CERT_SHA256"):
         monkeypatch.delenv(k, raising=False)
     assert config.load_from_env().patreon_relay_url is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [401, 403, 429])
+async def test_upstream_status_passed_through(
+    monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    """A Patreon status relayed unchanged (no X-Relay-Error) is not a relay
+    failure: return the body like a direct request would, never retry."""
+    import cogs.patreon_poll as pp
+
+    _configure(
+        monkeypatch,
+        pp,
+        patreon_relay_url="https://203.0.113.7:48888",
+        patreon_relay_token="t" * 64,
+        patreon_relay_cert_sha256=FP,
+    )
+    body = '{"errors": [{"title": "Unauthorized"}]}'
+    session = _session(_Response(status, body))
+
+    assert await pp.fetch(session, API_URL) == body
+    assert session.get.call_count == 1

@@ -37,6 +37,7 @@ Author: Twi Bot Shard Development Team
 Version: Enhanced with comprehensive logging and documentation
 """
 
+import asyncio
 import json
 from datetime import UTC, datetime
 from operator import itemgetter
@@ -138,25 +139,53 @@ async def fetch_via_relay(session: aiohttp.ClientSession, url: str) -> str:
             message="Patreon relay misconfigured: PATREON_RELAY_TOKEN and "
             "PATREON_RELAY_CERT_SHA256 (64 hex chars) are required"
         )
-    async with session.get(
-        f"{config.patreon_relay_url}/fetch",
-        params={"url": url},
-        headers={"Authorization": f"Bearer {token}"},
-        ssl=aiohttp.Fingerprint(bytes.fromhex(fingerprint)),
-        timeout=aiohttp.ClientTimeout(total=60),
-    ) as response:
-        logger = structlog.get_logger("patreon_poll.relay")
-        if response.status in (400, 401, 403, 429, 502):
+    logger = structlog.get_logger("patreon_poll.relay")
+    for attempt in range(RELAY_429_RETRIES + 1):
+        async with session.get(
+            f"{config.patreon_relay_url}/fetch",
+            params={"url": url},
+            headers={"Authorization": f"Bearer {token}"},
+            ssl=aiohttp.Fingerprint(bytes.fromhex(fingerprint)),
+            timeout=aiohttp.ClientTimeout(total=60),
+        ) as response:
+            relay_error = response.headers.get("X-Relay-Error")
+            if not relay_error:
+                # Upstream Patreon response passed through by the relay: hand it
+                # back like a direct request would (callers parse/handle it).
+                return await response.text()
+            if response.status == 429 and attempt < RELAY_429_RETRIES:
+                # The relay deliberately paces requests to Patreon (it sends
+                # Retry-After). Full history crawls exceed it; wait and retry
+                # instead of failing the crawl.
+                wait = _retry_after_seconds(response.headers.get("Retry-After"))
+                logger.info(
+                    "patreon_relay_rate_limited", wait_s=wait, attempt=attempt + 1
+                )
+                await asyncio.sleep(wait)
+                continue
             # Relay-side rejection (not a Patreon response): surface it clearly.
             logger.error(
-                "patreon_relay_rejected",
-                status=response.status,
-                reason=(await response.text())[:200],
+                "patreon_relay_rejected", status=response.status, reason=relay_error
             )
             raise ExternalServiceError(
-                message=f"Patreon relay returned {response.status}"
+                message=f"Patreon relay returned {response.status}: {relay_error}"
             )
-        return await response.text()
+    raise ExternalServiceError(message="Patreon relay rate limit retries exhausted")
+
+
+# A full crawl at the relay's 30 req/min needs at most ~60s waits; 5 retries
+# rides out a full window even if other requests compete for slots.
+RELAY_429_RETRIES = 5
+RELAY_RETRY_AFTER_CAP_S = 65
+
+
+def _retry_after_seconds(header: str | None) -> float:
+    """Parse a Retry-After header (seconds), clamped to [1, cap]; default 10."""
+    try:
+        value = float(header) if header is not None else 10.0
+    except ValueError:
+        value = 10.0
+    return max(1.0, min(value, RELAY_RETRY_AFTER_CAP_S))
 
 
 async def fetch_page(http_client, url, cookies=None, headers=None) -> str:
@@ -357,7 +386,7 @@ async def get_poll(bot) -> dict:
                                                 "poll_options_missing_from_api",
                                                 poll_api_id=poll_api_id,
                                                 title=title,
-                                                hint="Patreon API did not return text_content/num_responses — check COOKIES env var",
+                                                hint="Patreon API did not return text_content/num_responses — Patreon session likely expired: refresh PATREON_COOKIES in relay.env on the NAS (docker/patreon-relay/README.md), or COOKIES when not using the relay",
                                             )
                                             stats["errors"] += 1
                                             continue
@@ -517,7 +546,7 @@ async def check_and_update_expired_polls(bot, polls) -> list:
                         "poll_expiration_skipped_no_options",
                         poll_id=poll["id"],
                         poll_title=poll["title"],
-                        hint="Patreon API did not return text_content/num_responses — check COOKIES env var",
+                        hint="Patreon API did not return text_content/num_responses — Patreon session likely expired: refresh PATREON_COOKIES in relay.env on the NAS (docker/patreon-relay/README.md), or COOKIES when not using the relay",
                     )
                     updated_polls.append(poll)
                     continue
