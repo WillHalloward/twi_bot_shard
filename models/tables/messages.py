@@ -2,10 +2,26 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Computed,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
+
+# Discord message link, derived from the IDs. Explicit ::text casts keep the
+# expression IMMUTABLE, which generated columns require.
+JUMP_URL_EXPR = (
+    "'https://discord.com/channels/' || server_id::text || '/' || "
+    "channel_id::text || '/' || message_id::text"
+)
 
 
 class Message(Base):
@@ -30,7 +46,12 @@ class Message(Base):
     user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
     user_name: Mapped[str] = mapped_column(String(100))
     user_nick: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    jump_url: Mapped[str] = mapped_column(String, nullable=False)
+    # Virtual generated column (Postgres 18): computed on read, takes no disk
+    # space. Never insert it. See migration 20261104_04.
+    jump_url: Mapped[str] = mapped_column(
+        Text,
+        Computed(JUMP_URL_EXPR, persisted=False),
+    )
     is_bot: Mapped[bool] = mapped_column(Boolean, nullable=False, index=True)
     reference: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)
