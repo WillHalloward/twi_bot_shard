@@ -272,6 +272,11 @@ SYNC_ON_START=true
   - While disabled: member join/leave/update events stop, so auto-verify of new members, special-role announcements and join/leave/role-change stats are paused. The member cache stays nearly empty (`guild.members`/`role.members` only list cached members)
   - Admin/mod permission checks keep working: `utils.permissions.get_guild_member` falls back to fetching the member over REST, which doesn't need the intent
 
+- `PATREON_RELAY_URL`, `PATREON_RELAY_TOKEN`, `PATREON_RELAY_CERT_SHA256`: Patreon API relay on the owner's NAS (see `docker/patreon-relay/README.md`)
+  - Patreon's Cloudflare challenges requests from Railway; when all three are set, `cogs/patreon_poll.fetch` asks the relay to fetch Patreon API URLs from a home connection, and `COOKIES`/`HEADERS` are not sent from the bot at all (the session cookie lives on the NAS)
+  - `PATREON_RELAY_CERT_SHA256` pins the relay's self-signed TLS certificate (hex, colons optional)
+  - Unset = direct requests to Patreon with `COOKIES`/`HEADERS` (local development)
+
 - `SYNC_ON_START`: Whether to sync slash commands globally on bot startup (default: `false`)
   - One-time use for deploying new commands globally
   - Set to `true`, `1`, or `yes` to enable

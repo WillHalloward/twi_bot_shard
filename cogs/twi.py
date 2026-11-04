@@ -11,13 +11,13 @@ import json
 import logging
 from typing import Any, cast
 
+import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
 from googleapiclient.discovery import build
 
 import config
-from cogs.patreon_poll import fetch
 from utils.error_handling import handle_interaction_errors
 from utils.exceptions import (
     DatabaseError,
@@ -29,6 +29,25 @@ from utils.permissions import (
     app_admin_or_me_check,
     app_is_bot_channel,
 )
+
+
+async def fetch_wiki(session: aiohttp.ClientSession, url: str) -> str:
+    """GET a TWI fandom wiki API URL and return the body text.
+
+    Deliberately sends no cookies/headers and no proxy. This used to reuse
+    ``cogs.patreon_poll.fetch``, which defaults to the Patreon session cookies
+    and headers, so every /wiki search leaked the Patreon session to
+    fandom.com (and would be refused by the Patreon-only egress proxy).
+
+    Args:
+        session: The shared aiohttp session.
+        url: The wiki API URL.
+
+    Returns:
+        The response body text.
+    """
+    async with session.get(url) as response:
+        return await response.text()
 
 
 def google_search(search_term, api_key, cse_id, **kwargs) -> dict:
@@ -346,7 +365,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
             # Search for articles
             try:
                 search_url = f"https://thewanderinginn.fandom.com/api.php?action=query&generator=search&gsrsearch={query}&format=json&prop=info|images&inprop=url"
-                html = await fetch(session, search_url)
+                html = await fetch_wiki(session, search_url)
 
                 if not html:
                     raise ExternalServiceError(
@@ -438,7 +457,7 @@ class TwiCog(commands.Cog, name="The Wandering Inn"):  # type: ignore[call-arg]
                     image_title = sorted_json_data[0]["images"][0]["title"]
                     image_url = f"https://thewanderinginn.fandom.com/api.php?action=query&format=json&titles={image_title}&prop=imageinfo&iiprop=url"
 
-                    image_json = await fetch(session, image_url)
+                    image_json = await fetch_wiki(session, image_url)
                     if image_json:
                         image_data = json.loads(image_json)
                         image_pages = image_data.get("query", {}).get("pages", {})

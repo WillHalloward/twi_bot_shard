@@ -151,6 +151,25 @@ class BotConfig(BaseModel):
     headers: dict[str, str] = Field(
         default_factory=dict, description="Headers for HTTP requests"
     )
+    # Patreon relay (docker/patreon-relay on the owner's NAS). Patreon's
+    # Cloudflare challenges requests from Railway; the relay fetches Patreon
+    # API URLs from a home connection with its own session cookie. All three
+    # must be set to use it; unset = direct requests with COOKIES/HEADERS.
+    patreon_relay_url: str | None = Field(
+        None,
+        description="Base URL of the Patreon relay, e.g. https://<home-ip>:48888 (PATREON_RELAY_URL)",
+    )
+    patreon_relay_token: str | None = Field(
+        None, description="Bearer token for the Patreon relay (PATREON_RELAY_TOKEN)"
+    )
+    patreon_relay_cert_sha256: str | None = Field(
+        None,
+        description=(
+            "SHA-256 fingerprint of the relay's self-signed TLS cert, hex with or "
+            "without colons (PATREON_RELAY_CERT_SHA256). Pinned instead of CA "
+            "validation, so the relay can't be impersonated."
+        ),
+    )
 
     # Channel IDs and other hardcoded values
     channel_ids: dict[str, int] = Field(default_factory=dict, description="Channel IDs")
@@ -239,6 +258,7 @@ class BotConfig(BaseModel):
         "twitter_access_token",
         "twitter_access_token_secret",
         "ao3_password",
+        "patreon_relay_token",
     }
 
     _required_fields: set[str] = {
@@ -463,6 +483,10 @@ def load_from_env() -> BotConfig:
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON in HEADERS environment variable: {e}") from e
 
+    patreon_relay_url = (get_env("PATREON_RELAY_URL") or "").rstrip("/") or None
+    patreon_relay_token = get_env("PATREON_RELAY_TOKEN") or None
+    patreon_relay_cert_sha256 = get_env("PATREON_RELAY_CERT_SHA256") or None
+
     # Load channel IDs and role IDs with error handling
     try:
         channel_ids = json.loads(cast(str, get_env("CHANNEL_IDS", "{}")))
@@ -515,6 +539,9 @@ def load_from_env() -> BotConfig:
             openai_api_key=openai_api_key,
             cookies=cookies,
             headers=headers,
+            patreon_relay_url=patreon_relay_url,
+            patreon_relay_token=patreon_relay_token,
+            patreon_relay_cert_sha256=patreon_relay_cert_sha256,
             channel_ids=channel_ids,
             role_ids=role_ids,
             staging_guild_id=staging_guild_id,
@@ -581,6 +608,9 @@ ao3_password = config.ao3_password
 openai_api_key = config.openai_api_key
 cookies = config.cookies
 headers = config.headers
+patreon_relay_url = config.patreon_relay_url
+patreon_relay_token = config.patreon_relay_token
+patreon_relay_cert_sha256 = config.patreon_relay_cert_sha256
 channel_ids = config.channel_ids
 role_ids = config.role_ids
 special_role_ids = config.special_role_ids
