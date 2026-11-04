@@ -185,8 +185,8 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
         # Insert the message (with conflict handling for duplicates)
         await bot.db.execute(
             """
-            INSERT INTO messages(message_id, created_at, content_length, user_name, server_name, server_id, channel_id, channel_name, user_id, user_nick, jump_url, is_bot, deleted, reference)
-            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+            INSERT INTO messages(message_id, created_at, content_length, user_name, server_name, server_id, channel_id, channel_name, user_id, user_nick, is_bot, deleted, reference)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
             ON CONFLICT (message_id) DO NOTHING
             """,
             message.id,
@@ -199,7 +199,8 @@ async def save_message(bot: "commands.Bot", message: discord.Message) -> None:
             getattr(message.channel, "name", "DM"),
             message.author.id,
             getattr(message.author, "display_name", message.author.name),
-            message.jump_url,
+            # jump_url is not stored: it's a virtual generated column derived
+            # from server_id/channel_id/message_id (saves ~1.6 GB).
             message.author.bot,
             False,  # deleted - default to False for new messages
             message.reference.message_id if message.reference else None,
@@ -311,7 +312,6 @@ async def save_messages_bulk(
                 getattr(message.channel, "name", "DM"),
                 message.author.id,
                 getattr(message.author, "display_name", message.author.name),
-                message.jump_url,
                 message.author.bot,
                 False,  # deleted - default to False for backfilled messages
                 message.reference.message_id if message.reference else None,
@@ -348,8 +348,8 @@ async def save_messages_bulk(
     if message_rows:
         await bot.db.execute_many(
             """
-            INSERT INTO messages(message_id, created_at, content_length, user_name, server_name, server_id, channel_id, channel_name, user_id, user_nick, jump_url, is_bot, deleted, reference)
-            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+            INSERT INTO messages(message_id, created_at, content_length, user_name, server_name, server_id, channel_id, channel_name, user_id, user_nick, is_bot, deleted, reference)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
             ON CONFLICT (message_id) DO NOTHING
             """,
             message_rows,

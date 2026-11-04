@@ -287,7 +287,7 @@ create table messages
         constraint messages_users_user_id_fk
             references users,
     user_nick    varchar,
-    jump_url     varchar   not null,
+    jump_url     text generated always as ('https://discord.com/channels/' || server_id::text || '/' || channel_id::text || '/' || message_id::text) virtual,
     is_bot       boolean   not null,
     deleted      boolean default false,
     reference    bigint
