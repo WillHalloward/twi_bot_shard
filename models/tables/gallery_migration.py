@@ -67,12 +67,8 @@ class GalleryMigration(Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, default=None
     )
-    raw_embed_data: Mapped[str | None] = mapped_column(
-        JSON, nullable=True, default=None
-    )  # Full embed data
-    raw_content: Mapped[str | None] = mapped_column(
-        Text, nullable=True, default=None
-    )  # Original message content
+    # No raw_embed_data / raw_content: message content is not stored (Discord
+    # Message Content intent review). Dropped in 20261104_01 migration.
 
     # Fields with defaults (must come last)
     is_bot: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

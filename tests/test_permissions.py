@@ -352,3 +352,54 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+@pytest.mark.asyncio
+async def test_app_checks_deny_with_check_failure(mock_config, mock_bot) -> None:
+    """Slash-command denials must be app_commands.CheckFailure, not PermissionError.
+
+    discord.py only routes AppCommandError subclasses raised by check predicates
+    to bot.tree.error. Our PermissionError escaped as an unhandled task
+    exception, so the user got "interaction failed" instead of the reason.
+    """
+    from discord import app_commands
+
+    from utils.permissions import (
+        AppPermissionDenied,
+        app_admin_or_me_check,
+        app_moderator_check,
+    )
+
+    member = MockMember(123456789)  # no administrator / ban_members
+    guild = MockGuild(987654321, members={123456789: member})
+    mock_bot.get_guild = MagicMock(return_value=guild)
+    interaction = MockInteraction(
+        user_id=123456789, guild=guild, channel_id=111222333, client=mock_bot
+    )
+
+    with pytest.raises(AppPermissionDenied) as admin_exc:
+        await app_admin_or_me_check(interaction)
+    assert isinstance(admin_exc.value, app_commands.CheckFailure)
+    assert "admin" in str(admin_exc.value)
+
+    with pytest.raises(AppPermissionDenied) as mod_exc:
+        await app_moderator_check(interaction)
+    assert isinstance(mod_exc.value, app_commands.CheckFailure)
+    assert "moderator" in str(mod_exc.value)
+
+
+def test_app_permission_denied_shows_specific_message() -> None:
+    """The error handler must show the denial text, not the generic CheckFailure one."""
+    # Take the class from error_handling's own namespace: other tests re-import
+    # utils.permissions, and a fresh copy of the class would not match the one
+    # ERROR_RESPONSES is keyed on (see memory: test patching trap).
+    from utils.error_handling import AppPermissionDenied, get_error_response
+
+    error = AppPermissionDenied("You need admin permissions to use this command")
+    response = get_error_response(error)
+
+    assert response["ephemeral"] is True
+    assert (
+        response["message"].format(error=error)
+        == "You need admin permissions to use this command"
+    )

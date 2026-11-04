@@ -655,42 +655,6 @@ CREATE INDEX IF NOT EXISTS reports_user_id_index ON reports (user_id);
 CREATE INDEX IF NOT EXISTS reports_reported_user_id_index ON reports (reported_user_id);
 
 -- ============================================================================
--- PART 7: EMBEDS TABLES (for message embed tracking)
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS embeds
-(
-    id          serial PRIMARY KEY,
-    message_id  bigint NOT NULL,
-    title       text,
-    description text,
-    url         text,
-    color       integer,
-    timestamp   timestamp,
-    footer_text text,
-    footer_icon text,
-    image_url   text,
-    thumbnail   text,
-    author_name text,
-    author_url  text,
-    author_icon text,
-    created_at  timestamp DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS embeds_message_id_index ON embeds (message_id);
-
-CREATE TABLE IF NOT EXISTS embed_fields
-(
-    id       serial PRIMARY KEY,
-    embed_id integer NOT NULL REFERENCES embeds(id) ON DELETE CASCADE,
-    name     text NOT NULL,
-    value    text NOT NULL,
-    inline   boolean DEFAULT false
-);
-
-CREATE INDEX IF NOT EXISTS embed_fields_embed_id_index ON embed_fields (embed_id);
-
--- ============================================================================
 -- PART 8: ROLE CHANGES TABLE (for tracking role additions/removals)
 -- ============================================================================
 
@@ -757,9 +721,7 @@ CREATE TABLE IF NOT EXISTS gallery_migration
     needs_manual_review boolean NOT NULL DEFAULT false,
     reviewed            boolean NOT NULL DEFAULT false,
     reviewed_by         bigint,
-    reviewed_at         timestamp,
-    raw_embed_data      json,
-    raw_content         text
+    reviewed_at         timestamp
 );
 
 CREATE INDEX IF NOT EXISTS gallery_migration_message_id_index ON gallery_migration (message_id);
