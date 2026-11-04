@@ -151,6 +151,15 @@ class BotConfig(BaseModel):
     headers: dict[str, str] = Field(
         default_factory=dict, description="Headers for HTTP requests"
     )
+    patreon_proxy_url: str | None = Field(
+        None,
+        description=(
+            "HTTP(S) proxy for Patreon API requests, e.g. "
+            "http://user:pass@host:port (set via PATREON_PROXY_URL). Patreon "
+            "blocks Railway's IPs; this routes the calls through a residential "
+            "IP. Unset = direct connection."
+        ),
+    )
 
     # Channel IDs and other hardcoded values
     channel_ids: dict[str, int] = Field(default_factory=dict, description="Channel IDs")
@@ -239,6 +248,7 @@ class BotConfig(BaseModel):
         "twitter_access_token",
         "twitter_access_token_secret",
         "ao3_password",
+        "patreon_proxy_url",
     }
 
     _required_fields: set[str] = {
@@ -463,6 +473,8 @@ def load_from_env() -> BotConfig:
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON in HEADERS environment variable: {e}") from e
 
+    patreon_proxy_url = get_env("PATREON_PROXY_URL") or None
+
     # Load channel IDs and role IDs with error handling
     try:
         channel_ids = json.loads(cast(str, get_env("CHANNEL_IDS", "{}")))
@@ -515,6 +527,7 @@ def load_from_env() -> BotConfig:
             openai_api_key=openai_api_key,
             cookies=cookies,
             headers=headers,
+            patreon_proxy_url=patreon_proxy_url,
             channel_ids=channel_ids,
             role_ids=role_ids,
             staging_guild_id=staging_guild_id,
@@ -581,6 +594,7 @@ ao3_password = config.ao3_password
 openai_api_key = config.openai_api_key
 cookies = config.cookies
 headers = config.headers
+patreon_proxy_url = config.patreon_proxy_url
 channel_ids = config.channel_ids
 role_ids = config.role_ids
 special_role_ids = config.special_role_ids
