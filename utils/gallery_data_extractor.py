@@ -354,12 +354,9 @@ class GalleryDataExtractor:
             "has_attachments": len(message.attachments) > 0,
             "attachment_count": len(message.attachments),
             "needs_manual_review": extracted_data["needs_manual_review"],
-            "raw_embed_data": (
-                [embed.to_dict() for embed in message.embeds]
-                if message.embeds
-                else None
-            ),
-            "raw_content": message.content,
+            # The raw message text/embeds are deliberately NOT persisted: the
+            # bot certifies to Discord (Message Content intent review) that it
+            # does not store message content. Only the extracted fields above.
         }
 
         return db_entry

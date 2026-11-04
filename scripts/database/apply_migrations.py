@@ -65,6 +65,9 @@ MANUAL_MIGRATIONS: frozenset[str] = frozenset(
         # the hot messages table; must run in a maintenance window AFTER the
         # content_length code is deployed. Run by hand, recorded-as-applied only.
         "20261103_02_purge_message_content.sql",
+        # psql \gset/\if guard + VACUUM FULL gallery_migration; run by hand
+        # AFTER the code that stops writing raw_content/raw_embed_data deploys.
+        "20261104_01_purge_embeds_and_gallery_raw_content.sql",
     }
 )
 

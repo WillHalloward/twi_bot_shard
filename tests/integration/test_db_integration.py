@@ -182,7 +182,10 @@ class TestNoMessageContentStored:
             "SELECT table_name, column_name FROM information_schema.columns "
             "WHERE (table_name IN ('messages', 'message_edit') "
             "AND column_name IN ('content', 'old_content', 'new_content')) "
-            "OR (table_name = 'attachments' AND column_name IN ('filename', 'url'))",
+            "OR (table_name = 'attachments' AND column_name IN ('filename', 'url')) "
+            "OR table_name IN ('embeds', 'embed_fields') "
+            "OR (table_name = 'gallery_migration' "
+            "AND column_name IN ('raw_content', 'raw_embed_data'))",
             use_cache=False,
         )
         assert cols == []

@@ -38,8 +38,6 @@ class GalleryMigrationRepository:
         has_attachments: bool = False,
         attachment_count: int = 0,
         needs_manual_review: bool = False,
-        raw_embed_data: dict[str, Any] | None = None,
-        raw_content: str | None = None,
     ) -> GalleryMigration | None:
         """Create a new gallery migration entry.
 
@@ -62,8 +60,6 @@ class GalleryMigrationRepository:
             has_attachments: Whether message has attachments
             attachment_count: Number of attachments
             needs_manual_review: Whether entry needs manual review
-            raw_embed_data: Raw embed data for reference
-            raw_content: Original message content
 
         Returns:
             Created GalleryMigration entry or None if failed
@@ -90,8 +86,6 @@ class GalleryMigrationRepository:
                     has_attachments=has_attachments,
                     attachment_count=attachment_count,
                     needs_manual_review=needs_manual_review,
-                    raw_embed_data=raw_embed_data,
-                    raw_content=raw_content,
                     extracted_at=datetime.now(UTC),
                 )
 

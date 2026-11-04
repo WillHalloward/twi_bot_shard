@@ -39,11 +39,9 @@ CREATE TABLE gallery_migration (
     needs_manual_review BOOLEAN NOT NULL DEFAULT FALSE,
     reviewed BOOLEAN NOT NULL DEFAULT FALSE,
     reviewed_by BIGINT,
-    reviewed_at TIMESTAMP,
-    
-    -- Raw data for reference
-    raw_embed_data JSON,  -- Full embed data
-    raw_content TEXT  -- Original message content
+    reviewed_at TIMESTAMP
+    -- No raw message content/embeds: not stored (Discord Message Content
+    -- intent review). See migration 20261104_01.
 );
 
 -- Indexes for performance
@@ -65,4 +63,3 @@ COMMENT ON COLUMN gallery_migration.tags IS 'JSON array of tags for categorizati
 COMMENT ON COLUMN gallery_migration.jump_url IS 'Discord jump URL to original message';
 COMMENT ON COLUMN gallery_migration.target_forum IS 'Target forum classification: sfw or nsfw';
 COMMENT ON COLUMN gallery_migration.needs_manual_review IS 'Whether entry requires manual review';
-COMMENT ON COLUMN gallery_migration.raw_embed_data IS 'Full embed data for reference';
