@@ -50,6 +50,7 @@ from discord.ext import commands
 
 import config
 from utils.error_handling import handle_interaction_errors
+from utils.exceptions import ExternalServiceError
 from utils.logging import RequestContext, TimingContext
 from utils.permissions import (
     is_bot_channel,
@@ -100,16 +101,62 @@ async def fetch(session, url, cookies=None, headers=None) -> str:
     Returns:
         The response text
     """
+    # isinstance (not just truthiness): only a real configured URL enables the
+    # relay, never a placeholder/mock object.
+    if isinstance(config.patreon_relay_url, str) and config.patreon_relay_url:
+        return await fetch_via_relay(session, url)
+
     cookies = cookies or config.cookies
     headers = headers or config.headers
 
-    # Patreon blocks Railway's IP ranges; PATREON_PROXY_URL routes these calls
-    # through a residential IP (tinyproxy on the owner's NAS, allowlisted to
-    # patreon.com). HTTPS is tunnelled via CONNECT, so cookies stay encrypted.
-    async with session.get(
-        url, cookies=cookies, headers=headers, proxy=config.patreon_proxy_url
-    ) as response:
+    async with session.get(url, cookies=cookies, headers=headers) as response:
         return cast(str, await response.text())
+
+
+async def fetch_via_relay(session: aiohttp.ClientSession, url: str) -> str:
+    """Fetch a Patreon API URL through the owner's NAS relay.
+
+    Patreon's Cloudflare challenges requests from Railway, so the relay
+    (docker/patreon-relay) makes the request from a home connection with its
+    own session cookie; Patreon cookies are not sent from here at all. The
+    relay's self-signed certificate is pinned by SHA-256 fingerprint.
+
+    Args:
+        session: The aiohttp ClientSession to use.
+        url: A https://www.patreon.com/api/... URL.
+
+    Returns:
+        The upstream Patreon response body.
+
+    Raises:
+        ExternalServiceError: If the relay is misconfigured or rejects the call.
+    """
+    token = config.patreon_relay_token
+    fingerprint = (config.patreon_relay_cert_sha256 or "").replace(":", "")
+    if not token or len(fingerprint) != 64:
+        raise ExternalServiceError(
+            message="Patreon relay misconfigured: PATREON_RELAY_TOKEN and "
+            "PATREON_RELAY_CERT_SHA256 (64 hex chars) are required"
+        )
+    async with session.get(
+        f"{config.patreon_relay_url}/fetch",
+        params={"url": url},
+        headers={"Authorization": f"Bearer {token}"},
+        ssl=aiohttp.Fingerprint(bytes.fromhex(fingerprint)),
+        timeout=aiohttp.ClientTimeout(total=60),
+    ) as response:
+        logger = structlog.get_logger("patreon_poll.relay")
+        if response.status in (400, 401, 403, 429, 502):
+            # Relay-side rejection (not a Patreon response): surface it clearly.
+            logger.error(
+                "patreon_relay_rejected",
+                status=response.status,
+                reason=(await response.text())[:200],
+            )
+            raise ExternalServiceError(
+                message=f"Patreon relay returned {response.status}"
+            )
+        return await response.text()
 
 
 async def fetch_page(http_client, url, cookies=None, headers=None) -> str:
