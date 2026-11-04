@@ -96,7 +96,7 @@ async def test_wiki_command() -> bool:
             return wiki_image_response
 
     mock_fetch = AsyncMock(side_effect=mock_fetch_func)
-    with patch("cogs.twi.fetch", mock_fetch):
+    with patch("cogs.twi.fetch_wiki", mock_fetch):
         # Call the command's callback directly
         await cog.wiki.callback(cog, interaction, "test_query")
 
@@ -118,7 +118,7 @@ async def test_wiki_command() -> bool:
     # Test with no results
     mock_fetch_no_results = AsyncMock()
     mock_fetch_no_results.return_value = json.dumps({"error": "no results"})
-    with patch("cogs.twi.fetch", mock_fetch_no_results):
+    with patch("cogs.twi.fetch_wiki", mock_fetch_no_results):
         # Reset the mocks before calling the command
         interaction.response.defer.reset_mock()
         interaction.followup.send.reset_mock()
