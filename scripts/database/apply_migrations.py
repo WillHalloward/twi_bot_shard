@@ -71,6 +71,10 @@ MANUAL_MIGRATIONS: frozenset[str] = frozenset(
         # DROP INDEX CONCURRENTLY can't run in a transaction. No table lock, so
         # it is safe to run by hand while the bot is live.
         "20261104_02_drop_redundant_indexes.sql",
+        # Column swap + VACUUM FULL messages (ACCESS EXCLUSIVE for minutes).
+        # Run by hand in a quiet period, AFTER 20261104_02 and AFTER the code
+        # that stops inserting jump_url is deployed.
+        "20261104_04_messages_virtual_jump_url.sql",
     }
 )
 
