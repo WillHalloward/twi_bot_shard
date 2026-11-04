@@ -150,8 +150,8 @@ class TestIdempotency:
             "INSERT INTO servers(server_id) VALUES($1) ON CONFLICT DO NOTHING", 3001
         )
         await real_db.execute(
-            "INSERT INTO messages(message_id, created_at, server_name, server_id, channel_id, jump_url, is_bot) "
-            "VALUES($1, now(), 'g', $2, $3, 'u', false)",
+            "INSERT INTO messages(message_id, created_at, server_name, server_id, channel_id, is_bot) "
+            "VALUES($1, now(), 'g', $2, $3, false)",
             8801,
             3001,
             2001,
@@ -218,6 +218,25 @@ class TestNoMessageContentStored:
             use_cache=False,
         ) == len("edited!")
         assert await _count(real_db, "message_edit", "id=$1", msg.id) == 1
+
+    @pytest.mark.asyncio
+    async def test_jump_url_is_generated_not_inserted(self, real_db) -> None:
+        """jump_url is derived from the IDs; save_message must not write it."""
+        from cogs.stats_listeners import save_message
+
+        msg = _make_message(message_id=4343, guild_id=3001, channel_id=2001)
+        await save_message(_bot(real_db), msg)
+
+        row = await real_db.fetchrow(
+            "SELECT jump_url, (SELECT attgenerated FROM pg_attribute "
+            "WHERE attrelid = 'messages'::regclass AND attname = 'jump_url')::text AS gen "
+            "FROM messages WHERE message_id = $1",
+            msg.id,
+            use_cache=False,
+        )
+        assert row["jump_url"] == "https://discord.com/channels/3001/2001/4343"
+        # 'v' (virtual) on Postgres 18+, 's' (stored) fallback on older servers.
+        assert row["gen"] in ("v", "s")
 
 
 # --------------------------------------------------------------------------- #

@@ -287,24 +287,12 @@ create table messages
         constraint messages_users_user_id_fk
             references users,
     user_nick    varchar,
-    jump_url     varchar   not null,
+    jump_url     text generated always as ('https://discord.com/channels/' || server_id::text || '/' || channel_id::text || '/' || message_id::text) virtual,
     is_bot       boolean   not null,
     deleted      boolean default false,
     reference    bigint
 )
     with (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_cost_delay = 2);
-
-create unique index messages_id_uindex
-    on messages (message_id);
-
-create index messages_channel_id_index
-    on messages (channel_id desc);
-
-create index messages_message_id_channel_id_index
-    on messages (message_id desc, channel_id asc);
-
-create index messages_created_at_index
-    on messages (created_at desc);
 
 -- messages_user_id_index omitted: covered by idx_messages_user_created (user_id, created_at).
 

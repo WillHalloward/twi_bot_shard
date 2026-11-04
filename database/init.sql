@@ -168,17 +168,31 @@ CREATE TABLE IF NOT EXISTS messages
     user_id      bigint
         CONSTRAINT messages_users_user_id_fk REFERENCES users,
     user_nick    varchar,
-    jump_url     varchar NOT NULL,
     is_bot       boolean NOT NULL,
     deleted      boolean DEFAULT false,
     reference    bigint
 )
 WITH (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_cost_delay = 2);
 
-CREATE UNIQUE INDEX IF NOT EXISTS messages_id_uindex ON messages (message_id);
-CREATE INDEX IF NOT EXISTS messages_channel_id_index ON messages (channel_id DESC);
-CREATE INDEX IF NOT EXISTS messages_message_id_channel_id_index ON messages (message_id DESC, channel_id ASC);
-CREATE INDEX IF NOT EXISTS messages_created_at_index ON messages (created_at DESC);
+-- jump_url is derived from the IDs, never stored: VIRTUAL on Postgres 18+
+-- (production/staging), STORED fallback for older local/test servers.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'messages' AND column_name = 'jump_url'
+    ) THEN
+        EXECUTE format(
+            'ALTER TABLE messages ADD COLUMN jump_url text GENERATED ALWAYS AS '
+            '(''https://discord.com/channels/'' || server_id::text || ''/'' || '
+            'channel_id::text || ''/'' || message_id::text) %s',
+            CASE WHEN current_setting('server_version_num')::int >= 180000
+                 THEN 'VIRTUAL' ELSE 'STORED' END
+        );
+    END IF;
+END
+$$;
+
 -- messages_user_id_index omitted: covered by idx_messages_user_created (user_id, created_at).
 
 -- Attachments table (depends on messages)
