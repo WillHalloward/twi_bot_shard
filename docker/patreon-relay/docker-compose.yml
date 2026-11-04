@@ -1,0 +1,21 @@
+# Patreon API relay for the Twi Discord bot (Cognita on Railway).
+# Patreon's Cloudflare challenges the Railway containers; requests made from
+# here with plain curl go through. Router forwards TCP 48888 -> NAS:48888.
+services:
+  patreon-relay:
+    build: .
+    image: local/patreon-relay:1
+    container_name: patreon-relay
+    restart: unless-stopped
+    ports:
+      - "48888:8443"
+    env_file: relay.env          # RELAY_TOKEN, PATREON_COOKIES, ... (chmod 600)
+    volumes:
+      - ./certs:/certs:ro         # relay.crt / relay.key (self-signed, pinned by the bot)
+    # Run as the NAS owner (master, uid 1000) so certs/relay.key can stay chmod 600.
+    user: "1000:100"
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"   # locally built image
