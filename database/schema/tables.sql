@@ -294,18 +294,6 @@ create table messages
 )
     with (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_cost_delay = 2);
 
-create unique index messages_id_uindex
-    on messages (message_id);
-
-create index messages_channel_id_index
-    on messages (channel_id desc);
-
-create index messages_message_id_channel_id_index
-    on messages (message_id desc, channel_id asc);
-
-create index messages_created_at_index
-    on messages (created_at desc);
-
 -- messages_user_id_index omitted: covered by idx_messages_user_created (user_id, created_at).
 
 create unique index servers_serial_id_uindex
