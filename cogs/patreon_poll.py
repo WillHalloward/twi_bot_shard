@@ -357,7 +357,7 @@ async def get_poll(bot) -> dict:
                                                 "poll_options_missing_from_api",
                                                 poll_api_id=poll_api_id,
                                                 title=title,
-                                                hint="Patreon API did not return text_content/num_responses — check COOKIES env var",
+                                                hint="Patreon API did not return text_content/num_responses — Patreon session likely expired: refresh PATREON_COOKIES in relay.env on the NAS (docker/patreon-relay/README.md), or COOKIES when not using the relay",
                                             )
                                             stats["errors"] += 1
                                             continue
@@ -517,7 +517,7 @@ async def check_and_update_expired_polls(bot, polls) -> list:
                         "poll_expiration_skipped_no_options",
                         poll_id=poll["id"],
                         poll_title=poll["title"],
-                        hint="Patreon API did not return text_content/num_responses — check COOKIES env var",
+                        hint="Patreon API did not return text_content/num_responses — Patreon session likely expired: refresh PATREON_COOKIES in relay.env on the NAS (docker/patreon-relay/README.md), or COOKIES when not using the relay",
                     )
                     updated_polls.append(poll)
                     continue
