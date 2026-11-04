@@ -8,6 +8,13 @@ Patreon calls through, so Patreon sees a residential IP.
 
 ## How it is locked down
 
+- **Source allowlist** (`Allow`): only the Railway Cognita static outbound IPs
+  (production `208.77.244.240`, staging `208.77.244.241`, shared
+  `152.55.184.240/.241`), the Docker bridge gateway (`172.29.16.1`, i.e. requests
+  from the NAS itself) and the home LAN may connect at all. Checked before auth.
+  The router can't do this: it allows one rule per external port, and Railway
+  spreads each service's traffic over 3 IPs. If Static IPs are re-enabled or
+  the service changes region, the IPs change — update `tinyproxy.conf`.
 - **Password** (`BasicAuth`): no or wrong credentials → `407` / `401`.
 - **Allowlist** (`FilterDefaultDeny Yes` + `filter`): only `*.patreon.com`;
   any other destination → `403`, even with valid credentials. It cannot be

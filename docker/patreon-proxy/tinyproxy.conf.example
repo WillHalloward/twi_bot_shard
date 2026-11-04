@@ -15,3 +15,13 @@ BasicAuth twibot CHANGE_ME_openssl_rand_hex_20
 Filter "/etc/tinyproxy/filter"
 FilterType ere
 FilterDefaultDeny Yes
+# Source allowlist: only these clients may connect at all (checked before auth).
+# Railway Cognita static outbound IPs (HA sets of 3; staging and production share
+# 152.55.184.240/.241). production: 208.77.244.240, staging: 208.77.244.241
+Allow 208.77.244.240
+Allow 208.77.244.241
+Allow 152.55.184.240
+Allow 152.55.184.241
+# NAS itself (requests from the NAS arrive via the Docker bridge gateway) and home LAN:
+Allow 172.29.16.1
+Allow 192.168.0.0/24
