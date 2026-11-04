@@ -1,0 +1,17 @@
+# Patreon egress proxy for the Twi Discord bot (Cognita on Railway).
+# Railway IPs get blocked by Patreon; requests relayed from here use the home IP.
+# Router forwards external TCP 48888 -> 192.168.0.46:48888.
+services:
+  patreon-proxy:
+    build: .
+    image: local/patreon-proxy:1
+    container_name: patreon-proxy
+    restart: unless-stopped
+    ports:
+      - "48888:8888"
+    volumes:
+      - ./tinyproxy.conf:/etc/tinyproxy/tinyproxy.conf:ro
+      - ./filter:/etc/tinyproxy/filter:ro
+    labels:
+      # locally built image: keep watchtower from trying to pull it
+      com.centurylinklabs.watchtower.enable: "false"

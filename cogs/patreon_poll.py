@@ -103,7 +103,12 @@ async def fetch(session, url, cookies=None, headers=None) -> str:
     cookies = cookies or config.cookies
     headers = headers or config.headers
 
-    async with session.get(url, cookies=cookies, headers=headers) as response:
+    # Patreon blocks Railway's IP ranges; PATREON_PROXY_URL routes these calls
+    # through a residential IP (tinyproxy on the owner's NAS, allowlisted to
+    # patreon.com). HTTPS is tunnelled via CONNECT, so cookies stay encrypted.
+    async with session.get(
+        url, cookies=cookies, headers=headers, proxy=config.patreon_proxy_url
+    ) as response:
         return cast(str, await response.text())
 
 

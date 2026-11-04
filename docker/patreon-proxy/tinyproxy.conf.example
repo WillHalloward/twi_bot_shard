@@ -1,0 +1,17 @@
+# Generated for the Twi bot Patreon proxy. Contains the proxy password: keep private.
+User tinyproxy
+Group tinyproxy
+Port 8888
+Listen 0.0.0.0
+Timeout 60
+MaxClients 20
+LogLevel Info
+DisableViaHeader Yes
+# Only HTTPS tunnels (CONNECT) to port 443
+ConnectPort 443
+# Require credentials
+BasicAuth twibot CHANGE_ME_openssl_rand_hex_20
+# Allowlist: only *.patreon.com, everything else denied
+Filter "/etc/tinyproxy/filter"
+FilterType ere
+FilterDefaultDeny Yes
