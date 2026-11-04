@@ -69,16 +69,15 @@ BEGIN
     END IF;
 END $$;
 
--- 3. Add Composite Indexes for Common Query Patterns
--- For message queries filtered by channel and date
-CREATE INDEX IF NOT EXISTS idx_messages_channel_created_at ON messages(channel_id, created_at DESC);
-
--- For user activity queries
-CREATE INDEX IF NOT EXISTS idx_messages_user_created_at ON messages(user_id, created_at DESC);
-
--- For reaction queries
-CREATE INDEX IF NOT EXISTS idx_reactions_message_emoji ON reactions(message_id, emoji_id);
-CREATE INDEX IF NOT EXISTS idx_reactions_message_unicode ON reactions(message_id, unicode_emoji);
+-- 3. Composite Indexes for Common Query Patterns
+-- (channel_id, created_at) / (user_id, created_at) are created further down as
+-- idx_messages_channel_created / idx_messages_user_created. A b-tree serves
+-- both scan directions, so no separate "created_at DESC" copies are needed.
+-- Reaction lookups by message_id use the unique
+-- reactions_message_id_user_id_{emoji_id,unicode_emoji}_uindex indexes
+-- (message_id leads both). Removed duplicates were dropped by migration
+-- 20261104_02_drop_redundant_indexes.sql (~3 GB); do not re-add them here,
+-- this file runs on every startup.
 
 -- For role membership queries: role_id alone is covered by
 -- role_membership_role_id_user_id_index (role_id, user_id), so a standalone
@@ -168,7 +167,6 @@ $$ LANGUAGE plpgsql;
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 -- server_id / channel_id / user_id single-column indexes intentionally omitted:
 -- each is covered by the matching (col, created_at) composite created just below.
-CREATE INDEX IF NOT EXISTS idx_messages_is_bot ON messages(is_bot);
 
 -- Composite indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_messages_server_created ON messages(server_id, created_at);
@@ -180,10 +178,9 @@ CREATE INDEX IF NOT EXISTS idx_join_leave_date ON join_leave(date);
 CREATE INDEX IF NOT EXISTS idx_join_leave_server_id ON join_leave(server_id);
 CREATE INDEX IF NOT EXISTS idx_join_leave_is_join ON join_leave(is_join);
 
--- Indexes for reactions table
--- message_id alone is covered by idx_reactions_message_emoji (message_id, emoji_id).
-CREATE INDEX IF NOT EXISTS idx_reactions_user_id ON reactions(user_id);
-CREATE INDEX IF NOT EXISTS idx_reactions_date ON reactions(date);
+-- Indexes for reactions table: message_id is covered by the unique
+-- (message_id, user_id, ...) indexes; user_id / date indexes were never used
+-- (0 scans in production) and were dropped by 20261104_02.
 
 -- Materialized view for daily message statistics (all servers; callers filter by server_id)
 CREATE MATERIALIZED VIEW IF NOT EXISTS daily_message_stats AS

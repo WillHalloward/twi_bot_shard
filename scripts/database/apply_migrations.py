@@ -68,6 +68,9 @@ MANUAL_MIGRATIONS: frozenset[str] = frozenset(
         # psql \gset/\if guard + VACUUM FULL gallery_migration; run by hand
         # AFTER the code that stops writing raw_content/raw_embed_data deploys.
         "20261104_01_purge_embeds_and_gallery_raw_content.sql",
+        # DROP INDEX CONCURRENTLY can't run in a transaction. No table lock, so
+        # it is safe to run by hand while the bot is live.
+        "20261104_02_drop_redundant_indexes.sql",
     }
 )
 
